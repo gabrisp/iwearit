@@ -12,7 +12,19 @@ import CoreGraphics
 /// **único** factor para caber en pantalla (`scaleToFit(in:)`).
 public enum CanvasSpace {
     public static let width: Double = 1000
-    public static let height: Double = 1400
+
+    /// **Más alto que ancho, y bastante.**
+    ///
+    /// Era 1400 —una proporción 5:7, la de una hoja— y sobre un iPhone eso
+    /// dejaba una franja muerta arriba y otra abajo: la pantalla es mucho más
+    /// estrecha que el papel, así que lo que manda al encajar es el ancho y el
+    /// alto sobra por los dos lados.
+    ///
+    /// Con 1750 el papel se acerca a la proporción de la pantalla y se
+    /// aprovecha casi todo el alto, que es donde se colocan las prendas: el
+    /// torso arriba, las piernas debajo y el calzado al fondo necesitan
+    /// recorrido vertical, no lateral.
+    public static let height: Double = 1750
 
     public static let size = CGSize(width: width, height: height)
     public static let center = CGPoint(x: width / 2, y: height / 2)
