@@ -91,33 +91,32 @@ private struct OverscrollAction: ViewModifier {
     /// hacía desaparecer en oscuro.
     static let fillInk = Color.white
 
-    /// Cuánto mide el borde difuminado del aura, en fracción de la píldora.
+    /// El aura: un círculo que nace **en el centro** y crece hasta llenarla.
     ///
-    /// Ancho a propósito: más estrecho vuelve a ser una frontera, y es
-    /// justamente lo que no queremos que se vea.
-    private static let auraEdge: CGFloat = 0.22
-
-    /// El aura: nace **en el centro** y se abre hacia los dos lados.
+    /// Elíptica y no lineal. La lineal tapaba de golpe toda la altura de la
+    /// píldora, así que por estrecho que fuera el borde seguía siendo una
+    /// franja cruzando de lado a lado — o sea, una barra. Un círculo que se
+    /// abre desde el centro no tiene ni dirección ni frontera: empieza como
+    /// una mancha pequeña detrás de la palabra y acaba siendo la píldora
+    /// entera.
     ///
-    /// Desde un lado, el aura tenía un delante y un detrás —o sea, una
-    /// dirección— y eso convertía la píldora en una barra de progreso otra
-    /// vez. Desde el centro no avanza: crece. Y crece desde donde está la
-    /// palabra, que es lo que hace que se lea como la píldora encendiéndose y
-    /// no como algo que la recorre.
-    static func aura(to progress: CGFloat, of color: Color) -> LinearGradient {
-        let half = progress / 2
-        let clear = color.opacity(0)
-        return LinearGradient(
+    /// En fracciones del tamaño y no en puntos: así no hay que medir la
+    /// píldora, y el círculo escala solo si cambia el texto.
+    static func aura(to progress: CGFloat, of color: Color) -> EllipticalGradient {
+        EllipticalGradient(
             stops: [
-                .init(color: clear, location: 0),
-                .init(color: clear, location: max(0, 0.5 - half - auraEdge)),
-                .init(color: color, location: max(0, 0.5 - half)),
-                .init(color: color, location: min(1, 0.5 + half)),
-                .init(color: clear, location: min(1, 0.5 + half + auraEdge)),
-                .init(color: clear, location: 1),
+                .init(color: color, location: 0),
+                // El interior, macizo; el último tramo, desvanecido. Es lo que
+                // le da el aire de aura en vez de círculo recortado.
+                .init(color: color, location: 0.55),
+                .init(color: color.opacity(0), location: 1),
             ],
-            startPoint: .leading,
-            endPoint: .trailing
+            center: .center,
+            startRadiusFraction: 0,
+            // Hasta bastante más allá de la mitad: una píldora es mucho más
+            // ancha que alta, y un círculo que solo llegue a su borde corto
+            // deja las puntas sin teñir.
+            endRadiusFraction: progress * 1.8
         )
     }
 
