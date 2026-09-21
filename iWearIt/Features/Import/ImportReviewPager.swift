@@ -91,6 +91,8 @@ private struct ImportPagerPage: View {
             onChangeKind: { model.setKind($0, forCandidateWithID: candidate.id) },
             onChangeName: { model.setName($0, forCandidateWithID: candidate.id) },
             onChangeColor: { model.setColorName($0, forCandidateWithID: candidate.id) },
+            onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: candidate.id) },
+            onChangeMaterial: { model.setMaterial($0, forCandidateWithID: candidate.id) },
             // **Solo la que estás mirando pide su reconstrucción.** Cada una es
             // una petición facturable, y el detector se equivoca hacia arriba:
             // un pantalón partido en tres serían tres facturas por una foto mal

@@ -27,7 +27,13 @@ public enum GarmentVocabulary {
     public static func types(for kind: GarmentKind) -> [String] {
         switch kind {
         case .upperBody:
-            ["Camiseta", "Camisa", "Blusa", "Polo", "Top", "Jersey", "Sudadera", "Chaleco"]
+            // Con la manga aparte: entre una camiseta de manga corta y una de
+            // manga larga hay medio armario de diferencia, y es lo primero que
+            // se corrige al revisar una prenda recién importada.
+            [
+                "Camiseta", "Camiseta manga larga", "Camisa", "Camisa manga corta",
+                "Blusa", "Polo", "Top", "Jersey", "Sudadera", "Chaleco",
+            ]
         case .outerLayer:
             ["Chaqueta", "Cazadora", "Abrigo", "Gabardina", "Vaquera", "Cuero", "Blazer", "Plumífero"]
         case .lowerBody:

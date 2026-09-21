@@ -620,6 +620,18 @@ final class ImportModel {
         return ManualCrop.apply(to: photo, path: corners + corners)
     }
 
+    func setSubcategory(_ subcategory: String?, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].editedSubcategory = subcategory
+        candidates[index].wasCorrectedByUser = true
+    }
+
+    func setMaterial(_ material: String?, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].editedMaterial = material
+        candidates[index].wasCorrectedByUser = true
+    }
+
     func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].manualCrop = ImmutableImage(image)
@@ -660,8 +672,8 @@ final class ImportModel {
             drafts.append(
                 GarmentDraft(
                     kind: candidate.kind,
-                    subcategory: candidate.detected.subcategory,
-                    material: candidate.detected.material,
+                    subcategory: candidate.subcategory,
+                    material: candidate.material,
                     colors: candidate.colors,
                     seasons: candidate.detected.seasons,
                     tags: candidate.detected.tags,
@@ -726,12 +738,23 @@ struct ImportCandidate: Identifiable {
     /// lo detectado— deja ver las dos cosas y permite volver atrás.
     var editedName: String?
     var editedColorName: String?
+    /// El tipo fino —"Camisa", "Vaqueros", "Botines"— corregido a mano.
+    ///
+    /// Es lo que de verdad se mira al guardar: el detector acierta la parte del
+    /// cuerpo casi siempre y se equivoca en el detalle casi igual de a menudo,
+    /// y ese detalle es el que acaba siendo el nombre de la prenda.
+    var editedSubcategory: String?
+    var editedMaterial: String?
+
+    /// El tipo fino, con la corrección aplicada si la hay.
+    var subcategory: String? { editedSubcategory ?? detected.subcategory }
+    var material: String? { editedMaterial ?? detected.material }
 
     /// El nombre con el que se va a guardar.
     var displayName: String {
         editedName ?? GarmentNaming.name(
             kind: kind,
-            subcategory: detected.subcategory,
+            subcategory: subcategory,
             colors: colors,
             brand: detected.brand
         )
