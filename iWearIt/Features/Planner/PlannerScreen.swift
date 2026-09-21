@@ -57,6 +57,13 @@ struct PlannerScreen: View {
     /// mes. El botón va bajando un nivel y vuelve al principio, que es más
     /// corto que un selector de tres estados para algo que se cambia a ojo.
     @State private var layout: PlannerLayout = .book
+    /// Lo que mide la tira de días. **Medido, no a ojo.**
+    ///
+    /// La rejilla tiene que empezar justo debajo de ella, y el número estaba
+    /// puesto a mano: 288 puntos, que era casi un tercio de la pantalla en
+    /// blanco. Midiéndola, el hueco es exactamente el que ocupa y se ajusta
+    /// solo si cambia el tipo de letra del sistema.
+    @State private var stripHeight: CGFloat = 72
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.modelContext) private var modelContext
 
@@ -128,7 +135,7 @@ struct PlannerScreen: View {
             // Se anima **en los dos sentidos**: al entrar y al salir. Con
             // `.identity` en uno de los dos lados, volver a revista aparecía de
             // golpe y parecía un fallo de dibujo.
-            pager.transition(.opacity)
+            pager.transition(.wkVertical)
         case .grid:
             // Scroll horizontal paginado, **no el pager de revista**: el paso
             // de hoja con curl es la metáfora del librito, y en rejilla no se
@@ -140,6 +147,8 @@ struct PlannerScreen: View {
                         PlannerGrid(
                             date: date(forOffset: offset),
                             store: appEnvironment.imageStore,
+                            // Lo que mide la tira, no un número a ojo.
+                            topInset: stripHeight,
                             morph: morph,
                             zoom: zoom,
                             onOpen: { editingOutfit = $0 },
@@ -159,7 +168,7 @@ struct PlannerScreen: View {
             // La opacidad es del contenedor; los lienzos en sí **viajan** con
             // su `matchedGeometryEffect`, así que lo que se ve es cada uno
             // yendo a su sitio, no un bloque que se cambia por otro.
-            .transition(.opacity)
+            .transition(.wkVertical)
         }
     }
 
@@ -204,6 +213,10 @@ struct PlannerScreen: View {
 
     /// La tira de días y el botón de modo. **Fijos.**
     private var strip: some View {
+        measuredStrip
+    }
+
+    private var measuredStrip: some View {
         DayStripBar(
             anchorDay: anchorDay,
             selectedOffset: animatedDay,
@@ -213,6 +226,10 @@ struct PlannerScreen: View {
                 withAnimation(WKAnimation.arrival) { layout = layout.next }
             }
         )
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
+            guard measured > 0, abs(measured - stripHeight) > 0.5 else { return }
+            stripHeight = measured
+        }
     }
 
     /// El librito: una página por día.

@@ -38,6 +38,23 @@ public extension AnyTransition {
             .combined(with: .opacity)
     }
 
+    /// Cambio de modo sobre el mismo contenido: entra desde arriba y sale por
+    /// abajo, siempre con opacidad.
+    ///
+    /// Asimétrica a propósito. Con la misma dirección en los dos sentidos las
+    /// dos vistas se cruzan —una sube mientras la otra baja por el mismo
+    /// sitio— y se lee como un parpadeo con ruido. Yendo las dos hacia abajo,
+    /// lo que se ve es una capa que se aparta y otra que ocupa su lugar.
+    ///
+    /// Y con movimiento y no solo opacidad: dos contenidos distintos
+    /// fundiéndose sin moverse no dicen de dónde viene el nuevo.
+    static var wkVertical: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .top).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        )
+    }
+
     /// Entrada lateral con desenfoque, para pasos de un flujo.
     static func wkSlide(fromLeading: Bool) -> AnyTransition {
         .asymmetric(

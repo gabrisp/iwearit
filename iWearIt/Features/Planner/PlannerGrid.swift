@@ -18,6 +18,8 @@ struct PlannerGrid: View {
     let store: ImageStore
     let onOpen: (Outfit) -> Void
     let onCreate: () -> Void
+    /// Lo que mide la tira de días, que flota encima.
+    let topInset: CGFloat
 
     @Environment(\.modelContext) private var modelContext
     @State private var movingOutfit: Outfit?
@@ -33,6 +35,7 @@ struct PlannerGrid: View {
     init(
         date: Date,
         store: ImageStore,
+        topInset: CGFloat,
         morph: Namespace.ID,
         zoom: Namespace.ID,
         onOpen: @escaping (Outfit) -> Void,
@@ -41,6 +44,7 @@ struct PlannerGrid: View {
         let dayStart = Calendar.current.startOfDay(for: date)
         self.date = dayStart
         self.store = store
+        self.topInset = topInset
         self.morph = morph
         self.zoom = zoom
         self.onOpen = onOpen
@@ -117,11 +121,14 @@ struct PlannerGrid: View {
             // Al revés, el propio scroll se recorta y aparece un canto donde el
             // papel debería seguir.
             .safeAreaPadding(.vertical)
-            // La tira de días flota **encima** de la rejilla, y no es una
-            // barra baja: lleva el calendario, los cinco días y el botón de
-            // modo. Con 72 puntos la primera fila de celdas le quedaba por
-            // debajo justo al abrir, antes de tocar nada.
-            .padding(.top, 288)
+            // La tira de días flota **encima** de la rejilla —lleva el
+            // calendario, los cinco días y el botón de modo—, así que la
+            // primera fila tiene que empezar por debajo de ella.
+            //
+            // El hueco es **lo que mide la tira**, medido y pasado desde
+            // fuera. Estaba a ojo: 288 puntos, casi un tercio de la pantalla
+            // en blanco antes de la primera prenda.
+            .padding(.top, topInset + WK.Spacing.s)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
