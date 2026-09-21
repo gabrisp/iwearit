@@ -79,8 +79,8 @@ private struct OverscrollAction: ViewModifier {
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
 
-    /// Cuánto sube el indicador desde debajo del borde antes de empezar a
-    /// llenarse. Separa "estás desbordando" de "estás pidiendo algo".
+    /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
+    /// Separa "estás desbordando" de "estás pidiendo algo".
     private static let revealDistance: CGFloat = 50
 
     func body(content: Content) -> some View {
@@ -123,58 +123,81 @@ private struct OverscrollAction: ViewModifier {
         return hasFired ? 1 : min(max(raw, 0), 1)
     }
 
-    /// Cuánto asoma el indicador. Sube antes de empezar a llenarse.
+    /// Cuánto se ve el indicador. Aparece durante los primeros puntos de
+    /// desbordamiento y solo después empieza a llenarse: así el gesto tiene
+    /// dos tiempos —"hay algo aquí" y "esto es lo que va a pasar"— en vez de
+    /// plantarte una píldora llena a la primera.
     private var reveal: CGFloat {
         let overscroll = offset < 0 ? -offset : 0
         return min(max(overscroll / Self.revealDistance, 0), 1)
     }
 
-    private var indicator: some View {
-        let isFull = progress == 1
-
-        return HStack(spacing: WK.Spacing.s) {
+    /// El contenido de la píldora, **una sola vez**.
+    ///
+    /// Se usa dos veces —como contenido y como máscara de la capa invertida— y
+    /// tiene que ser exactamente el mismo con exactamente los mismos márgenes,
+    /// o las letras invertidas caen desplazadas respecto a las de debajo.
+    private var pillContent: some View {
+        HStack(spacing: WK.Spacing.s) {
             Image(systemName: symbol)
                 .font(WK.Font.headline)
             Text(label)
                 .font(WK.Font.headline)
                 .lineLimit(1)
         }
-        // La letra se invierte cuando el relleno ya ha pasado por debajo de
-        // ella. A medias no: un texto medio invertido no se lee.
-        .foregroundStyle(progress >= 0.55 ? WK.Palette.canvas : WK.Palette.primaryText)
-        .animation(WKAnimation.selection, value: progress >= 0.55)
         .padding(.horizontal, WK.Spacing.l)
         .padding(.vertical, WK.Spacing.s + 2)
-        // **Se llena de izquierda a derecha**, como una barra de progreso, y no
-        // como un aro que se cierra: es lo que dice "sigue" en vez de "espera".
-        // Escalado y no ancho medido: no hace falta saber cuánto mide la
-        // píldora para llenarla.
-        .background(alignment: .leading) {
-            GeometryReader { proxy in
-                WK.Palette.primaryText
-                    .frame(width: proxy.size.width * progress)
+    }
+
+    private var indicator: some View {
+        let isFull = progress == 1
+
+        return pillContent
+            .foregroundStyle(WK.Palette.primaryText)
+            // **Se llena de izquierda a derecha**, como una barra de progreso,
+            // y no como un aro que se cierra: es lo que dice "sigue" en vez de
+            // "espera".
+            .background {
+                GeometryReader { proxy in
+                    WK.Palette.primaryText
+                        .frame(width: proxy.size.width * progress)
+                }
+                .clipShape(.capsule)
             }
-            .clipShape(.capsule)
-        }
-        // El cristal por debajo del relleno: la píldora es de cristal y lo que
-        // se llena es ella, no una pastilla opaca encima.
-        .adaptiveGlass(in: .capsule)
-        // Un rebote corto al completarse: dice "ya está" antes de que sueltes,
-        // que es lo que evita soltar a medias y no entender por qué no pasó
-        // nada.
-        .keyframeAnimator(initialValue: 1.0, trigger: isFull) { view, scale in
-            view.scaleEffect(scale)
-        } keyframes: { _ in
-            CubicKeyframe(1.1, duration: 0.15)
-            CubicKeyframe(1, duration: 0.15)
-        }
-        .allowsHitTesting(false)
-        .padding(.bottom, bottomInset)
-        .offset(y: Self.revealDistance - (Self.revealDistance * reveal))
-        .opacity(reveal)
-        // Por encima de todo lo que haya en el scroll.
-        .zIndex(100)
-        .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
+            // **La letra no cambia de color: se le pasa el relleno por debajo.**
+            //
+            // Encima va la misma pieza en el color contrario, recortada justo
+            // a lo que ya está relleno y **enmascarada con las propias
+            // letras**. Así cada letra se invierte en el momento exacto en que
+            // el relleno la alcanza, en vez de cambiar todas de golpe al pasar
+            // un umbral — que es lo que se notaba como un parpadeo.
+            .overlay {
+                GeometryReader { proxy in
+                    WK.Palette.canvas
+                        .frame(width: proxy.size.width * progress)
+                }
+                .mask { pillContent }
+            }
+            .adaptiveGlass(in: .capsule)
+            // Aparece **donde está**, sin subir desde ningún sitio: la píldora
+            // ya estaba ahí con opacidad cero, y el cristal se encarga de que
+            // llegar no parezca un corte.
+            .adaptiveGlassTransition()
+            // Un rebote corto al completarse: dice "ya está" antes de que
+            // sueltes, que es lo que evita soltar a medias y no entender por
+            // qué no pasó nada.
+            .keyframeAnimator(initialValue: 1.0, trigger: isFull) { view, scale in
+                view.scaleEffect(scale)
+            } keyframes: { _ in
+                CubicKeyframe(1.1, duration: 0.15)
+                CubicKeyframe(1, duration: 0.15)
+            }
+            .allowsHitTesting(false)
+            .padding(.bottom, bottomInset)
+            .opacity(reveal)
+            // Por encima de todo lo que haya en el scroll.
+            .zIndex(100)
+            .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
     private func fireIfDue() {

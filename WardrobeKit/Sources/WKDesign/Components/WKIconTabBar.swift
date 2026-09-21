@@ -30,6 +30,31 @@ public enum WKTabBarMetrics {
     static let barHeight: CGFloat = 44
     /// Ancho por destino.
     static let tabWidth: CGFloat = 58
+
+    /// Cuánto hay que subir algo para que quede **por encima** de la barra.
+    ///
+    /// Para quien ignora el área segura. Una vista que la respeta no necesita
+    /// esto: la barra ya le ha recortado el sitio y le basta un respiro. Pero
+    /// el lienzo del plan llega a los cuatro bordes a propósito, así que ahí
+    /// hay que contar a mano la barra **y** el indicador de inicio de debajo.
+    ///
+    /// El inset se lee de la ventana y no se mide con `onGeometryChange`:
+    /// dentro del plan no queda ninguna vista que todavía lo conozca —la barra
+    /// se lo ha comido y el contenido lo ignora—, así que medirlo ahí da cero
+    /// y la píldora acababa media tapada.
+    @MainActor
+    public static var clearance: CGFloat {
+        reservedHeight + WK.Spacing.m + windowBottomInset
+    }
+
+    @MainActor
+    private static var windowBottomInset: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }?
+            .safeAreaInsets.bottom ?? 0
+    }
 }
 
 public struct WKIconTabBar<Tab: Hashable>: View {

@@ -76,17 +76,11 @@ struct PlannerScreen: View {
     /// que saber cuánto vale el área segura. Se mide en la raíz, que es la
     /// única vista de aquí que todavía la respeta.
     @State private var safeTop: CGFloat = 0
-    /// Y lo que ocupan el indicador de inicio y la barra de pestañas, abajo.
-    ///
-    /// Por lo mismo: los dos modos ignoran el área segura, así que lo que se
-    /// pone por encima del borde inferior —la píldora del sobre-scroll— tiene
-    /// que saber cuánto hay debajo o se coloca detrás de la barra.
-    @State private var safeBottom: CGFloat = 0
-
     /// Dónde empieza el sitio libre por abajo.
-    private var overscrollInset: CGFloat {
-        safeBottom + WKTabBarMetrics.reservedHeight + WK.Spacing.m
-    }
+    ///
+    /// Lo sabe la barra, no esta pantalla: aquí dentro ya no queda ninguna
+    /// vista que conozca el área segura de abajo. Ver `WKTabBarMetrics`.
+    private var overscrollInset: CGFloat { WKTabBarMetrics.clearance }
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.modelContext) private var modelContext
 
@@ -110,9 +104,9 @@ struct PlannerScreen: View {
                 topGradient
                 strip
             }
-            .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { insets in
-                if insets.top > 0, abs(insets.top - safeTop) > 0.5 { safeTop = insets.top }
-                if abs(insets.bottom - safeBottom) > 0.5 { safeBottom = insets.bottom }
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
+                guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
+                safeTop = measured
             }
             // **El mismo modificador que el CTA del armario.** Así el botón
             // queda exactamente a la misma altura sobre la tab bar en las dos
