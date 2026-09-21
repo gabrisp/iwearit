@@ -161,6 +161,14 @@ private struct CanvasEditorScreen: View {
     private var snapshot: CanvasSnapshot { CanvasSnapshot(outfit) }
 
     private var isTrayOpen: Bool { trayKind != nil }
+
+    /// El lado de cada botón redondo de abajo.
+    ///
+    /// El mismo que la barra de pestañas —su alto más su margen— porque son
+    /// la misma clase de cosa en el mismo sitio de la pantalla.
+    private static var controlSide: CGFloat {
+        WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs
+    }
     /// Lo que mide la bandeja.
     ///
     /// Solo para decirle su alto a la hoja. **Ya no reserva hueco en el
@@ -508,57 +516,62 @@ private struct CanvasEditorScreen: View {
             // Antes era "Agregar" con pestañas dentro, y para poner un sticker
             // había que abrir la bandeja y cambiar de pestaña: dos toques para
             // una decisión. Aquí cada icono abre lo suyo.
-            AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                // Menos separación entre iconos: ahora cada uno ocupa 44
-                // puntos por su cuenta, así que el aire ya está dentro del
-                // botón y ponerlo otra vez fuera estiraba la píldora.
-                HStack(spacing: WK.Spacing.xs) {
-                    ForEach([TrayKind.drawing, .garments, .stickers], id: \.self) { kind in
-                        Button {
-                            withAnimation(WKAnimation.arrival) { trayKind = kind }
-                        } label: {
-                            Image(systemName: kind.symbol)
-                                .font(WK.Font.headline)
-                                .foregroundStyle(
-                                    trayKind == kind
-                                        ? WK.Palette.accent
-                                        : WK.Palette.primaryText
-                                )
-                                // **Ancho mínimo, no solo alto.** Sin él, la
-                                // zona tocable era el glifo: un lápiz mide
-                                // ocho puntos de ancho y acertarlo con el dedo
-                                // es cuestión de suerte. Con 44 —el mínimo que
-                                // pide Apple— el botón es el hueco entero.
-                                .frame(width: 44, height: CanvasTray.controlHeight)
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(WKPressStyle())
+            // **Un botón, un círculo.**
+            //
+            // Antes los cuatro compartían una sola cápsula, y eso los
+            // convertía en un control segmentado: parecía que elegías una de
+            // cuatro opciones excluyentes de lo mismo. No lo son — pintar,
+            // añadir prendas, poner un sticker y cambiar el color son cuatro
+            // acciones distintas que da la casualidad de que están juntas.
+            //
+            // Sueltos y sin contenedor de cristal compartido, además, no se
+            // funden entre ellos: el contenedor une las superficies vecinas, y
+            // eso es justo lo que hacía que el relleno de una pareciera
+            // derramarse sobre la de al lado.
+            HStack(spacing: WK.Spacing.s) {
+                ForEach([TrayKind.drawing, .garments, .stickers], id: \.self) { kind in
+                    Button {
+                        withAnimation(WKAnimation.arrival) { trayKind = kind }
+                    } label: {
+                        Image(systemName: kind.symbol)
+                            .font(WK.Font.headline)
+                            .foregroundStyle(
+                                trayKind == kind
+                                    ? WK.Palette.accent
+                                    : WK.Palette.primaryText
+                            )
+                            // **El mismo alto que la barra de pestañas.** Los
+                            // dos son la fila de controles de su pantalla y
+                            // están a la misma altura de la mano: con medidas
+                            // distintas, pasar de una a otra se nota como un
+                            // salto.
+                            .frame(width: Self.controlSide, height: Self.controlSide)
+                            .contentShape(.circle)
                     }
-
-                    // El color, un círculo **con el color puesto**. Un icono de
-                    // paleta obliga a abrir la hoja para saber cuál está
-                    // elegido; la muestra ya lo dice.
-                    //
-                    // No aparece si el outfit es de una maleta: allí el color
-                    // lo pone la maleta y es lo que la identifica.
-                    if outfit.suitcase == nil {
-                        Button {
-                            withAnimation(WKAnimation.arrival) { trayKind = .backdrop }
-                        } label: {
-                            Circle()
-                                .fill(backdropColor)
-                                .frame(width: 26, height: 26)
-                                .overlay(Circle().stroke(WK.Palette.ink(0.18), lineWidth: 1))
-                                // Lo mismo que los otros tres: la muestra mide
-                                // 26 y el botón, 44.
-                                .frame(width: 44, height: CanvasTray.controlHeight)
-                                .contentShape(.rect)
-                        }
-                        .buttonStyle(WKPressStyle())
-                    }
+                    .buttonStyle(WKPressStyle())
+                    .adaptiveGlassInteractive(in: .circle)
                 }
-                .padding(.horizontal, WK.Spacing.l)
-                .adaptiveGlassInteractive(in: .capsule)
+
+                // El color, un círculo **con el color puesto**. Un icono de
+                // paleta obliga a abrir la hoja para saber cuál está
+                // elegido; la muestra ya lo dice.
+                //
+                // No aparece si el outfit es de una maleta: allí el color
+                // lo pone la maleta y es lo que la identifica.
+                if outfit.suitcase == nil {
+                    Button {
+                        withAnimation(WKAnimation.arrival) { trayKind = .backdrop }
+                    } label: {
+                        Circle()
+                            .fill(backdropColor)
+                            .frame(width: 26, height: 26)
+                            .overlay(Circle().stroke(WK.Palette.ink(0.18), lineWidth: 1))
+                            .frame(width: Self.controlSide, height: Self.controlSide)
+                            .contentShape(.circle)
+                    }
+                    .buttonStyle(WKPressStyle())
+                    .adaptiveGlassInteractive(in: .circle)
+                }
             }
             .padding(.bottom, WK.Spacing.m)
             // **Sin deslizar.** Con `.move(edge: .bottom)`, al cerrar la

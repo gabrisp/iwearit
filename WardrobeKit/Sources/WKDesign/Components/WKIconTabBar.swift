@@ -27,7 +27,12 @@ public enum WKTabBarMetrics {
     /// pestañas, como el modificador que coloca los accesorios flotantes.
     public static let reservedHeight: CGFloat = 60
     /// Alto de la píldora.
-    static let barHeight: CGFloat = 44
+    ///
+    /// Público porque lo consulta quien tiene que ponerse **a su misma
+    /// altura**: los botones redondos del editor están en la misma franja de
+    /// la pantalla, y con medidas distintas pasar de una fila a la otra se
+    /// nota como un salto.
+    public static let barHeight: CGFloat = 44
     /// Ancho por destino.
     static let tabWidth: CGFloat = 58
 
