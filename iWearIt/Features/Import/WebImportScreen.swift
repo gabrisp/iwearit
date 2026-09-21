@@ -26,7 +26,6 @@ struct WebImportScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var model = WebCaptureModel()
-    @State private var query = ""
     @FocusState private var isTyping: Bool
 
     var body: some View {
@@ -52,7 +51,7 @@ struct WebImportScreen: View {
 
     private var bar: some View {
         HStack(spacing: WK.Spacing.s) {
-            TextField("Busca o pega un enlace", text: $query)
+            TextField("Busca o pega un enlace", text: $model.address)
                 .textFieldStyle(.plain)
                 .font(WK.Font.body)
                 .textInputAutocapitalization(.never)
@@ -61,9 +60,13 @@ struct WebImportScreen: View {
                 .submitLabel(.go)
                 .focused($isTyping)
                 .onSubmit {
-                    model.go(to: query)
+                    model.go(to: model.address)
                     isTyping = false
                 }
+                // Mientras escribes, la barra es tuya: si la navegación
+                // siguiera actualizándola, te borraría lo que llevas tecleado
+                // a mitad de palabra.
+                .onChange(of: isTyping) { _, typing in model.isEditing = typing }
                 .padding(.horizontal, WK.Spacing.m)
                 .padding(.vertical, WK.Spacing.s + 2)
                 .adaptiveGlass(in: .capsule)
@@ -71,8 +74,11 @@ struct WebImportScreen: View {
             Button {
                 Task {
                     guard let image = await model.capture() else { return }
+                    // **Sin `dismiss()`.** Quien presenta esta hoja la cambia
+                    // por la de revisar en cuanto llega la imagen; cerrarla
+                    // aquí además cancelaba ese cambio, y por eso la hoja
+                    // desaparecía sin que volviera nada.
                     onCapture(image)
-                    dismiss()
                 }
             } label: {
                 // Una cámara y no "Capturar": el botón vive al lado de un
@@ -97,8 +103,20 @@ struct WebImportScreen: View {
 @MainActor
 @Observable
 final class WebCaptureModel {
+    /// Lo que se ve en la barra: la dirección de la página, o lo que estés
+    /// escribiendo encima.
+    var address = ""
+    /// Mientras el campo tiene el cursor, la navegación no lo toca.
+    var isEditing = false
     /// Hay algo cargado que fotografiar.
     private(set) var hasPage = false
+
+    /// Dónde se empieza.
+    ///
+    /// Google y no la página de una tienda: buscar es lo que se hace primero,
+    /// y arrancar en una tienda concreta sería elegir por el usuario a qué
+    /// marca compra.
+    static let home = URL(string: "https://www.google.com")!
 
     /// La vista real. Débil: la crea y la destruye SwiftUI, no esto.
     @ObservationIgnored weak var webView: WKWebView?
@@ -114,7 +132,7 @@ final class WebCaptureModel {
 
         let target: URL?
         if trimmed.contains(" ") || !trimmed.contains(".") {
-            var components = URLComponents(string: "https://duckduckgo.com/")
+            var components = URLComponents(string: "https://www.google.com/search")
             components?.queryItems = [URLQueryItem(name: "q", value: trimmed)]
             target = components?.url
         } else if trimmed.hasPrefix("http") {
@@ -125,7 +143,13 @@ final class WebCaptureModel {
 
         guard let target else { return }
         webView?.load(URLRequest(url: target))
-        hasPage = true
+    }
+
+    /// La página ha cambiado: la barra sigue a la navegación.
+    func pageChanged(to url: URL?) {
+        hasPage = url != nil
+        guard !isEditing, let url else { return }
+        address = url.absoluteString
     }
 
     /// Una foto de lo que se está viendo.
@@ -157,9 +181,30 @@ private struct WebCaptureView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
+        webView.navigationDelegate = context.coordinator
         model.webView = webView
+        webView.load(URLRequest(url: WebCaptureModel.home))
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(model: model) }
+
+    /// Mantiene la barra al día con la navegación: pinchar un resultado, un
+    /// producto o volver atrás tiene que verse en la dirección, o la barra
+    /// deja de decir dónde estás.
+    final class Coordinator: NSObject, WKNavigationDelegate {
+        private let model: WebCaptureModel
+
+        init(model: WebCaptureModel) { self.model = model }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            model.pageChanged(to: webView.url)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            model.pageChanged(to: webView.url)
+        }
+    }
 }
