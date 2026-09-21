@@ -177,30 +177,10 @@ private struct OverscrollAction: ViewModifier {
         return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if isVisible {
                 indicator
-                    // **El cristal necesita nombre.**
-                    //
-                    // `glassEffectTransition(.matchedGeometry)` no transiciona
-                    // nada por sí solo: empareja superficies que comparten
-                    // `glassEffectID`. Sin id no hay a quién parecerse, así que
-                    // iOS caía a su transición por defecto —la que se ve como
-                    // un desenfoque sustituyendo a otro— y el modificador no
-                    // pintaba nada.
-                    .adaptiveGlassID("overscroll", in: glass)
-                    // **Y una entrada propia, a propósito.**
-                    //
-                    // `glassEffectTransition(.matchedGeometry)` empareja dos
-                    // superficies de cristal que comparten id. Aquí no hay
-                    // segunda: la píldora aparece sobre el lienzo y no sale de
-                    // ningún otro cristal. Sin pareja, iOS cae a su
-                    // transición de material —la que se ve como un desenfoque
-                    // sustituyendo a otro— y por eso seguía apareciendo
-                    // borrosa por mucho que le pusiéramos el id.
-                    //
-                    // Así que aquí el cristal no transiciona su materia: la
-                    // píldora crece un pelo y aparece, que es lo que se
-                    // pidió. El contenedor sigue estando, que es lo que hace
-                    // que el cristal muestree bien lo que tiene detrás.
-                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+                    // **Sin `transition` propia.** Poniendo una gana ella y el
+                    // cristal se queda sin nada que hacer. Quien decide cómo
+                    // llega la superficie es `glassEffectTransition`, que para
+                    // eso tiene su contenedor, su `glassEffect` y su id.
             }
         }
         // **El rebote, por fuera de la píldora.**
@@ -258,25 +238,26 @@ private struct OverscrollAction: ViewModifier {
     private var indicator: some View {
         pillContent
             .foregroundStyle(WK.Palette.primaryText)
-            // **Una luz que crece, no una barra que se rellena.**
+            // **El cristal, limpio.** Nada de desenfoques ni de modos de
+            // mezcla dentro de la vista que lleva el `glassEffect`: eso obliga
+            // a SwiftUI a rasterizar el grupo entero, y un cristal rasterizado
+            // ya no puede participar en la transición del contenedor — se
+            // queda con la de material, que es el desenfoque que veíamos.
             //
-            // El corte recto de una barra de progreso marca una frontera, y
-            // una frontera pide leerse: la mitad llena y la mitad vacía
-            // parecían dos píldoras pegadas. Un punto de luz difuminado no
-            // tiene borde en ninguna parte: la píldora se va encendiendo.
-            .background {
+            // Era exactamente eso: mientras el aura fue un degradado sin
+            // mezcla, la transición funcionaba; al convertirla en un punto
+            // desenfocado y aditivo, dejó de hacerlo.
+            .adaptiveGlass(in: .capsule)
+            .adaptiveGlassID("overscroll", in: glass)
+            .adaptiveGlassTransition()
+            // Y el aura **por encima del cristal**, no dentro. Es luz aditiva:
+            // puesta encima ilumina la superficie y la palabra a la vez, que
+            // es lo que hace que la píldora parezca encenderse.
+            .overlay {
                 Self.aura(Self.fill, progress: progress)
                     .clipShape(.capsule)
+                    .allowsHitTesting(false)
             }
-            // **Sin letras invertidas.** Existían para salvar el texto de un
-            // relleno oscuro que le pasaba por debajo. Con luz en vez de
-            // relleno no hay nada de lo que salvarlas: la palabra se queda
-            // igual y lo que cambia es cuánta luz tiene detrás.
-            .adaptiveGlass(in: .capsule)
-            // **Sin rebote al completarse.** Lo que avisa de que ya está es el
-            // háptico, y llega al mismo sitio sin mover nada: un salto de
-            // tamaño en algo que estás mirando de cerca mientras arrastras se
-            // lee como un tirón, no como una confirmación.
             .allowsHitTesting(false)
     }
 
