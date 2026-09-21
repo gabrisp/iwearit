@@ -106,7 +106,14 @@ struct DayPage: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
-        // **Seguir tirando al final crea otro.**
+        // **Rebota aunque no haya nada que desplazar.** Un día con un solo
+        // lienzo —o vacío— ocupa justo la pantalla, así que sin esto el gesto
+        // no existía precisamente el día que aún no tiene nada, que es cuando
+        // más falta hace.
+        .scrollBounceBehavior(.always, axes: .vertical)
+        // **Seguir tirando al final crea otro** —o el primero, si el día está
+        // vacío: que no haya ninguno no es motivo para no poder crearlo, y era
+        // justo el día en que el atajo no funcionaba.
         //
         // Y crea **nada** si cierras el selector: el outfit no existe hasta
         // que hay prendas que poner en él. Ver `overscrollAction`.
@@ -119,7 +126,6 @@ struct DayPage: View {
             // pantalla, que es la única que respeta el área segura.
             bottomInset: bottomInset
         ) {
-            guard !outfits.isEmpty else { return }
             isPickingForNew = true
         }
         .sheet(isPresented: $isPickingForNew) {
