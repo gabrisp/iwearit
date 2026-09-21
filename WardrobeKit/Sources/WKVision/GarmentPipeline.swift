@@ -27,7 +27,11 @@ public actor GarmentPipeline {
 
     /// Área mínima de una instancia respecto a la foto. Por debajo es ruido:
     /// un botón, un reflejo, una mano.
-    static let minimumAreaFraction = 0.015
+    ///
+    /// **En la duda, no.** Perderse una prenda diminuta se arregla añadiéndola
+    /// a mano en dos toques; aparecer con tres recortes de nada obliga a
+    /// borrarlos uno a uno y a desconfiar del resto.
+    static let minimumAreaFraction = 0.03
 
     /// Por encima de esto, la región es casi toda piel y no una prenda.
     static let maximumSkinFraction = 0.40

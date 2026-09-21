@@ -25,10 +25,18 @@ enum SegmentedGarmentExtractor {
 
     /// Fracción mínima del mapa que debe ocupar una prenda para contar.
     ///
-    /// Por debajo es ruido: un borde mal clasificado, el reflejo de una hebilla.
-    /// Crear una prenda a partir de 200 píxeles sueltos llena el armario de
-    /// basura que el usuario tiene que ir borrando.
-    static let minimumAreaFraction = 0.004
+    /// Por debajo es ruido: un borde mal clasificado, el reflejo de una
+    /// hebilla, la sombra entre dos pliegues. Crear una prenda a partir de un
+    /// puñado de píxeles llena el armario de basura que luego hay que ir
+    /// borrando a mano.
+    ///
+    /// **Subido del 0,4% al 2%.** Con el listón anterior seguían colándose
+    /// prendas de más: en una foto de 1024 de lado, el 0,4% son 65×65 píxeles
+    /// —una mancha del tamaño de un botón— y eso no es una prenda ni siquiera
+    /// cuando el mapa acierta. En la duda es mejor perderse una prenda
+    /// diminuta, que se añade a mano en dos toques, que aparecer con tres
+    /// recortes de nada que hay que borrar uno a uno.
+    static let minimumAreaFraction = 0.02
 
     /// Lo que se le exige a la **segunda** prenda de una clase para existir.
     ///

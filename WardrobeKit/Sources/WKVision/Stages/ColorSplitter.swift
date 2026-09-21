@@ -45,7 +45,11 @@ public enum ColorSplitter {
 
     /// Una mancha por debajo de esto es ruido —una migaja, una sombra suelta—
     /// y no cuenta como prenda.
-    static let minimumPieceFraction = 0.01
+    ///
+    /// Al mismo nivel que el resto del embudo: contar piezas con un listón más
+    /// bajo del que luego las deja pasar solo sirve para decir "hay tres
+    /// prendas" y enseñar una.
+    static let minimumPieceFraction = 0.02
 
     /// Mira la imagen y la parte en fondo y prenda.
     ///
