@@ -1,0 +1,7 @@
+{
+  "name": "resolve-garment",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "engines": { "node": ">=20" }
+}

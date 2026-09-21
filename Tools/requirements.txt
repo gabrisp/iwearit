@@ -1,0 +1,12 @@
+# Conversión de modelos a Core ML. Solo corre en el Mac; nada de esto va a la app.
+coremltools>=8.0
+torch>=2.4
+torchvision
+transformers>=4.44
+pillow
+numpy
+# k-means de la palettización: sin esto, `palettize_weights` falla al final
+# de una conversión que por lo demás ha ido bien.
+scikit-learn
+requests
+certifi

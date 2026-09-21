@@ -1,0 +1,121 @@
+import CoreGraphics
+import Foundation
+import WKCore
+
+/// Un hueco del compositor.
+///
+/// ## Por qué existen los huecos
+///
+/// El canvas libre sirve para colocar al milímetro, pero montar un outfit no
+/// suele ser eso: es "esta camiseta con estos pantalones", y pedirle al usuario
+/// que además decida dónde va cada prenda es trabajo que no quería hacer.
+///
+/// ## Lo que los hace baratos
+///
+/// Un hueco **no es un tipo nuevo**: es una transformada preestablecida. El
+/// compositor escribe los mismos `CanvasItem` que el canvas, así que "editar
+/// libremente" abre el mismo outfit y lo sigue editando. Dos formas de trabajar,
+/// un solo modelo.
+public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
+    case top
+    case outer
+    case bottom
+    case shoes
+    case accessory
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .top: "Parte superior"
+        case .outer: "Chaquetas"
+        case .bottom: "Parte inferior"
+        case .shoes: "Zapatos"
+        case .accessory: "Complementos"
+        }
+    }
+
+    /// Qué prendas caben aquí.
+    ///
+    /// Un vestido entra tanto en "superior" como en "inferior": ocupa las dos
+    /// zonas del cuerpo, y obligarle a elegir una sería una taxonomía nuestra
+    /// que al usuario no le dice nada.
+    public var kinds: Set<GarmentKind> {
+        switch self {
+        case .top: [.upperBody, .wholeBody]
+        case .outer: [.outerLayer]
+        case .bottom: [.lowerBody, .wholeBody]
+        case .shoes: [.feet]
+        case .accessory: [.head, .bag, .other]
+        }
+    }
+
+    /// Dónde cae en el lienzo, en coordenadas de `CanvasSpace`.
+    ///
+    /// La disposición imita cómo se mira un conjunto: torso arriba, piernas
+    /// debajo, calzado al fondo. No es una rejilla regular a propósito — una
+    /// rejilla perfecta se lee como una ficha de inventario, no como un look.
+    public var transform: ItemTransform {
+        switch self {
+        case .top:
+            ItemTransform(x: 340, y: 430, baseWidth: 400, baseHeight: 420, zIndex: 1)
+        case .outer:
+            ItemTransform(x: 690, y: 400, baseWidth: 420, baseHeight: 440, zIndex: 0)
+        case .bottom:
+            ItemTransform(x: 330, y: 900, baseWidth: 380, baseHeight: 480, zIndex: 1)
+        case .shoes:
+            ItemTransform(x: 700, y: 1090, baseWidth: 400, baseHeight: 300, zIndex: 2)
+        case .accessory:
+            ItemTransform(x: 720, y: 790, baseWidth: 300, baseHeight: 200, zIndex: 2)
+        }
+    }
+
+    /// El hueco al que va una prenda por su tipo.
+    ///
+    /// Una capa exterior va a "chaquetas" y no a "superior" aunque ambas cubran
+    /// el torso: es la distinción que TinyCLIP decide en el pipeline, y aquí se
+    /// respeta.
+    public static func slot(for kind: GarmentKind) -> OutfitSlot {
+        switch kind {
+        case .outerLayer: .outer
+        case .upperBody, .wholeBody: .top
+        case .lowerBody: .bottom
+        case .feet: .shoes
+        case .head, .bag, .other: .accessory
+        }
+    }
+}
+
+/// Fondos pastel de la tarjeta de outfit.
+///
+/// El color lo pone el usuario por outfit. Apagados, pero **no lavados**: la
+/// ropa tiene que seguir siendo lo que manda, y a la vez elegir un color tiene
+/// que notarse — si no, el selector parece roto.
+public enum OutfitBackdrop: String, CaseIterable, Sendable, Identifiable {
+    case sand, clay, blush, coral, lilac, sky, teal, sage, olive, slate
+
+    public var id: String { rawValue }
+
+    /// Componentes sRGB. Se guardan como cadena en el modelo, no como color,
+    /// para que el esquema no dependa de la paleta.
+    ///
+    /// **La misma paleta que las maletas y con el tono que tienen allí.** Los
+    /// pasteles de antes estaban tan lavados que `blush` era RGB(239,219,218)
+    /// sobre un fondo por defecto de (242,242,247): elegirlo no cambiaba nada
+    /// que se pudiera ver, y parecía que el selector estaba roto cuando lo que
+    /// fallaba era el color.
+    public var components: (red: Double, green: Double, blue: Double) {
+        switch self {
+        case .sand:  (0.878, 0.816, 0.686)
+        case .clay:  (0.816, 0.647, 0.553)
+        case .blush: (0.906, 0.729, 0.722)
+        case .coral: (0.886, 0.580, 0.518)
+        case .lilac: (0.769, 0.733, 0.859)
+        case .sky:   (0.639, 0.757, 0.867)
+        case .teal:  (0.576, 0.769, 0.757)
+        case .sage:  (0.686, 0.765, 0.667)
+        case .olive: (0.635, 0.663, 0.486)
+        case .slate: (0.667, 0.686, 0.722)
+        }
+    }
+}

@@ -1,0 +1,17 @@
+# Credenciales. Nunca al repositorio.
+Tools/.env
+Tools/.venv/
+*.mlpackage
+*.mlmodelc
+
+# Xcode
+xcuserdata/
+DerivedData/
+.DS_Store
+build/
+
+# Artefactos de compilación de SwiftPM y de las herramientas de Python.
+# Sin esto, `git add .` se lleva 600 MB de caché de índice.
+.build/
+__pycache__/
+*.pyc

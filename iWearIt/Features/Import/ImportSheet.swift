@@ -1,0 +1,297 @@
+import CoreGraphics
+import SwiftUI
+import WKCore
+import WKDesign
+import WKVision
+
+/// Hoja de importación: procesa una foto y deja revisar el resultado.
+struct ImportSheet: View {
+    let image: CGImage
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @Environment(WKToastCenter.self) private var toasts
+    @State private var model: ImportModel?
+    /// La revelación se ha visto ya. Vive aquí y no en el modelo: es estado de
+    /// presentación, y meterlo en el modelo obligaría a reejecutarla si el
+    /// modelo se reconstruyera.
+    @State private var hasRevealed = false
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let model {
+                    ImportPhaseContent(
+                        model: model,
+                        photo: image,
+                        hasRevealed: $hasRevealed
+                    )
+                } else {
+                    // La foto con su barrido, no una ruedecita.
+                    //
+                    // El modelo tarda en construirse porque antes hay que
+                    // esperar al segmentador, y enseñar un `ProgressView`
+                    // desnudo durante esos segundos hacía parecer que la app se
+                    // había quedado colgada. Es el mismo sitio de la pantalla y
+                    // la misma animación que luego continúa: no hay salto.
+                    VStack(spacing: WK.Spacing.m) {
+                        ImportRevealView(
+                            photo: image,
+                            candidates: [],
+                            isScanning: true
+                        ) {}
+
+                        // **Qué está pasando, con palabras.** "Buscando
+                        // prendas…" mientras en realidad se descargan 34 MB es
+                        // una animación mintiendo: el usuario espera un segundo
+                        // y decide que está roto.
+                        Text(appEnvironment.modelState.description)
+                            .font(WK.Font.callout)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                            .contentTransition(.opacity)
+
+                        DiagnosticsLogView(
+                            lines: Array(DiagnosticsLog.shared.lines.suffix(40)),
+                            maximumHeight: 140
+                        )
+                    }
+                    .padding(WK.Spacing.screenInset)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(WK.Palette.canvas)
+                }
+            }
+            .navigationTitle("Añadir prendas")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    // Siempre presente, aunque todavía no haya modelo: si el
+                    // item aparece y desaparece, la barra se recoloca y el
+                    // botón de cancelar da un salto a mitad del proceso.
+                    ImportSaveButton(model: model) { if let model { await save(model) } }
+                }
+            }
+        }
+        .task {
+            // **Esperar al segmentador antes de analizar.** Construido con
+            // `segmenter == nil` —y la descarga tarda decenas de segundos— el
+            // pipeline cae a la ruta degradada, que necesita una persona en la
+            // foto y corta por articulaciones. Para la foto de una prenda
+            // suelta eso no da nada, y parecía que el reconocimiento no
+            // funcionaba cuando lo que pasaba es que aún no había llegado.
+            await waitForModels()
+
+            // El modelo se construye aquí y no en un `@State` inicial porque
+            // necesita el segmentador, que depende del entorno.
+            let created = ImportModel(
+                segmenter: appEnvironment.segmenter,
+                embedder: appEnvironment.embedder,
+                promptBank: appEnvironment.promptBank,
+                resolver: appEnvironment.resolver,
+                wardrobe: appEnvironment.wardrobe
+            )
+            model = created
+            await created.process(image)
+        }
+    }
+
+    /// Espera al modelo **solo si le queda poco**.
+    ///
+    /// Bloquear la importación un minuto entero mientras se descargan 50 MB es
+    /// una pantalla parada sin nada que enseñar, y para el caso más común
+    /// —una foto de la prenda sola— el modelo **no hace falta**: la recorta la
+    /// máscara de sujeto, que es nativa y ya está aquí.
+    ///
+    /// Así que se espera un margen corto, el que tarda el modelo en terminar
+    /// si ya estaba compilando, y si no se sigue sin él. Peor una prenda
+    /// recortada con la ruta barata que una rueda dando vueltas.
+    private func waitForModels() async {
+        guard !appEnvironment.hasSettledModels else { return }
+
+        // **Tres segundos no eran una espera, eran un sorteo.**
+        //
+        // El razonamiento original —"para una prenda suelta el modelo no hace
+        // falta, la recorta la máscara de sujeto"— resultó ser falso justo
+        // cuando importa: cargar el modelo **ocupa la ANE**, y con la ANE
+        // ocupada la máscara de sujeto tampoco responde. Así que empezar sin
+        // esperar no daba el camino barato, daba tres topes seguidos y un
+        // "está tardando demasiado".
+        //
+        // Ahora se espera de verdad, y mientras tanto la pantalla dice en qué
+        // paso va y cuánto lleva descargado. Esperar sabiendo a qué se espera
+        // no es lo mismo que esperar delante de una animación.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(90))
+        DiagnosticsLog.record("IMPORT", "esperando a los modelos: \(appEnvironment.modelState)")
+        while !appEnvironment.hasSettledModels, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        DiagnosticsLog.record(
+            "IMPORT",
+            appEnvironment.hasSettledModels
+                ? "modelos listos, empieza el análisis"
+                : "los modelos no llegaron a tiempo; se analiza igual",
+            isProblem: !appEnvironment.hasSettledModels
+        )
+    }
+
+    private func save(_ model: ImportModel) async {
+        let saved = (try? await model.save(
+            imageStore: appEnvironment.imageStore,
+            wardrobe: appEnvironment.wardrobe
+        )) ?? 0
+        dismiss()
+
+        // El aviso se pide **después** de cerrar, y lo pinta la raíz: si lo
+        // enseñara esta hoja, se iría con ella antes de poder leerse.
+        guard saved > 0 else { return }
+        toasts.show(WKToast(saved == 1 ? "Prenda guardada" : "\(saved) prendas guardadas"))
+    }
+}
+
+/// Contenido según la fase. Vista aparte para que `ImportSheet` no lleve el
+/// `switch` dentro de su `@ViewBuilder`.
+private struct ImportPhaseContent: View {
+    let model: ImportModel
+    let photo: CGImage
+    @Binding var hasRevealed: Bool
+
+    var body: some View {
+        switch model.phase {
+        case .idle, .processing:
+            reveal(isScanning: true, status: "Buscando prendas…")
+        case let .generating(done, total):
+            // El mismo barrido, con el paso nombrado. Lo que no puede pasar es
+            // que se quede la animación sin decir qué está esperando.
+            reveal(
+                isScanning: true,
+                status: total > 1
+                    ? "Redibujando prendas… \(done) de \(total)"
+                    : "Redibujando la prenda…"
+            )
+        case .review:
+            if hasRevealed {
+                // **La misma ficha en los dos casos.** Con una sola, ella
+                // sola; con varias, paginadas y con una tira arriba para saber
+                // en cuál estás y cuáles entran. Tener dos calidades de
+                // revisión según cuántas prendas trajera la foto era lo que
+                // dejaba el caso de varias sin poder editar nada.
+                Group {
+                    if model.candidates.count == 1, let only = model.candidates.first {
+                        ImportSingleCard(
+                            candidate: only,
+                            photo: photo,
+                            onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
+                            onChangeName: { model.setName($0, forCandidateWithID: only.id) },
+                            onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
+                            onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
+                            onRestyle: { await model.restyle(candidateWithID: only.id) }
+                        )
+                    } else {
+                        // **La misma ficha, paginada.** Antes aquí había una
+                        // lista de filas de 64 puntos donde no se podía tocar
+                        // nada; ver `ImportReviewPager`.
+                        ImportReviewPager(model: model, photo: photo)
+                    }
+                }
+                    .transition(AnyTransition(.blurReplace))
+            } else {
+                reveal(isScanning: false, status: "Recortando")
+                    .transition(AnyTransition(.blurReplace))
+            }
+        case let .nothingFound(reason):
+            failure(title: reason.title, symbol: reason.symbol, message: reason.message)
+        case let .failed(message):
+            failure(
+                title: "No se pudo procesar",
+                symbol: "exclamationmark.triangle",
+                message: message
+            )
+        }
+    }
+}
+
+private extension ImportPhaseContent {
+    /// El fallo, **con el registro debajo**.
+    ///
+    /// Un `ContentUnavailableView` a secas dice que no hay nada y se queda tan
+    /// ancho. Lo que hace falta saber en ese momento es en qué paso se cayó, y
+    /// eso estaba solo en la consola de Xcode — es decir, en ningún sitio
+    /// cuando el fallo ocurre con el iPhone en la mano.
+    @ViewBuilder
+    func failure(title: String, symbol: String, message: String) -> some View {
+        VStack(spacing: WK.Spacing.m) {
+            ContentUnavailableView {
+                Label(title, systemImage: symbol)
+            } description: {
+                Text(message)
+            }
+
+            DiagnosticsLogView(
+                lines: Array(DiagnosticsLog.shared.lines(since: model.logMarker)),
+                maximumHeight: 200
+            )
+            .padding(.horizontal, WK.Spacing.screenInset)
+
+            Button("Copiar registro") {
+                UIPasteboard.general.string = DiagnosticsLog.shared.transcript
+            }
+            .font(WK.Font.callout)
+            .foregroundStyle(WK.Palette.accent)
+            .padding(.bottom, WK.Spacing.m)
+        }
+    }
+
+    /// La foto con su barrido, y las prendas saliendo de ella.
+    func reveal(isScanning: Bool, status: String) -> some View {
+        VStack(spacing: WK.Spacing.m) {
+            ImportRevealView(
+                photo: photo,
+                candidates: model.candidates,
+                isScanning: isScanning
+            ) {
+                withAnimation(WKAnimation.content) { hasRevealed = true }
+            }
+
+            Text(status)
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .contentTransition(.opacity)
+
+            if isScanning {
+                DiagnosticsLogView(
+                    lines: Array(DiagnosticsLog.shared.lines(since: model.logMarker)),
+                    maximumHeight: 140
+                )
+            }
+        }
+        .padding(WK.Spacing.screenInset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(WK.Palette.canvas)
+    }
+}
+
+private struct ImportSaveButton: View {
+    let model: ImportModel?
+    let action: () async -> Void
+    @State private var isSaving = false
+
+    var body: some View {
+        Button(title) {
+            isSaving = true
+            Task { await action() }
+        }
+        .disabled(!isReviewing || model?.keptCount == 0 || isSaving)
+        // Se atenúa, no se va: ocupar el sitio desde el principio es lo que
+        // mantiene quieta la barra.
+        .opacity(isReviewing ? 1 : 0)
+    }
+
+    private var title: String { "Añadir \(model?.keptCount ?? 0)" }
+
+    private var isReviewing: Bool {
+        if case .review = model?.phase { return true }
+        return false
+    }
+}

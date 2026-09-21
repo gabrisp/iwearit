@@ -1,0 +1,311 @@
+import SwiftData
+import SwiftUI
+import WKCore
+import WKDesign
+import WKPersistence
+import WKScanning
+import WKServices
+import WKVision
+
+/// Pide el permiso de fotos **después** de explicar para qué.
+///
+/// Un diálogo del sistema en frío se acepta alrededor del 40% de las veces; uno
+/// precedido de contexto, bastante más. Y solo hay una oportunidad: si el
+/// usuario deniega, ya solo queda mandarle a Ajustes.
+struct PhotoPermissionStep: View {
+    let model: OnboardingModel
+    @State private var isRequesting = false
+    private let photos = PhotoLibraryService()
+
+    var body: some View {
+        OnboardingStepScaffold(
+            title: "Tu ropa ya está\nen tus fotos",
+            subtitle: "iWearIt las mira en tu iPhone para recortar las prendas que llevas puestas.",
+            primaryTitle: "Dejar que mire mis fotos",
+            isEnabled: !isRequesting,
+            onPrimary: { request() }
+        ) {
+            VStack(alignment: .leading, spacing: WK.Spacing.m) {
+                PermissionPoint(
+                    symbol: "iphone.gen3",
+                    title: "Todo pasa en tu iPhone",
+                    detail: "Las fotos no se suben a ningún sitio."
+                )
+                PermissionPoint(
+                    symbol: "hand.raised",
+                    title: "Tú eliges cuánto",
+                    detail: "Puedes darle acceso solo a las fotos que quieras."
+                )
+                PermissionPoint(
+                    symbol: "scissors",
+                    title: "Solo se guarda la ropa",
+                    detail: "Caras y piel se descartan; no llegan al armario."
+                )
+            }
+            .padding(.top, WK.Spacing.m)
+        }
+    }
+
+    private func request() {
+        isRequesting = true
+        Task {
+            let access = await photos.requestAuthorization()
+            isRequesting = false
+            // Aunque deniegue se sigue: el armario funciona importando fotos
+            // sueltas, y bloquear aquí sería perder al usuario del todo.
+            _ = access
+            model.advance()
+        }
+    }
+}
+
+private struct PermissionPoint: View {
+    let symbol: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: WK.Spacing.m) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(WK.Palette.accent)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.subheadline.weight(.medium))
+                Text(detail).font(.caption).foregroundStyle(WK.Palette.secondaryText)
+            }
+        }
+    }
+}
+
+/// El escaneo de verdad.
+///
+/// Es a la vez el "momento de procesado" del guion de conversión y el trabajo
+/// real: mientras el usuario mira los recortes aparecer, el armario se está
+/// llenando. Por eso es la pantalla que más justifica el flujo entero.
+struct ScanningStep: View {
+    let model: OnboardingModel
+
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var progress = ScanProgress()
+    @State private var discoveries: [ScanDiscovery] = []
+    @State private var scanner: GalleryScanner?
+    @State private var isPreparing = false
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.l) {
+            HStack {
+                Spacer()
+                Button("Saltar") { finish() }
+                    .font(.subheadline)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
+
+            VStack(spacing: WK.Spacing.s) {
+                Text(isPreparing ? "Preparando el reconocimiento" : "Mirando tus fotos")
+                    .font(.system(.title, weight: .bold))
+                    .multilineTextAlignment(.center)
+                    .contentTransition(.opacity)
+                Text(statusLine)
+                    .font(.subheadline)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+            .animation(WKAnimation.content, value: isPreparing)
+
+            OnboardingProgressBar(step: progress.photosProcessed, total: max(1, progress.totalPhotos))
+
+            DiscoveryWall(discoveries: discoveries)
+                .frame(maxHeight: .infinity)
+
+            if let reason = progress.pauseReason {
+                Label(reason, systemImage: "thermometer.medium")
+                    .font(.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
+
+            VStack(spacing: WK.Spacing.xs) {
+                Label("Nada sale de tu iPhone", systemImage: "lock.fill")
+                    .font(WK.Font.captionMedium)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                Text("Tus fotos se analizan aquí mismo. No se suben a ningún servidor, ni las fotos ni los recortes.")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                    .multilineTextAlignment(.center)
+                Text("Mantén la app abierta mientras miramos")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                    .padding(.top, WK.Spacing.xs)
+            }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.bottom, WK.Spacing.m)
+        .task { await run() }
+    }
+
+    private func run() async {
+        // **Esperar al modelo antes de mirar una sola foto.**
+        //
+        // Sin esto el escaneo arrancaba con `segmenter == nil` —la descarga
+        // tarda decenas de segundos y el onboarding llega aquí mucho antes— y
+        // la galería entera se procesaba por la ruta degradada, que corta la
+        // silueta de la persona en franjas por las articulaciones. El resultado
+        // no eran prendas: eran trozos de foto. Y una vez guardados, el armario
+        // queda lleno de basura que hay que borrar a mano.
+        await waitForSegmenter()
+
+        let scanner = GalleryScanner(
+            pipeline: GarmentPipeline(
+                segmenter: appEnvironment.segmenter,
+                embedder: appEnvironment.embedder,
+                promptBank: appEnvironment.promptBank,
+                // Sin OCR en el escaneo masivo: son minutos por un dato que no
+                // hace falta para enseñar la prenda.
+                readsBrands: false,
+                // Y aquí sí se descartan recibos, capturas y documentos: son
+                // miles de fotos y la mayoría no tienen ropa.
+                skipsUtilityImages: true
+            ),
+            imageStore: appEnvironment.imageStore,
+            wardrobe: appEnvironment.wardrobe
+        )
+        self.scanner = scanner
+
+        _ = await scanner.scan(
+            // `nil` en Pro: la galería entera. El número lo decide el gate,
+            // no esta pantalla.
+            limit: appEnvironment.gate.scanPhotoLimit,
+            onProgress: { updated in
+                Task { @MainActor in progress = updated }
+            },
+            onDiscovery: { discovery in
+                Task { @MainActor in
+                    // Solo las últimas: el muro es decorado, y guardar cientos
+                    // de CGImage vivas para una animación es cómo se acaba la
+                    // memoria a mitad del escaneo.
+                    discoveries.append(discovery)
+                    if discoveries.count > 12 { discoveries.removeFirst() }
+                }
+            }
+        )
+        finish()
+    }
+
+    /// Espera a que la preparación de modelos termine, con un tope.
+    ///
+    /// El tope no es impaciencia: si no hay red, `prepareModels` puede tardar
+    /// lo que tarde en fallar, y dejar al usuario mirando una barra parada sin
+    /// explicación es peor que escanear en modo degradado avisando de ello.
+    /// Qué se está haciendo ahora mismo, en una línea.
+    private var statusLine: String {
+        guard isPreparing else {
+            return "\(progress.photosProcessed) de \(progress.totalPhotos) · \(progress.garmentsFound) prendas"
+        }
+        return switch appEnvironment.modelState {
+        case let .downloading(fraction): "Descargando · \(Int(fraction * 100))%"
+        case .compiling: "Instalando en tu iPhone"
+        // El paso que antes no se nombraba y era el más largo de todos: con
+        // `computeUnits = .all` esto eran minutos con la pantalla quieta.
+        case .loading: "Preparando el modelo"
+        default: "Un momento"
+        }
+    }
+
+    private func waitForSegmenter() async {
+        guard !appEnvironment.hasSettledModels else { return }
+        isPreparing = true
+        defer { isPreparing = false }
+
+        // Aquí sí merece esperar: son cientos de fotos y hacerlas todas con
+        // la ruta barata llenaría el armario de recortes peores. Pero con
+        // tope, y con la pantalla diciendo en qué va la descarga.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(60))
+        while !appEnvironment.hasSettledModels, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    private func finish() {
+        Task { await scanner?.cancel() }
+        model.advance()
+    }
+}
+
+/// Los recortes apareciendo. Decorado, no inventario.
+private struct DiscoveryWall: View {
+    let discoveries: [ScanDiscovery]
+
+    var body: some View {
+        ZStack {
+            ForEach(Array(discoveries.enumerated()), id: \.offset) { index, discovery in
+                Image(decorative: discovery.image.cgImage, scale: 1)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 90, height: 100)
+                    .rotationEffect(.degrees(Double((index * 37) % 24) - 12))
+                    .offset(
+                        x: CGFloat((index * 61) % 200) - 100,
+                        y: CGFloat((index * 43) % 220) - 110
+                    )
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.45, bounce: 0.3), value: discoveries.count)
+    }
+}
+
+/// El resumen: lo que hemos encontrado, en números.
+struct ScanSummaryStep: View {
+    let model: OnboardingModel
+
+    @Query private var garments: [Garment]
+
+    var body: some View {
+        OnboardingStepScaffold(
+            title: "Tu armario, ya dentro",
+            primaryTitle: "Ver mi armario",
+            onPrimary: { model.advance() }
+        ) {
+            VStack(spacing: WK.Spacing.xl) {
+                StatReveal(
+                    value: "\(model.outfitIdeas(garmentCount: garments.count))+",
+                    caption: "combinaciones posibles",
+                    detail: "Todas con ropa que ya tienes."
+                )
+                .padding(.top, WK.Spacing.l)
+
+                HStack(spacing: WK.Spacing.xl) {
+                    SummaryStat(value: "\(garments.count)", label: "prendas")
+                    SummaryStat(value: topColourName, label: "color principal")
+                }
+            }
+        }
+    }
+
+    /// El color más repetido del armario.
+    private var topColourName: String {
+        var counts: [String: Double] = [:]
+        for garment in garments {
+            guard let colour = garment.dominantColor else { continue }
+            counts[colour.nameKey, default: 0] += colour.weight
+        }
+        return counts.max { $0.value < $1.value }?.key ?? "—"
+    }
+}
+
+private struct SummaryStat: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(.title2, weight: .bold))
+                .foregroundStyle(WK.Palette.primaryText)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+        }
+    }
+}
