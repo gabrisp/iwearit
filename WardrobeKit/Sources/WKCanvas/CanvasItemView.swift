@@ -31,8 +31,15 @@ public struct CanvasItemView<Content: View>: View {
     private let content: Content
     private let onSelect: () -> Void
     private let onCommit: (ItemTransform) -> Void
+    /// Avisa de si esto ha quedado centrado, para que el lienzo dibuje la
+    /// guía. La guía cruza el papel entero, así que no puede salir de aquí.
+    private let onCentering: (CanvasMath.Centering) -> Void
 
     @State private var live = Live()
+    /// Lo último que se avisó. Durante un arrastre esto corre a cada
+    /// fotograma, y avisar de lo mismo una y otra vez reevaluaría el lienzo
+    /// entero sin motivo.
+    @State private var reported = CanvasMath.Centering()
 
     public init(
         transform: ItemTransform,
@@ -42,6 +49,7 @@ public struct CanvasItemView<Content: View>: View {
         mask: AlphaMask?,
         onSelect: @escaping () -> Void,
         onCommit: @escaping (ItemTransform) -> Void,
+        onCentering: @escaping (CanvasMath.Centering) -> Void = { _ in },
         @ViewBuilder content: () -> Content
     ) {
         self.transform = transform
@@ -51,19 +59,29 @@ public struct CanvasItemView<Content: View>: View {
         self.mask = mask
         self.onSelect = onSelect
         self.onCommit = onCommit
+        self.onCentering = onCentering
         self.content = content()
     }
 
-    /// Lo que se ve ahora: lo confirmado más el gesto en vuelo.
-    private var previewTransform: ItemTransform {
-        guard !live.isIdle else { return transform }
-        return CanvasMath.applying(
+    /// Lo que se ve ahora: lo confirmado más el gesto en vuelo, **ya metido
+    /// en el papel**.
+    ///
+    /// Los límites se aplican aquí y no solo al guardar. Si solo actuaran al
+    /// guardar, la prenda se saldría bajo el dedo y volvería de un salto al
+    /// soltar, y un salto al final de un gesto se lee como que la app ha hecho
+    /// otra cosa. Ver `CanvasMath.constrained`.
+    private var previewTransform: ItemTransform { preview.0 }
+
+    private var preview: (ItemTransform, CanvasMath.Centering) {
+        guard !live.isIdle else { return (transform, CanvasMath.Centering()) }
+        let moved = CanvasMath.applying(
             scale: live.scale,
             rotation: live.rotation,
             drag: live.drag,
             about: live.anchor,
             to: transform
         )
+        return CanvasMath.constrained(moved)
     }
 
     public var body: some View {
@@ -203,11 +221,24 @@ public struct CanvasItemView<Content: View>: View {
             if let rotation = value.second?.second {
                 live.rotation = rotation.rotation.radians
             }
+            // Que el lienzo sepa si esto ha quedado centrado, para dibujar la
+            // guía. Solo se escribe cuando **cambia**: durante un arrastre esto
+            // corre a cada fotograma y escribir lo mismo una y otra vez
+            // reevaluaría el lienzo entero sin motivo.
+            let centering = preview.1
+            if centering != reported {
+                reported = centering
+                onCentering(centering)
+            }
         }
         .onEnded { _ in
-            // Una única escritura, con el valor exacto. Nada de redondear.
+            // Una única escritura, con el valor exacto. Nada de redondear
+            // —salvo el imán del centro, que es una intención y no una
+            // posición: ver `CanvasMath.constrained`.
             let committed = previewTransform
             live = Live()
+            reported = CanvasMath.Centering()
+            onCentering(reported)
             onCommit(committed)
         }
     }

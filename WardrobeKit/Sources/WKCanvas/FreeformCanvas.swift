@@ -73,12 +73,22 @@ public struct FreeformCanvas: View {
                         canvasScale: scale,
                         store: store,
                         masks: masks,
-                        onSelect: { selection.select(item.id) }
+                        onSelect: { selection.select(item.id) },
+                        onCentering: { selection.centering = $0 }
                     )
                 }
                 // Mientras se pinta, las prendas no responden: el mismo
                 // arrastre pintaría la raya **y** movería la prenda de debajo.
                 .allowsHitTesting(!(drawing?.isActive ?? false))
+
+                // **Las guías de centrado**, mientras dura el gesto.
+                //
+                // Encima de las prendas y debajo de la pintura: son una ayuda
+                // para colocar, así que tienen que verse sobre lo que estás
+                // colocando, pero no taparlo cuando sueltas — y no lo tapan
+                // porque desaparecen al soltar.
+                CanvasCenteringGuides(centering: selection.centering)
+                    .allowsHitTesting(false)
 
                 // **La pintura, encima de todo.** Es una anotación sobre el
                 // conjunto —para rodear, tachar, apuntar— y no un elemento
@@ -140,6 +150,7 @@ private struct CanvasGarmentItem: View {
     let store: ImageStore
     let masks: MaskCache
     let onSelect: () -> Void
+    var onCentering: (CanvasMath.Centering) -> Void = { _ in }
 
     /// Qué elemento no se dibuja porque se está editando en otra pantalla.
     @Environment(\.canvasHiddenItemID) private var hiddenItemID
@@ -163,7 +174,8 @@ private struct CanvasGarmentItem: View {
             onSelect: onSelect,
             // Una sola escritura, al soltar. Durante el gesto no se toca la
             // base de datos.
-            onCommit: { item.apply($0) }
+            onCommit: { item.apply($0) },
+            onCentering: onCentering
         ) {
             CanvasItemContent(item: item, store: store)
                 .scaleEffect(x: item.isFlipped ? -1 : 1)
@@ -194,5 +206,37 @@ private struct CanvasItemContent: View {
                 store: store
             )
         }
+    }
+}
+
+
+/// Las líneas del medio del papel.
+///
+/// Aparecen solo mientras algo está centrado y se van al soltar: una guía
+/// permanente sería una retícula más, y lo que dice esto no es "aquí está el
+/// medio" sino "lo que llevas en el dedo está en el medio".
+struct CanvasCenteringGuides: View {
+    let centering: CanvasMath.Centering
+
+    var body: some View {
+        ZStack {
+            if centering.vertically {
+                Rectangle()
+                    .fill(WK.Palette.accent)
+                    .frame(height: 1)
+                    .transition(.opacity)
+            }
+            if centering.horizontally {
+                Rectangle()
+                    .fill(WK.Palette.accent)
+                    .frame(width: 1)
+                    .transition(.opacity)
+            }
+        }
+        .frame(width: CanvasSpace.width, height: CanvasSpace.height)
+        .animation(WKAnimation.selection, value: centering)
+        // Un toque al enganchar: es lo que confirma el imán sin tener que
+        // mirar si la línea ha salido.
+        .sensoryFeedback(.selection, trigger: centering)
     }
 }
