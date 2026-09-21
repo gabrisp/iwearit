@@ -20,6 +20,8 @@ struct PlannerGrid: View {
     let onCreate: () -> Void
     /// Lo que mide la tira de días, que flota encima.
     let topInset: CGFloat
+    /// Y lo que hay que dejar libre abajo para la barra de pestañas.
+    let bottomInset: CGFloat
 
     @Environment(\.modelContext) private var modelContext
     @State private var movingOutfit: Outfit?
@@ -38,6 +40,7 @@ struct PlannerGrid: View {
         topInset: CGFloat,
         morph: Namespace.ID,
         zoom: Namespace.ID,
+        bottomInset: CGFloat = 0,
         onOpen: @escaping (Outfit) -> Void,
         onCreate: @escaping () -> Void
     ) {
@@ -45,6 +48,7 @@ struct PlannerGrid: View {
         self.date = dayStart
         self.store = store
         self.topInset = topInset
+        self.bottomInset = bottomInset
         self.morph = morph
         self.zoom = zoom
         self.onOpen = onOpen
@@ -132,11 +136,18 @@ struct PlannerGrid: View {
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
-        // **Sin sobre-scroll aquí.** En revista el gesto tiene sentido porque
-        // no hay otra forma de pedir otro lienzo: llegas al último y sigues
-        // tirando. En rejilla la celda con el trazo discontinuo ya está a la
-        // vista desde el primer momento, y añadir un segundo camino al mismo
-        // sitio solo hace que el scroll se comporte distinto sin motivo.
+        // **Rebota aunque quepa todo.** Sin esto, un día con dos outfits no
+        // tiene nada que desplazar y el gesto no existiría justo en el caso
+        // más común.
+        .scrollBounceBehavior(.always, axes: .vertical)
+        // El mismo gesto que en revista. La celda con el trazo discontinuo
+        // sigue estando: uno lo ves, el otro lo encuentras sin buscarlo.
+        .overscrollAction(
+            threshold: 120,
+            symbol: "plus",
+            label: "Crear nuevo outfit",
+            bottomInset: bottomInset
+        ) { onCreate() }
         .sheet(item: $movingOutfit) { outfit in
             MoveOutfitSheet(outfit: outfit)
         }

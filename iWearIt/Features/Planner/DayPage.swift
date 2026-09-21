@@ -23,6 +23,9 @@ struct DayPage: View {
     private let date: Date
     /// Pide a la pantalla que empuje el editor. La página no puede navegar por
     /// su cuenta: vive en su propio `UIHostingController` dentro del pager.
+    /// Cuánto hay que dejar libre abajo: la barra de pestañas y el indicador
+    /// de inicio. La página ignora el área segura, así que no lo sabe sola.
+    private let bottomInset: CGFloat
     private let onEdit: (Outfit) -> Void
     /// Avisa de qué lienzo se está viendo, para que la sección de abajo sepa
     /// si hay outfit que editar o uno que crear. La página no lleva botón: uno
@@ -41,11 +44,13 @@ struct DayPage: View {
 
     init(
         date: Date,
+        bottomInset: CGFloat = 0,
         onEdit: @escaping (Outfit) -> Void,
         onFocus: @escaping (Date, Outfit?) -> Void = { _, _ in }
     ) {
         let dayStart = Calendar.current.startOfDay(for: date)
         self.date = dayStart
+        self.bottomInset = bottomInset
         self.onEdit = onEdit
         self.onFocus = onFocus
         _days = Query(filter: #Predicate<PlannedDay> { $0.dayStart == dayStart })
@@ -110,8 +115,9 @@ struct DayPage: View {
             symbol: "plus",
             label: "Crear nuevo outfit",
             // Por encima de la barra de pestañas: pegado al borde quedaba
-            // debajo de ella y solo se veía la mitad de arriba.
-            bottomInset: WKTabBarMetrics.reservedHeight + WK.Spacing.m
+            // debajo de ella y solo se veía la mitad de arriba. Lo mide la
+            // pantalla, que es la única que respeta el área segura.
+            bottomInset: bottomInset
         ) {
             guard !outfits.isEmpty else { return }
             isPickingForNew = true

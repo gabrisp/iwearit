@@ -139,22 +139,26 @@ private struct OverscrollAction: ViewModifier {
                 .font(WK.Font.headline)
                 .lineLimit(1)
         }
-        .foregroundStyle(isFull ? WK.Palette.canvas : WK.Palette.primaryText)
+        // La letra se invierte cuando el relleno ya ha pasado por debajo de
+        // ella. A medias no: un texto medio invertido no se lee.
+        .foregroundStyle(progress >= 0.55 ? WK.Palette.canvas : WK.Palette.primaryText)
+        .animation(WKAnimation.selection, value: progress >= 0.55)
         .padding(.horizontal, WK.Spacing.l)
         .padding(.vertical, WK.Spacing.s + 2)
-        // Al completarse se rellena entera: el aro dice cuánto falta, el
-        // relleno dice que ya no falta nada.
-        .background {
-            Capsule().fill(WK.Palette.primaryText).opacity(isFull ? 1 : 0)
-        }
-        // Se dibuja por los dos lados a la vez y no como un reloj: así no hay
-        // un punto de inicio que mirar, y se lee como algo que se cierra.
-        .overlay {
-            ZStack {
-                CapsuleHalf(progress: progress)
-                CapsuleHalf(progress: progress).scaleEffect(x: -1)
+        // **Se llena de izquierda a derecha**, como una barra de progreso, y no
+        // como un aro que se cierra: es lo que dice "sigue" en vez de "espera".
+        // Escalado y no ancho medido: no hace falta saber cuánto mide la
+        // píldora para llenarla.
+        .background(alignment: .leading) {
+            GeometryReader { proxy in
+                WK.Palette.primaryText
+                    .frame(width: proxy.size.width * progress)
             }
+            .clipShape(.capsule)
         }
+        // El cristal por debajo del relleno: la píldora es de cristal y lo que
+        // se llena es ella, no una pastilla opaca encima.
+        .adaptiveGlass(in: .capsule)
         // Un rebote corto al completarse: dice "ya está" antes de que sueltes,
         // que es lo que evita soltar a medias y no entender por qué no pasó
         // nada.
@@ -168,6 +172,8 @@ private struct OverscrollAction: ViewModifier {
         .padding(.bottom, bottomInset)
         .offset(y: Self.revealDistance - (Self.revealDistance * reveal))
         .opacity(reveal)
+        // Por encima de todo lo que haya en el scroll.
+        .zIndex(100)
         .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
@@ -181,16 +187,5 @@ private struct OverscrollAction: ViewModifier {
         if hasFired, !isTouching, offset.rounded() > -10 {
             hasFired = false
         }
-    }
-}
-
-/// Media cápsula que se dibuja según el progreso.
-private struct CapsuleHalf: View {
-    let progress: CGFloat
-
-    var body: some View {
-        Capsule()
-            .trim(from: 0, to: progress / 2)
-            .stroke(WK.Palette.primaryText, lineWidth: 2.5)
     }
 }
