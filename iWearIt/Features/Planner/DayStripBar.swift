@@ -207,7 +207,10 @@ private struct TodayButton: View {
 
     var body: some View {
         Button(action: action) {
-            DatePadGlyph(date: date, size: 20)
+            DatePadGlyph(date: date, size: 18)
+                // El mismo gris que el icono del otro extremo: el taco toma el
+                // color de quien lo pone, y aquí es un icono de barra.
+                .foregroundStyle(WK.Palette.secondaryText)
                 .frame(width: 44, height: 56)
                 .contentShape(.rect)
         }

@@ -44,21 +44,32 @@ public enum DatePadPalette {
     public static let secondaryInk = Color.black.opacity(0.7)
 }
 
-/// El mismo taco de calendario, **a tamaño de icono y sin el mes**.
+/// El mismo taco de calendario, **a tamaño de icono, sin el mes y sin color**.
 ///
-/// A 18 puntos el mes no se lee: son tres letras en algo que mide menos que
-/// una uña, y lo único que consiguen es robarle sitio al número, que es el
-/// dato. Quitándolo, el número crece hasta ocupar el taco y la pieza se
-/// reconoce de un vistazo como lo que es.
+/// ## Por qué sin color
 ///
-/// Dibujado y no un SF Symbol: `calendar` no lleva el día dentro, y el que lo
-/// lleva —`calendar.badge.clock` y compañía— no dice **qué** día. Aquí el dato
-/// es el número.
+/// Porque va en una barra de iconos y ahí el color significa algo: marca lo
+/// seleccionado, lo destacado o lo peligroso. Un taco rojo entre iconos grises
+/// se lee como "esto está activo" o como una alerta, y no es ni una cosa ni la
+/// otra: es un botón más. El sticker del lienzo sí lleva su rojo, porque allí
+/// es un objeto y no un control.
+///
+/// ## Por qué sin el mes
+///
+/// A 18 puntos son tres letras en algo que mide menos que una uña, y lo único
+/// que consiguen es robarle sitio al número, que es el dato.
+///
+/// ## Por qué dibujado
+///
+/// `calendar` no lleva el día dentro, y los que llevan insignia no dicen
+/// **qué** día. Aquí el dato es el número. Se dibuja con el trazo hueco y las
+/// proporciones de un símbolo del sistema, y toma el color de quien lo pone,
+/// así que entre iconos pasa por uno más.
 public struct DatePadGlyph: View {
     private let date: Date
     private let size: CGFloat
 
-    public init(date: Date, size: CGFloat = 20) {
+    public init(date: Date, size: CGFloat = 18) {
         self.date = date
         self.size = size
     }
@@ -70,20 +81,34 @@ public struct DatePadGlyph: View {
     }()
 
     public var body: some View {
-        VStack(spacing: 0) {
-            DatePadPalette.header
-                .frame(height: size * 0.22)
+        let line = max(1, size * 0.085)
+        let corner = size * 0.2
+        let header = size * 0.28
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
 
-            Text(Self.day.string(from: date))
-                .font(.system(size: size * 0.58, weight: .bold))
-                .monospacedDigit()
-                .minimumScaleFactor(0.6)
-                .foregroundStyle(DatePadPalette.ink)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DatePadPalette.paper)
+        ZStack {
+            shape.strokeBorder(lineWidth: line)
+
+            // La cabecera del taco: una raya, no un bloque. Recortada con la
+            // misma forma para que no se salga por las esquinas redondeadas.
+            VStack(spacing: 0) {
+                Color.clear.frame(height: header)
+                Rectangle().frame(height: line)
+                Spacer(minLength: 0)
+            }
+            .clipShape(shape)
+
+            VStack(spacing: 0) {
+                Color.clear.frame(height: header)
+                Text(Self.day.string(from: date))
+                    .font(.system(size: size * 0.46, weight: .bold))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
-        .frame(width: size * 0.9, height: size)
-        .clipShape(.rect(cornerRadius: size * 0.16, style: .continuous))
+        .frame(width: size * 0.88, height: size)
     }
 }
 
