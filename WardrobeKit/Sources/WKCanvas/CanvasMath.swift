@@ -145,14 +145,24 @@ public enum CanvasMath {
         return (result, centering)
     }
 
-    /// Deja el centro donde la prenda quepa entera.
+    /// Cuánto de la prenda tiene que quedar dentro del papel.
+    ///
+    /// Exigir la prenda **entera** dentro dejaba el sitio demasiado corto: una
+    /// camiseta grande no llegaba ni a rozar el borde, y colocar algo
+    /// asomando por el canto —que es una decisión de composición como
+    /// cualquier otra— era imposible. Con 0,65 puede salirse poco más de un
+    /// tercio de su radio, o sea, asomar sin llegar a perderse.
+    static let keptInside = 0.65
+
+    /// Deja el centro donde la prenda siga estando **mayormente** dentro.
     ///
     /// Si no cabe —una prenda más ancha que el papel— se centra en ese eje: es
     /// lo único que no deja un borde sin cubrir, y sobre todo evita que el
     /// tope la empuje a una esquina de la que no se puede sacar.
     private static func clamp(_ value: Double, half: Double, limit: Double) -> Double {
-        guard half * 2 < limit else { return limit / 2 }
-        return min(max(value, half), limit - half)
+        let margin = half * keptInside
+        guard margin * 2 < limit else { return limit / 2 }
+        return min(max(value, margin), limit - margin)
     }
 
     /// Punto tocado, de coordenadas de canvas al espacio unitario de la prenda.

@@ -81,14 +81,13 @@ public struct FreeformCanvas: View {
                 // arrastre pintaría la raya **y** movería la prenda de debajo.
                 .allowsHitTesting(!(drawing?.isActive ?? false))
 
-                // **Las guías de centrado**, mientras dura el gesto.
+                // **Sin guías de centrado.** Se quedan comentadas, no
+                // borradas: el imán sigue funcionando —centrar a ojo acaba
+                // centrado de verdad, y el háptico lo confirma—, lo que ya no
+                // se dibuja son las dos líneas cruzando el papel.
                 //
-                // Encima de las prendas y debajo de la pintura: son una ayuda
-                // para colocar, así que tienen que verse sobre lo que estás
-                // colocando, pero no taparlo cuando sueltas — y no lo tapan
-                // porque desaparecen al soltar.
-                CanvasCenteringGuides(centering: selection.centering)
-                    .allowsHitTesting(false)
+                // CanvasCenteringGuides(centering: selection.centering)
+                // .allowsHitTesting(false)
 
                 // **La pintura, encima de todo.** Es una anotación sobre el
                 // conjunto —para rodear, tachar, apuntar— y no un elemento
@@ -210,33 +209,33 @@ private struct CanvasItemContent: View {
 }
 
 
-/// Las líneas del medio del papel.
-///
-/// Aparecen solo mientras algo está centrado y se van al soltar: una guía
-/// permanente sería una retícula más, y lo que dice esto no es "aquí está el
-/// medio" sino "lo que llevas en el dedo está en el medio".
-struct CanvasCenteringGuides: View {
-    let centering: CanvasMath.Centering
-
-    var body: some View {
-        ZStack {
-            if centering.vertically {
-                Rectangle()
-                    .fill(WK.Palette.accent)
-                    .frame(height: 1)
-                    .transition(.opacity)
-            }
-            if centering.horizontally {
-                Rectangle()
-                    .fill(WK.Palette.accent)
-                    .frame(width: 1)
-                    .transition(.opacity)
-            }
-        }
-        .frame(width: CanvasSpace.width, height: CanvasSpace.height)
-        .animation(WKAnimation.selection, value: centering)
-        // Un toque al enganchar: es lo que confirma el imán sin tener que
-        // mirar si la línea ha salido.
-        .sensoryFeedback(.selection, trigger: centering)
-    }
-}
+// /// Las líneas del medio del papel.
+// ///
+// /// Aparecen solo mientras algo está centrado y se van al soltar: una guía
+// /// permanente sería una retícula más, y lo que dice esto no es "aquí está el
+// /// medio" sino "lo que llevas en el dedo está en el medio".
+// struct CanvasCenteringGuides: View {
+//     let centering: CanvasMath.Centering
+// 
+//     var body: some View {
+//         ZStack {
+//             if centering.vertically {
+//                 Rectangle()
+//                     .fill(WK.Palette.accent)
+//                     .frame(height: 1)
+//                     .transition(.opacity)
+//             }
+//             if centering.horizontally {
+//                 Rectangle()
+//                     .fill(WK.Palette.accent)
+//                     .frame(width: 1)
+//                     .transition(.opacity)
+//             }
+//         }
+//         .frame(width: CanvasSpace.width, height: CanvasSpace.height)
+//         .animation(WKAnimation.selection, value: centering)
+//         // Un toque al enganchar: es lo que confirma el imán sin tener que
+//         // mirar si la línea ha salido.
+//         .sensoryFeedback(.selection, trigger: centering)
+//     }
+// }
