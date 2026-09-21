@@ -102,6 +102,26 @@ final class CanvasEditingSession {
     /// eso tiraba el editor al aparecer. Este contexto no sincroniza nada
     /// hasta el check, así que su historial es asunto suyo.
     let undoManager = UndoManager()
+
+    /// Deshacer, **en el siguiente turno del run loop**.
+    ///
+    /// Y esto es lo que faltaba. `UndoManager` agrupa por evento: abre un
+    /// grupo al empezar el evento y lo cierra al acabarlo. Llamar a `undo()`
+    /// desde la acción de un botón es llamarlo **con el grupo abierto**, y eso
+    /// no es un fallo silencioso: lanza *"undo was called with too many nested
+    /// undo groups"* y se lleva la app por delante. Era exactamente el crash.
+    ///
+    /// Aplazándolo un turno, el grupo ya está cerrado y la operación es la que
+    /// se espera: un paso, el del gesto que acaba de terminar.
+    func undo() {
+        guard undoManager.canUndo else { return }
+        DispatchQueue.main.async { [undoManager] in undoManager.undo() }
+    }
+
+    func redo() {
+        guard undoManager.canRedo else { return }
+        DispatchQueue.main.async { [undoManager] in undoManager.redo() }
+    }
 }
 
 /// El lienzo y sus controles.
@@ -290,18 +310,12 @@ private struct CanvasEditorScreen: View {
             // —que es lo que probamos antes— el editor ni se abría.
             ToolbarItem(placement: .principal) {
                 HStack(spacing: WK.Spacing.l) {
-                    Button {
-                        session.undoManager.undo()
-                        refreshHistory()
-                    } label: {
+                    Button { session.undo() } label: {
                         Image(systemName: "arrow.uturn.backward")
                     }
                     .disabled(!canUndo)
 
-                    Button {
-                        session.undoManager.redo()
-                        refreshHistory()
-                    } label: {
+                    Button { session.redo() } label: {
                         Image(systemName: "arrow.uturn.forward")
                     }
                     .disabled(!canRedo)
@@ -511,7 +525,10 @@ private struct CanvasEditorScreen: View {
             // había que abrir la bandeja y cambiar de pestaña: dos toques para
             // una decisión. Aquí cada icono abre lo suyo.
             AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                HStack(spacing: WK.Spacing.l) {
+                // Menos separación entre iconos: ahora cada uno ocupa 44
+                // puntos por su cuenta, así que el aire ya está dentro del
+                // botón y ponerlo otra vez fuera estiraba la píldora.
+                HStack(spacing: WK.Spacing.xs) {
                     ForEach([TrayKind.drawing, .garments, .stickers], id: \.self) { kind in
                         Button {
                             withAnimation(WKAnimation.arrival) { trayKind = kind }
@@ -523,7 +540,12 @@ private struct CanvasEditorScreen: View {
                                         ? WK.Palette.accent
                                         : WK.Palette.primaryText
                                 )
-                                .frame(height: CanvasTray.controlHeight)
+                                // **Ancho mínimo, no solo alto.** Sin él, la
+                                // zona tocable era el glifo: un lápiz mide
+                                // ocho puntos de ancho y acertarlo con el dedo
+                                // es cuestión de suerte. Con 44 —el mínimo que
+                                // pide Apple— el botón es el hueco entero.
+                                .frame(width: 44, height: CanvasTray.controlHeight)
                                 .contentShape(.rect)
                         }
                         .buttonStyle(WKPressStyle())
@@ -543,7 +565,9 @@ private struct CanvasEditorScreen: View {
                                 .fill(backdropColor)
                                 .frame(width: 26, height: 26)
                                 .overlay(Circle().stroke(WK.Palette.ink(0.18), lineWidth: 1))
-                                .frame(height: CanvasTray.controlHeight)
+                                // Lo mismo que los otros tres: la muestra mide
+                                // 26 y el botón, 44.
+                                .frame(width: 44, height: CanvasTray.controlHeight)
                                 .contentShape(.rect)
                         }
                         .buttonStyle(WKPressStyle())
