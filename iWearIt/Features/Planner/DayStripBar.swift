@@ -1,4 +1,5 @@
 import SwiftUI
+import WKCanvas
 import WKDesign
 
 /// Tira horizontal de días. Tocar el título abre el calendario.
@@ -20,16 +21,20 @@ struct DayStripBar: View {
     var body: some View {
         HStack(spacing: WK.Spacing.s) {
             capsule
+            // **Un círculo, no un óvalo.** Tenía el alto de la cápsula de al
+            // lado y el ancho de un icono, así que salía estirado: dos formas
+            // distintas fingiendo ser la misma. Con el lado igual al alto es
+            // un círculo de verdad, y un botón de un solo icono es redondo.
             Button(action: onToggleLayout) {
                 Image(systemName: layoutSymbol)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(WK.Palette.primaryText)
-                    .frame(width: 44, height: 56)
+                    .frame(width: 56, height: 56)
                     .contentTransition(.symbolEffect(.replace.downUp))
                     .contentShape(.circle)
             }
             .buttonStyle(WKPressStyle())
-            .adaptiveGlassInteractive(in: .capsule)
+            .adaptiveGlassInteractive(in: .circle)
             .padding(.trailing, WK.Spacing.m)
         }
     }
@@ -79,7 +84,17 @@ struct DayStripBar: View {
                 .onAppear { proxy.scrollTo(selectedOffset, anchor: .center) }
             }
 
-            StripIcon(symbol: "arrow.uturn.backward", action: { selectedOffset = 0 })
+            // **Hoy, no "atrás".**
+            //
+            // La flecha de deshacer decía lo que no era: volver al día de hoy
+            // no es retroceder —desde la semana pasada es ir hacia delante— y
+            // una flecha de vuelta en una tira que se mueve en los dos
+            // sentidos apunta a cualquier sitio menos al que lleva.
+            //
+            // El taco de calendario sí lo dice, y además dice **a qué día**:
+            // lleva el número de hoy dentro. Es la misma pieza que el sticker
+            // de fecha del lienzo, con los mismos colores, a tamaño de icono.
+            TodayButton(date: today) { selectedOffset = 0 }
                 .opacity(selectedOffset == 0 ? 0.3 : 1)
                 .disabled(selectedOffset == 0)
         }
@@ -90,6 +105,9 @@ struct DayStripBar: View {
         .adaptiveGlassInteractive(in: .capsule)
         .padding(.leading, WK.Spacing.m)
     }
+
+    /// Hoy es el ancla: la tira se indexa por desplazamiento respecto a él.
+    private var today: Date { anchorDay }
 
     private func date(for offset: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: offset, to: anchorDay) ?? anchorDay
@@ -181,6 +199,21 @@ struct CalendarJumpSheet: View {
     }
 }
 
+
+/// El taco de calendario del extremo derecho: vuelve a hoy.
+private struct TodayButton: View {
+    let date: Date
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            DatePadGlyph(date: date, size: 20)
+                .frame(width: 44, height: 56)
+                .contentShape(.rect)
+        }
+        .buttonStyle(WKPressStyle())
+    }
+}
 
 /// Un icono de los extremos de la cápsula.
 private struct StripIcon: View {

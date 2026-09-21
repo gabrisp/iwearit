@@ -28,6 +28,65 @@ struct CanvasStickerView: View {
     }
 }
 
+/// Los colores del taco de calendario, en un sitio.
+///
+/// Los usan el sticker del lienzo y el botón de "hoy" de la tira de días, y
+/// tienen que ser **los mismos**: son la misma cosa a dos tamaños, y en cuanto
+/// cada uno escribe su propio rojo dejan de parecerlo.
+public enum DatePadPalette {
+    /// La cabecera.
+    public static let header = Color(red: 0.62, green: 0.24, blue: 0.19)
+    /// El papel.
+    public static let paper = Color(red: 0.98, green: 0.97, blue: 0.95)
+    /// La tinta del número.
+    public static let ink = Color.black.opacity(0.85)
+    /// Y la del mes, más apagada.
+    public static let secondaryInk = Color.black.opacity(0.7)
+}
+
+/// El mismo taco de calendario, **a tamaño de icono y sin el mes**.
+///
+/// A 18 puntos el mes no se lee: son tres letras en algo que mide menos que
+/// una uña, y lo único que consiguen es robarle sitio al número, que es el
+/// dato. Quitándolo, el número crece hasta ocupar el taco y la pieza se
+/// reconoce de un vistazo como lo que es.
+///
+/// Dibujado y no un SF Symbol: `calendar` no lleva el día dentro, y el que lo
+/// lleva —`calendar.badge.clock` y compañía— no dice **qué** día. Aquí el dato
+/// es el número.
+public struct DatePadGlyph: View {
+    private let date: Date
+    private let size: CGFloat
+
+    public init(date: Date, size: CGFloat = 20) {
+        self.date = date
+        self.size = size
+    }
+
+    private static let day: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("d")
+        return formatter
+    }()
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            DatePadPalette.header
+                .frame(height: size * 0.22)
+
+            Text(Self.day.string(from: date))
+                .font(.system(size: size * 0.58, weight: .bold))
+                .monospacedDigit()
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(DatePadPalette.ink)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DatePadPalette.paper)
+        }
+        .frame(width: size * 0.9, height: size)
+        .clipShape(.rect(cornerRadius: size * 0.16, style: .continuous))
+    }
+}
+
 /// El sticker de calendario: cabecera roja, mes y día.
 ///
 /// Dibujado y no un emoji ni una captura: tiene que escalar con el canvas sin
@@ -55,19 +114,19 @@ public struct DateStickerView: View {
         GeometryReader { proxy in
             let unit = min(proxy.size.width, proxy.size.height)
             VStack(spacing: 0) {
-                Color(red: 0.62, green: 0.24, blue: 0.19)
+                DatePadPalette.header
                     .frame(height: unit * 0.16)
 
                 VStack(spacing: -unit * 0.04) {
                     Text(Self.month.string(from: date).uppercased())
                         .font(.system(size: unit * 0.17, weight: .semibold))
-                        .foregroundStyle(.black.opacity(0.7))
+                        .foregroundStyle(DatePadPalette.secondaryInk)
                     Text(Self.day.string(from: date))
                         .font(.system(size: unit * 0.44, weight: .bold))
-                        .foregroundStyle(.black.opacity(0.85))
+                        .foregroundStyle(DatePadPalette.ink)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(red: 0.98, green: 0.97, blue: 0.95))
+                .background(DatePadPalette.paper)
             }
             .clipShape(.rect(cornerRadius: unit * 0.12, style: .continuous))
         }

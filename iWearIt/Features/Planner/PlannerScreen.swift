@@ -178,8 +178,15 @@ struct PlannerScreen: View {
             .scrollIndicators(.hidden)
             .scrollPosition(id: gridPosition)
             .ignoresSafeArea()
-            // Igual que el librito: el contenedor se funde y los lienzos
-            // **viajan** con su `matchedGeometryEffect`, cada uno a su celda.
+            // El contenedor se funde y ya.
+            //
+            // Las celdas llevan `matchedGeometryEffect` con el id del outfit,
+            // pero **hoy no emparejan con nada**: el otro extremo tendría que
+            // estar en el librito, y el librito vive dentro de
+            // `UIHostingController`s del pasador de hoja, que es otro árbol de
+            // SwiftUI. Un efecto con un solo extremo no viaja. Queda anotado
+            // aquí porque es la razón de que los dos sentidos no se sientan
+            // iguales, y no la curva.
             .transition(.opacity)
         }
     }
