@@ -32,6 +32,8 @@ struct GarmentImageSwitcher: View {
                 variant: .display,
                 store: appEnvironment.imageStore,
                 shadow: .init(opacity: 0.5, radius: 18, y: 11),
+                // Aquí sí, a propósito: esta fila es justo la que enseña
+                // **todas** las versiones que haya de la prenda.
                 prefersCatalog: true
             )
             .frame(maxWidth: .infinity)

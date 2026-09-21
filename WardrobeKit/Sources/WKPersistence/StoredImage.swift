@@ -71,7 +71,7 @@ public struct StoredImage: View {
         store: ImageStore,
         alignment: Alignment = .center,
         shadow: Shadow? = nil,
-        prefersCatalog: Bool = true
+        prefersCatalog: Bool = false
     ) {
         self.key = key
         self.variant = variant
@@ -165,10 +165,16 @@ public struct StoredImage: View {
 
     /// Qué variante se acaba enseñando.
     ///
-    /// Con `prefersCatalog`, la reconstruida **si existe**; si no, la pedida.
-    /// La mayoría de las prendas no la tienen —cuesta generarla— así que la
-    /// ausencia es el caso normal y no un fallo: se cae a la de siempre sin
-    /// decir nada.
+    /// **Por defecto, el recorte elegido.** El que se ve en la app es el que
+    /// se aceptó al importar, y el mismo en todas partes: la balda, el lienzo,
+    /// la rejilla y la maleta. Que exista otra versión de la prenda —una
+    /// reconstruida, la de una importación anterior— no cambia lo que se
+    /// enseña; lo que se enseña es lo que elegiste.
+    ///
+    /// `prefersCatalog` sigue estando para quien quiera pedirla a propósito
+    /// —la sección de imágenes de la ficha, por ejemplo—, pero ya no es lo que
+    /// pasa sin decir nada. Antes sí lo era, y por eso una prenda se veía de
+    /// una manera en la ficha y de otra en la balda.
     private func resolvedVariant() async -> ImageStore.Variant {
         guard prefersCatalog, await store.hasCatalog(for: key) else { return variant }
         return .catalog
