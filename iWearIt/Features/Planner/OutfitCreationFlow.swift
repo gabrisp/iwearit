@@ -16,6 +16,11 @@ private struct OutfitCreationFlow: ViewModifier {
     /// Entra ya colocada en su hueco. Es el caso de "crear outfit" desde una
     /// prenda concreta: empezar por la que acabas de mirar.
     var startingGarment: Garment?
+    /// Qué hacer con el outfit recién creado antes de abrirlo.
+    ///
+    /// Existe por el armario: crear un outfit desde ahí tiene que colgarlo del
+    /// día de hoy, y quien sabe de días es quien llama, no este modificador.
+    var onCreate: ((Outfit) -> Void)?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -51,6 +56,7 @@ private struct OutfitCreationFlow: ViewModifier {
             item.outfit = created
             modelContext.insert(item)
         }
+        onCreate?(created)
         outfit = created
     }
 }
@@ -59,9 +65,16 @@ extension View {
     /// Elegir prendas y abrir el editor con ellas puestas.
     func outfitCreationFlow(
         isActive: Binding<Bool>,
-        startingGarment: Garment? = nil
+        startingGarment: Garment? = nil,
+        onCreate: ((Outfit) -> Void)? = nil
     ) -> some View {
-        modifier(OutfitCreationFlow(isActive: isActive, startingGarment: startingGarment))
+        modifier(
+            OutfitCreationFlow(
+                isActive: isActive,
+                startingGarment: startingGarment,
+                onCreate: onCreate
+            )
+        )
     }
 }
 

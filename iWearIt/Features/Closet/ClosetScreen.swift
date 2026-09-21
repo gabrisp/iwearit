@@ -41,8 +41,12 @@ struct ClosetScreen: View {
     }
 
     @State private var captured: ImportableImage?
+    /// El atajo del sobre-scroll: seguir tirando al final del armario crea un
+    /// outfit para hoy.
+    @State private var isCreatingOutfit = false
 
     @Environment(AppEnvironment.self) private var appEnvironment
+    @Environment(\.modelContext) private var modelContext
 
     @Query(
         filter: #Predicate<GarmentCategory> { !$0.isHidden },
@@ -98,6 +102,26 @@ struct ClosetScreen: View {
                 }
             }
             .scrollIndicators(.hidden)
+            // **Rebota aunque quepa todo**: con dos baldas no hay nada que
+            // desplazar y el gesto no existiría.
+            .scrollBounceBehavior(.always, axes: .vertical)
+            // **El atajo.** Seguir tirando al final del armario abre el
+            // selector y monta un outfit **para hoy**: estabas mirando ropa y
+            // te ha apetecido combinarla, que es exactamente el momento en que
+            // ir a la otra pestaña, buscar el día y crear allí sobra.
+            //
+            // Va donde iba el botón de "Crear outfit", justo encima de la
+            // barra de pestañas — el hueco ya está reservado por ella, así que
+            // basta un respiro.
+            .overscrollAction(
+                threshold: 120,
+                symbol: "plus",
+                label: "Crear nuevo outfit",
+                bottomInset: WK.Spacing.m
+            ) {
+                appEnvironment.gate.require(.garments) { isCreatingOutfit = true }
+            }
+            .outfitCreationFlow(isActive: $isCreatingOutfit, onCreate: planForToday)
             .animation(WKAnimation.content, value: garments.isEmpty)
             .background(WK.Palette.canvas.ignoresSafeArea())
             .adaptiveScrollEdge(.top)
@@ -158,6 +182,25 @@ struct ClosetScreen: View {
             .task { openSuitcaseIfRequested() }
             #endif
         }
+    }
+
+    /// Cuelga el outfit recién creado del día de hoy.
+    ///
+    /// **De hoy y no de ninguno**, porque desde el armario no hay día a la
+    /// vista: un outfit suelto no aparecería en el plan y habría que ir a
+    /// buscarlo. Desde el plan se cuelga del día que estés mirando, que ahí sí
+    /// se sabe cuál es.
+    private func planForToday(_ outfit: Outfit) {
+        let today = Calendar.current.startOfDay(for: Date())
+        let existing = try? modelContext.fetch(
+            FetchDescriptor<PlannedDay>(predicate: #Predicate { $0.dayStart == today })
+        )
+        let day = existing?.first ?? {
+            let new = PlannedDay(dayStart: today)
+            modelContext.insert(new)
+            return new
+        }()
+        outfit.plannedDay = day
     }
 
     #if DEBUG
