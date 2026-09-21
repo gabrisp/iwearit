@@ -114,7 +114,7 @@ struct ClosetScreen: View {
             // barra de pestañas — el hueco ya está reservado por ella, así que
             // basta un respiro.
             .overscrollAction(
-                threshold: 120,
+                threshold: 84,
                 symbol: "plus",
                 label: "Crear nuevo outfit",
                 bottomInset: WK.Spacing.m

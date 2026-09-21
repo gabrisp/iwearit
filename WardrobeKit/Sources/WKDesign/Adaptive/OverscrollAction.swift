@@ -128,7 +128,7 @@ private struct OverscrollAction: ViewModifier {
 
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
     /// Separa "estás desbordando" de "estás pidiendo algo".
-    private static let revealDistance: CGFloat = 50
+    private static let revealDistance: CGFloat = 32
 
     func body(content: Content) -> some View {
         content
@@ -186,11 +186,21 @@ private struct OverscrollAction: ViewModifier {
                     // un desenfoque sustituyendo a otro— y el modificador no
                     // pintaba nada.
                     .adaptiveGlassID("overscroll", in: glass)
-                    // Y una entrada dicha explícitamente, para que no vuelva a
-                    // decidirla nadie por nosotros: crece un pelo y aparece.
-                    // El desenfoque sobra: el aura de dentro ya es todo lo
-                    // difuso que esto tiene que ser.
-                    .transition(.scale(scale: 0.88).combined(with: .opacity))
+                    // **Y una entrada propia, a propósito.**
+                    //
+                    // `glassEffectTransition(.matchedGeometry)` empareja dos
+                    // superficies de cristal que comparten id. Aquí no hay
+                    // segunda: la píldora aparece sobre el lienzo y no sale de
+                    // ningún otro cristal. Sin pareja, iOS cae a su
+                    // transición de material —la que se ve como un desenfoque
+                    // sustituyendo a otro— y por eso seguía apareciendo
+                    // borrosa por mucho que le pusiéramos el id.
+                    //
+                    // Así que aquí el cristal no transiciona su materia: la
+                    // píldora crece un pelo y aparece, que es lo que se
+                    // pidió. El contenedor sigue estando, que es lo que hace
+                    // que el cristal muestree bien lo que tiene detrás.
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
         }
         // **El rebote, por fuera de la píldora.**
@@ -263,10 +273,6 @@ private struct OverscrollAction: ViewModifier {
             // relleno no hay nada de lo que salvarlas: la palabra se queda
             // igual y lo que cambia es cuánta luz tiene detrás.
             .adaptiveGlass(in: .capsule)
-            // Aparece **donde está**, sin subir desde ningún sitio: la píldora
-            // ya estaba ahí con opacidad cero, y el cristal se encarga de que
-            // llegar no parezca un corte.
-            .adaptiveGlassTransition()
             // **Sin rebote al completarse.** Lo que avisa de que ya está es el
             // háptico, y llega al mismo sitio sin mover nada: un salto de
             // tamaño en algo que estás mirando de cerca mientras arrastras se

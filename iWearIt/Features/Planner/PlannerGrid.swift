@@ -143,7 +143,7 @@ struct PlannerGrid: View {
         // El mismo gesto que en revista. La celda con el trazo discontinuo
         // sigue estando: uno lo ves, el otro lo encuentras sin buscarlo.
         .overscrollAction(
-            threshold: 120,
+            threshold: 84,
             symbol: "plus",
             label: "Crear nuevo outfit",
             bottomInset: bottomInset

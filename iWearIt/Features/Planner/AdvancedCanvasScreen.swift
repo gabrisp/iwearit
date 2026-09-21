@@ -56,6 +56,8 @@ struct AdvancedCanvasScreen: View {
 final class CanvasEditingSession {
     let context: ModelContext
     let outfit: Outfit
+    /// El contexto de la app, al que hay que avisar cuando esto se guarda.
+    private let parent: ModelContext
 
     init?(editing outfit: Outfit, from parent: ModelContext) {
         // **El padre se guarda primero.** Un outfit recién creado —el caso de
@@ -66,11 +68,13 @@ final class CanvasEditingSession {
 
         let context = ModelContext(parent.container)
         context.autosaveEnabled = false
+        context.undoManager = undoManager
         guard let editable = context.model(for: outfit.persistentModelID) as? Outfit else {
             return nil
         }
         self.context = context
         self.outfit = editable
+        self.parent = parent
     }
 
     /// Si hay algo que perder. Es lo que decide si la X pregunta o se limita
@@ -79,7 +83,25 @@ final class CanvasEditingSession {
     var hasChanges: Bool { context.hasChanges }
 
     /// Lo hecho aquí pasa a ser lo que hay. **Una escritura, no cincuenta.**
-    func commit() { try? context.save() }
+    ///
+    /// Y el padre se entera **al momento**. Guardar en otro contexto cambia el
+    /// almacén, pero la copia que el padre tiene en memoria sigue siendo la de
+    /// antes: el plan y la rejilla seguían enseñando el outfit como estaba
+    /// hasta que algo las obligaba a releer. `rollback()` es lo que refresca
+    /// esas copias, y aquí es seguro porque el padre no tiene nada sin guardar
+    /// — se guardó justo antes de abrir la sesión.
+    func commit() {
+        try? context.save()
+        parent.rollback()
+    }
+
+    /// El historial **de esta sesión**.
+    ///
+    /// Aquí sí se puede. En el contexto de la app no: es el que respalda la
+    /// sincronización, y registrar cada cambio para deshacerlo por encima de
+    /// eso tiraba el editor al aparecer. Este contexto no sincroniza nada
+    /// hasta el check, así que su historial es asunto suyo.
+    let undoManager = UndoManager()
 }
 
 /// El lienzo y sus controles.
@@ -150,6 +172,10 @@ private struct CanvasEditorScreen: View {
     /// dentro del canvas nadie de fuera podría tocarlo.
     @State private var drawing = CanvasDrawing()
     @State private var isConfirmingDiscard = false
+    /// `UndoManager` no es observable, así que el estado de los dos botones se
+    /// copia a mano cada vez que el historial puede haber cambiado.
+    @State private var canUndo = false
+    @State private var canRedo = false
 
     private var isTrayOpen: Bool { trayKind != nil }
     /// Lo que mide la bandeja.
@@ -206,6 +232,11 @@ private struct CanvasEditorScreen: View {
         return Color(red: components.red, green: components.green, blue: components.blue)
     }
 
+    private func refreshHistory() {
+        if canUndo != session.undoManager.canUndo { canUndo = session.undoManager.canUndo }
+        if canRedo != session.undoManager.canRedo { canRedo = session.undoManager.canRedo }
+    }
+
     private func close() {
         if trayKind != nil {
             withAnimation(WKAnimation.arrival) { trayKind = nil }
@@ -252,19 +283,31 @@ private struct CanvasEditorScreen: View {
                 Button { close() } label: { Image(systemName: "xmark") }
                     .tint(WK.Palette.primaryText)
             }
-            // **Sin deshacer/rehacer, otra vez, y esta vez con el motivo
-            // apuntado.**
+            // **Deshacer y rehacer, arriba y en el centro.**
             //
-            // Se probaron con un `UndoManager` puesto en el contexto mientras
-            // el editor está abierto, y la pantalla dejó de abrirse: ese
-            // contexto es el que respalda la sincronización con iCloud, y
-            // registrar cada cambio para poder deshacerlo por encima de eso
-            // tira el editor al aparecer, en revista y en rejilla.
-            //
-            // Dejarlos puestos y apagados sería peor que no tenerlos. Para que
-            // funcionen, el historial tiene que ser **del lienzo**: una pila
-            // propia de transformaciones y trazos, que se puede deshacer sin
-            // tocar la base de datos. Eso es un bloque aparte.
+            // Ahora sí: el historial es el del contexto de la sesión, que no
+            // sincroniza nada hasta el check. Puesto en el contexto de la app
+            // —que es lo que probamos antes— el editor ni se abría.
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: WK.Spacing.l) {
+                    Button {
+                        session.undoManager.undo()
+                        refreshHistory()
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!canUndo)
+
+                    Button {
+                        session.undoManager.redo()
+                        refreshHistory()
+                    } label: {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!canRedo)
+                }
+                .tint(WK.Palette.primaryText)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 // **Aquí es donde se guarda.** Hasta este toque, nada de lo
                 // hecho existe fuera del editor.
@@ -285,6 +328,17 @@ private struct CanvasEditorScreen: View {
         // hasta que el historial sea del lienzo y no de la base de datos: una
         // pila de transformaciones propia, que es lo único que se puede
         // deshacer sin tocar el contexto compartido.
+        // El historial cambia en cada escritura del lienzo, y `UndoManager`
+        // avisa por notificación. Filtrada al de esta sesión: hay otros en la
+        // app y no tienen nada que ver con estos dos botones.
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .NSUndoManagerCheckpoint,
+                object: session.undoManager
+            )
+        ) { _ in
+            refreshHistory()
+        }
         // Descartar es **no guardar**: el contexto de la sesión se va con la
         // pantalla y se lleva los cambios con él. Por eso la pregunta puede
         // prometer lo que promete.
@@ -537,7 +591,10 @@ private struct CanvasEditorScreen: View {
         switch kind {
         case .date:
             CanvasEditing.insert(
-                sticker: .date(Date()),
+                // **El día que estás editando, no hoy.** Pegabas la fecha en
+                // el outfit del jueves y salía la de hoy, que es justo el dato
+                // que el sticker existe para decir.
+                sticker: .date(editedDate),
                 size: CGSize(width: 240, height: 260),
                 in: outfit,
                 context: modelContext
@@ -550,6 +607,16 @@ private struct CanvasEditorScreen: View {
         case .weather:
             Task { await addWeather() }
         }
+    }
+
+    /// Qué día es este outfit.
+    ///
+    /// El del plan si cuelga de un día. En una maleta no hay día que sacar del
+    /// propio outfit —el viaje sabe qué día ocupa cada uno, pero el outfit no
+    /// sabe su índice—, así que ahí se queda la fecha de hoy hasta que haga
+    /// falta lo contrario.
+    private var editedDate: Date {
+        outfit.plannedDay?.dayStart ?? Date()
     }
 
     /// El tiempo del día que se está editando, en el sitio que toque.
@@ -721,10 +788,71 @@ private struct CanvasGarmentTray: View {
         switch filter {
         case .all:
             garments
+        case .recent:
+            // Por lo último que pasó con ella: puesta o metida. Doce, que es
+            // lo que cabe en dos baldas sin tener que desplazarse.
+            garments
+                .sorted { Self.lastTouched($0) > Self.lastTouched($1) }
+                .prefix(12)
+                .map { $0 }
         case let .category(slug, _):
             garments.filter { $0.category?.slug == slug }
         case let .tag(tag):
             garments.filter { $0.tags.contains(tag) }
+        case let .color(name):
+            garments.filter { garment in
+                garment.colors.contains { $0.nameKey == name }
+            }
+        }
+    }
+
+    /// Lo último que pasó con una prenda: habérsela puesto, o haberla metido.
+    private static func lastTouched(_ garment: Garment) -> Date {
+        max(garment.lastWornAt ?? garment.dateAdded, garment.dateAdded)
+    }
+
+    /// La muestra de cada color que aparece en la fila.
+    ///
+    /// Sale del armario y no de una tabla: el nombre lo puso el propio
+    /// análisis de la prenda, así que el color exacto que representa está en
+    /// la prenda y no hay que volver a adivinarlo.
+    private var swatches: [String: NamedColor] {
+        var table: [String: NamedColor] = [:]
+        for garment in garments {
+            guard let dominant = garment.colors.first else { continue }
+            if table[dominant.nameKey] == nil { table[dominant.nameKey] = dominant }
+        }
+        return table
+    }
+
+    /// Los colores que de verdad hay en el armario, por frecuencia y solo el
+    /// dominante de cada prenda.
+    ///
+    /// El dominante y no todos: una camiseta negra con una raya roja no es una
+    /// prenda roja, y contarla como tal llena la fila de colores que luego no
+    /// devuelven lo que esperas.
+    private var colors: [TrayFilter] {
+        var counts: [String: Int] = [:]
+        for garment in garments {
+            guard let dominant = garment.colors.first else { continue }
+            counts[dominant.nameKey, default: 0] += 1
+        }
+        return counts
+            .sorted { ($0.value, $1.key) > ($1.value, $0.key) }
+            .prefix(8)
+            .map { .color($0.key) }
+    }
+
+    /// Las prendas que pasan el filtro, **agrupadas por balda**.
+    ///
+    /// Es lo que convierte la rejilla en armario: las mismas prendas, pero
+    /// donde sabes que están. Una rejilla plana de ochenta recortes obliga a
+    /// reconocer cada uno; por baldas, buscas primero la balda.
+    private var shelvesOfVisible: [(category: GarmentCategory, garments: [Garment])] {
+        let bySlug = Dictionary(grouping: visible) { $0.category?.slug ?? "" }
+        return categories.compactMap { category in
+            guard let items = bySlug[category.slug], !items.isEmpty else { return nil }
+            return (category, items)
         }
     }
 
@@ -753,58 +881,136 @@ private struct CanvasGarmentTray: View {
     }
 
     var body: some View {
-        // Los chips **en barra** y no como primera fila: siendo contenido se
-        // iban con el scroll, y el filtro tiene que quedarse a la vista
-        // mientras recorres el armario. Sin fondo: las prendas pasan por
-        // debajo, que es lo que dice que hay más.
+        // **El armario, no una rejilla de recortes.**
+        //
+        // Las mismas prendas, pero donde sabes que están: por baldas, con su
+        // cabecera y su tablero, igual que en el armario y que en la hoja de
+        // crear outfit. Una rejilla plana de ochenta recortes obliga a
+        // reconocer cada uno; por baldas, buscas primero la balda.
         ScrollView {
-                LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
-                    ForEach(visible) { garment in
-                        Button { onPick(garment) } label: {
-                            StoredImage(
-                                key: garment.normalizedImageKey,
-                                variant: .thumb,
-                                store: store,
-                                shadow: .init(opacity: 0.5, radius: 6, y: 3)
-                            )
-                            .frame(height: 96)
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(WKPressStyle())
-                    }
-                }
-                .padding(.horizontal, WK.Spacing.m)
-            }
-            .scrollIndicators(.hidden)
-            // **Sin el fondo del sistema.** Un `ScrollView` dentro de una hoja
-            // trae su propia superficie, y sobre el cristal de la bandeja se
-            // veía como un panel opaco pegado por dentro — el "background
-            // interno" que no había forma de quitar desde fuera.
-            .scrollContentBackground(.hidden)
-            // **Sin alto forzado.** Lo tenía clavado a 220 puntos, así que
-            // subir la hoja no enseñaba ni una prenda más: crecía la hoja y la
-            // rejilla se quedaba igual con un hueco debajo. Ahora ocupa lo que
-            // haya, que es lo que hace que subirla sirva para algo.
-            .frame(maxHeight: .infinity)
-            .overlay {
-                if visible.isEmpty {
-                    Text("Nada con este filtro")
-                        .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.secondaryText)
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(shelvesOfVisible, id: \.category.slug) { shelf in
+                    TrayShelf(
+                        name: shelf.category.name,
+                        garments: shelf.garments,
+                        store: store,
+                        onPick: onPick
+                    )
                 }
             }
-            .safeAreaInset(edge: .top) {
-                TrayFilterBar(
-                    filters: [.all] + shelves + styles,
-                    selection: $filter
-                )
+            .padding(.top, WK.Spacing.s)
+        }
+        .scrollIndicators(.hidden)
+        // **Sin el fondo del sistema.** Un `ScrollView` dentro de una hoja
+        // trae su propia superficie, y sobre el cristal de la bandeja se veía
+        // como un panel opaco pegado por dentro.
+        .scrollContentBackground(.hidden)
+        // **Sin alto forzado.** Lo tenía clavado, así que subir la hoja no
+        // enseñaba ni una prenda más. Ahora ocupa lo que haya.
+        .frame(maxHeight: .infinity)
+        .overlay {
+            if visible.isEmpty {
+                Text("Nada con este filtro")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
             }
+        }
+        // **Los filtros, abajo.** Es donde está el pulgar con la hoja puesta,
+        // y arriba competían con la cabecera de la primera balda. Flotan en
+        // cristal sobre las prendas, que siguen pasando por debajo: eso es lo
+        // que dice que hay más de lo que se ve.
+        .safeAreaInset(edge: .bottom) {
+            TrayFilterBar(
+                filters: [.all, .recent] + shelves + colors + styles,
+                swatches: swatches,
+                selection: $filter
+            )
+        }
         // Si la balda filtrada se queda sin prendas —las has usado todas— el
         // filtro vuelve solo a "Todo" en vez de dejar una rejilla vacía que
         // parece una app rota.
         .onChange(of: visible.isEmpty) { _, isEmpty in
             if isEmpty, filter != .all { filter = .all }
         }
+    }
+}
+
+/// Una balda dentro de la bandeja del editor.
+///
+/// La misma pieza que en el armario —cabecera, prendas colgadas con su
+/// balanceo y el tablero debajo— y por la misma razón: una prenda tiene que
+/// verse igual en todas partes o parecen dos armarios distintos. Lo único que
+/// cambia es qué pasa al tocarla: aquí se coloca en el lienzo.
+private struct TrayShelf: View {
+    let name: String
+    let garments: [Garment]
+    let store: ImageStore
+    let onPick: (Garment) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Sin chevron ni enlace: aquí la balda no se abre, se usa. Un
+            // chevron prometería una pantalla que no existe dentro de una
+            // hoja que se cierra al elegir.
+            Text(name)
+                .font(WK.Font.shelfTitle)
+                .foregroundStyle(WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.bottom, WK.Spacing.s)
+
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
+                    ForEach(garments) { garment in
+                        TrayShelfCell(garment: garment, store: store) { onPick(garment) }
+                    }
+                }
+                .padding(.horizontal, WK.Spacing.m)
+                .frame(height: WK.Shelf.height, alignment: .bottom)
+            }
+            .scrollIndicators(.hidden)
+
+            ShelfPlank()
+        }
+        .padding(.bottom, WK.Spacing.l)
+    }
+}
+
+/// Una prenda colgada, tocable para colocarla.
+private struct TrayShelfCell: View {
+    let garment: Garment
+    let store: ImageStore
+    let action: () -> Void
+
+    /// El mismo valor que usa el armario: de ahí salen el nombre y el
+    /// balanceo, así que la misma prenda se inclina igual en las dos
+    /// pantallas.
+    private var ref: GarmentRef { GarmentRef(garment) }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                StoredImage(
+                    key: garment.normalizedImageKey,
+                    variant: .thumb,
+                    store: store,
+                    alignment: .bottom,
+                    shadow: .init(opacity: 0.5, radius: 8, y: 5)
+                )
+                .frame(width: WK.Shelf.garmentWidth, height: WK.Shelf.imageHeight)
+                .rotationEffect(.degrees(ref.swayDegrees), anchor: .top)
+
+                Text(ref.name)
+                    .font(WK.Font.garmentName)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: WK.Shelf.garmentWidth)
+                    .padding(.bottom, WK.Shelf.labelBottomInset)
+            }
+            .frame(height: WK.Shelf.height, alignment: .bottom)
+            .contentShape(.rect)
+        }
+        .buttonStyle(WKPressStyle())
     }
 }
 
@@ -815,66 +1021,117 @@ private struct CanvasGarmentTray: View {
 /// temporada— es un caso más aquí y nada más.
 enum TrayFilter: Hashable {
     case all
+    /// Lo último que has metido o puesto. Es el filtro que más se usa sin
+    /// saberlo: casi siempre quieres la camiseta de la semana pasada, no la
+    /// del año pasado.
+    case recent
     case category(slug: String, name: String)
     case tag(String)
+    case color(String)
 
     var label: String {
         switch self {
         case .all: "Todo"
+        case .recent: "Reciente"
         case let .category(_, name): name
         case let .tag(tag): tag.capitalized
+        case let .color(name): name.capitalized
         }
+    }
+
+    /// El nombre del color, si es un filtro de color. Lo usa la fila para
+    /// buscar su muestra: el nombre solo —"topo", "teja"— no dice cuál es, y
+    /// con la muestra delante no hace falta saberlo.
+    var colorKey: String? {
+        guard case let .color(name) = self else { return nil }
+        return name
     }
 }
 
-/// La fila de chips. Vista propia: cambiar de filtro no tiene por qué
-/// reevaluar la rejilla entera de prendas.
+/// La fila de filtros. Vista propia: cambiar de filtro no tiene por qué
+/// reevaluar las baldas enteras.
 private struct TrayFilterBar: View {
     let filters: [TrayFilter]
+    /// La muestra de cada color, sacada del propio armario.
+    let swatches: [String: NamedColor]
     @Binding var selection: TrayFilter
 
     var body: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: WK.Spacing.xs) {
-                ForEach(filters, id: \.self) { filter in
-                    TrayFilterChip(
-                        label: filter.label,
-                        isSelected: filter == selection
-                    ) {
-                        withAnimation(WKAnimation.selection) { selection = filter }
+            // Un solo contenedor de cristal para todas: el cristal no puede
+            // muestrear otro cristal, y píldoras sueltas vecinas se ven
+            // inconsistentes entre sí.
+            AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
+                HStack(spacing: WK.Spacing.xs) {
+                    ForEach(filters, id: \.self) { filter in
+                        TrayFilterChip(
+                            label: filter.label,
+                            swatch: filter.colorKey.flatMap { swatches[$0] },
+                            isSelected: filter == selection
+                        ) {
+                            withAnimation(WKAnimation.selection) { selection = filter }
+                        }
                     }
                 }
             }
             .padding(.horizontal, WK.Spacing.m)
         }
         .scrollIndicators(.hidden)
-        // Con el scroll pegado al borde de la tarjeta, el primer chip parece
-        // cortado; y el alto fijo evita que la bandeja cambie de tamaño al
-        // aparecer o desaparecer un estilo.
-        .frame(height: 36)
+        // Sin recortar: la píldora elegida crece un poco y al primero y al
+        // último se les cortaría el borde.
+        .scrollClipDisabled()
+        .padding(.vertical, WK.Spacing.s)
     }
 }
 
 private struct TrayFilterChip: View {
     let label: String
+    /// Si el filtro es un color, su muestra. El nombre solo —"topo", "teja"—
+    /// no dice cuál es; con el punto delante no hace falta saberlo.
+    var swatch: NamedColor?
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(WK.Font.caption)
-                .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
-                .lineLimit(1)
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.xs)
-                .background(
-                    isSelected ? WK.Palette.accent : WK.Palette.ink(0.08),
-                    in: .capsule
-                )
-                .contentShape(.capsule)
+            HStack(spacing: WK.Spacing.xs) {
+                if let swatch {
+                    Circle()
+                        .fill(Color(red: swatch.red, green: swatch.green, blue: swatch.blue))
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(WK.Palette.ink(0.18), lineWidth: 0.5))
+                }
+                Text(label)
+                    .font(WK.Font.captionMedium)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.s)
+            .contentShape(.capsule)
         }
         .buttonStyle(WKPressStyle())
+        .modifier(TrayChipSurface(isSelected: isSelected))
+    }
+}
+
+/// El relleno de la píldora, elegido en un sitio.
+///
+/// Elegida va en acento sólido y el resto en cristal. Separado en su propio
+/// modificador porque el color de la etiqueta y el del fondo **se deciden
+/// juntos** o acaban el uno encima del otro.
+private struct TrayChipSurface: ViewModifier {
+    let isSelected: Bool
+
+    func body(content: Content) -> some View {
+        if isSelected {
+            content
+                .foregroundStyle(WK.Palette.onAccent)
+                .adaptiveGlassProminent(tint: WK.Palette.accent, in: .capsule)
+        } else {
+            content
+                .foregroundStyle(WK.Palette.primaryText)
+                .adaptiveGlassInteractive(in: .capsule)
+        }
     }
 }
 

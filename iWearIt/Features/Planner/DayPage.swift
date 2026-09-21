@@ -118,7 +118,7 @@ struct DayPage: View {
         // Y crea **nada** si cierras el selector: el outfit no existe hasta
         // que hay prendas que poner en él. Ver `overscrollAction`.
         .overscrollAction(
-            threshold: 120,
+            threshold: 84,
             symbol: "plus",
             label: "Crear nuevo outfit",
             // Por encima de la barra de pestañas: pegado al borde quedaba
