@@ -26,6 +26,7 @@ public struct DrawingPicker: View {
             actions
         }
         .padding(.horizontal, WK.Spacing.m)
+        .animation(WKAnimation.selection, value: drawing.tool)
     }
 
     /// Pincel o goma.
@@ -50,21 +51,22 @@ public struct DrawingPicker: View {
 
     /// Los colores, en una fila que se desplaza.
     ///
-    /// Se ven **también con la goma puesta** y no se apagan: elegir color con
-    /// la goma en la mano es la forma natural de volver a pintar, y esconderlos
-    /// obligaría a dos toques para lo que es uno.
+    /// **Desaparecen con la goma puesta.** Una goma no tiene color, y dejar la
+    /// paleta encendida mientras borras es ofrecer un control que no hace nada
+    /// a lo que estás haciendo.
+    @ViewBuilder
     private var colors: some View {
+        if drawing.tool == .brush {
+            colorRow.transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    private var colorRow: some View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.s) {
                 ForEach(CanvasDrawing.palette, id: \.self) { hex in
                     DrawingSwatch(hex: hex, isSelected: drawing.colorHex == hex) {
-                        withAnimation(WKAnimation.selection) {
-                            drawing.colorHex = hex
-                            // Elegir un color es querer pintar. Dejar la goma
-                            // puesta tras tocar un color es la clase de detalle
-                            // que hace que parezca que la app no te escucha.
-                            drawing.tool = .brush
-                        }
+                        withAnimation(WKAnimation.selection) { drawing.colorHex = hex }
                     }
                 }
             }

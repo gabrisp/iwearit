@@ -325,7 +325,7 @@ private struct PreparedOutfits: View {
                         )
                     }
                     .buttonStyle(WKPressStyle())
-                    .adaptiveZoomSource(id: outfit.persistentModelID, in: zoom)
+                    .adaptiveZoomSource(id: outfit.stableID, in: zoom)
                     .contextMenu {
                         Button("Duplicar", systemImage: "plus.square.on.square") {
                             duplicate(outfit)

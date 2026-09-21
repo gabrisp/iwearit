@@ -220,6 +220,109 @@ public actor WardrobeActor {
         return keys
     }
 
+    // MARK: - Converger sin destruir
+
+    /// Junta lo que dos dispositivos crearon por separado.
+    ///
+    /// ## Por qué hace falta
+    ///
+    /// Las restricciones de unicidad se cayeron al preparar el esquema para
+    /// CloudKit —no las soporta— y eran las que impedían dos baldas con el
+    /// mismo `slug` o dos "hoy" en el calendario. Con dos dispositivos, eso
+    /// pasa el primer día: los dos siembran sus ocho baldas semilla y los dos
+    /// crean el día de hoy la primera vez que planifican.
+    ///
+    /// ## Cómo se junta
+    ///
+    /// **Moviendo, nunca borrando.** El contenido se lleva al más antiguo —que
+    /// es el que más probablemente tiene historia— y el duplicado se queda
+    /// vacío. Si queda vacío del todo, se marca como eliminado, que es
+    /// reversible; si le quedara algo dentro por lo que sea, se deja en paz.
+    ///
+    /// Un duplicado de más es una molestia. Una balda fusionada a la brava con
+    /// sus prendas dentro es ropa perdida.
+    @discardableResult
+    public func reconcileDuplicates() throws -> Int {
+        var merged = 0
+
+        // --- Baldas con el mismo slug ---
+        let categories = try modelContext.fetch(
+            FetchDescriptor<GarmentCategory>(sortBy: [SortDescriptor(\.slug)])
+        )
+        for (_, group) in Dictionary(grouping: categories, by: \.slug) where group.count > 1 {
+            // La de más prendas manda; a igualdad, la de menor `sortOrder`.
+            let winner = group.max { left, right in
+                (left.garments.count, -left.sortOrder) < (right.garments.count, -right.sortOrder)
+            }
+            guard let winner else { continue }
+            for duplicate in group where duplicate !== winner {
+                for garment in duplicate.garments { garment.category = winner }
+                if duplicate.garments.isEmpty { duplicate.markDeleted() }
+                merged += 1
+            }
+        }
+
+        // --- Días repetidos en el calendario ---
+        let days = try modelContext.fetch(
+            FetchDescriptor<PlannedDay>(sortBy: [SortDescriptor(\.dayStart)])
+        )
+        for (_, group) in Dictionary(grouping: days, by: \.dayStart) where group.count > 1 {
+            guard let winner = group.first else { continue }
+            for duplicate in group.dropFirst() {
+                for outfit in duplicate.outfits { outfit.plannedDay = winner }
+                merged += 1
+            }
+        }
+
+        guard merged > 0 else { return 0 }
+        try modelContext.save()
+        DiagnosticsLog.record("SINCRONIZA", "\(merged) duplicado(s) fusionados sin borrar nada")
+        return merged
+    }
+
+    // MARK: - Bytes de imagen
+
+    /// Guarda —o sustituye— los bytes de una variante.
+    ///
+    /// Upsert por `(clave, variante)` y no inserción a secas: la clave es el
+    /// hash del contenido, así que volver a guardar la misma imagen tiene que
+    /// dejar una fila, no dos. Con CloudKit de por medio eso importa el doble:
+    /// dos filas con la misma clave son dos `CKAsset` subidos por lo mismo.
+    public func storeBlob(key: String, variant: String, data: Data) throws {
+        guard !key.isEmpty, !data.isEmpty else { return }
+        var descriptor = FetchDescriptor<GarmentImageBlob>(
+            predicate: #Predicate { $0.key == key && $0.variantRaw == variant }
+        )
+        descriptor.fetchLimit = 1
+        if let existing = try modelContext.fetch(descriptor).first {
+            guard existing.data != data else { return }
+            existing.data = data
+        } else {
+            modelContext.insert(
+                GarmentImageBlob(key: key, variantRaw: variant, data: data)
+            )
+        }
+        try modelContext.save()
+    }
+
+    public func blobData(key: String, variant: String) throws -> Data? {
+        var descriptor = FetchDescriptor<GarmentImageBlob>(
+            predicate: #Predicate { $0.key == key && $0.variantRaw == variant }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.data
+    }
+
+    /// Las claves que ya tienen bytes guardados.
+    ///
+    /// Sirve para la puesta al día: subir solo lo que falta en vez de releer
+    /// el armario entero del disco en cada arranque.
+    public func storedBlobKeys() throws -> Set<String> {
+        var descriptor = FetchDescriptor<GarmentImageBlob>()
+        descriptor.propertiesToFetch = [\.key]
+        return Set(try modelContext.fetch(descriptor).map(\.key))
+    }
+
     public func garmentCount() throws -> Int {
         try modelContext.fetchCount(FetchDescriptor<Garment>())
     }
@@ -461,3 +564,10 @@ public actor WardrobeActor {
         try modelContext.save()
     }
 }
+
+/// El actor de la base **es** el almacén de bytes sincronizables.
+///
+/// No hace falta nada más: guardar un blob es insertar una fila, y quien sabe
+/// insertar filas es este. El `ImageStore` le pide los bytes por protocolo y
+/// así sigue sin saber que existe una base de datos.
+extension WardrobeActor: ImageBlobStore {}

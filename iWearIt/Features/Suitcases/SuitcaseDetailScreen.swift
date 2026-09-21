@@ -142,7 +142,7 @@ private struct SuitcaseContent: View {
             AdvancedCanvasScreen(outfit: outfit, store: appEnvironment.imageStore)
                 .adaptiveZoomDestination(
                     id: suitcase.tripDayCount == nil
-                        ? AnyHashable(outfit.persistentModelID)
+                        ? AnyHashable(outfit.stableID)
                         : AnyHashable("suitcase-editor"),
                     in: zoom
                 )

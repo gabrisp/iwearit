@@ -25,9 +25,13 @@ public final class PlannedDay {
     @Relationship(deleteRule: .cascade, inverse: \Outfit.plannedDay)
     public var outfits: [Outfit] = []
 
-    /// Los outfits en orden estable.
+    /// Los outfits en orden estable, **sin los marcados para borrar**.
+    ///
+    /// El filtro va aquí y no en la rejilla: cualquier pantalla que pregunte
+    /// por los outfits de un día quiere los que existen, y una relación no
+    /// sabe de tombstones.
     public var orderedOutfits: [Outfit] {
-        outfits.sorted { $0.createdAt < $1.createdAt }
+        outfits.filter { $0.deletedAt == nil }.sorted { $0.createdAt < $1.createdAt }
     }
 
     public init(dayStart: Date, calendar: Calendar = .current) {

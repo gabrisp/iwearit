@@ -83,13 +83,21 @@ public struct FreeformCanvas: View {
                 // **La pintura, encima de todo.** Es una anotación sobre el
                 // conjunto —para rodear, tachar, apuntar— y no un elemento
                 // más: por eso no se selecciona ni se mueve con las prendas.
-                if let drawing {
-                    CanvasDrawingLayer(drawing: drawing)
-                        .frame(width: CanvasSpace.width, height: CanvasSpace.height)
-                        // Por encima de todo, sin excepción: ver
-                        // `CanvasItemMetrics.drawingZIndex`.
-                        .zIndex(CanvasItemMetrics.drawingZIndex)
+                // **Lo pintado se ve siempre.** Con capa viva en el editor,
+                // y estática en todas las demás pantallas: el plan, la rejilla
+                // y la maleta también enseñan el lienzo, y sin esto lo que
+                // dibujaste desaparecía en cuanto salías de editar.
+                Group {
+                    if let drawing {
+                        CanvasDrawingLayer(drawing: drawing)
+                    } else {
+                        CanvasStrokesView(strokes: CanvasDrawing.decode(outfit.drawingData))
+                    }
                 }
+                .frame(width: CanvasSpace.width, height: CanvasSpace.height)
+                // Por encima de todo, sin excepción: ver
+                // `CanvasItemMetrics.drawingZIndex`.
+                .zIndex(CanvasItemMetrics.drawingZIndex)
             }
             .frame(width: CanvasSpace.width, height: CanvasSpace.height)
             // El único `scaleEffect` de toda la jerarquía. Lo que se persiste

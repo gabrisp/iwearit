@@ -77,11 +77,16 @@ struct PlannerGrid: View {
                         PlannerGridCell(outfit: outfit, store: store)
                     }
                     .buttonStyle(WKPressStyle())
-                    .matchedGeometryEffect(id: outfit.persistentModelID, in: morph)
+                    // **Por el `id` del outfit y no por su identificador de
+                    // base.** El de la base cambia cuando el contexto guarda,
+                    // así que un outfit recién creado cambiaba de identidad a
+                    // mitad de la animación y SwiftUI pintaba los dos: el de
+                    // antes y el de después, hasta que algo forzaba a redibujar.
+                    .matchedGeometryEffect(id: outfit.stableID, in: morph)
                     // El editor crece **desde esta celda**, que es de donde
                     // viene: abrirlo desde el centro de la pantalla haría
                     // perder de vista cuál de los tres outfits se abrió.
-                    .adaptiveZoomSource(id: outfit.persistentModelID, in: zoom)
+                    .adaptiveZoomSource(id: outfit.stableID, in: zoom)
                     // En rejilla se ven varios a la vez, que es justo cuando
                     // apetece reutilizar uno: copiarlo para variarlo o mandarlo
                     // a otro día. En revista no tendría sentido —solo ves uno—

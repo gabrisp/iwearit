@@ -160,13 +160,15 @@ private struct ImportCandidateStrip: View {
             }
             .scrollIndicators(.hidden)
             .wkBleedingStrip()
+            // **Sin recortar.** El aro de la miniatura elegida se sale por
+            // arriba y por abajo, y un `ScrollView` recorta por los cuatro
+            // lados: se veía cortado justo en la que estás mirando.
+            .scrollClipDisabled()
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.vertical, WK.Spacing.s)
-        // Cristal, como el resto de lo que flota sobre contenido: las fichas
-        // pasan por debajo al deslizar y sin superficie el texto se mezcla con
-        // la foto de la prenda.
-        .background(.bar)
+        // **Sin superficie.** Flota sobre la ficha y el contenido pasa por
+        // debajo, como el resto de barras de la app.
     }
 }
 

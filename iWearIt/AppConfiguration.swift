@@ -10,6 +10,26 @@ enum AppConfiguration {
     static let appwriteEndpoint = URL(string: "https://appwrite.repzet.app/v1")!
     static let appwriteProjectID = "iwearit"
 
+    /// Si el armario se replica en iCloud.
+    ///
+    /// Una preferencia y no una constante porque hay que poder apagarla sin
+    /// reinstalar: si algo va mal con CloudKit, apagar esto devuelve la app
+    /// exactamente al comportamiento de siempre —mismo fichero, mismos datos—
+    /// y nada se pierde por el camino.
+    ///
+    /// Encendida por defecto. Si no hay sesión de iCloud, si falta el
+    /// entitlement o si el contenedor todavía no existe, el arranque cae solo
+    /// a local: ver `AppEnvironment.live()`.
+    static var syncsWithCloud: Bool {
+        get {
+            guard UserDefaults.standard.object(forKey: syncKey) != nil else { return true }
+            return UserDefaults.standard.bool(forKey: syncKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: syncKey) }
+    }
+
+    private static let syncKey = "iWearIt.syncsWithCloud"
+
     /// Clave pública de RevenueCat.
     ///
     /// Las claves públicas de RevenueCat están **pensadas** para ir en el

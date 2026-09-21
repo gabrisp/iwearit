@@ -206,6 +206,12 @@ struct AdvancedCanvasScreen: View {
         // esto, el mismo arrastre haría las dos cosas.
         .onChange(of: trayKind) { _, kind in
             drawing.isActive = kind == .drawing
+            // **El hueco reservado se devuelve al cerrar.** Si no, la barra de
+            // abajo se queda a la altura que tenía la bandeja más alta que se
+            // abrió, y parece que se ha ido hacia abajo sola.
+            if kind == nil {
+                withAnimation(WKAnimation.arrival) { trayHeight = CanvasTray.initialHeight }
+            }
         }
         .fullScreenCover(item: $editingText) { sticker in
             TextStickerEditor(sticker: sticker) { edited in

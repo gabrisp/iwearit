@@ -104,7 +104,7 @@ struct PlannerScreen: View {
                     // El mismo id que la fuente: en rejilla es la celda, en
                     // revista el lienzo entero. En los dos casos el editor sale
                     // **de donde estaba** lo que se abre.
-                    .adaptiveZoomDestination(id: outfit.persistentModelID, in: zoom)
+                    .adaptiveZoomDestination(id: outfit.stableID, in: zoom)
                     .toolbarVisibility(.hidden, for: .tabBar)
             }
             .background(WK.Palette.canvas.ignoresSafeArea())
@@ -238,13 +238,13 @@ struct PlannerScreen: View {
         // segura, la retícula empieza por debajo de la hora y deja una franja
         // muerta justo donde la tira tiene que flotar *sobre* el papel.
         .ignoresSafeArea()
-        .adaptiveZoomSource(id: focusedOutfit?.persistentModelID ?? placeholderZoomID, in: zoom)
+        .adaptiveZoomSource(id: focusedOutfit?.stableID ?? Self.placeholderZoomID, in: zoom)
     }
 
     /// Id de repuesto cuando el lienzo visible todavía no tiene outfit. Nunca
     /// coincide con uno real, así que la transición cae al empuje normal en vez
     /// de crecer desde un sitio equivocado.
-    private var placeholderZoomID: PersistentIdentifier? { nil }
+    private static let placeholderZoomID = UUID()
 
     /// Abre el lienzo que se está viendo, creándolo si está vacío.
     private func editCurrent(forcingNew: Bool = false) {

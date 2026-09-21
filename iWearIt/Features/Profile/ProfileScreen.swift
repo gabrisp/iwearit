@@ -15,6 +15,7 @@ struct ProfileScreen: View {
             ScrollView {
                 VStack(spacing: WK.Spacing.l) {
                     SubscriptionSection()
+                    SyncSection()
                     WardrobeStatsSection()
                     ModelSection()
                     DiagnosticsSection()
@@ -30,6 +31,66 @@ struct ProfileScreen: View {
             .adaptiveScrollEdge(.top)
             .toolbarVisibility(.hidden, for: .navigationBar)
         }
+    }
+}
+
+/// Qué pasa con iCloud.
+///
+/// Lo justo y **sin inventar progreso**: CloudKit no dice cuánto queda de una
+/// importación, así que un "63% sincronizado" sería una animación mintiendo.
+/// Lo que sí se puede decir con verdad es si está trabajando, si no hay sesión,
+/// si no hay red y cuándo fue la última vez que terminó algo.
+private struct SyncSection: View {
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var isEnabled = AppConfiguration.syncsWithCloud
+
+    private static let lastSync: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        WKSection("iCloud", footer: footer) {
+            WKRow {
+                Text("Sincronizar")
+                    .font(WK.Font.rowTitle)
+            } trailing: {
+                Toggle("", isOn: $isEnabled)
+                    .labelsHidden()
+                    .onChange(of: isEnabled) { _, value in
+                        AppConfiguration.syncsWithCloud = value
+                    }
+            }
+
+            WKValueRow("Estado", value: description)
+
+            if let last = appEnvironment.sync.lastSyncedAt {
+                WKValueRow(
+                    "Última vez",
+                    value: Self.lastSync.string(from: last),
+                    showsSeparator: false
+                )
+            }
+        }
+    }
+
+    private var description: String {
+        switch appEnvironment.sync.status {
+        case .idle: "Al día"
+        case .syncing: "Sincronizando…"
+        case .offline: "Sin conexión"
+        case let .unavailable(reason): reason.capitalized
+        case let .failed(message): message
+        }
+    }
+
+    /// Y el aviso que importa: apagarlo **no borra nada**.
+    private var footer: String {
+        isEnabled == appEnvironment.sync.isEnabled
+            ? "Tu armario está en este iPhone. iCloud solo lo copia a tus otros dispositivos."
+            : "Se aplica al abrir la app otra vez. Tus datos se quedan donde están."
     }
 }
 

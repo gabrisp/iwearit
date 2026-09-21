@@ -165,7 +165,48 @@ public final class CanvasDrawing {
     ]
 }
 
-/// Lo pintado, dibujado.
+/// Trazos pintados, sin nada más.
+///
+/// Sirve para los lienzos que **solo miran**: el día del plan, la rejilla, la
+/// página de la maleta. Ahí no se pinta, pero lo pintado tiene que verse — si
+/// no, lo que dibujaste en el editor desaparece en cuanto sales de él.
+public struct CanvasStrokesView: View {
+    private let strokes: [CanvasStroke]
+
+    public init(strokes: [CanvasStroke]) {
+        self.strokes = strokes
+    }
+
+    public var body: some View {
+        Canvas { context, _ in
+            for stroke in strokes { CanvasStrokePainter.draw(stroke, in: &context) }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Cómo se pinta un trazo. En un sitio: lo usan la capa viva del editor y la
+/// estática de las demás pantallas, y dos copias divergen en cuanto se toque
+/// el grosor o la goma.
+enum CanvasStrokePainter {
+    static func draw(_ stroke: CanvasStroke, in context: inout GraphicsContext) {
+        guard stroke.points.count > 1 else { return }
+        var path = Path()
+        path.addLines(stroke.points)
+
+        // La goma borra **dentro de esta capa**: `destinationOut` recorta lo
+        // que ya se pintó aquí y no toca las prendas, que están en otra vista
+        // por debajo. Es lo que hace que la goma borre pintura y no ropa.
+        context.blendMode = stroke.erases ? .destinationOut : .normal
+        context.stroke(
+            path,
+            with: .color(Color(hex: stroke.colorHex) ?? .black),
+            style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round)
+        )
+    }
+}
+
+/// Lo pintado, dibujado **y tocable**.
 ///
 /// Un solo `Canvas` para todos los trazos: una vista por trazo serían cientos
 /// de vistas que se rehacen en cada punto nuevo.
@@ -178,8 +219,8 @@ public struct CanvasDrawingLayer: View {
 
     public var body: some View {
         Canvas { context, _ in
-            for stroke in drawing.strokes { draw(stroke, in: &context) }
-            if let live = drawing.live { draw(live, in: &context) }
+            for stroke in drawing.strokes { CanvasStrokePainter.draw(stroke, in: &context) }
+            if let live = drawing.live { CanvasStrokePainter.draw(live, in: &context) }
         }
         // **Transparente al dedo salvo mientras se pinta.** Es lo que permite
         // que la pintura viva encima de las prendas sin estorbar para moverlas.
@@ -196,19 +237,4 @@ public struct CanvasDrawingLayer: View {
         )
     }
 
-    private func draw(_ stroke: CanvasStroke, in context: inout GraphicsContext) {
-        guard stroke.points.count > 1 else { return }
-        var path = Path()
-        path.addLines(stroke.points)
-
-        // La goma borra **dentro de esta capa**: `destinationOut` recorta lo
-        // que ya se pintó aquí y no toca las prendas, que están en otra vista
-        // por debajo. Es lo que hace que la goma borre pintura y no ropa.
-        context.blendMode = stroke.erases ? .destinationOut : .normal
-        context.stroke(
-            path,
-            with: .color(Color(hex: stroke.colorHex) ?? .black),
-            style: StrokeStyle(lineWidth: stroke.width, lineCap: .round, lineJoin: .round)
-        )
-    }
 }

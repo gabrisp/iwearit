@@ -1,9 +1,60 @@
 import SwiftData
 import SwiftUI
+import UIKit
+import WKCore
 import WKDesign
+
+/// Solo existe para una cosa: recibir el aviso de que hay cambios en iCloud.
+///
+/// `NSPersistentCloudKitContainer` se suscribe él solo a los cambios del otro
+/// dispositivo, pero el aviso llega como notificación remota silenciosa y
+/// SwiftUI no tiene dónde recogerla. Sin esto, los cambios del iPad no llegan
+/// al iPhone hasta que el iPhone se abre — que es justo lo contrario de
+/// sincronizar rápido sin hacer polling.
+///
+/// No hace nada más. Ni pide permiso de notificaciones (estas son silenciosas y
+/// no lo necesitan) ni las enseña.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        application.registerForRemoteNotifications()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completion: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // El contenedor ya está escuchando: lo único que hay que hacer es no
+        // morir antes de que termine de importar. `.newData` es lo que le dice
+        // al sistema que esta app usa bien sus avisos y que siga mandándolos.
+        DiagnosticsLog.record("ICLOUD", "aviso de cambios remotos")
+        completion(.newData)
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        // Pasa en el simulador y sin perfil de aprovisionamiento. No es fatal:
+        // sin avisos, la sincronización sigue ocurriendo, solo que al abrir la
+        // app en vez de al momento.
+        DiagnosticsLog.record(
+            "ICLOUD",
+            "sin avisos remotos: \(error.localizedDescription)",
+            isProblem: true
+        )
+    }
+}
 
 @main
 struct iWearItApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+
     init() {
         // Antes de que se dibuje nada: una vista construida antes del registro
         // se queda con la fuente del sistema hasta que se reevalúe.

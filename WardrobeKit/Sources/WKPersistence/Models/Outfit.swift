@@ -57,6 +57,18 @@ public final class Outfit {
         self.createdAt = Date()
     }
 
+    /// El identificador **estable**, el que no cambia nunca.
+    ///
+    /// Hace falta un nombre propio porque `outfit.id` visto desde fuera se
+    /// resuelve al identificador de SwiftData, no a este: y ese cambia cuando
+    /// el contexto guarda. Usarlo como identidad de vista hacía que un outfit
+    /// recién creado cambiara de identidad a mitad de la animación y se
+    /// pintaran los dos, el de antes y el de después.
+    ///
+    /// Y con sincronización importa el doble: este es el mismo en todos los
+    /// dispositivos; el de SwiftData, no.
+    public var stableID: UUID { id }
+
     /// Siguiente `zIndex` para traer una prenda al frente.
     ///
     /// Se suma sobre el máximo en vez de reindexar el array: reindexar es la

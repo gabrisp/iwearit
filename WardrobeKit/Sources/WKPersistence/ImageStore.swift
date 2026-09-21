@@ -20,6 +20,16 @@ import WKCore
 ///
 /// El sharding por los dos primeros caracteres evita un directorio con 5.000
 /// entradas, que en APFS penaliza el listado.
+/// Quién guarda los bytes para que viajen a los demás dispositivos.
+///
+/// Un protocolo y no una dependencia directa a la base: el `ImageStore` sabe de
+/// ficheros y de nada más, y meterle un `ModelContext` dentro lo convertiría en
+/// otra cosa. Lo implementa `WardrobeActor`, que es quien tiene el contexto.
+public protocol ImageBlobStore: Sendable {
+    func storeBlob(key: String, variant: String, data: Data) async throws
+    func blobData(key: String, variant: String) async throws -> Data?
+}
+
 public actor ImageStore {
 
     public enum Variant: String, CaseIterable, Sendable {
@@ -80,6 +90,24 @@ public actor ImageStore {
     private let root: URL
     private let fileManager = FileManager.default
 
+    /// Dónde dejar copia de los bytes para que se sincronicen, si alguien la
+    /// quiere. `nil` = solo ficheros, que es el comportamiento de siempre y el
+    /// de los tests.
+    private var blobs: (any ImageBlobStore)?
+
+    /// Se conecta al arrancar, no en el `init`: el `ImageStore` se construye
+    /// antes que la base de datos.
+    public func attachBlobStore(_ store: any ImageBlobStore) {
+        blobs = store
+    }
+
+    /// Las variantes que viajan.
+    ///
+    /// La miniatura no: se saca de `display` en milisegundos y subir una
+    /// tercera copia de cada prenda gasta cuota de iCloud del usuario para no
+    /// ahorrar nada.
+    static let syncedVariants: [Variant] = [.display, .catalog]
+
     /// - Parameter root: se inyecta en los tests para aislar cada uno en su
     ///   propio directorio temporal.
     public init(root: URL? = nil) throws {
@@ -106,7 +134,7 @@ public actor ImageStore {
     /// mismo resultado visual comparten fichero aunque vinieran de fotos
     /// distintas.
     @discardableResult
-    public func store(_ image: CGImage) throws -> String {
+    public func store(_ image: CGImage) async throws -> String {
         guard let canonical = Self.resize(image, maxPixelSize: Variant.display.maxPixelSize) else {
             throw StoreError.renderFailed
         }
@@ -127,6 +155,11 @@ public actor ImageStore {
                 : (Self.resize(canonical, maxPixelSize: variant.maxPixelSize) ?? canonical)
             let data = try Self.encodeHEIC(source, quality: variant.compressionQuality)
             try writeAtomically(data, to: url)
+            // Y copia a la base si hay sincronización: el fichero es la caché
+            // rápida de este dispositivo, la fila es lo que llega al otro.
+            if Self.syncedVariants.contains(variant) {
+                try? await blobs?.storeBlob(key: key, variant: variant.rawValue, data: data)
+            }
         }
         return key
     }
@@ -136,12 +169,13 @@ public actor ImageStore {
     /// Comparte clave con el recorte a propósito: es la misma prenda vista de
     /// otra manera, así que borrar la prenda se lleva las dos, y no hay una
     /// segunda clave que pueda quedarse huérfana.
-    public func storeCatalog(_ image: CGImage, for key: String) throws {
+    public func storeCatalog(_ image: CGImage, for key: String) async throws {
         guard let resized = Self.resize(image, maxPixelSize: Variant.catalog.maxPixelSize) else {
             throw StoreError.renderFailed
         }
         let data = try Self.encodePNG(resized)
         try writeAtomically(data, to: url(for: key, variant: .catalog))
+        try? await blobs?.storeBlob(key: key, variant: Variant.catalog.rawValue, data: data)
     }
 
     /// Tira la versión de catálogo y se queda con el recorte de verdad.
@@ -160,10 +194,16 @@ public actor ImageStore {
     ///
     /// Se pregunta antes de generar: volver a pedirla costaría otra vez lo
     /// mismo para obtener algo que ya está en disco.
-    public func hasCatalog(for key: String) -> Bool {
-        fileManager.fileExists(
-            atPath: url(for: key, variant: .catalog).path(percentEncoded: false)
-        )
+    public func hasCatalog(for key: String) async -> Bool {
+        if fileManager.fileExists(atPath: url(for: key, variant: .catalog).path(percentEncoded: false)) {
+            return true
+        }
+        // En un dispositivo recién sincronizado el fichero todavía no existe,
+        // pero los bytes sí: decir que no hay catálogo aquí haría que la balda
+        // enseñara el recorte feo y que la ficha ofreciera generar —y pagar—
+        // una imagen que ya está.
+        guard let blobs else { return false }
+        return (try? await blobs.blobData(key: key, variant: Variant.catalog.rawValue)) != nil
     }
 
     /// Escritura atómica: a un temporal y luego intercambio.
@@ -198,16 +238,52 @@ public actor ImageStore {
         fileManager.fileExists(atPath: url(for: key, variant: variant).path(percentEncoded: false))
     }
 
-    public func data(for key: String, variant: Variant) throws -> Data {
+    public func data(for key: String, variant: Variant) async throws -> Data {
         let url = url(for: key, variant: variant)
-        guard let data = fileManager.contents(atPath: url.path(percentEncoded: false)) else {
-            throw StoreError.notFound(key: key, variant: variant)
+        if let data = fileManager.contents(atPath: url.path(percentEncoded: false)) {
+            return data
         }
+        // **No está en disco: puede que haya llegado del otro dispositivo.**
+        //
+        // Es el caso normal en un iPad recién sincronizado: las prendas están
+        // en la base y los bytes también, pero ningún fichero se ha escrito
+        // todavía porque aquí nadie ha recortado nada. Se materializa al
+        // pedirla —una vez— y a partir de ahí es un fichero local como los
+        // demás.
+        if let recovered = try? await materialise(key: key, variant: variant) {
+            return recovered
+        }
+        throw StoreError.notFound(key: key, variant: variant)
+    }
+
+    /// Escribe en disco lo que venga de la base, si viene algo.
+    ///
+    /// La miniatura no viaja, así que se deriva de `display`: es lo que evita
+    /// subir una tercera copia de cada prenda a iCloud.
+    private func materialise(key: String, variant: Variant) async throws -> Data? {
+        guard let blobs else { return nil }
+
+        if let data = try await blobs.blobData(key: key, variant: variant.rawValue) {
+            try writeAtomically(data, to: url(for: key, variant: variant))
+            DiagnosticsLog.record("IMÁGENES", "recuperada de la nube · \(key.prefix(8)) \(variant.rawValue)")
+            return data
+        }
+
+        guard
+            variant == .thumb,
+            let display = try await blobs.blobData(key: key, variant: Variant.display.rawValue),
+            let source = CGImageSourceCreateWithData(display as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+            let resized = Self.resize(image, maxPixelSize: Variant.thumb.maxPixelSize)
+        else { return nil }
+
+        let data = try Self.encodeHEIC(resized, quality: Variant.thumb.compressionQuality)
+        try writeAtomically(data, to: url(for: key, variant: .thumb))
         return data
     }
 
-    public func image(for key: String, variant: Variant) throws -> CGImage {
-        let data = try data(for: key, variant: variant)
+    public func image(for key: String, variant: Variant) async throws -> CGImage {
+        let data = try await data(for: key, variant: variant)
         guard
             let source = CGImageSourceCreateWithData(data as CFData, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil)

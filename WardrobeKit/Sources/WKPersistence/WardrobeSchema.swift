@@ -12,6 +12,14 @@ public enum WardrobeSchemaV1: VersionedSchema {
     public static let versionIdentifier = Schema.Version(1, 0, 0)
 
     public static var models: [any PersistentModel.Type] {
+        synced + localOnly
+    }
+
+    /// Lo que es del usuario y tiene que estar en todos sus dispositivos.
+    ///
+    /// Incluye `GarmentImageBlob`: sin los bytes, el otro dispositivo recibe un
+    /// armario de claves que no resuelven.
+    public static var synced: [any PersistentModel.Type] {
         [
             Garment.self,
             GarmentCategory.self,
@@ -22,6 +30,19 @@ public enum WardrobeSchemaV1: VersionedSchema {
             Suitcase.self,
             PackingEntry.self,
             BodyProfile.self,
+            GarmentImageBlob.self,
+        ]
+    }
+
+    /// Lo que **no tiene sentido fuera de este dispositivo**.
+    ///
+    /// - `DownloadedModel` guarda una ruta relativa a un contenedor que cambia
+    ///   por instalación: sincronizarlo haría que el iPad creyera tener un
+    ///   modelo de Core ML que no ha descargado.
+    /// - `ScanSession` guarda un cursor de `PHAsset`, que identifica una foto
+    ///   **de esta galería**. En otro dispositivo no señala nada.
+    public static var localOnly: [any PersistentModel.Type] {
+        [
             DownloadedModel.self,
             ScanSession.self,
         ]
@@ -49,19 +70,72 @@ public enum WardrobeMigrationPlan: SchemaMigrationPlan {
 
 public enum WardrobeStore {
 
+    /// El contenedor de CloudKit. Tiene que existir en la cuenta de
+    /// desarrollador y estar declarado en los entitlements del target.
+    public static let cloudContainerIdentifier = "iCloud.com.gabrisp.iWearIt"
+
+    /// Dónde está el store que ya tiene el usuario.
+    ///
+    /// **Explícito y no el de por defecto**, y es lo que hace que esto no sea
+    /// una migración peligrosa: al pasar de una configuración a dos, la
+    /// sincronizada se queda **en el mismo fichero de siempre**. El armario no
+    /// se mueve, no se copia y no se recrea; lo único que cambia es que ahora
+    /// hay un segundo store al lado para lo que no debe viajar.
+    ///
+    /// Comprobado con un test: abrir ese fichero declarando menos entidades de
+    /// las que contiene conserva todo lo demás.
+    static var syncedStoreURL: URL {
+        URL.applicationSupportDirectory.appending(path: "default.store")
+    }
+
+    /// Y el de lo que es de este dispositivo. Fichero nuevo: aquí no había
+    /// nada que conservar.
+    static var localStoreURL: URL {
+        URL.applicationSupportDirectory.appending(path: "local.store")
+    }
+
     /// Construye el contenedor.
     ///
-    /// - Parameter inMemory: para tests y previews. Cada llamada crea un store
-    ///   aislado, así que los tests no se pisan entre sí.
-    public static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
-        let configuration = ModelConfiguration(
-            schema: Schema(versionedSchema: WardrobeSchemaV1.self),
-            isStoredInMemoryOnly: inMemory
+    /// - Parameters:
+    ///   - inMemory: para tests y previews. Cada llamada crea un store aislado,
+    ///     así que los tests no se pisan entre sí.
+    ///   - syncsWithCloud: si el store del armario se replica en iCloud. Al
+    ///     apagarlo, la app funciona exactamente igual contra el mismo fichero
+    ///     local — que es lo que permite encender y apagar la sincronización
+    ///     sin tocar los datos.
+    public static func makeContainer(
+        inMemory: Bool = false,
+        syncsWithCloud: Bool = false
+    ) throws -> ModelContainer {
+        let schema = Schema(versionedSchema: WardrobeSchemaV1.self)
+
+        guard !inMemory else {
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: WardrobeMigrationPlan.self,
+                configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            )
+        }
+
+        let synced = ModelConfiguration(
+            "wardrobe",
+            schema: Schema(WardrobeSchemaV1.synced),
+            url: syncedStoreURL,
+            cloudKitDatabase: syncsWithCloud
+                ? .private(cloudContainerIdentifier)
+                : .none
         )
+        let local = ModelConfiguration(
+            "local",
+            schema: Schema(WardrobeSchemaV1.localOnly),
+            url: localStoreURL,
+            cloudKitDatabase: .none
+        )
+
         return try ModelContainer(
-            for: Schema(versionedSchema: WardrobeSchemaV1.self),
+            for: schema,
             migrationPlan: WardrobeMigrationPlan.self,
-            configurations: configuration
+            configurations: synced, local
         )
     }
 }

@@ -188,3 +188,30 @@ struct GarbageCollectionGraceTests {
         #expect(await store.exists(key: key))
     }
 }
+
+@Suite("Bytes que viajan")
+struct ImageBlobTests {
+
+    /// Lo que hace que el iPad vea fotos y no cajas grises: los bytes viven
+    /// también en la base, y desde ahí se materializan en disco al pedirlos.
+    @Test("Una imagen guardada deja copia en la base y se recupera sin fichero")
+    func blobsSurviveWithoutFiles() async throws {
+        let container = try WardrobeStore.makeContainer(inMemory: true)
+        let actor = WardrobeActor(modelContainer: container)
+
+        let origin = try ImageStore(root: temporaryRoot())
+        await origin.attachBlobStore(actor)
+        let key = try await origin.store(makeCutout())
+
+        // Otro dispositivo: misma base, disco vacío.
+        let arriving = try ImageStore(root: temporaryRoot())
+        await arriving.attachBlobStore(actor)
+
+        let recovered = try await arriving.image(for: key, variant: .display)
+        #expect(recovered.width > 0)
+
+        // Y la miniatura, que no viaja, se deriva de la que sí.
+        let thumb = try await arriving.image(for: key, variant: .thumb)
+        #expect(thumb.width <= Int(ImageStore.Variant.thumb.maxPixelSize))
+    }
+}

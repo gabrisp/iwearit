@@ -366,3 +366,123 @@ struct SoftDeletionTests {
         #expect(outfit.visibleItems.count == 1)
     }
 }
+
+@Suite("Separar el store en nube y local")
+@MainActor
+struct StoreSplitTests {
+
+    /// La pregunta que decide la migración: si el fichero que ya tiene el
+    /// usuario contiene entidades que la configuración nueva **no** declara,
+    /// ¿se abre igual y conserva lo demás, o se queda a oscuras?
+    ///
+    /// De la respuesta depende poder dejar el store existente como el
+    /// sincronizado y llevarse a otro fichero solo lo que es de este
+    /// dispositivo. Si fallara, habría que migrar copiando filas — que es
+    /// mucho más arriesgado.
+    @Test("Abrir el store existente con un esquema más corto conserva los datos")
+    func openingWithFewerEntitiesKeepsData() throws {
+        let url = URL.temporaryDirectory.appending(path: "split-\(UUID().uuidString).store")
+
+        // Lo que ya tiene el usuario: un store con todo dentro.
+        let full = try ModelContainer(
+            for: Schema(versionedSchema: WardrobeSchemaV1.self),
+            configurations: ModelConfiguration(
+                schema: Schema(versionedSchema: WardrobeSchemaV1.self),
+                url: url
+            )
+        )
+        let writing = ModelContext(full)
+        writing.insert(Garment(name: "Camisa", kind: .upperBody, normalizedImageKey: "x"))
+        writing.insert(
+            DownloadedModel(
+                modelID: "clothes-seg", version: 1, sha256: "abc",
+                compiledPath: "models/seg.mlmodelc", sizeBytes: 1
+            )
+        )
+        try writing.save()
+
+        // Y ahora se abre igual pero declarando solo lo que sincroniza.
+        let syncedSchema = Schema(WardrobeSchemaV1.synced)
+        let partial = try ModelContainer(
+            for: syncedSchema,
+            configurations: ModelConfiguration(schema: syncedSchema, url: url)
+        )
+        let reading = ModelContext(partial)
+        let garments = try reading.fetch(FetchDescriptor<Garment>())
+
+        #expect(garments.count == 1, "la prenda del usuario tiene que seguir ahí")
+        #expect(garments.first?.name == "Camisa")
+    }
+}
+
+@Suite("Converger entre dispositivos")
+struct ConvergenceTests {
+
+    /// El caso del primer día con dos dispositivos: los dos sembraron sus ocho
+    /// baldas y ahora hay dieciséis. Juntarlas **no puede costar ni una
+    /// prenda**.
+    @Test("Dos baldas con el mismo slug se juntan sin perder ropa")
+    func mergesDuplicateCategories() async throws {
+        let container = try WardrobeStore.makeContainer(inMemory: true)
+        let actor = WardrobeActor(modelContainer: container)
+        let context = ModelContext(container)
+
+        let first = GarmentCategory(slug: "tops", name: "Tops", sortOrder: 0)
+        let second = GarmentCategory(slug: "tops", name: "Tops", sortOrder: 1)
+        context.insert(first)
+        context.insert(second)
+
+        let mine = Garment(name: "Camisa", kind: .upperBody, normalizedImageKey: "a")
+        let theirs = Garment(name: "Jersey", kind: .upperBody, normalizedImageKey: "b")
+        context.insert(mine)
+        context.insert(theirs)
+        mine.category = first
+        theirs.category = second
+        try context.save()
+
+        _ = try await actor.reconcileDuplicates()
+
+        let reading = ModelContext(container)
+        let visible = try reading.fetch(FetchDescriptor<GarmentCategory>.visibleCategories())
+        #expect(visible.count == 1, "queda una balda")
+        #expect(visible.first?.garments.count == 2, "con las dos prendas dentro")
+
+        // Y la duplicada no se ha borrado: está marcada, que es reversible.
+        let all = try reading.fetch(FetchDescriptor<GarmentCategory>())
+        #expect(all.count == 2)
+    }
+
+    @Test("Dos veces el mismo día se juntan sin perder outfits")
+    func mergesDuplicateDays() async throws {
+        let container = try WardrobeStore.makeContainer(inMemory: true)
+        let actor = WardrobeActor(modelContainer: container)
+        let context = ModelContext(container)
+
+        let day = Calendar.current.startOfDay(for: Date())
+        let mine = PlannedDay(dayStart: day)
+        let theirs = PlannedDay(dayStart: day)
+        context.insert(mine)
+        context.insert(theirs)
+
+        let a = Outfit(name: "El mío")
+        let b = Outfit(name: "El suyo")
+        context.insert(a)
+        context.insert(b)
+        a.plannedDay = mine
+        b.plannedDay = theirs
+        try context.save()
+
+        _ = try await actor.reconcileDuplicates()
+
+        let reading = ModelContext(container)
+        let outfits = try reading.fetch(FetchDescriptor<Outfit>())
+        #expect(outfits.count == 2, "ningún outfit se pierde al juntar los días")
+        let days = try reading.fetch(FetchDescriptor<PlannedDay>(
+            predicate: #Predicate { $0.dayStart == day }
+        ))
+        let withContent = days.filter { !$0.orderedOutfits.isEmpty }
+        #expect(withContent.count == 1, "los dos outfits acaban en el mismo día")
+        #expect(withContent.first?.orderedOutfits.count == 2)
+    }
+}
+

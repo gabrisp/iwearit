@@ -107,13 +107,18 @@ public final class AppEnvironment {
     /// se elige a mano, que para un viaje es además el correcto.
     public let weather = WeatherProvider()
 
+    /// Qué sabe la app de iCloud. Ver `CloudSync`.
+    let sync: CloudSync
+
     private init(
         modelSource: ModelSource,
         container: ModelContainer,
         imageStore: ImageStore,
-        modelStore: ModelStore
+        modelStore: ModelStore,
+        syncsWithCloud: Bool = false
     ) {
         self.modelSource = modelSource
+        self.sync = CloudSync(container: container, isEnabled: syncsWithCloud)
         self.container = container
         self.imageStore = imageStore
         self.modelStore = modelStore
@@ -165,6 +170,38 @@ public final class AppEnvironment {
 
     public static func live() -> AppEnvironment {
         let source = resolvedModelSource()
+        let wantsCloud = AppConfiguration.syncsWithCloud
+
+        // **Tres intentos, de más a menos, y ninguno destruye nada.**
+        //
+        // 1. Con iCloud, que es lo que se quiere.
+        // 2. Sin iCloud pero **contra el mismo fichero**: si falta el
+        //    entitlement, el contenedor no existe todavía o CloudKit está
+        //    caído, la app abre el armario de siempre y funciona entera. Un
+        //    problema de iCloud no puede parecer una pérdida de datos.
+        // 3. Y solo si ni eso, en memoria — para poder llegar a Perfil y ver
+        //    qué ha pasado en vez de mirar una app que no arranca.
+        //
+        // Lo que **nunca** se hace es borrar y recrear el store: un fallo al
+        // abrir se resuelve abriendo de otra manera, no tirando los datos.
+        if wantsCloud {
+            do {
+                return AppEnvironment(
+                    modelSource: source,
+                    container: try WardrobeStore.makeContainer(syncsWithCloud: true),
+                    imageStore: try ImageStore(),
+                    modelStore: try ModelStore(repository: makeRepository(for: source)),
+                    syncsWithCloud: true
+                )
+            } catch {
+                DiagnosticsLog.record(
+                    "ICLOUD",
+                    "no se pudo abrir con réplica (\(error)); se sigue en local",
+                    isProblem: true
+                )
+            }
+        }
+
         do {
             return AppEnvironment(
                 modelSource: source,
@@ -173,9 +210,6 @@ public final class AppEnvironment {
                 modelStore: try ModelStore(repository: makeRepository(for: source))
             )
         } catch {
-            // Si el store en disco no abre (esquema incompatible, disco lleno),
-            // arrancar en memoria es mejor que morir: el usuario ve la app,
-            // puede llegar a Perfil y entender qué pasa.
             assertionFailure("No se pudo abrir el contenedor en disco: \(error)")
             return AppEnvironment(
                 modelSource: .none,
@@ -207,11 +241,31 @@ public final class AppEnvironment {
     /// retrasar la primera pintura.
     public func bootstrap() async {
         do {
+            // Los bytes de las imágenes viajan por la base: ver
+            // `GarmentImageBlob`. Se conecta antes de nada porque a partir de
+            // aquí cualquier recorte que se guarde tiene que dejar copia.
+            await imageStore.attachBlobStore(wardrobe)
+
             try await wardrobe.seedCategoriesIfNeeded()
+            // Y si dos dispositivos sembraron sus baldas por separado, se
+            // juntan **moviendo**, nunca borrando: ver `reconcileDuplicates`.
+            if sync.isEnabled { try await wardrobe.reconcileDuplicates() }
             // Limpieza de imágenes huérfanas: sin esto, descartar prendas en la
             // revisión de stacks deja basura en disco para siempre.
             let live = try await wardrobe.liveImageKeys()
             try await imageStore.garbageCollect(keeping: live)
+
+            // Y las imágenes que ya estaban en disco antes de que hubiera
+            // sincronización se suben una vez, en segundo plano.
+            if sync.isEnabled {
+                Task.detached(priority: .background) { [imageStore, wardrobe] in
+                    await Self.backfillImageBlobs(
+                        keys: live,
+                        imageStore: imageStore,
+                        wardrobe: wardrobe
+                    )
+                }
+            }
         } catch {
             assertionFailure("Bootstrap falló: \(error)")
         }
@@ -262,6 +316,36 @@ public final class AppEnvironment {
             try? await wardrobe.probeCreateCategory(named: "Gorras", movingKind: .head)
         }
         #endif
+    }
+
+    /// Sube a la base los bytes de las imágenes que ya estaban en disco.
+    ///
+    /// Un usuario que actualiza tiene su armario entero en ficheros y ninguna
+    /// fila de bytes: sin esto, sus prendas llegarían al iPad sin fotos. Se
+    /// hace **una vez y en segundo plano**, saltando lo que ya esté subido, y
+    /// nada se borra ni se mueve — solo se copia.
+    private static func backfillImageBlobs(
+        keys: Set<String>,
+        imageStore: ImageStore,
+        wardrobe: WardrobeActor
+    ) async {
+        let already = (try? await wardrobe.storedBlobKeys()) ?? []
+        let pending = keys.subtracting(already)
+        guard !pending.isEmpty else { return }
+        DiagnosticsLog.record("ICLOUD", "subiendo \(pending.count) imagen(es) que ya estaban en disco")
+
+        var done = 0
+        for key in pending {
+            for variant in [ImageStore.Variant.display, .catalog] {
+                guard let data = try? await imageStore.data(for: key, variant: variant) else { continue }
+                try? await wardrobe.storeBlob(key: key, variant: variant.rawValue, data: data)
+            }
+            done += 1
+            // Sin prisa: esto compite con la app en uso y no hay nadie
+            // esperándolo.
+            if done % 10 == 0 { try? await Task.sleep(for: .milliseconds(200)) }
+        }
+        DiagnosticsLog.record("ICLOUD", "subida inicial terminada: \(done) imagen(es)")
     }
 
     /// Descarga y compila los modelos si hace falta.

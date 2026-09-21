@@ -40,16 +40,30 @@ struct GarmentEditSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: WK.Spacing.m) {
+        VStack(spacing: 0) {
             header
-            hero
-            enhanceButton
-            rows
-            imageSection
-            Spacer(minLength: 0)
+                .padding(.horizontal, WK.Spacing.screenInset)
+                .padding(.top, WK.Spacing.m)
+
+            // **Con scroll.** La hoja cabía justo hasta que se le añadió la
+            // sección de imagen; con ella, en un iPhone pequeño el último
+            // control quedaba por debajo del borde y no había forma de llegar.
+            // La cabecera se queda fuera: es el chrome, y no se desplaza.
+            ScrollView {
+                VStack(spacing: WK.Spacing.m) {
+                    hero
+                    enhanceButton
+                    rows
+                    imageSection
+                }
+                .padding(.horizontal, WK.Spacing.screenInset)
+                .padding(.top, WK.Spacing.m)
+                .padding(.bottom, WK.Spacing.xxl)
+            }
+            .scrollIndicators(.hidden)
+            // Sin recortar: la fila de imágenes tiene un aro que se sale.
+            .scrollClipDisabled()
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.top, WK.Spacing.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas.ignoresSafeArea())
         // **La única a pantalla completa.** Mirar una prenda es un vistazo y
