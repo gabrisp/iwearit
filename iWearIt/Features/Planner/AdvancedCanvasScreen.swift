@@ -867,19 +867,6 @@ private struct CanvasGarmentTray: View {
             .map { .color($0.key) }
     }
 
-    /// Las prendas que pasan el filtro, **agrupadas por balda**.
-    ///
-    /// Es lo que convierte la rejilla en armario: las mismas prendas, pero
-    /// donde sabes que están. Una rejilla plana de ochenta recortes obliga a
-    /// reconocer cada uno; por baldas, buscas primero la balda.
-    private var shelvesOfVisible: [(category: GarmentCategory, garments: [Garment])] {
-        let bySlug = Dictionary(grouping: visible) { $0.category?.slug ?? "" }
-        return categories.compactMap { category in
-            guard let items = bySlug[category.slug], !items.isEmpty else { return nil }
-            return (category, items)
-        }
-    }
-
     /// Solo las baldas que tienen algo. Una balda vacía en el filtro es un
     /// chip que solo sabe enseñar una rejilla en blanco.
     private var shelves: [TrayFilter] {
@@ -905,23 +892,27 @@ private struct CanvasGarmentTray: View {
     }
 
     var body: some View {
-        // **El armario, no una rejilla de recortes.**
-        //
-        // Las mismas prendas, pero donde sabes que están: por baldas, con su
-        // cabecera y su tablero, igual que en el armario y que en la hoja de
-        // crear outfit. Una rejilla plana de ochenta recortes obliga a
-        // reconocer cada uno; por baldas, buscas primero la balda.
+        // Rejilla de recortes: en una hoja que se abre para coger **una**
+        // prenda y se cierra, lo que importa es ver muchas a la vez. Las
+        // baldas del armario se leen mejor para recorrer, pero aquí no vienes
+        // a recorrer.
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(shelvesOfVisible, id: \.category.slug) { shelf in
-                    TrayShelf(
-                        name: shelf.category.name,
-                        garments: shelf.garments,
-                        store: store,
-                        onPick: onPick
-                    )
+            LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
+                ForEach(visible) { garment in
+                    Button { onPick(garment) } label: {
+                        StoredImage(
+                            key: garment.normalizedImageKey,
+                            variant: .thumb,
+                            store: store,
+                            shadow: .init(opacity: 0.5, radius: 6, y: 3)
+                        )
+                        .frame(height: 96)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(WKPressStyle())
                 }
             }
+            .padding(.horizontal, WK.Spacing.m)
             .padding(.top, WK.Spacing.s)
         }
         .scrollIndicators(.hidden)
@@ -929,8 +920,8 @@ private struct CanvasGarmentTray: View {
         // trae su propia superficie, y sobre el cristal de la bandeja se veía
         // como un panel opaco pegado por dentro.
         .scrollContentBackground(.hidden)
-        // **Sin alto forzado.** Lo tenía clavado, así que subir la hoja no
-        // enseñaba ni una prenda más. Ahora ocupa lo que haya.
+        // **Sin alto forzado.** Lo tenía clavado a 220 puntos, así que subir
+        // la hoja no enseñaba ni una prenda más. Ahora ocupa lo que haya.
         .frame(maxHeight: .infinity)
         .overlay {
             if visible.isEmpty {
@@ -939,13 +930,20 @@ private struct CanvasGarmentTray: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
         }
-        // **Los filtros, abajo.** Es donde está el pulgar con la hoja puesta,
-        // y arriba competían con la cabecera de la primera balda. Flotan en
-        // cristal sobre las prendas, que siguen pasando por debajo: eso es lo
-        // que dice que hay más de lo que se ve.
+        // **Los filtros, abajo y en varias filas.**
+        //
+        // Abajo porque es donde está el pulgar con la hoja puesta, y arriba
+        // competían con la primera fila de prendas. En varias filas porque son
+        // tres criterios distintos —dónde está, de qué color es, de qué estilo
+        // es— y en una sola fila había que desplazarse a ciegas para descubrir
+        // que existían los otros dos.
         .safeAreaInset(edge: .bottom) {
-            TrayFilterBar(
-                filters: [.all, .recent] + shelves + colors + styles,
+            TrayFilterBars(
+                rows: [
+                    [.all, .recent] + shelves,
+                    colors,
+                    styles,
+                ],
                 swatches: swatches,
                 selection: $filter
             )
@@ -956,85 +954,6 @@ private struct CanvasGarmentTray: View {
         .onChange(of: visible.isEmpty) { _, isEmpty in
             if isEmpty, filter != .all { filter = .all }
         }
-    }
-}
-
-/// Una balda dentro de la bandeja del editor.
-///
-/// La misma pieza que en el armario —cabecera, prendas colgadas con su
-/// balanceo y el tablero debajo— y por la misma razón: una prenda tiene que
-/// verse igual en todas partes o parecen dos armarios distintos. Lo único que
-/// cambia es qué pasa al tocarla: aquí se coloca en el lienzo.
-private struct TrayShelf: View {
-    let name: String
-    let garments: [Garment]
-    let store: ImageStore
-    let onPick: (Garment) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Sin chevron ni enlace: aquí la balda no se abre, se usa. Un
-            // chevron prometería una pantalla que no existe dentro de una
-            // hoja que se cierra al elegir.
-            Text(name)
-                .font(WK.Font.shelfTitle)
-                .foregroundStyle(WK.Palette.primaryText)
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.bottom, WK.Spacing.s)
-
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
-                    ForEach(garments) { garment in
-                        TrayShelfCell(garment: garment, store: store) { onPick(garment) }
-                    }
-                }
-                .padding(.horizontal, WK.Spacing.m)
-                .frame(height: WK.Shelf.height, alignment: .bottom)
-            }
-            .scrollIndicators(.hidden)
-
-            ShelfPlank()
-        }
-        .padding(.bottom, WK.Spacing.l)
-    }
-}
-
-/// Una prenda colgada, tocable para colocarla.
-private struct TrayShelfCell: View {
-    let garment: Garment
-    let store: ImageStore
-    let action: () -> Void
-
-    /// El mismo valor que usa el armario: de ahí salen el nombre y el
-    /// balanceo, así que la misma prenda se inclina igual en las dos
-    /// pantallas.
-    private var ref: GarmentRef { GarmentRef(garment) }
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                StoredImage(
-                    key: garment.normalizedImageKey,
-                    variant: .thumb,
-                    store: store,
-                    alignment: .bottom,
-                    shadow: .init(opacity: 0.5, radius: 8, y: 5)
-                )
-                .frame(width: WK.Shelf.garmentWidth, height: WK.Shelf.imageHeight)
-                .rotationEffect(.degrees(ref.swayDegrees), anchor: .top)
-
-                Text(ref.name)
-                    .font(WK.Font.garmentName)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(width: WK.Shelf.garmentWidth)
-                    .padding(.bottom, WK.Shelf.labelBottomInset)
-            }
-            .frame(height: WK.Shelf.height, alignment: .bottom)
-            .contentShape(.rect)
-        }
-        .buttonStyle(WKPressStyle())
     }
 }
 
@@ -1072,17 +991,36 @@ enum TrayFilter: Hashable {
     }
 }
 
-/// La fila de filtros. Vista propia: cambiar de filtro no tiene por qué
-/// reevaluar las baldas enteras.
-private struct TrayFilterBar: View {
-    let filters: [TrayFilter]
+/// Las filas de filtros. Vista propia: cambiar de filtro no tiene por qué
+/// reevaluar la rejilla entera de prendas.
+private struct TrayFilterBars: View {
+    /// Una fila por criterio. Las vacías no se dibujan: un armario sin estilos
+    /// puestos no necesita una franja de aire donde iría la fila.
+    let rows: [[TrayFilter]]
     /// La muestra de cada color, sacada del propio armario.
     let swatches: [String: NamedColor]
     @Binding var selection: TrayFilter
 
     var body: some View {
+        VStack(spacing: WK.Spacing.xs) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                if !row.isEmpty {
+                    TrayFilterRow(filters: row, swatches: swatches, selection: $selection)
+                }
+            }
+        }
+        .padding(.vertical, WK.Spacing.s)
+    }
+}
+
+private struct TrayFilterRow: View {
+    let filters: [TrayFilter]
+    let swatches: [String: NamedColor]
+    @Binding var selection: TrayFilter
+
+    var body: some View {
         ScrollView(.horizontal) {
-            // Un solo contenedor de cristal para todas: el cristal no puede
+            // Un solo contenedor de cristal por fila: el cristal no puede
             // muestrear otro cristal, y píldoras sueltas vecinas se ven
             // inconsistentes entre sí.
             AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
@@ -1104,7 +1042,6 @@ private struct TrayFilterBar: View {
         // Sin recortar: la píldora elegida crece un poco y al primero y al
         // último se les cortaría el borde.
         .scrollClipDisabled()
-        .padding(.vertical, WK.Spacing.s)
     }
 }
 
