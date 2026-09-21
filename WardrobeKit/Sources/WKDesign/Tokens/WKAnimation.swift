@@ -55,6 +55,38 @@ public extension AnyTransition {
         )
     }
 
+    /// Pasar de una vista general al detalle, **por el lado del detalle**.
+    ///
+    /// ## Por qué solo se anima un sentido
+    ///
+    /// Alejarse y acercarse no son el mismo gesto al revés. Al alejarse, lo que
+    /// llega es un montón de cosas pequeñas colocándose cada una en su sitio: ya
+    /// hay movimiento de sobra y añadirle más al contenedor lo emborrona. Al
+    /// acercarse no llega nada que se coloque —llega **una** cosa, a pantalla
+    /// completa— y sin movimiento eso es un fundido y se lee como un corte.
+    ///
+    /// Por eso este par es asimétrico en el sentido menos obvio: el detalle
+    /// **entra** creciendo y **sale** sin más.
+    ///
+    /// Los dos lados crecen a la vez —el que se va se pasa de largo, el que
+    /// llega se coloca— porque eso es lo que hace que se lea como acercarse y
+    /// no como dos vistas cambiándose el turno.
+    static var wkDetailReturn: AnyTransition {
+        .asymmetric(
+            insertion: .scale(scale: 0.94).combined(with: .opacity),
+            removal: .opacity
+        )
+    }
+
+    /// Y el mismo paso **por el lado de la vista general**: se queda quieta al
+    /// llegar y se pasa de largo al irse.
+    static var wkOverviewLeave: AnyTransition {
+        .asymmetric(
+            insertion: .opacity,
+            removal: .scale(scale: 1.08).combined(with: .opacity)
+        )
+    }
+
     /// Entrada lateral con desenfoque, para pasos de un flujo.
     static func wkSlide(fromLeading: Bool) -> AnyTransition {
         .asymmetric(

@@ -18,6 +18,13 @@ struct ShelfOrderScreen: View {
     @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
+    /// Crear una balda **desde aquí dentro**.
+    ///
+    /// Es donde se te ocurre que falta una: mirando las que hay. Obligar a
+    /// cerrar esto, subir al "+" y buscar "Nueva balda" es el camino largo
+    /// para volver exactamente a esta misma pantalla.
+    @State private var isCreating = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: WK.Spacing.s) {
@@ -35,6 +42,18 @@ struct ShelfOrderScreen: View {
                         )
                     }
                 }
+                .wkCard()
+
+                Button { isCreating = true } label: {
+                    Label("Nueva balda", systemImage: "plus")
+                        .font(WK.Font.rowTitle)
+                        .foregroundStyle(WK.Palette.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, WK.Spacing.cardInset)
+                        .frame(height: 58)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(WKPressStyle())
                 .wkCard()
             }
             .padding(.horizontal, WK.Spacing.screenInset)
@@ -59,6 +78,7 @@ struct ShelfOrderScreen: View {
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.vertical, WK.Spacing.s)
         }
+        .sheet(isPresented: $isCreating) { NewCategorySheet() }
     }
 
     /// Reescribe `sortOrder` de forma densa tras mover.

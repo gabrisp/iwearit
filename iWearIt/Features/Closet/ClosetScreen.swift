@@ -36,7 +36,7 @@ struct ClosetScreen: View {
     private enum Sheet: String, Identifiable {
         // `profile` ya no está: Ajustes se empuja como pantalla, no se
         // presenta como hoja. Ver `ClosetRoute.settings`.
-        case capture, review
+        case capture, review, shelves
         var id: String { rawValue }
     }
 
@@ -88,6 +88,10 @@ struct ClosetScreen: View {
                                 .equatable()
                         }
                         SuitcaseShelfSection()
+
+                        // Al final del todo, donde se te ocurre. Ver
+                        // `ShelfEditPill`.
+                        ShelfEditPill { sheet = .shelves }
                     }
                     .padding(.top, WK.Spacing.s)
                     .transition(AnyTransition(.blurReplace))
@@ -142,6 +146,8 @@ struct ClosetScreen: View {
                     if let captured {
                         ImportSheet(image: captured.cgImage)
                     }
+                case .shelves:
+                    NavigationStack { ShelfOrderScreen() }
                 }
             }
             #if DEBUG

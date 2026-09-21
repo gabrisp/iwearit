@@ -89,6 +89,13 @@ public struct WKIconTabBar<Tab: Hashable>: View {
 /// es exactamente cuando UIKit ha terminado de rehacerlas.
 final class ChromelessSegmentedControl: UISegmentedControl {
 
+    /// Las imágenes que hemos puesto nosotros.
+    ///
+    /// Sirven para reconocer los iconos **por identidad** y no por su forma:
+    /// ver `layoutSubviews`. Se guardan las instancias exactas, que es lo que
+    /// las hace reconocibles.
+    var glyphs: [UIImage] = []
+
     override func layoutSubviews() {
         super.layoutSubviews()
 
@@ -106,11 +113,31 @@ final class ChromelessSegmentedControl: UISegmentedControl {
         // control entero y un divisor es una raya de un par de puntos de ancho.
         // Todo lo demás es contenido y se enciende **explícitamente**, que es
         // lo que impide que un error de una pasada se quede pegado.
+        // Y además **por identidad**, que es lo único que no se equivoca nunca.
+        //
+        // La forma sola seguía fallando: mientras la píldora se desliza, UIKit
+        // relayouta estas vistas y por una pasada el fondo puede medir menos de
+        // lo que mide el control. Esa pasada lo encendía, y eso es el parpadeo.
+        //
+        // Los iconos los ponemos nosotros, así que se reconocen por ser
+        // exactamente las imágenes que dimos. Lo que sea uno de ellos **nunca**
+        // se apaga, pase lo que pase con las medidas en esa pasada; la forma
+        // solo decide sobre lo que no reconocemos.
         for case let imageView as UIImageView in subviews {
             let size = imageView.bounds.size
+            let isGlyph = imageView.image.map { candidate in
+                glyphs.contains { $0 === candidate }
+            } ?? false
             let isBackground = size.width >= bounds.width - 1 && size.height >= bounds.height - 1
             let isDivider = size.width <= 3 && size.height >= bounds.height * 0.4
-            imageView.alpha = isBackground || isDivider ? 0 : 1
+            let wanted: CGFloat = !isGlyph && (isBackground || isDivider) ? 0 : 1
+
+            // Sin animar y solo si cambia. `layoutSubviews` corre **dentro** del
+            // bloque de animación con el que UIKit mueve la píldora: tocar el
+            // alfa ahí sin más lo anima, y un icono que se funde mientras la
+            // píldora viaja es justo lo que se veía.
+            guard imageView.alpha != wanted else { continue }
+            UIView.performWithoutAnimation { imageView.alpha = wanted }
         }
     }
 }
@@ -136,9 +163,8 @@ private struct WKSegmentedIcons: UIViewRepresentable {
         // y no como los destinos de la app.
         control.tintColor = .label
 
-        for (position, symbol) in symbols.enumerated() {
-            control.setImage(Self.image(for: symbol), forSegmentAt: position)
-        }
+        draw(symbols: symbols, in: control)
+        context.coordinator.drawnScheme = context.environment.colorScheme
         control.addTarget(
             context.coordinator,
             action: #selector(Coordinator.didSelect(_:)),
@@ -148,10 +174,36 @@ private struct WKSegmentedIcons: UIViewRepresentable {
     }
 
     func updateUIView(_ control: ChromelessSegmentedControl, context: Context) {
-        // Solo si de verdad cambió. SwiftUI llama a esto en cada repintado en
-        // el que participa la vista.
+        // **Los iconos no se vuelven a dibujar al cambiar de pestaña.** No
+        // cambian: ni el dibujo ni el color. Redibujarlos en cada cambio
+        // obligaba a UIKit a rehacer sus vistas justo mientras la píldora se
+        // desliza, y ahí es donde se colaba el parpadeo. Lo único que los
+        // cambia es el tema del sistema, así que se rehacen cuando cambia ese
+        // y en ningún otro momento.
+        if context.coordinator.drawnScheme != context.environment.colorScheme {
+            context.coordinator.drawnScheme = context.environment.colorScheme
+            draw(symbols: symbols, in: control)
+        }
+
+        // Y la selección, solo si de verdad cambió. SwiftUI llama a esto en
+        // cada repintado en el que participa la vista.
         guard control.selectedSegmentIndex != index else { return }
         control.selectedSegmentIndex = index
+    }
+
+    /// Pone los iconos, ya teñidos y sin plantilla.
+    ///
+    /// `.alwaysOriginal` y no `.alwaysTemplate`: una imagen de plantilla la
+    /// vuelve a teñir UIKit por cada estado del segmento —normal, seleccionado,
+    /// resaltado— y ese repintado es trabajo por nada, porque aquí el icono se
+    /// ve igual en los tres. Ya teñida, es un mapa de bits fijo que UIKit
+    /// coloca y no toca.
+    private func draw(symbols: [String], in control: ChromelessSegmentedControl) {
+        let images = symbols.map { Self.image(for: $0, traits: control.traitCollection) }
+        control.glyphs = images.compactMap { $0 }
+        for (position, image) in images.enumerated() {
+            control.setImage(image, forSegmentAt: position)
+        }
     }
 
     func sizeThatFits(
@@ -166,7 +218,8 @@ private struct WKSegmentedIcons: UIViewRepresentable {
 
     final class Coordinator: NSObject {
         var parent: WKSegmentedIcons
-        /// Con qué tema se dibujaron las imágenes del control.
+        /// Con qué tema se dibujaron las imágenes del control. Es lo único que
+        /// obliga a volver a dibujarlas.
         var drawnScheme: ColorScheme?
 
         init(parent: WKSegmentedIcons) { self.parent = parent }
@@ -181,12 +234,19 @@ private struct WKSegmentedIcons: UIViewRepresentable {
     ///
     /// Un nombre que no es un SF Symbol devuelve `nil` sin quejarse, y el
     /// segmento se queda vacío sin que nada lo diga.
-    private static func image(for symbol: String) -> UIImage? {
+    private static func image(for symbol: String, traits: UITraitCollection) -> UIImage? {
         let configuration = UIImage.SymbolConfiguration(
             font: .systemFont(ofSize: 19, weight: .regular)
         )
-        return UIImage(systemName: symbol, withConfiguration: configuration)
-            ?? UIImage(named: symbol)?.withRenderingMode(.alwaysTemplate)
+        let base = UIImage(systemName: symbol, withConfiguration: configuration)
+            ?? UIImage(named: symbol)
+        // Teñida aquí, con el color ya resuelto para el tema de ahora. Ver
+        // `draw(symbols:in:)`: lo que se busca es que UIKit no tenga nada que
+        // recalcular cuando cambia la selección.
+        return base?.withTintColor(
+            UIColor.label.resolvedColor(with: traits),
+            renderingMode: .alwaysOriginal
+        )
     }
 }
 

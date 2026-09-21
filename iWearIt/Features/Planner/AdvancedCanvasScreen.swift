@@ -181,7 +181,25 @@ struct AdvancedCanvasScreen: View {
                     .adaptiveProminentButton()
             }
         }
-        .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+        // **Con la bandeja puesta, la barra se apaga y deja su hueco.**
+        //
+        // Las dos mitades importan. Apagarla porque debajo de la bandeja no
+        // hace nada: se ve un borde de cristal asomando bajo otro cristal, y
+        // los botones que asoman no se pueden tocar. Y **dejar el hueco**
+        // porque quitarla del árbol devuelve al lienzo los puntos que ocupaba,
+        // así que el contenido daba un salto al abrir la bandeja y otro al
+        // cerrarla — que es justo por lo que los controles acababan en otro
+        // sitio del que estaban.
+        //
+        // Sigue siendo la misma vista, con el mismo alto: lo único que cambia
+        // es que no se ve y no recibe toques. Un `Color.clear` medido a mano
+        // sería lo mismo con una medida que puede quedarse desfasada.
+        .adaptiveSafeAreaBar(edge: .bottom) {
+            bottom
+                .opacity(isTrayOpen ? 0 : 1)
+                .allowsHitTesting(!isTrayOpen)
+                .animation(WKAnimation.selection, value: isTrayOpen)
+        }
         // Sin gesto de volver: el editor está lleno de arrastres, y el
         // deslizamiento desde el borde izquierdo compite con colocar una
         // prenda pegada a ese borde.
@@ -285,7 +303,7 @@ struct AdvancedCanvasScreen: View {
     /// Cerrar la bandeja es **también** deseleccionar nada: se cierra sola
     /// cuando se coge una prenda, y el enlace tiene que reflejar las dos vías.
     private var isTrayBinding: Binding<Bool> {
-        Binding(get: { trayKind != nil }, set: { if !$0 { trayKind = nil } })
+        Binding(get: { isTrayOpen }, set: { if !$0 { trayKind = nil } })
     }
 
     // MARK: Abajo

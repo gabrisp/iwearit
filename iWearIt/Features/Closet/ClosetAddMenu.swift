@@ -20,10 +20,20 @@ struct ClosetAddMenu: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
     @State private var step: Step?
+    /// La galería del sistema, abierta **desde el menú**.
+    ///
+    /// No es un paso más del enum a propósito: el `PhotosPicker` no es una
+    /// pantalla nuestra que se presenta en la hoja, es el picker del sistema
+    /// presentándose encima de ella. Meterlo en el enum obligaba a que hubiera
+    /// una hoja intermedia —un título, un párrafo y un botón "Abrir galería"—
+    /// que solo servía para volver a pedir lo que el usuario ya había pedido.
+    @State private var isPickingFromLibrary = false
+    @State private var libraryItem: PhotosPickerItem?
+    @State private var isLoadingLibraryPick = false
 
     private enum Step: Identifiable {
         case menu
-        case library
+        // case library   ← la galería ya no es un paso: se abre desde el menú
         case camera
         case review(ImportableImage)
         case newCategory
@@ -32,7 +42,6 @@ struct ClosetAddMenu: View {
         var id: String {
             switch self {
             case .menu: "menu"
-            case .library: "library"
             case .camera: "camera"
             case let .review(image): image.id.uuidString
             case .newCategory: "category"
@@ -63,17 +72,22 @@ struct ClosetAddMenu: View {
         switch step {
         case .menu:
             WKMenuSheet(title: "Añadir", items: menuItems)
-        case .library:
-            // **La galería del sistema, no la cámara.**
-            //
-            // Es la ruta que siempre funciona: `PhotosPicker` corre en otro
-            // proceso, no compite por la cámara ni por la ANE y no depende de
-            // que una sesión de captura arranque bien. La cámara propia sigue
-            // estando, pero como opción secundaria y no como única puerta para
-            // meter una prenda.
-            LibraryImportSheet { captured in
-                self.step = .review(ImportableImage(cgImage: captured))
-            }
+                // **La galería del sistema, encima del menú.**
+                //
+                // `PhotosPicker` corre en otro proceso: no compite por la
+                // cámara ni por la ANE y no depende de que una sesión de
+                // captura arranque bien. Colgado de la hoja del menú y no del
+                // botón de la toolbar, que es quien ya tiene su `sheet` y no
+                // admite dos presentaciones.
+                .photosPicker(
+                    isPresented: $isPickingFromLibrary,
+                    selection: $libraryItem,
+                    matching: .images
+                )
+                .overlay {
+                    if isLoadingLibraryPick { ProgressView() }
+                }
+                .task(id: libraryItem) { await loadLibraryPick() }
         case .camera:
             // Al pasar a la revisión, la cámara **se destruye**. Con dos hojas
             // apiladas seguía viva por debajo, y su sesión de captura se
@@ -91,13 +105,36 @@ struct ClosetAddMenu: View {
         }
     }
 
+    /// Lo elegido en la galería, **derecho** y listo para revisar.
+    private func loadLibraryPick() async {
+        guard let libraryItem else { return }
+        isLoadingLibraryPick = true
+        defer {
+            isLoadingLibraryPick = false
+            self.libraryItem = nil
+        }
+
+        guard
+            let data = try? await libraryItem.loadTransferable(type: Data.self),
+            // Derecha antes de que la vea nadie: `UIImage.cgImage` da los
+            // píxeles en crudo y una foto vertical los guarda en horizontal.
+            let image = UprightImage.cgImage(from: data)
+        else {
+            #if DEBUG
+            NSLog("IMPORT: la foto no se pudo leer")
+            #endif
+            return
+        }
+        step = .review(ImportableImage(cgImage: image))
+    }
+
     private var menuItems: [WKMenuItem] {
         [
             // Una sola entrada: la cámara ya lleva dentro el acceso a la
             // galería, así que preguntar antes "¿foto nueva o existente?" es
             // una bifurcación que el usuario no había pedido.
             WKMenuItem(id: "library", title: "Elegir de la galería", systemImage: "photo.on.rectangle") {
-                appEnvironment.gate.require(.garments) { step = .library }
+                appEnvironment.gate.require(.garments) { isPickingFromLibrary = true }
             },
             WKMenuItem(id: "camera", title: "Hacer una foto", systemImage: "camera") {
                 appEnvironment.gate.require(.garments) { step = .camera }
@@ -137,80 +174,87 @@ struct ProfileButton: View {
 }
 
 
-/// Elegir una foto de la galería y devolverla **derecha**.
-///
-/// Hoja propia y no un `.photosPicker` colgado de otra vista: apilar
-/// presentaciones en la misma vista es exactamente lo que ha ido dejando mudas
-/// unas y otras. Aquí el picker es el contenido de la hoja, así que no compite
-/// con nadie.
-private struct LibraryImportSheet: View {
-    let onPick: (CGImage) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var item: PhotosPickerItem?
-    @State private var isLoading = false
-    @State private var failed = false
-
-    var body: some View {
-        VStack(spacing: WK.Spacing.l) {
-            Text("Elige una foto")
-                .font(WK.Font.title)
-                .foregroundStyle(WK.Palette.primaryText)
-
-            Text("Sale mejor con la prenda entera y el fondo despejado.")
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .multilineTextAlignment(.center)
-
-            PhotosPicker(selection: $item, matching: .images) {
-                Label("Abrir galería", systemImage: "photo.on.rectangle")
-                    .font(WK.Font.headline)
-                    .foregroundStyle(WK.Palette.onAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WK.Spacing.m)
-                    .background(WK.Palette.accent, in: .capsule)
-                    .contentShape(.capsule)
-            }
-            .disabled(isLoading)
-
-            if isLoading {
-                ProgressView()
-            }
-            if failed {
-                Text("No se pudo leer esa foto. Prueba con otra.")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(.red)
-            }
-        }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .wkDynamicSheet()
-        .task(id: item) { await load() }
-    }
-
-    private func load() async {
-        guard let item else { return }
-        isLoading = true
-        failed = false
-        defer { isLoading = false }
-
-        #if DEBUG
-        NSLog("IMPORT: cargando de la galería")
-        #endif
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            // Derecha antes de que la vea nadie: `UIImage.cgImage` da los
-            // píxeles en crudo y una foto vertical los guarda en horizontal.
-            let image = UprightImage.cgImage(from: data)
-        else {
-            #if DEBUG
-            NSLog("IMPORT: la foto no se pudo leer")
-            #endif
-            failed = true
-            return
-        }
-        #if DEBUG
-        NSLog("IMPORT: foto lista %dx%d", image.width, image.height)
-        #endif
-        onPick(image)
-    }
-}
+// MARK: - La hoja intermedia que ya no hay
+//
+// Pedía "elige una foto" con un botón "Abrir galería" delante de la galería:
+// un paso para repetir lo que el usuario acababa de decir. Ahora el menú abre
+// el picker del sistema directamente. Se queda comentada, no borrada.
+//
+// /// Elegir una foto de la galería y devolverla **derecha**.
+// ///
+// /// Hoja propia y no un `.photosPicker` colgado de otra vista: apilar
+// /// presentaciones en la misma vista es exactamente lo que ha ido dejando mudas
+// /// unas y otras. Aquí el picker es el contenido de la hoja, así que no compite
+// /// con nadie.
+// private struct LibraryImportSheet: View {
+//     let onPick: (CGImage) -> Void
+//
+//     @Environment(\.dismiss) private var dismiss
+//     @State private var item: PhotosPickerItem?
+//     @State private var isLoading = false
+//     @State private var failed = false
+//
+//     var body: some View {
+//         VStack(spacing: WK.Spacing.l) {
+//             Text("Elige una foto")
+//                 .font(WK.Font.title)
+//                 .foregroundStyle(WK.Palette.primaryText)
+//
+//             Text("Sale mejor con la prenda entera y el fondo despejado.")
+//                 .font(WK.Font.caption)
+//                 .foregroundStyle(WK.Palette.secondaryText)
+//                 .multilineTextAlignment(.center)
+//
+//             PhotosPicker(selection: $item, matching: .images) {
+//                 Label("Abrir galería", systemImage: "photo.on.rectangle")
+//                     .font(WK.Font.headline)
+//                     .foregroundStyle(WK.Palette.onAccent)
+//                     .frame(maxWidth: .infinity)
+//                     .padding(.vertical, WK.Spacing.m)
+//                     .background(WK.Palette.accent, in: .capsule)
+//                     .contentShape(.capsule)
+//             }
+//             .disabled(isLoading)
+//
+//             if isLoading {
+//                 ProgressView()
+//             }
+//             if failed {
+//                 Text("No se pudo leer esa foto. Prueba con otra.")
+//                     .font(WK.Font.caption)
+//                     .foregroundStyle(.red)
+//             }
+//         }
+//         .padding(.horizontal, WK.Spacing.screenInset)
+//         .wkDynamicSheet()
+//         .task(id: item) { await load() }
+//     }
+//
+//     private func load() async {
+//         guard let item else { return }
+//         isLoading = true
+//         failed = false
+//         defer { isLoading = false }
+//
+//         #if DEBUG
+//         NSLog("IMPORT: cargando de la galería")
+//         #endif
+//         guard
+//             let data = try? await item.loadTransferable(type: Data.self),
+//             // Derecha antes de que la vea nadie: `UIImage.cgImage` da los
+//             // píxeles en crudo y una foto vertical los guarda en horizontal.
+//             let image = UprightImage.cgImage(from: data)
+//         else {
+//             #if DEBUG
+//             NSLog("IMPORT: la foto no se pudo leer")
+//             #endif
+//             failed = true
+//             return
+//         }
+//         #if DEBUG
+//         NSLog("IMPORT: foto lista %dx%d", image.width, image.height)
+//         #endif
+//         onPick(image)
+//     }
+// }
+//
