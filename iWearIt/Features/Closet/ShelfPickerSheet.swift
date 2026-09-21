@@ -12,7 +12,7 @@ struct ShelfPickerSheet: View {
     @Bindable var garment: Garment
 
     @Query(
-        filter: #Predicate<GarmentCategory> { !$0.isHidden },
+        filter: #Predicate<GarmentCategory> { !$0.isHidden && $0.deletedAt == nil },
         sort: [SortDescriptor(\GarmentCategory.sortOrder)]
     )
     private var categories: [GarmentCategory]

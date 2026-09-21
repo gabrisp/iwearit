@@ -9,7 +9,11 @@ import WKCore
 /// `GarmentKind`) pueden cruzar actores sin arrastrar SwiftData detrás.
 @Model
 public final class Garment {
-    #Unique<Garment>([\.id])
+    // **Sin `#Unique`.** CloudKit no soporta restricciones de unicidad, y con
+    // sincronización el `id` deja de poder garantizarse en la base: dos
+    // dispositivos pueden crear el mismo objeto lógico sin saberlo. La
+    // unicidad pasa a ser cosa de la app —y conservadora: ante la duda, dos
+    // prendas parecidas se quedan las dos. Ver `DuplicateDetector`.
 
     public var id: UUID = UUID()
     public var name: String = ""
@@ -41,6 +45,10 @@ public final class Garment {
     public var embedding: Data?
 
     public var dateAdded: Date = Date()
+    /// Cuándo se tocó por última vez. Ver `SoftDeletable`.
+    public var modifiedAt: Date = Date()
+    /// Cuándo se marcó para eliminar. `nil` = viva. Ver `SoftDeletable`.
+    public var deletedAt: Date?
     public var wearCount: Int = 0
     public var lastWornAt: Date?
     public var isFavorite: Bool = false

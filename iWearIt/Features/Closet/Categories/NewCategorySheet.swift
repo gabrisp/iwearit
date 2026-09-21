@@ -13,7 +13,7 @@ struct NewCategorySheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    @Query(sort: [SortDescriptor(\GarmentCategory.sortOrder)])
+    @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
     @State private var flow = WKFlowStack(Step.name)
@@ -113,7 +113,7 @@ private struct ExamplePicker: View {
     @Binding var selection: Set<UUID>
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    @Query(sort: [SortDescriptor(\Garment.dateAdded, order: .reverse)])
+    @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
     var body: some View {

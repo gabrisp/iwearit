@@ -176,6 +176,9 @@ struct ScanningStep: View {
             // `nil` en Pro: la galería entera. El número lo decide el gate,
             // no esta pantalla.
             limit: appEnvironment.gate.scanPhotoLimit,
+            // **Sin guardar nada todavía.** Lo encontrado se enseña en el paso
+            // siguiente y entra al armario lo que el usuario diga.
+            inserts: false,
             onProgress: { updated in
                 Task { @MainActor in progress = updated }
             },
@@ -227,8 +230,13 @@ struct ScanningStep: View {
     }
 
     private func finish() {
-        Task { await scanner?.cancel() }
-        model.advance()
+        Task {
+            // La cosecha antes de avanzar: el paso siguiente la necesita para
+            // poder enseñar algo.
+            model.harvest = await scanner?.harvest ?? []
+            await scanner?.cancel()
+            model.advance()
+        }
     }
 }
 

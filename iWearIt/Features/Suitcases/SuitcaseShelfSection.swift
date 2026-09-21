@@ -14,7 +14,7 @@ import WKPersistence
 /// contenido del scroll. Por eso es una vista aparte y no una rama dentro de
 /// `ShelfSection`: sería repetir UI dentro de un `@ViewBuilder`.
 struct SuitcaseShelfSection: View {
-    @Query(sort: [SortDescriptor(\Suitcase.createdAt, order: .reverse)])
+    @Query(FetchDescriptor<Suitcase>.visibleSuitcases())
     private var suitcases: [Suitcase]
 
     @State private var isPresentingNew = false

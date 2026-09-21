@@ -77,6 +77,7 @@ private struct OnboardingStepContent: View {
         case .comparison:      ComparisonStep(model: model)
         case .photoPermission: PhotoPermissionStep(model: model)
         case .scanning:        ScanningStep(model: model)
+        case .scanReview:      ScanReviewStep(model: model)
         case .scanSummary:     ScanSummaryStep(model: model)
         case .paywall:         PaywallStep(onFinish: onFinish)
         }

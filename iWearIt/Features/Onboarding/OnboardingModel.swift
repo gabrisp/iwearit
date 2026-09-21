@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftUI
+import WKCore
 import WKDesign
 
 /// Los pasos del onboarding, en orden.
@@ -21,6 +22,7 @@ enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
     case comparison
     case photoPermission
     case scanning
+    case scanReview
     case scanSummary
     case paywall
 
@@ -41,6 +43,13 @@ enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
 final class OnboardingModel {
 
     var step: OnboardingStep = .welcome
+
+    /// Lo que el escaneo ha encontrado y **todavía no ha guardado**.
+    ///
+    /// El escaneo recorre la galería entera; decidir qué entra al armario es
+    /// del usuario. Hasta ahora se insertaba todo de golpe y el armario nacía
+    /// con doscientas prendas que había que borrar a mano una por una.
+    var harvest: [GarmentDraft] = []
     private(set) var isGoingBack = false
 
     // Respuestas

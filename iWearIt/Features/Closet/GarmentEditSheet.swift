@@ -85,7 +85,7 @@ struct GarmentEditSheet: View {
             titleVisibility: .visible
         ) {
             Button("Eliminar", role: .destructive) {
-                modelContext.delete(garment)
+                garment.markDeleted()
                 dismiss()
             }
             Button("Cancelar", role: .cancel) {}

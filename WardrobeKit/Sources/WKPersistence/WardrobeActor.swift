@@ -455,7 +455,7 @@ public actor WardrobeActor {
     public func deleteGarments(withIDs ids: [PersistentIdentifier]) throws {
         for id in ids {
             if let garment = self[id, as: Garment.self] {
-                modelContext.delete(garment)
+                garment.markDeleted()
             }
         }
         try modelContext.save()

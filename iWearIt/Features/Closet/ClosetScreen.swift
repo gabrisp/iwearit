@@ -48,7 +48,7 @@ struct ClosetScreen: View {
     )
     private var categories: [GarmentCategory]
 
-    @Query(sort: [SortDescriptor(\Garment.dateAdded, order: .reverse)])
+    @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
     private var shelves: [ShelfData] {

@@ -10,6 +10,11 @@ import WKPersistence
 /// notas. El `Garment` completo se resuelve al abrir el detalle.
 struct HangingGarmentView: View {
     let garment: GarmentRef
+    /// En modo selección el toque **marca** en vez de abrir la ficha: si
+    /// abriera, cada prenda que quieres quitar te saca de la balda.
+    var isSelecting = false
+    var isSelected = false
+    var onToggleSelection: (() -> Void)?
 
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var isPresentingDetail = false
@@ -19,7 +24,7 @@ struct HangingGarmentView: View {
         let _ = Self._logChanges()
         #endif
         Button {
-            isPresentingDetail = true
+            if isSelecting { onToggleSelection?() } else { isPresentingDetail = true }
         } label: {
             VStack(spacing: 2) {
                 StoredImage(
@@ -32,6 +37,25 @@ struct HangingGarmentView: View {
                 .frame(width: WK.Shelf.garmentWidth, height: WK.Shelf.imageHeight)
                 // Ancla arriba: la prenda pivota desde la percha, no del centro.
                 .rotationEffect(.degrees(garment.swayDegrees), anchor: .top)
+                // La marca de selección, sobre la prenda y no en una esquina
+                // del hueco: el hueco es casi todo transparente y una marca
+                // flotando en el vacío no se sabe de cuál es.
+                .overlay(alignment: .topTrailing) {
+                    if isSelecting {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.title3)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(
+                                isSelected ? WK.Palette.onAccent : WK.Palette.secondaryText,
+                                isSelected ? WK.Palette.accent : WK.Palette.ink(0.08)
+                            )
+                            .padding(WK.Spacing.xs)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .opacity(isSelecting && !isSelected ? 0.55 : 1)
+                .animation(WKAnimation.selection, value: isSelected)
+                .animation(WKAnimation.selection, value: isSelecting)
 
                 Text(garment.name)
                     .font(WK.Font.garmentName)

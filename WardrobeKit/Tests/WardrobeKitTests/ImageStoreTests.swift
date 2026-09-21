@@ -105,7 +105,10 @@ struct ImageStoreTests {
 
         #expect(kept != orphan)
 
-        let removed = try await store.garbageCollect(keeping: [kept])
+        // `grace: 0` porque el fichero acaba de escribirse: la limpieza
+        // perdona por defecto lo recién tocado, que es justo lo que evita que
+        // un arranque con la base a medias borre imágenes que sí tienen dueño.
+        let removed = try await store.garbageCollect(keeping: [kept], grace: 0)
 
         #expect(removed == 1)
         #expect(await store.exists(key: kept))
@@ -155,5 +158,33 @@ struct CatalogVariantTests {
         // PNG de verdad: los ocho bytes de firma.
         let data = try await store.data(for: key, variant: .catalog)
         #expect(data.prefix(8) == Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))
+    }
+}
+
+@Suite("Margen de la recolección")
+struct GarbageCollectionGraceTests {
+
+    /// El caso que hace peligrosa la limpieza en cuanto haya sincronización: un
+    /// arranque con la base todavía a medias. Las imágenes están, las filas que
+    /// las nombran no han llegado, y sin margen se borran justo en el
+    /// dispositivo que sí las tenía.
+    @Test("Una huérfana recién escrita se deja estar")
+    func recentOrphansSurvive() async throws {
+        let store = try ImageStore(root: temporaryRoot())
+        let key = try await store.store(makeCutout())
+
+        let removed = try await store.garbageCollect(keeping: [])
+        #expect(removed == 0)
+        #expect(await store.exists(key: key))
+    }
+
+    @Test("Lo que referencia alguien no se toca ni sin margen")
+    func liveKeysAreNeverTouched() async throws {
+        let store = try ImageStore(root: temporaryRoot())
+        let key = try await store.store(makeCutout())
+
+        let removed = try await store.garbageCollect(keeping: [key], grace: 0)
+        #expect(removed == 0)
+        #expect(await store.exists(key: key))
     }
 }

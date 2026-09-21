@@ -4,7 +4,8 @@ import SwiftData
 /// Un día del planificador.
 @Model
 public final class PlannedDay {
-    #Unique<PlannedDay>([\.dayStart])
+    // Sin `#Unique`: CloudKit no lo soporta. Dos dispositivos pueden crear el
+    // mismo día a la vez; el arreglo es fusionarlos, no impedirlo.
 
     /// Normalizado a `startOfDay` en el calendario del usuario. Es la clave
     /// única, así que dos vistas nunca pueden crear dos días para la misma fecha.

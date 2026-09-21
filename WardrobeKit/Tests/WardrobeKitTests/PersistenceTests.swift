@@ -259,3 +259,110 @@ private final class TickCounter {
     private(set) var value = 0
     func tick() { value += 1 }
 }
+
+@Suite("Borrado suave")
+@MainActor
+struct SoftDeletionTests {
+
+    private func makeContext() throws -> ModelContext {
+        ModelContext(try WardrobeStore.makeContainer(inMemory: true))
+    }
+
+    @Test("Marcar no borra: el objeto sigue ahí")
+    func markingKeepsTheObject() throws {
+        let context = try makeContext()
+        let garment = Garment(name: "Camiseta", kind: .upperBody, normalizedImageKey: "k")
+        context.insert(garment)
+
+        garment.markDeleted()
+
+        #expect(garment.deletedAt != nil)
+        #expect(!garment.isVisible)
+        // Y sigue existiendo: es la diferencia entre esconder y perder.
+        let all = try context.fetch(FetchDescriptor<Garment>())
+        #expect(all.count == 1)
+    }
+
+    @Test("Las consultas de pantalla no lo traen")
+    func visibleFetchHidesIt() throws {
+        let context = try makeContext()
+        let kept = Garment(name: "Camisa", kind: .upperBody, normalizedImageKey: "a")
+        let gone = Garment(name: "Sudadera", kind: .upperBody, normalizedImageKey: "b")
+        context.insert(kept)
+        context.insert(gone)
+        gone.markDeleted()
+
+        let visible = try context.fetch(FetchDescriptor<Garment>.visibleGarments())
+        #expect(visible.count == 1)
+        #expect(visible.first?.name == "Camisa")
+    }
+
+    @Test("Se puede devolver")
+    func restoreBringsItBack() throws {
+        let context = try makeContext()
+        let garment = Garment(name: "Vaqueros", kind: .lowerBody, normalizedImageKey: "c")
+        context.insert(garment)
+
+        garment.markDeleted()
+        garment.restore()
+
+        #expect(garment.isVisible)
+        #expect(try context.fetch(FetchDescriptor<Garment>.visibleGarments()).count == 1)
+    }
+
+    /// El conflicto que decide toda la política: un dispositivo lo borró, otro
+    /// lo estaba editando. Gana la edición si es posterior — y en el empate
+    /// también, porque un empate es una duda y la duda se resuelve conservando.
+    @Test("Una edición posterior gana al borrado")
+    func editBeatsDelete() throws {
+        let context = try makeContext()
+        let garment = Garment(name: "Abrigo", kind: .outerLayer, normalizedImageKey: "d")
+        context.insert(garment)
+
+        let deletion = Date()
+        garment.markDeleted(at: deletion)
+        garment.touch(deletion.addingTimeInterval(1))
+        garment.resolveDeletionAgainstEdits()
+
+        #expect(garment.isVisible, "una edición posterior tiene que devolverlo")
+    }
+
+    @Test("Sin edición posterior, el borrado se mantiene")
+    func deleteStandsWithoutEdits() throws {
+        let context = try makeContext()
+        let garment = Garment(name: "Gorra", kind: .head, normalizedImageKey: "e")
+        context.insert(garment)
+
+        garment.touch(Date().addingTimeInterval(-60))
+        garment.markDeleted()
+        garment.resolveDeletionAgainstEdits()
+
+        #expect(!garment.isVisible)
+    }
+
+    /// Borrar una prenda la quita de los outfits **sin destruir la
+    /// colocación**: si vuelve, vuelve a su sitio exacto.
+    @Test("La prenda borrada desaparece del lienzo pero su sitio se guarda")
+    func canvasHidesDeletedGarments() throws {
+        let context = try makeContext()
+        let garment = Garment(name: "Botas", kind: .feet, normalizedImageKey: "f")
+        let outfit = Outfit(name: "Lunes")
+        context.insert(garment)
+        context.insert(outfit)
+        let item = CanvasItem(
+            transform: ItemTransform(x: 100, y: 100, baseWidth: 200, baseHeight: 200),
+            garment: garment
+        )
+        item.outfit = outfit
+        context.insert(item)
+
+        #expect(outfit.visibleItems.count == 1)
+
+        garment.markDeleted()
+        #expect(outfit.visibleItems.isEmpty)
+        #expect(outfit.items.count == 1, "la colocación sigue guardada")
+
+        garment.restore()
+        #expect(outfit.visibleItems.count == 1)
+    }
+}

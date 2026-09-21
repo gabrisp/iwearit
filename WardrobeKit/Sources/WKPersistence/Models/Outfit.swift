@@ -8,6 +8,8 @@ public final class Outfit {
     public var id: UUID = UUID()
     public var name: String?
     public var createdAt: Date = Date()
+    public var modifiedAt: Date = Date()
+    public var deletedAt: Date?
     /// Render del canvas, regenerado al guardar. Clave de `ImageStore`.
     public var thumbnailKey: String?
     /// Fondo pastel elegido para este outfit. `nil` = el neutro por defecto.

@@ -94,7 +94,7 @@ private struct OutfitCard: View {
                         .opacity(0.5)
 
                     if let outfit {
-                        ForEach(outfit.items) { item in
+                        ForEach(outfit.visibleItems) { item in
                             SlotGarmentImage(item: item, store: store)
                                 .transition(.wkPlace)
                         }
@@ -208,7 +208,7 @@ private struct SlotGarmentStrip: View {
     let onPick: (Garment) -> Void
     let onClear: () -> Void
 
-    @Query(sort: [SortDescriptor(\Garment.dateAdded, order: .reverse)])
+    @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
     private var candidates: [Garment] {

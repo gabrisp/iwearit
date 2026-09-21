@@ -15,7 +15,7 @@ struct ShelfOrderScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    @Query(sort: [SortDescriptor(\GarmentCategory.sortOrder)])
+    @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
     var body: some View {
@@ -77,7 +77,7 @@ struct ShelfOrderScreen: View {
 
     private func delete(_ category: GarmentCategory) {
         guard !category.isBuiltIn else { return }
-        withAnimation(WKAnimation.content) { modelContext.delete(category) }
+        withAnimation(WKAnimation.content) { category.markDeleted() }
     }
 }
 

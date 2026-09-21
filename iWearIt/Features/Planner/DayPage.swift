@@ -206,7 +206,7 @@ private struct DayCanvas: View {
         ZStack {
             DotGridBackground().allowsHitTesting(false)
 
-            if let current, !current.items.isEmpty {
+            if let current, !current.visibleItems.isEmpty {
                 FreeformCanvas(outfit: current, store: appEnvironment.imageStore, selection: selection)
                     // Sin tocar las prendas: en revista el lienzo es una
                     // **vista previa**, no el editor. Colocar aquí sería

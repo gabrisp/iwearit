@@ -175,7 +175,7 @@ struct TripDayPage: View {
         ZStack {
             DotGridBackground().allowsHitTesting(false)
 
-            if let outfit, !outfit.items.isEmpty {
+            if let outfit, !outfit.visibleItems.isEmpty {
                 FreeformCanvas(outfit: outfit, store: appEnvironment.imageStore, selection: selection)
                     .allowsHitTesting(false)
                     // **Al editor desde el propio lienzo**, igual que en el
@@ -311,7 +311,7 @@ private struct PreparedOutfits: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
-                ForEach(suitcase.outfits) { outfit in
+                ForEach(suitcase.visibleOutfits) { outfit in
                     Button { onEdit(outfit) } label: {
                         // Con el color de la maleta de fondo, no el de la app.
                         // Un lienzo de maleta es de su color siempre, y la
@@ -332,7 +332,7 @@ private struct PreparedOutfits: View {
                         }
                         Button("Eliminar", systemImage: "trash", role: .destructive) {
                             withAnimation(WKAnimation.content) {
-                                modelContext.delete(outfit)
+                                outfit.markDeleted()
                             }
                         }
                     }
@@ -384,7 +384,7 @@ struct OutfitCanvasOrEmpty: View {
     @State private var selection = CanvasSelection()
 
     var body: some View {
-        if let outfit, !outfit.items.isEmpty {
+        if let outfit, !outfit.visibleItems.isEmpty {
             FreeformCanvas(outfit: outfit, store: store, selection: selection)
         } else {
             ContentUnavailableView {

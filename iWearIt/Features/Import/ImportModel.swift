@@ -19,6 +19,14 @@ final class ImportModel {
     enum Phase {
         case idle
         case processing
+        /// **Lo detectado, antes de tocar nada.**
+        ///
+        /// El paso que faltaba. Se enseña lo que ha salido de la foto y se
+        /// decide ahí: qué se queda, qué sobra y qué hay que rodear a mano
+        /// porque el detector lo partió o se lo dejó. Solo después de eso se
+        /// pide la reconstrucción — que cuesta dinero y no tiene sentido pagar
+        /// por tres trozos de un mismo pantalón.
+        case detected
         /// Redibujando las prendas. Con cuántas van, porque son segundos por
         /// prenda y una pantalla parada sin número parece colgada.
         case generating(done: Int, total: Int)
@@ -177,8 +185,9 @@ final class ImportModel {
             //
             // Por eso se espera aquí, con el contador a la vista: son segundos
             // por prenda y una pantalla parada sin número parece colgada.
-            await restyleAll()
-            phase = .review
+            // **Sin generar nada todavía.** Primero se revisa lo detectado:
+            // ver `Phase.detected` y `confirmDetection()`.
+            phase = .detected
         } catch PipelineError.noPersonFound {
             phase = .nothingFound(.noPerson)
         } catch PipelineError.visionUnavailable {
@@ -192,6 +201,45 @@ final class ImportModel {
             DiagnosticsLog.record("IMPORT", "error: \(error)", isProblem: true)
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// Cierra el paso de revisión: genera lo que haga falta y pasa a la ficha.
+    ///
+    /// La generación ocurre **aquí** y no al detectar, y solo para lo que se
+    /// queda: es el único momento en el que se sabe qué es una prenda de
+    /// verdad y qué era un trozo suelto.
+    func confirmDetection() async {
+        await restyleKept()
+        phase = .review
+    }
+
+    /// Añade una prenda que el detector no vio, recortada a dedo.
+    ///
+    /// Sin atributos deducidos: lo único que se sabe con certeza es la imagen y
+    /// sus colores. El tipo y el nombre se corrigen en la ficha, que es donde
+    /// están los controles para eso.
+    func addManualCandidate(_ image: CGImage) {
+        let cropped = ImmutableImage(image)
+        let detected = DetectedGarment(
+            kind: .other,
+            confidence: 1,
+            normalized: cropped,
+            rawCrop: cropped,
+            colors: ColorExtractor.dominantColors(in: image),
+            featurePrint: nil
+        )
+        var candidate = ImportCandidate(detected)
+        candidate.wasCorrectedByUser = true
+        candidates.append(candidate)
+        DiagnosticsLog.record("IMPORT", "prenda añadida a mano: \(candidates.count) en total")
+    }
+
+    /// Quita un candidato de la lista **del todo**.
+    ///
+    /// Distinto de desmarcarlo: desmarcado sigue ahí y se puede recuperar; esto
+    /// es para lo que no es una prenda y solo estorba mientras eliges.
+    func discard(candidateWithID id: UUID) {
+        candidates.removeAll { $0.id == id }
     }
 
     /// Marca los candidatos que ya están en el armario.
@@ -246,16 +294,10 @@ final class ImportModel {
     /// más de una, cada ficha pide la suya al llegar a ella — así se paga por
     /// lo que de verdad se mira, y los recortes que ibas a descartar no cuestan
     /// nada.
-    private func restyleAll() async {
+    private func restyleKept() async {
         guard resolver != nil else { return }
-        let ids = candidates.map(\.id)
-        guard ids.count == 1 else {
-            DiagnosticsLog.record(
-                "CATÁLOGO",
-                "\(ids.count) prendas en la foto: se generará una a una al revisarlas"
-            )
-            return
-        }
+        let ids = candidates.filter(\.isKept).map(\.id)
+        guard !ids.isEmpty else { return }
         phase = .generating(done: 0, total: ids.count)
         for (index, id) in ids.enumerated() {
             await restyle(candidateWithID: id)

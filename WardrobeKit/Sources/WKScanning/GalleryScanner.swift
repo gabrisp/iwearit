@@ -42,6 +42,15 @@ public actor GalleryScanner {
 
     private var isCancelled = false
 
+    /// Lo encontrado y **no guardado**, cuando se escanea sin insertar.
+    ///
+    /// El escaneo del onboarding recorre la galería entera y encuentra lo que
+    /// encuentra; decidir qué entra al armario es del usuario, no del escáner.
+    /// Los recortes ya están escritos en disco —eso es inevitable, hay que
+    /// verlos para elegir— pero ninguna prenda existe hasta que alguien dice
+    /// que sí.
+    public private(set) var harvest: [GarmentDraft] = []
+
     public init(pipeline: GarmentPipeline, imageStore: ImageStore, wardrobe: WardrobeActor) {
         self.pipeline = pipeline
         self.imageStore = imageStore
@@ -55,13 +64,18 @@ public actor GalleryScanner {
     /// - Parameters:
     ///   - startIndex: desde dónde continuar. 0 para empezar de cero.
     ///   - limit: tope de fotos a mirar. Es el gate del plan gratuito.
+    ///   - inserts: si lo encontrado entra al armario directamente. `false`
+    ///     en el onboarding: ahí se cosecha y se elige después, en
+    ///     `harvest`.
     public func scan(
         startIndex: Int = 0,
         limit: Int? = nil,
+        inserts: Bool = true,
         onProgress: @Sendable @escaping (ScanProgress) async -> Void,
         onDiscovery: @Sendable @escaping (ScanDiscovery) async -> Void
     ) async -> ScanProgress {
         isCancelled = false
+        harvest.removeAll()
 
         let assets = Self.candidateAssets()
         #if DEBUG
@@ -115,7 +129,11 @@ public actor GalleryScanner {
             progress.photosProcessed = index - startIndex + 1
 
             if pending.count >= Self.commitBatchSize {
-                try? await wardrobe.insert(pending)
+                if inserts {
+                    try? await wardrobe.insert(pending)
+                } else {
+                    harvest.append(contentsOf: pending)
+                }
                 pending.removeAll(keepingCapacity: true)
             }
 
@@ -126,7 +144,11 @@ public actor GalleryScanner {
         }
 
         if !pending.isEmpty {
-            try? await wardrobe.insert(pending)
+            if inserts {
+                try? await wardrobe.insert(pending)
+            } else {
+                harvest.append(contentsOf: pending)
+            }
         }
         await onProgress(progress)
         return progress

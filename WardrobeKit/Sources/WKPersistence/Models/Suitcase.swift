@@ -32,6 +32,8 @@ public final class Suitcase {
     public var destinationLatitude: Double?
     public var destinationLongitude: Double?
     public var createdAt: Date = Date()
+    public var modifiedAt: Date = Date()
+    public var deletedAt: Date?
 
     @Relationship(deleteRule: .cascade, inverse: \Outfit.suitcase)
     public var outfits: [Outfit] = []

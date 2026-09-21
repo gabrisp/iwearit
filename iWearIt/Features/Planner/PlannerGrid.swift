@@ -60,7 +60,7 @@ struct PlannerGrid: View {
         modelContext.insert(copy)
         copy.plannedDay = outfit.plannedDay
 
-        for item in outfit.items {
+        for item in outfit.visibleItems {
             let clone = CanvasItem(transform: item.transform, garment: item.garment)
             if let sticker = item.sticker { clone.apply(sticker) }
             clone.isFlipped = item.isFlipped
@@ -98,7 +98,7 @@ struct PlannerGrid: View {
                         // encuentre de camino a otra cosa.
                         Button("Eliminar", systemImage: "trash", role: .destructive) {
                             withAnimation(WKAnimation.content) {
-                                modelContext.delete(outfit)
+                                outfit.markDeleted()
                             }
                         }
                     }

@@ -4,25 +4,22 @@ import WKDesign
 import WKPersistence
 import WKVision
 
-/// La imagen de una prenda guardada, con las dos versiones a un toque.
+/// La imagen de una prenda guardada: **la de catálogo**.
 ///
-/// ## Por qué las dos
+/// Antes esto era un conmutador de dos posiciones, "Foto" y "Catálogo", y
+/// abría en la foto. Estaba mal por los dos lados: abrir en el recorte es
+/// enseñar la versión fea de la prenda cada vez que la abres, y el segmentado
+/// convertía una ficha en un sitio donde hay que elegir algo antes de mirar.
 ///
-/// El recorte es **lo que estuvo delante de la cámara**. La reconstrucción es
-/// una interpretación: queda mucho mejor —plana, recta, sin percha ni arrugas—
-/// pero el mismo mecanismo que le quita el fondo dentado le **rellena los
-/// agujeros**, así que si el recorte perdió media manga te devuelve la manga
-/// entera. Comprobado, no supuesto.
-///
-/// Por eso no sustituye a nada: se guarda al lado y se puede comparar. Y por
-/// eso el conmutador dice "Foto" y "Catálogo" y no "antes" y "después".
+/// La de catálogo es la buena y es la que se ve en las baldas: la ficha enseña
+/// lo mismo. Comparar las dos versiones sigue siendo posible, pero donde toca
+/// —en la hoja de editar, con las tres imágenes en fila— y no cada vez que se
+/// toca una prenda.
 struct GarmentImageSwitcher: View {
     let garment: Garment
 
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    /// Si se está mirando la reconstruida.
-    @State private var showsCatalog = false
     /// Si esta prenda ya tiene una. Se pregunta al disco, no se supone.
     @State private var hasCatalog = false
     @State private var isGenerating = false
@@ -35,7 +32,7 @@ struct GarmentImageSwitcher: View {
                 variant: .display,
                 store: appEnvironment.imageStore,
                 shadow: .init(opacity: 0.5, radius: 18, y: 11),
-                prefersCatalog: showsCatalog
+                prefersCatalog: true
             )
             .frame(maxWidth: .infinity)
             .frame(height: 300)
@@ -49,21 +46,14 @@ struct GarmentImageSwitcher: View {
         }
     }
 
-    /// Un conmutador si ya está hecha; un botón para hacerla si no.
+    /// Nada si ya está hecha; un botón para hacerla si falta.
     ///
-    /// Vista propia y no un `if` dentro del `VStack`: son dos controles
-    /// distintos con estados distintos, y mezclarlos en el mismo builder
-    /// significa que tocar uno reevalúa la imagen de arriba.
+    /// **Sin conmutador.** El de antes —"Foto | Catálogo"— se queda comentado
+    /// ahí abajo: enseñaba la versión fea por defecto y obligaba a tocar para
+    /// ver la buena.
     @ViewBuilder
     private var control: some View {
-        if hasCatalog {
-            Picker("Imagen", selection: $showsCatalog) {
-                Text("Foto").tag(false)
-                Text("Catálogo").tag(true)
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 220)
-        } else if appEnvironment.resolver != nil {
+        if !hasCatalog, appEnvironment.resolver != nil {
             Button {
                 Task { await generate() }
             } label: {
@@ -84,6 +74,15 @@ struct GarmentImageSwitcher: View {
                 .foregroundStyle(.red)
         }
     }
+
+    // El conmutador de antes, comentado y no borrado:
+    //
+    //     Picker("Imagen", selection: $showsCatalog) {
+    //         Text("Foto").tag(false)
+    //         Text("Catálogo").tag(true)
+    //     }
+    //     .pickerStyle(.segmented)
+    //     .frame(maxWidth: 220)
 
     /// La pide y la guarda **bajo la misma clave** que el recorte.
     ///
@@ -111,6 +110,5 @@ struct GarmentImageSwitcher: View {
         hasCatalog = true
         // Se enseña al momento: acabas de pedirla, no tiene sentido tener que
         // tocar otra vez para verla.
-        showsCatalog = true
     }
 }

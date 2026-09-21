@@ -13,10 +13,10 @@ struct GarmentTraySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    @Query(sort: [SortDescriptor(\GarmentCategory.sortOrder)])
+    @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
-    @Query(sort: [SortDescriptor(\Garment.dateAdded, order: .reverse)])
+    @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
     @State private var selectedSlug: String?

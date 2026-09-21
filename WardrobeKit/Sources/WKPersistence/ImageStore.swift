@@ -3,6 +3,7 @@ import CryptoKit
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import WKCore
 
 /// Guarda las imágenes de las prendas en el **sistema de ficheros**, no en la
 /// base de datos.
@@ -227,19 +228,69 @@ public actor ImageStore {
         }
     }
 
-    /// Borra todo fichero cuya clave ya no referencie ningún modelo.
+    /// Cuánto tiene que llevar un fichero sin dueño antes de poder borrarlo.
     ///
-    /// Se ejecuta en segundo plano al arrancar. Sin esto, descartar prendas en
-    /// la revisión de stacks deja basura en disco para siempre — y tras escanear
-    /// 4.000 fotos esa basura son cientos de megas.
+    /// Una semana. Es el margen que convierte "no lo referencia nadie" en "no
+    /// lo referencia nadie **y lleva días así**", que son dos afirmaciones muy
+    /// distintas en cuanto hay sincronización: un dispositivo que acaba de
+    /// arrancar tiene menos filas de las que va a tener dentro de un minuto.
+    public static let orphanGracePeriod: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Borra los ficheros que ya no referencia ningún modelo **y llevan tiempo
+    /// así**.
+    ///
+    /// ## Por qué el margen de tiempo
+    ///
+    /// Esto se ejecuta al arrancar, y sin margen es la operación más peligrosa
+    /// de la app. El razonamiento "si ninguna fila lo referencia, sobra" solo
+    /// vale si las filas están **todas**. Deja de valer en dos casos reales:
+    ///
+    /// 1. **Una importación a medias.** Los bytes se escriben antes que la
+    ///    fila; si la app muere en medio, el siguiente arranque los borra.
+    /// 2. **La sincronización entre dispositivos.** Un iPad que acaba de
+    ///    instalar la app tiene la base vacía mientras CloudKit importa. Sin
+    ///    margen, ese arranque borra las imágenes de todas las prendas que
+    ///    todavía no han llegado — y las borra en el dispositivo que sí las
+    ///    tenía.
+    ///
+    /// El coste de esperar una semana son unos megas de más. El coste de no
+    /// esperar es perder fotos que el usuario no puede recuperar.
+    ///
+    /// - Parameter grace: margen mínimo desde la última modificación del
+    ///   fichero. Cero solo en tests.
     @discardableResult
-    public func garbageCollect(keeping liveKeys: Set<String>) throws -> Int {
+    public func garbageCollect(
+        keeping liveKeys: Set<String>,
+        grace: TimeInterval = ImageStore.orphanGracePeriod
+    ) throws -> Int {
         var removed = 0
+        var spared = 0
+        let now = Date()
         for key in try allKeys() where !liveKeys.contains(key) {
+            if grace > 0, let touched = lastModified(forKey: key), now.timeIntervalSince(touched) < grace {
+                spared += 1
+                continue
+            }
             try delete(key: key)
             removed += 1
         }
+        if spared > 0 {
+            DiagnosticsLog.record("IMÁGENES", "\(spared) huérfanas recientes, se dejan estar")
+        }
         return removed
+    }
+
+    /// Cuándo se tocó por última vez cualquiera de las variantes de esa clave.
+    ///
+    /// La más reciente de las tres: la de catálogo puede haberse generado hoy
+    /// sobre un recorte de hace meses.
+    private func lastModified(forKey key: String) -> Date? {
+        Variant.allCases.compactMap { variant in
+            try? fileManager.attributesOfItem(
+                atPath: url(for: key, variant: variant).path(percentEncoded: false)
+            )[.modificationDate] as? Date
+        }
+        .max()
     }
 
     public func allKeys() throws -> Set<String> {

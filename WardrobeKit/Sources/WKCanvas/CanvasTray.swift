@@ -184,15 +184,14 @@ private struct CanvasTraySheet<SheetContent: View>: ViewModifier {
         isExpandable ? Self.expandableBase : height
     }
 
-    /// **Siempre el mismo juego de alturas.**
+    /// **Solo las prendas se pueden estirar.**
     ///
-    /// Y eso es lo que hace que de prendas a stickers no se vea una hoja
-    /// nueva: con un conjunto de detents distinto por pestaña, SwiftUI no
-    /// interpola —cambia de configuración y la hoja da un salto—. Aquí el
-    /// conjunto no cambia de forma, solo cambia **el número**, y el número se
-    /// anima.
+    /// Es lo único que tiene más contenido del que cabe. Los stickers son
+    /// cuatro iconos, la pintura son tres controles y el color son diez
+    /// muestras: darles un detent grande deja media pantalla vacía debajo y
+    /// encima invita a estirarlos para no ver nada nuevo.
     private var detents: Set<PresentationDetent> {
-        [.height(base), .large]
+        isExpandable ? [.height(base), .large] : [.height(base)]
     }
 
     func body(content: Content) -> some View {

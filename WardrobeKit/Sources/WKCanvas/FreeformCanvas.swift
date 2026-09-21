@@ -62,7 +62,10 @@ public struct FreeformCanvas: View {
                     .onTapGesture { selection.clear() }
                     .allowsHitTesting(!(drawing?.isActive ?? false))
 
-                ForEach(outfit.items) { item in
+                // `visibleItems` y no `items`: una prenda marcada para
+                // borrar sigue colocada en el outfit —a propósito, por si
+                // vuelve— pero no se pinta. Ver `SoftDeletion.swift`.
+                ForEach(outfit.visibleItems) { item in
                     CanvasGarmentItem(
                         item: item,
                         isSelected: selection.isSelected(item.id),

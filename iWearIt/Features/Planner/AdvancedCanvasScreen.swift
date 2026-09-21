@@ -582,10 +582,12 @@ private struct CanvasGarmentTray: View {
     let store: ImageStore
     let onPick: (Garment) -> Void
 
-    @Query(sort: [SortDescriptor(\Garment.dateAdded, order: .reverse)])
+    // Las consultas traen el filtro de eliminadas puesto: ver
+    // `FetchDescriptor.visibleGarments()` en `SoftDeletion.swift`.
+    @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
-    @Query(sort: [SortDescriptor(\GarmentCategory.sortOrder)])
+    @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
     @State private var filter: TrayFilter = .all

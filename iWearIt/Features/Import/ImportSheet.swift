@@ -170,6 +170,17 @@ private struct ImportPhaseContent: View {
                     ? "Redibujando prendas… \(done) de \(total)"
                     : "Redibujando la prenda…"
             )
+        case .detected:
+            // **El paso nuevo.** Se enseña lo detectado y se decide ahí qué
+            // es una prenda; solo después se reconstruye. Ver
+            // `ImportDetectedStep`.
+            if hasRevealed {
+                ImportDetectedStep(model: model, photo: photo)
+                    .transition(AnyTransition(.blurReplace))
+            } else {
+                reveal(isScanning: false, status: "Recortando")
+                    .transition(AnyTransition(.blurReplace))
+            }
         case .review:
             if hasRevealed {
                 // **La misma ficha en los dos casos.** Con una sola, ella

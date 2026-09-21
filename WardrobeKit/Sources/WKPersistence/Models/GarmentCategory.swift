@@ -10,7 +10,10 @@ import WKCore
 /// `promptEmbedding` y `centroidEmbedding`.
 @Model
 public final class GarmentCategory {
-    #Unique<GarmentCategory>([\.slug])
+    // Sin `#Unique`: CloudKit no lo soporta. El `slug` sigue siendo la
+    // identidad lógica de la balda, pero garantizarla pasa a ser trabajo de la
+    // app —fusionar dos baldas con el mismo slug, nunca borrar una que tenga
+    // prendas dentro—.
 
     public var id: UUID = UUID()
     /// Identidad estable, independiente del nombre visible. Las semilla usan
@@ -23,6 +26,8 @@ public final class GarmentCategory {
     public var isBuiltIn: Bool = false
     public var isHidden: Bool = false
     public var sortOrder: Int = 0
+    public var modifiedAt: Date = Date()
+    public var deletedAt: Date?
     public var symbolName: String?
     /// `GarmentKind` que hereda una prenda asignada a mano a esta balda.
     public var defaultKindRaw: String?
