@@ -54,7 +54,7 @@ struct PersistenceTests {
         let garment = try #require(try context.fetch(FetchDescriptor<Garment>()).first)
 
         #expect(garment.kind == .feet)
-        #expect(garment.category?.slug == "shoes")
+        #expect(garment.category?.slug == "zapatos")
     }
 
     /// Criterio de F1: insertar 500 prendas por el actor **sin bloquear el hilo

@@ -8,6 +8,18 @@ import Foundation
 /// con lo que el usuario ve.
 public enum GarmentVocabulary {
 
+    /// Materiales que se ofrecen al editar.
+    ///
+    /// Una lista corta y en español, no la etiqueta de composición: nadie
+    /// busca "65% poliéster 35% algodón", busca "es de algodón". Lo que hace
+    /// falta es distinguir cómo se comporta la prenda —abriga, transpira, se
+    /// arruga— y para eso llega con una docena de palabras.
+    public static let materials = [
+        "Algodón", "Lino", "Lana", "Cachemir", "Seda", "Vaquero",
+        "Cuero", "Ante", "Poliéster", "Nailon", "Punto", "Pana",
+        "Plumas", "Mezcla",
+    ]
+
     /// Tipo de prenda por parte del cuerpo.
     ///
     /// Se ofrecen solo los tipos de **su** parte: enseñar "Falda" al editar

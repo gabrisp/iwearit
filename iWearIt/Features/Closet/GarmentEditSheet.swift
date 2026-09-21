@@ -35,7 +35,7 @@ struct GarmentEditSheet: View {
     @State private var cropSource: CGImage?
 
     private enum Field: String, Identifiable {
-        case shelf, type, tags, warmth
+        case shelf, type, tags, warmth, material
         var id: String { rawValue }
     }
 
@@ -198,10 +198,35 @@ struct GarmentEditSheet: View {
             ) { editing = .tags }
             EditRow(
                 value: GarmentVocabulary.Warmth.from(garment.seasons).label,
-                label: "Calidez",
-                showsSeparator: false
+                label: "Calidez"
             ) { editing = .warmth }
+
+            // **Material, editable.** Lo propone el modelo y acierta a medias:
+            // distingue un vaquero de un punto, y confunde lino con algodón
+            // casi siempre. Enseñarlo sin poder tocarlo obliga a guardar algo
+            // que ya sabes que está mal.
+            EditRow(
+                value: garment.material?.capitalized ?? "Sin definir",
+                label: "Material"
+            ) { editing = .material }
+
+            // **Notas.** Un enlace a la ficha de la tienda, la talla que
+            // compraste, con qué la sueles llevar. Es el campo donde cabe lo
+            // que no cabe en ningún otro, y por eso no tiene formato.
+            NotesRow(notes: notesBinding)
         }
+    }
+
+    /// Las notas, con vacío tratado como ausencia.
+    ///
+    /// `nil` y `""` son lo mismo para quien escribe y distintos para la base
+    /// de datos: guardar cadenas vacías llena el modelo de campos que parecen
+    /// puestos y no dicen nada.
+    private var notesBinding: Binding<String> {
+        Binding(
+            get: { garment.notes ?? "" },
+            set: { garment.notes = $0.isEmpty ? nil : $0 }
+        )
     }
 
     @ViewBuilder
@@ -232,6 +257,18 @@ struct GarmentEditSheet: View {
                     set: { garment.tags = Array($0) }
                 ),
                 limit: GarmentVocabulary.maximumTags
+            )
+        case .material:
+            WKChipSheet(
+                title: "Material",
+                subtitle: "De qué está hecha, tal y como la llevas",
+                options: GarmentVocabulary.materials.map { .init(id: $0, label: $0) }
+                    + [.init(id: "", label: "Sin definir")],
+                selection: Binding(
+                    get: { Set([garment.material?.capitalized].compactMap { $0 }) },
+                    set: { garment.material = $0.first?.isEmpty == false ? $0.first : nil }
+                ),
+                limit: 1
             )
         case .warmth:
             WKChipSheet(
@@ -639,6 +676,38 @@ private struct EditRow: View {
 /// propone la IA juntando color, tipo y marca— y acierta a medias muy a menudo:
 /// "Zapatilla negro" cuando es azul marino. Sin poder tocarlo, el error se
 /// queda ahí para siempre.
+/// Notas libres de la prenda.
+///
+/// **Sin formato y sin sugerencias.** Es el sitio donde cabe lo que no cabe en
+/// ningún otro campo: el enlace de la ficha de la tienda, la talla que
+/// compraste, con qué la sueles llevar, que encoge al lavarla. Cualquier
+/// estructura que le pusiéramos dejaría fuera la mitad de esos usos.
+///
+/// Varias líneas, no una: un enlace no cabe en una sola y cortarlo con puntos
+/// suspensivos lo vuelve inútil para lo único que sirve, que es copiarlo.
+private struct NotesRow: View {
+    @Binding var notes: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            TextField("Un enlace, una talla, una referencia…", text: $notes, axis: .vertical)
+                .font(WK.Font.rowTitle)
+                .foregroundStyle(WK.Palette.primaryText)
+                .textInputAutocapitalization(.sentences)
+                // Sin autocorrector: la mitad de lo que se escribe aquí son
+                // enlaces y referencias, y el corrector los destroza.
+                .autocorrectionDisabled()
+                .lineLimit(1...6)
+
+            Text("Notas")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.tertiaryText)
+        }
+        .padding(.vertical, WK.Spacing.m - 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 private struct NameRow: View {
     @Binding var name: String
 

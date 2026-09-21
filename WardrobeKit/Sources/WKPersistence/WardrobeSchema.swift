@@ -145,21 +145,65 @@ public enum WardrobeStore {
 
 public extension GarmentCategory {
 
-    /// Las ocho baldas que existen desde la primera ejecución.
+    /// Las baldas que existen desde la primera ejecución.
+    ///
+    /// **Por prenda y no por zona del cuerpo.** Antes eran ocho cajones
+    /// técnicos —"tops", "bottoms", "cuerpo entero"— que son las clases que
+    /// sabe decir el modelo, no las palabras con las que nadie ordena su
+    /// armario. Una camisa y una camiseta caían en el mismo sitio, y buscar
+    /// "la camisa azul" obligaba a recorrer las cuarenta prendas de torso.
     ///
     /// No se pueden borrar porque son el destino de respaldo cuando ninguna
-    /// categoría propia del usuario supera el umbral de similitud. Sí se
-    /// renombran, reordenan y ocultan.
+    /// balda propia supera el umbral de similitud. Sí se renombran, reordenan
+    /// y ocultan.
     static func seedDefinitions() -> [(slug: String, name: String, symbol: String, kind: GarmentKind)] {
         [
-            ("outerwear",  "Chaquetas",     "jacket",            .outerLayer),
-            ("whole-body", "Cuerpo entero", "figure.dress.line.vertical.figure", .wholeBody),
-            ("tops",       "Tops",          "tshirt",            .upperBody),
-            ("bottoms",    "Bottoms",       "rectangle.portrait", .lowerBody),
-            ("shoes",      "Zapatos",       "shoe",              .feet),
-            ("accessories","Accesorios",    "eyeglasses",        .head),
-            ("bags",       "Bolsos",        "bag",               .bag),
-            ("other",      "Otros",         "square.grid.2x2",   .other),
+            ("camisetas",   "Camisetas",   "tshirt",            .upperBody),
+            ("polos",       "Polos",       "tshirt",            .upperBody),
+            ("camisas",     "Camisas",     "tshirt",            .upperBody),
+            ("chaquetas",   "Chaquetas",   "jacket",            .outerLayer),
+            ("bermudas",    "Bermudas",    "rectangle.portrait", .lowerBody),
+            ("pantalones",  "Pantalones",  "rectangle.portrait", .lowerBody),
+            ("banadores",   "Bañadores",   "figure.pool.swim",  .lowerBody),
+            ("zapatos",     "Zapatos",     "shoe",              .feet),
+            ("accesorios",  "Accesorios",  "eyeglasses",        .head),
+            ("bolsos",      "Bolsos",      "bag",               .bag),
         ]
+    }
+
+    /// La balda que le toca a una prenda por **lo que es**, no solo por la
+    /// zona del cuerpo que cubre.
+    ///
+    /// El modelo dice "parte de arriba" y además una subcategoría —"polo",
+    /// "camisa", "bermudas"—, y es esa segunda palabra la que distingue las
+    /// tres baldas de torso. Sin mirarla, todo lo de arriba caería en
+    /// Camisetas y las otras dos nacerían vacías.
+    ///
+    /// Se compara en minúsculas y sin acentos, y por contención: el modelo
+    /// devuelve "camisa de lino" o "polo de manga corta", no la palabra sola.
+    static func seedSlug(forSubcategory subcategory: String?, kind: GarmentKind) -> String {
+        guard let subcategory, !subcategory.isEmpty else { return kind.seedCategorySlug }
+
+        let text = subcategory
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+
+        // El orden importa: "camiseta" contiene "camis", así que lo más
+        // específico va antes.
+        let rules: [(needles: [String], slug: String)] = [
+            (["camiseta", "tshirt", "t-shirt"], "camisetas"),
+            (["polo"], "polos"),
+            (["camisa", "blusa", "shirt"], "camisas"),
+            (["banador", "bikini", "swim"], "banadores"),
+            (["bermuda", "short", "pantalon corto"], "bermudas"),
+            (["pantalon", "vaquero", "jean", "chino", "legging"], "pantalones"),
+            (["chaqueta", "abrigo", "cazadora", "parka", "blazer", "sudadera con capucha"], "chaquetas"),
+            (["zapat", "zapatilla", "bota", "sandalia", "deportiva", "sneaker"], "zapatos"),
+            (["bolso", "mochila", "bandolera", "rinonera", "bag"], "bolsos"),
+        ]
+
+        for rule in rules where rule.needles.contains(where: text.contains) {
+            return rule.slug
+        }
+        return kind.seedCategorySlug
     }
 }

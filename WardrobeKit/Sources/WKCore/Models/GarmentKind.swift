@@ -30,15 +30,20 @@ public enum GarmentKind: String, Codable, Sendable, CaseIterable, Hashable {
     /// Identificador de la categoría semilla donde cae una prenda de este tipo
     /// cuando ninguna categoría propia del usuario supera el umbral de similitud.
     public var seedCategorySlug: String {
+        // La balda **de respaldo** de cada zona del cuerpo: la que se usa
+        // cuando la subcategoría no dice nada más fino. Ver
+        // `GarmentCategory.seedSlug(forSubcategory:kind:)`.
         switch self {
-        case .upperBody:  "tops"
-        case .outerLayer: "outerwear"
-        case .lowerBody:  "bottoms"
-        case .wholeBody:  "whole-body"
-        case .feet:       "shoes"
-        case .head:       "accessories"
-        case .bag:        "bags"
-        case .other:      "other"
+        case .upperBody:  "camisetas"
+        case .outerLayer: "chaquetas"
+        case .lowerBody:  "pantalones"
+        // Un vestido o un mono cubre torso y piernas. Sin balda propia en la
+        // lista, cae con lo de arriba, que es donde se busca.
+        case .wholeBody:  "camisetas"
+        case .feet:       "zapatos"
+        case .head:       "accesorios"
+        case .bag:        "bolsos"
+        case .other:      "accesorios"
         }
     }
 

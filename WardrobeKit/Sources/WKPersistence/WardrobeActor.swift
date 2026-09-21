@@ -112,7 +112,15 @@ public actor WardrobeActor {
             garment.brand = draft.brand
 
             let assignment = Self.assign(draft, among: custom)
-            garment.category = assignment.category ?? bySlug[draft.kind.seedCategorySlug]
+            // La balda propia manda; si ninguna, la semilla que le toca **por
+            // lo que es**, no solo por la zona del cuerpo: una camisa va a
+            // Camisas y no al cajón de todo lo de arriba. Ver
+            // `GarmentCategory.seedSlug(forSubcategory:kind:)`.
+            garment.category = assignment.category
+                ?? bySlug[GarmentCategory.seedSlug(
+                    forSubcategory: draft.subcategory,
+                    kind: draft.kind
+                )]
             // Empate entre dos baldas propias: no se decide a ciegas, se
             // pregunta. "Gorras" y "Sombreros" se parecen lo suficiente como
             // para que acertar a medias sea peor que admitir la duda.
