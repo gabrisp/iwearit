@@ -80,6 +80,9 @@ private struct OverscrollAction: ViewModifier {
     @State private var hasFired = false
     /// La identidad del cristal. Ver `pill`.
     @Namespace private var glass
+    /// El nombre tiene que ser **el mismo** en los dos extremos: es lo único
+    /// que le dice a `.matchedGeometry` que son la misma superficie.
+    private static let glassName = "overscroll"
 
     /// La luz del aura.
     ///
@@ -175,12 +178,29 @@ private struct OverscrollAction: ViewModifier {
         let isFull = progress == 1
 
         return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+            // **Las dos caras del mismo cristal.**
+            //
+            // Y esto es lo que faltaba. `.matchedGeometry` no inventa una
+            // transición: **empareja dos superficies** con el mismo
+            // `glassEffectID`. Con una sola —la píldora apareciendo de la
+            // nada— no hay pareja, y iOS cae a su transición de material, que
+            // es literalmente un desenfoque sustituyendo a otro. Por eso
+            // seguía saliendo borrosa por mucho contenedor e id que le
+            // pusiéramos: le faltaba el otro extremo.
+            //
+            // El otro extremo es esta gota de un punto: existe cuando la
+            // píldora no, lleva el mismo cristal y el mismo id, y no se ve.
+            // Con ella, el cristal tiene de dónde salir y adónde volver, y lo
+            // que se ve es la superficie estirándose hasta ser la píldora.
             if isVisible {
                 indicator
-                    // **Sin `transition` propia.** Poniendo una gana ella y el
-                    // cristal se queda sin nada que hacer. Quien decide cómo
-                    // llega la superficie es `glassEffectTransition`, que para
-                    // eso tiene su contenedor, su `glassEffect` y su id.
+            } else {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .adaptiveGlass(in: .capsule)
+                    .adaptiveGlassID(Self.glassName, in: glass)
+                    .adaptiveGlassTransition()
+                    .allowsHitTesting(false)
             }
         }
         // **El rebote, por fuera de la píldora.**
@@ -236,29 +256,25 @@ private struct OverscrollAction: ViewModifier {
     }
 
     private var indicator: some View {
-        pillContent
-            .foregroundStyle(WK.Palette.primaryText)
-            // **El cristal, limpio.** Nada de desenfoques ni de modos de
-            // mezcla dentro de la vista que lleva el `glassEffect`: eso obliga
-            // a SwiftUI a rasterizar el grupo entero, y un cristal rasterizado
-            // ya no puede participar en la transición del contenedor — se
-            // queda con la de material, que es el desenfoque que veíamos.
-            //
-            // Era exactamente eso: mientras el aura fue un degradado sin
-            // mezcla, la transición funcionaba; al convertirla en un punto
-            // desenfocado y aditivo, dejó de hacerlo.
-            .adaptiveGlass(in: .capsule)
-            .adaptiveGlassID("overscroll", in: glass)
-            .adaptiveGlassTransition()
-            // Y el aura **por encima del cristal**, no dentro. Es luz aditiva:
-            // puesta encima ilumina la superficie y la palabra a la vez, que
-            // es lo que hace que la píldora parezca encenderse.
-            .overlay {
-                Self.aura(Self.fill, progress: progress)
-                    .clipShape(.capsule)
-                    .allowsHitTesting(false)
-            }
-            .allowsHitTesting(false)
+        // **El aura, hermana del cristal y no dentro de él.**
+        //
+        // Un desenfoque o un modo de mezcla dentro de la vista que lleva el
+        // `glassEffect` obliga a SwiftUI a rasterizar ese grupo, y un cristal
+        // rasterizado deja de participar en la transición del contenedor. Como
+        // hermana en un `ZStack`, la luz se compone encima y el cristal se
+        // queda limpio.
+        ZStack {
+            pillContent
+                .foregroundStyle(WK.Palette.primaryText)
+                .adaptiveGlass(in: .capsule)
+                .adaptiveGlassID(Self.glassName, in: glass)
+                .adaptiveGlassTransition()
+
+            Self.aura(Self.fill, progress: progress)
+                .clipShape(.capsule)
+                .allowsHitTesting(false)
+        }
+        .allowsHitTesting(false)
     }
 
     private func fireIfDue() {
