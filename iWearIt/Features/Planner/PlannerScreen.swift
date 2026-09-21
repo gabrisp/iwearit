@@ -58,6 +58,7 @@ struct PlannerScreen: View {
     private var focusedOutfit: Outfit? {
         focusByDay[date(forOffset: dayOffset)]
     }
+
     /// Cuánto se aleja la vista.
     ///
     /// Tres niveles de zoom sobre lo mismo: el librito para montar un outfit,
@@ -177,6 +178,7 @@ struct PlannerScreen: View {
             // yendo a su sitio, uno hacia arriba y otro hacia abajo, cada uno
             // al suyo. Con el contenedor moviéndose, todos parecen ir en la
             // misma dirección y el viaje de cada uno deja de verse.
+            pager
             pager.transition(.opacity)
         case .grid:
             // Scroll horizontal paginado, **no el pager de revista**: el paso
@@ -299,6 +301,13 @@ struct PlannerScreen: View {
         // segura, la retícula empieza por debajo de la hora y deja una franja
         // muerta justo donde la tira tiene que flotar *sobre* el papel.
         .ignoresSafeArea()
+        // El editor crece **desde el lienzo que se está viendo**.
+        //
+        // Quitarlo y dejar el destino con un id que nadie declara dejaba la
+        // transición sin origen, y entonces no es que salga fea: la pantalla
+        // **no se empuja**. El editor dejó de abrirse, en revista y en
+        // rejilla. Si algún día el zoom desde aquí estorba, se quita el
+        // modificador **entero** en los dos extremos, no solo el id.
         .adaptiveZoomSource(id: focusedOutfit?.stableID ?? Self.placeholderZoomID, in: zoom)
     }
 

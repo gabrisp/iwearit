@@ -177,21 +177,31 @@ struct CalendarJumpSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            // Con `numericText`: al pasar de septiembre a agosto los dígitos
-            // ruedan en vez de cambiar de golpe, que es lo que hace entender
-            // que has retrocedido y no que la hoja se ha recargado.
-            Text(Self.month.string(from: selection).sentenceCased)
-                .font(WK.Font.title)
-                .foregroundStyle(WK.Palette.primaryText)
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(WKAnimation.content, value: selection)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // **El mes, una sola vez.** Lo escribía aquí arriba y el calendario
+            // lo escribe otra vez en su propia cabecera —con su selector de
+            // mes, que además es el que funciona—, así que se leía dos veces
+            // el mismo dato y el de arriba no hacía nada.
+            //
+            // La cabecera de antes se queda comentada: si algún día el picker
+            // gráfico estorba, esto es lo que había.
+            //
+            // Text(Self.month.string(from: selection).sentenceCased)
+            // .font(WK.Font.title)
+            // .foregroundStyle(WK.Palette.primaryText)
+            // .monospacedDigit()
+            // .contentTransition(.numericText())
+            // .animation(WKAnimation.content, value: selection)
+            // .frame(maxWidth: .infinity, alignment: .leading)
 
             DatePicker("", selection: $selection, displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .labelsHidden()
                 .tint(WK.Palette.accent)
+                // La tipografía de la app dentro del calendario del sistema.
+                // Lo que se pueda: el picker gráfico dibuja parte de su
+                // contenido con UIKit y ahí `font` no llega, pero lo que sí
+                // respeta el entorno deja de desentonar.
+                .environment(\.font, WK.Font.body)
                 .onChange(of: selection) { dismiss() }
         }
         .padding(.horizontal, WK.Spacing.screenInset)

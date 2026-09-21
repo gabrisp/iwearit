@@ -91,34 +91,38 @@ private struct OverscrollAction: ViewModifier {
     /// hacía desaparecer en oscuro.
     static let fillInk = Color.white
 
-    /// El aura: un círculo que nace **en el centro** y crece hasta llenarla.
+    /// El aura: **un punto desenfocado** que crece desde el centro.
     ///
-    /// Elíptica y no lineal. La lineal tapaba de golpe toda la altura de la
-    /// píldora, así que por estrecho que fuera el borde seguía siendo una
-    /// franja cruzando de lado a lado — o sea, una barra. Un círculo que se
-    /// abre desde el centro no tiene ni dirección ni frontera: empieza como
-    /// una mancha pequeña detrás de la palabra y acaba siendo la píldora
-    /// entera.
+    /// Un círculo pequeño con mucho desenfoque, y no un degradado, por dos
+    /// razones.
     ///
-    /// En fracciones del tamaño y no en puntos: así no hay que medir la
-    /// píldora, y el círculo escala solo si cambia el texto.
-    static func aura(to progress: CGFloat, of color: Color) -> EllipticalGradient {
-        EllipticalGradient(
-            stops: [
-                .init(color: color, location: 0),
-                // El interior, macizo; el último tramo, desvanecido. Es lo que
-                // le da el aire de aura en vez de círculo recortado.
-                .init(color: color, location: 0.55),
-                .init(color: color.opacity(0), location: 1),
-            ],
-            center: .center,
-            startRadiusFraction: 0,
-            // Hasta bastante más allá de la mitad: una píldora es mucho más
-            // ancha que alta, y un círculo que solo llegue a su borde corto
-            // deja las puntas sin teñir.
-            endRadiusFraction: progress * 1.8
-        )
+    /// La primera es un fallo: con el progreso a cero el degradado elíptico es
+    /// degenerado —radio cero— y se pinta **entero del primer color**. Por eso
+    /// la píldora salía rellena durante un instante y luego se corregía. Un
+    /// punto a escala cero mide cero y no hay nada que corregir.
+    ///
+    /// La segunda es que un degradado de tres paradas, por suave que sea,
+    /// tiene un sitio donde acaba. Un punto desenfocado no acaba en ninguna
+    /// parte: es una mancha de luz detrás de la palabra que se va comiendo la
+    /// píldora.
+    static func aura(_ color: Color, progress: CGFloat) -> some View {
+        Circle()
+            .fill(color)
+            .frame(width: dotSize, height: dotSize)
+            .blur(radius: dotBlur)
+            // Hasta cubrir la píldora entera. Llega deslavazado a las puntas,
+            // que es justo lo que se quiere: se tiñen las últimas y sin canto.
+            .scaleEffect(max(0, progress) * dotGrowth)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    /// De qué tamaño parte el punto, cuánto se difumina y cuánto crece.
+    ///
+    /// El desenfoque es casi tan grande como el punto: por debajo de eso se le
+    /// ve la forma de círculo y deja de ser un aura.
+    private static let dotSize: CGFloat = 22
+    private static let dotBlur: CGFloat = 16
+    private static let dotGrowth: CGFloat = 14
 
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
     /// Separa "estás desbordando" de "estás pidiendo algo".
@@ -166,9 +170,26 @@ private struct OverscrollAction: ViewModifier {
     /// funde con él al salir—, que es para lo que existe
     /// `glassEffectTransition`.
     private var pill: some View {
-        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+        let isFull = progress == 1
+
+        return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if isVisible { indicator }
         }
+        // **El rebote, por fuera de la píldora.**
+        //
+        // Dentro se peleaba con lo que ya estaba pasando ahí: el cristal
+        // formándose, el aura creciendo y el relleno avanzando bajo las
+        // letras, todo a la vez y todo con su propia animación. Escalado desde
+        // fuera, lo que rebota es la píldora entera como objeto, con su
+        // contenido quieto por dentro. Y va con el háptico, que es lo que
+        // avisa de que ya está.
+        .keyframeAnimator(initialValue: 1.0, trigger: isFull) { view, scale in
+            view.scaleEffect(scale)
+        } keyframes: { _ in
+            CubicKeyframe(1.1, duration: 0.15)
+            CubicKeyframe(1, duration: 0.15)
+        }
+        .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
         .padding(.bottom, bottomInset)
         // Por encima de todo lo que haya en el scroll.
         .zIndex(100)
@@ -207,9 +228,7 @@ private struct OverscrollAction: ViewModifier {
     }
 
     private var indicator: some View {
-        let isFull = progress == 1
-
-        return pillContent
+        pillContent
             .foregroundStyle(WK.Palette.primaryText)
             // **Un aura que avanza, no una barra que se rellena.**
             //
@@ -222,7 +241,7 @@ private struct OverscrollAction: ViewModifier {
             // que se mueve con el progreso son sus paradas, así que no hace
             // falta medir nada y el borde no da saltos de píxel.
             .background {
-                Self.aura(to: progress, of: Self.fill)
+                Self.aura(Self.fill, progress: progress)
                     .clipShape(.capsule)
             }
             // **La letra no cambia de color: le pasa el aura por debajo.**
@@ -233,7 +252,7 @@ private struct OverscrollAction: ViewModifier {
             // se va invirtiendo según la alcanza, con el mismo desvanecido que
             // el fondo, en vez de cambiar de golpe al pasar un umbral.
             .overlay {
-                Self.aura(to: progress, of: Self.fillInk)
+                Self.aura(Self.fillInk, progress: progress)
                     .mask { pillContent }
             }
             .adaptiveGlass(in: .capsule)
@@ -246,7 +265,6 @@ private struct OverscrollAction: ViewModifier {
             // tamaño en algo que estás mirando de cerca mientras arrastras se
             // lee como un tirón, no como una confirmación.
             .allowsHitTesting(false)
-            .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
     private func fireIfDue() {

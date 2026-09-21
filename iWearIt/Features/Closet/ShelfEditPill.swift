@@ -25,8 +25,15 @@ struct ShelfEditPill: View {
 
     var body: some View {
         Button(action: action) {
-            Label("Editar baldas", systemImage: "slider.horizontal.3")
-                .font(WK.Font.caption)
+            // **Peso medio y no ligero.** En ligero se leía como una nota al
+            // pie del armario, y esto es un control: la misma letra que el
+            // resto de cosas pulsables pequeñas.
+            //
+            // Y un lápiz, no los tiradores de un ecualizador: `slider` dice
+            // "ajustar valores", que es lo que hace un filtro. Aquí se
+            // renombra, se reordena y se borra, y eso es editar.
+            Label("Editar baldas", systemImage: "pencil")
+                .font(WK.Font.captionMedium)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .padding(.horizontal, WK.Spacing.m)
                 .padding(.vertical, WK.Spacing.s)

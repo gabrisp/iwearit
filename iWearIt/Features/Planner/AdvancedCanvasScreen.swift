@@ -162,25 +162,40 @@ struct AdvancedCanvasScreen: View {
         // En barra de verdad y no en una fila puesta a mano: así iOS 26 les da
         // su cristal y su difuminado del contenido que pasa por debajo, que es
         // exactamente lo que una fila propia tendría que imitar a mano.
-        // Sin deshacer/rehacer.
-        //
-        // Nunca llegaron a hacer nada: el `undoManager` del contexto no está
-        // configurado, así que los dos botones salían siempre apagados. Y
-        // aunque lo estuviera, en un lienzo lo que se deshace se deshace
-        // moviendo la prenda de vuelta, que es más directo que buscar una
-        // flecha arriba. Si algún día hace falta, se hace con agrupación por
-        // gesto —un arrastre es un paso, no sesenta— o no sirve para nada.
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button { close() } label: { Image(systemName: "xmark") }
                     .tint(WK.Palette.primaryText)
             }
+            // **Sin deshacer/rehacer, otra vez, y esta vez con el motivo
+            // apuntado.**
+            //
+            // Se probaron con un `UndoManager` puesto en el contexto mientras
+            // el editor está abierto, y la pantalla dejó de abrirse: ese
+            // contexto es el que respalda la sincronización con iCloud, y
+            // registrar cada cambio para poder deshacerlo por encima de eso
+            // tira el editor al aparecer, en revista y en rejilla.
+            //
+            // Dejarlos puestos y apagados sería peor que no tenerlos. Para que
+            // funcionen, el historial tiene que ser **del lienzo**: una pila
+            // propia de transformaciones y trazos, que se puede deshacer sin
+            // tocar la base de datos. Eso es un bloque aparte.
             ToolbarItem(placement: .topBarTrailing) {
                 Button { dismiss() } label: { Image(systemName: "checkmark") }
                     .tint(WK.Palette.primaryText)
                     .adaptiveProminentButton()
             }
         }
+        // **Sin `UndoManager` en el contexto.** Ponerlo aquí —aunque fuera
+        // solo mientras el editor está abierto— tiraba la pantalla al
+        // aparecer: el contexto es el mismo que respalda la sincronización con
+        // iCloud, y registrar cada cambio para deshacerlo por encima de eso no
+        // sale gratis. El editor dejó de abrirse, en revista y en rejilla.
+        //
+        // Los dos botones siguen ahí y siguen apagados, que es lo honesto
+        // hasta que el historial sea del lienzo y no de la base de datos: una
+        // pila de transformaciones propia, que es lo único que se puede
+        // deshacer sin tocar el contexto compartido.
         // **Con la bandeja puesta, la barra se apaga y deja su hueco.**
         //
         // Las dos mitades importan. Apagarla porque debajo de la bandeja no
