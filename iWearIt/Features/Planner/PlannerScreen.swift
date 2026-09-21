@@ -104,6 +104,7 @@ struct PlannerScreen: View {
 
                 topGradient
                 strip
+                revistaZoomAnchor
             }
             .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
                 guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
@@ -138,7 +139,16 @@ struct PlannerScreen: View {
                     // El mismo id que la fuente: en rejilla es la celda, en
                     // revista el lienzo entero. En los dos casos el editor sale
                     // **de donde estaba** lo que se abre.
-                    .adaptiveZoomDestination(id: outfit.stableID, in: zoom)
+                    // En rejilla sale de su celda; en revista, del punto
+                    // fantasma del centro. Las dos fuentes existen siempre, que
+                    // es lo que hace que la transición no se quede sin origen
+                    // —y sin origen la pantalla no se empuja, que ya nos pasó—.
+                    .adaptiveZoomDestination(
+                        id: layout == .grid
+                            ? AnyHashable(outfit.stableID)
+                            : AnyHashable(Self.revistaZoomID),
+                        in: zoom
+                    )
                     .toolbarVisibility(.hidden, for: .tabBar)
             }
             .background(WK.Palette.canvas.ignoresSafeArea())
@@ -308,8 +318,31 @@ struct PlannerScreen: View {
         // **no se empuja**. El editor dejó de abrirse, en revista y en
         // rejilla. Si algún día el zoom desde aquí estorba, se quita el
         // modificador **entero** en los dos extremos, no solo el id.
-        .adaptiveZoomSource(id: focusedOutfit?.stableID ?? Self.placeholderZoomID, in: zoom)
+        // El origen del zoom **no es el pasador**: ver `revistaZoomAnchor`.
     }
+
+    /// El origen del zoom **en revista**: un punto invisible en el centro de
+    /// la pantalla.
+    ///
+    /// Antes el origen era el propio pasador de hoja, y eso es lo que dejaba
+    /// la vuelta fea: para poder crecer desde él, el sistema lo trata como
+    /// parte de la transición, y al volver el librito se desmontaba y se
+    /// volvía a montar —con sus `UIHostingController` y su página
+    /// reconstruyéndose a la vista—.
+    ///
+    /// Un punto fantasma no se desmonta nunca porque no es nada: está siempre
+    /// ahí, en el centro, y el editor sale de ahí y vuelve ahí sin tocar el
+    /// librito.
+    private var revistaZoomAnchor: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .adaptiveZoomSource(id: Self.revistaZoomID, in: zoom)
+            .allowsHitTesting(false)
+    }
+
+    /// El nombre del punto. En revista el destino usa este id y no el del
+    /// outfit: el outfit no tiene de dónde salir, el punto sí.
+    private static let revistaZoomID = "navigationZoomRevista"
 
     /// Id de repuesto cuando el lienzo visible todavía no tiene outfit. Nunca
     /// coincide con uno real, así que la transición cae al empuje normal en vez

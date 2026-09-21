@@ -8,33 +8,29 @@ import WKPersistence
 
 /// El editor del outfit, a pantalla completa.
 ///
-/// **Edita en un contexto aparte y solo guarda al confirmar.**
+/// **Edita en vivo pero no guarda hasta que confirmas.**
 ///
-/// Antes escribía directamente en el contexto de la app, así que cada
-/// arrastre, cada trazo y cada sticker era un cambio guardado — y, con la
-/// sincronización puesta, un cambio camino de iCloud. Colocar una prenda a
-/// ojo son cincuenta escrituras que a nadie le importan; la que importa es
-/// la de cuando dices que ya está.
+/// Las dos cosas a la vez, que parecían incompatibles y no lo son. Antes esto
+/// abría un `ModelContext` aparte: nada se guardaba hasta el check —bien— pero
+/// el plan y la rejilla no se enteraban de nada hasta mucho después, porque la
+/// copia que tenían en memoria seguía siendo la de antes.
 ///
-/// Con un contexto propio, lo que pasa aquí dentro no existe fuera hasta que
-/// tocas el check. Y eso trae gratis lo otro: la X puede preguntar si
-/// descartas, porque descartar es de verdad posible — basta con no guardar.
+/// La forma correcta es más simple: **el mismo contexto de siempre, con el
+/// autoguardado apagado**. Todo lo que pasa aquí se ve al instante en toda la
+/// app —es literalmente el mismo objeto— y no toca el almacén, ni por tanto
+/// iCloud, hasta que se llama a `save()`. Y descartar es `rollback()`, que es
+/// exactamente para lo que existe.
 struct AdvancedCanvasScreen: View {
     let outfit: Outfit
     let store: ImageStore
 
-    @Environment(\.modelContext) private var parentContext
+    @Environment(\.modelContext) private var modelContext
     @State private var session: CanvasEditingSession?
 
     var body: some View {
         Group {
             if let session {
-                CanvasEditorScreen(outfit: session.outfit, store: store, session: session)
-                    // Todo lo de dentro —las bandejas, el selector de prendas,
-                    // los `@Query`— pasa a hablar con el contexto de la
-                    // sesión. Es lo que hace que ni un solo cambio se escape
-                    // al de la app por accidente.
-                    .modelContext(session.context)
+                CanvasEditorScreen(outfit: outfit, store: store, session: session)
             } else {
                 // Un instante, mientras se prepara la sesión. Del color del
                 // lienzo para que no se vea un parpadeo blanco al entrar.
@@ -43,37 +39,33 @@ struct AdvancedCanvasScreen: View {
         }
         .task {
             guard session == nil else { return }
-            session = CanvasEditingSession(editing: outfit, from: parentContext)
+            session = CanvasEditingSession(holding: modelContext)
         }
     }
 }
 
-/// Lo que se está editando y dónde.
+/// Mientras el editor está abierto, el contexto no se guarda solo.
 ///
-/// El contexto **no se guarda solo**: esa es toda la idea. Se guarda cuando
-/// alguien llama a `commit()`, y si nadie lo hace, los cambios se van con él.
+/// Un objeto y no un par de llamadas sueltas porque lo que importa es que el
+/// autoguardado **vuelva a encenderse** pase lo que pase: al confirmar, al
+/// descartar y al soltarse la pantalla. Dejarlo apagado por un camino olvidado
+/// sería perder cambios de otra pantalla sin que nadie sepa por qué.
 @MainActor
 final class CanvasEditingSession {
-    let context: ModelContext
-    let outfit: Outfit
-    /// El contexto de la app, al que hay que avisar cuando esto se guarda.
-    private let parent: ModelContext
+    private let context: ModelContext
 
-    init?(editing outfit: Outfit, from parent: ModelContext) {
-        // **El padre se guarda primero.** Un outfit recién creado —el caso de
-        // "crear outfit", que lo inserta y abre el editor en el mismo turno—
-        // todavía no está en el almacén, y un contexto nuevo no puede ver lo
-        // que otro tiene sin guardar. Sin esto, el editor se abría vacío.
-        try? parent.save()
-
-        let context = ModelContext(parent.container)
+    init(holding context: ModelContext) {
+        // Lo que hubiera pendiente de antes se guarda ya: a partir de aquí,
+        // lo que quede sin guardar es lo que se ha hecho en el editor, y eso
+        // es lo que `rollback()` tiene que poder tirar.
+        try? context.save()
         context.autosaveEnabled = false
-        guard let editable = context.model(for: outfit.persistentModelID) as? Outfit else {
-            return nil
-        }
         self.context = context
-        self.outfit = editable
-        self.parent = parent
+    }
+
+    deinit {
+        // Se ejecuta en el `MainActor` porque la clase entera lo es.
+        MainActor.assumeIsolated { context.autosaveEnabled = true }
     }
 
     /// Si hay algo que perder. Es lo que decide si la X pregunta o se limita
@@ -82,18 +74,17 @@ final class CanvasEditingSession {
     var hasChanges: Bool { context.hasChanges }
 
     /// Lo hecho aquí pasa a ser lo que hay. **Una escritura, no cincuenta.**
-    ///
-    /// Y el padre se entera **al momento**. Guardar en otro contexto cambia el
-    /// almacén, pero la copia que el padre tiene en memoria sigue siendo la de
-    /// antes: el plan y la rejilla seguían enseñando el outfit como estaba
-    /// hasta que algo las obligaba a releer. `rollback()` es lo que refresca
-    /// esas copias, y aquí es seguro porque el padre no tiene nada sin guardar
-    /// — se guardó justo antes de abrir la sesión.
     func commit() {
         try? context.save()
-        parent.rollback()
+        context.autosaveEnabled = true
     }
 
+    /// Descartar es tirar lo que no se ha guardado, que es justo todo lo que
+    /// se ha hecho en el editor.
+    func discard() {
+        context.rollback()
+        context.autosaveEnabled = true
+    }
 }
 
 /// El lienzo y sus controles.
@@ -347,7 +338,10 @@ private struct CanvasEditorScreen: View {
         // pantalla y se lleva los cambios con él. Por eso la pregunta puede
         // prometer lo que promete.
         .alert("¿Descartar los cambios?", isPresented: $isConfirmingDiscard) {
-            Button("Descartar", role: .destructive) { dismiss() }
+            Button("Descartar", role: .destructive) {
+                session.discard()
+                dismiss()
+            }
             Button("Seguir editando", role: .cancel) {}
         } message: {
             Text("Se perderá todo lo que hayas hecho desde que abriste el editor.")
