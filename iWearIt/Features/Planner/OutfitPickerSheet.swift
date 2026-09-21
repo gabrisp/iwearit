@@ -83,6 +83,18 @@ struct OutfitPickerSheet: View {
                     )
                 }
         }
+        // **La barra de abajo, por fuera de la pila.**
+        //
+        // Estaba puesta sobre la primera pantalla, así que al abrir una balda
+        // entera se iba con ella: justo cuando más falta hace —estás mirando
+        // cuarenta camisetas— desaparecían lo que llevabas elegido y el botón
+        // de confirmar, y había que volver atrás para poder seguir.
+        //
+        // Por fuera de la `NavigationStack` pertenece a la hoja y no a una
+        // pantalla suya, así que se queda puesta entres donde entres. Y sigue
+        // reservando su hueco, de modo que ninguna balda queda cortada por
+        // debajo.
+        .adaptiveSafeAreaBar(edge: .bottom) { bottom }
     }
 
     private var picker: some View {
@@ -125,7 +137,6 @@ struct OutfitPickerSheet: View {
                     .tint(WK.Palette.primaryText)
             }
         }
-        .adaptiveSafeAreaBar(edge: .bottom) { bottom }
         .sheet(item: $capture) { step in
             switch step {
             case .camera:
