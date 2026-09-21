@@ -32,70 +32,91 @@ struct WebImportScreen: View {
         NavigationStack {
             WebCaptureView(model: model)
                 .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("Desde la web")
+                // **Todo en la barra, y sin superficie propia.**
+                //
+                // La barra puesta a mano de antes traía su propio cristal
+                // flotando sobre la web, y encima tapaba el pie de las
+                // páginas. En la barra del sistema el contenido se difumina
+                // por debajo como en cualquier otra pantalla de la app, y no
+                // hay nada que reservar ni que tapar.
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
+                    // Atrás y adelante, a la izquierda. En un navegador son la
+                    // mitad de la navegación: entras en un producto, no es,
+                    // vuelves.
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        Button { model.goBack() } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                        .tint(WK.Palette.primaryText)
+                        .disabled(!model.canGoBack)
+
+                        Button { model.goForward() } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                        .tint(WK.Palette.primaryText)
+                        .disabled(!model.canGoForward)
+                    }
+
+                    // La dirección **es** el título: decir "Desde la web"
+                    // encima de una web no añade nada, y saber en qué página
+                    // estás sí.
+                    ToolbarItem(placement: .principal) {
+                        TextField("Buscar o escribir enlace", text: $model.address)
+                            .textFieldStyle(.plain)
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .multilineTextAlignment(.center)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.webSearch)
+                            .submitLabel(.go)
+                            .focused($isTyping)
+                            .frame(minWidth: 160)
+                            .onSubmit {
+                                model.go(to: model.address)
+                                isTyping = false
+                            }
+                            // Mientras escribes, la barra es tuya: si la
+                            // navegación siguiera actualizándola, te borraría
+                            // lo tecleado a mitad de palabra.
+                            .onChange(of: isTyping) { _, typing in
+                                model.isEditing = typing
+                            }
+                    }
+
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button { dismiss() } label: { Image(systemName: "xmark") }
                             .tint(WK.Palette.primaryText)
                     }
+
+                    // La foto, abajo y con su nombre: es **la** acción de esta
+                    // pantalla, y arriba habría quedado como un icono más
+                    // entre los de navegar.
+                    ToolbarItem(placement: .bottomBar) {
+                        Button {
+                            Task {
+                                guard let image = await model.capture() else { return }
+                                // **Sin `dismiss()`.** Quien presenta esta hoja
+                                // la cambia por la de revisar en cuanto llega
+                                // la imagen; cerrarla aquí cancelaba ese
+                                // cambio, y por eso desaparecía sin volver
+                                // nada.
+                                onCapture(image)
+                            }
+                        } label: {
+                            Label("Usar esta foto", systemImage: "camera.viewfinder")
+                        }
+                        .tint(WK.Palette.primaryText)
+                        .disabled(!model.hasPage)
+                    }
                 }
-                .safeAreaInset(edge: .bottom) { bar }
         }
         // **No se cierra arrastrando.** Una web se recorre con el dedo de
         // arriba abajo, y con el gesto de descartar puesto la mitad de los
         // arrastres cerraban la pantalla en vez de mover la página. Se sale
-        // por la X, que además está donde se espera.
+        // por la X.
         .interactiveDismissDisabled()
-    }
-
-    private var bar: some View {
-        HStack(spacing: WK.Spacing.s) {
-            TextField("Busca o pega un enlace", text: $model.address)
-                .textFieldStyle(.plain)
-                .font(WK.Font.body)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.webSearch)
-                .submitLabel(.go)
-                .focused($isTyping)
-                .onSubmit {
-                    model.go(to: model.address)
-                    isTyping = false
-                }
-                // Mientras escribes, la barra es tuya: si la navegación
-                // siguiera actualizándola, te borraría lo que llevas tecleado
-                // a mitad de palabra.
-                .onChange(of: isTyping) { _, typing in model.isEditing = typing }
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.s + 2)
-                .adaptiveGlass(in: .capsule)
-
-            Button {
-                Task {
-                    guard let image = await model.capture() else { return }
-                    // **Sin `dismiss()`.** Quien presenta esta hoja la cambia
-                    // por la de revisar en cuanto llega la imagen; cerrarla
-                    // aquí además cancelaba ese cambio, y por eso la hoja
-                    // desaparecía sin que volviera nada.
-                    onCapture(image)
-                }
-            } label: {
-                // Una cámara y no "Capturar": el botón vive al lado de un
-                // campo de texto y una palabra más lo estrecharía hasta no
-                // poder escribir.
-                Image(systemName: "camera.viewfinder")
-                    .font(WK.Font.headline)
-                    .frame(width: 52, height: 52)
-                    .contentShape(.circle)
-            }
-            .buttonStyle(WKPressStyle())
-            .adaptiveGlassProminent(tint: WK.Palette.accent, in: .circle)
-            .disabled(!model.hasPage)
-            .opacity(model.hasPage ? 1 : 0.4)
-        }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.bottom, WK.Spacing.s)
     }
 }
 
@@ -110,6 +131,11 @@ final class WebCaptureModel {
     var isEditing = false
     /// Hay algo cargado que fotografiar.
     private(set) var hasPage = false
+    private(set) var canGoBack = false
+    private(set) var canGoForward = false
+
+    func goBack() { webView?.goBack() }
+    func goForward() { webView?.goForward() }
 
     /// Dónde se empieza.
     ///
@@ -148,6 +174,8 @@ final class WebCaptureModel {
     /// La página ha cambiado: la barra sigue a la navegación.
     func pageChanged(to url: URL?) {
         hasPage = url != nil
+        canGoBack = webView?.canGoBack ?? false
+        canGoForward = webView?.canGoForward ?? false
         guard !isEditing, let url else { return }
         address = url.absoluteString
     }
@@ -174,10 +202,18 @@ private struct WebCaptureView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        // **Sin dejar rastro.** El dato que interesa es la foto, no la
-        // sesión: un almacén efímero evita quedarse con las cookies de la
-        // tienda y con la sesión iniciada de nadie.
-        configuration.websiteDataStore = .nonPersistent()
+        // **Que lo tomen por un navegador, porque lo es.**
+        //
+        // Por defecto, una `WKWebView` se presenta como algo que no es Safari
+        // y sin una sola cookie, y eso es exactamente el perfil que los
+        // buscadores marcan como robot: aparecía el "confirma que eres
+        // humano" antes de llegar a ningún resultado.
+        //
+        // Dos cosas lo arreglan y las dos son decir la verdad: una firma de
+        // Safari —el motor **es** el de Safari— y el almacén normal, para que
+        // el consentimiento que aceptas una vez no haya que volver a
+        // aceptarlo en cada búsqueda.
+        configuration.applicationNameForUserAgent = "Version/18.0 Mobile/15E148 Safari/604.1"
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
