@@ -43,9 +43,12 @@ struct ImportSingleCard: View {
 
     /// Qué imagen se está mirando. Vive aquí porque es estado de presentación:
     /// cambiarla no toca la prenda.
-    /// Se abre en la reconstruida: es la que se acaba de generar y la que
-    /// enseña la prenda entera. El recorte sigue a un toque, para comparar.
-    @State private var source: Source = .catalog
+    ///
+    /// Abre en la reconstruida **si la hay**, y si no en el recorte. Que no la
+    /// haya es ahora el caso normal: solo se genera cuando el recorte no da la
+    /// talla, así que abrir siempre en "Catálogo" enseñaría un hueco vacío en
+    /// la mayoría de las prendas.
+    @State private var source: Source = .cutout
     @State private var isCroppingByHand = false
     @FocusState private var editing: Field?
 
@@ -271,21 +274,27 @@ struct ImportSingleCard: View {
                         Button {
                             Task { await onRestyle() }
                         } label: {
-                            Label("Reintentar", systemImage: "arrow.clockwise")
-                                .font(WK.Font.caption)
-                                .foregroundStyle(WK.Palette.accent)
+                            Label(
+                                candidate.catalogFailure == nil ? "Redibujar con IA" : "Reintentar",
+                                systemImage: candidate.catalogFailure == nil
+                                    ? "wand.and.sparkles"
+                                    : "arrow.clockwise"
+                            )
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.accent)
                         }
                         .buttonStyle(WKPressStyle())
                     }
-                    // **El motivo, no una frase de relleno.**
-                    //
-                    // Aquí ponía siempre "el recorte es la foto real", que es
-                    // verdad pero no dice nada: no distingue "no hay red" de
-                    // "el servidor la rechazó por no fiel", que piden cosas
-                    // distintas.
-                    Text(candidate.catalogFailure ?? "Versión de tienda, reconstruida.")
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, WK.Spacing.l)
+                    // **Sin catálogo ya no es un fallo.** Solo se genera cuando
+                    // el recorte no vale; que no lo haya quiere decir que el
+                    // recorte salió bien, y decirlo evita que parezca que algo
+                    // se quedó a medias.
+                    Text(
+                        candidate.catalogFailure
+                            ?? "Este recorte ha salido bien. Puedes redibujarlo como foto de tienda si quieres."
+                    )
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, WK.Spacing.l)
                 }
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)

@@ -116,10 +116,13 @@ final class ImportModel {
             // escaneo de la galería; aquí se está fotografiando una cosa y
             // partir solo puede equivocarse — el pantalón que volvía en tres.
             splitsInstances: false,
-            // Y se pregunta siempre. Aquí el usuario mira **una** ficha y lo
-            // que espera es que esté bien: el color medido confunde el azul
-            // marino con el negro, y quien mira la imagen no.
-            alwaysAsksRemote: true
+            // **Y ya no se pregunta siempre.** Preguntar por cada prenda era
+            // pagar una consulta también cuando el dispositivo ya sabía la
+            // respuesta: el tipo, las etiquetas y hasta la marca salen del
+            // propio recorte —prompt bank y OCR— y salen bien a poco que la
+            // foto sea decente. Se pregunta solo cuando lo local es dudoso:
+            // ver `GarmentPipeline.needsRemoteHelp`.
+            alwaysAsksRemote: false
         )
     }
 
@@ -296,8 +299,27 @@ final class ImportModel {
     /// nada.
     private func restyleKept() async {
         guard resolver != nil else { return }
-        let ids = candidates.filter(\.isKept).map(\.id)
-        guard !ids.isEmpty else { return }
+
+        // **Solo lo que no salió bien.** Un recorte correcto es el que se
+        // guarda; reconstruirlo cuesta dinero y no arregla nada. Lo que sí
+        // merece la pena redibujar es lo que el segmentador partió, dejó a
+        // medias o cortó por el encuadre — y eso se mide mirando el alfa, sin
+        // preguntar a nadie. Ver `CutoutQuality`.
+        let ids = candidates.filter { candidate in
+            guard candidate.isKept, candidate.catalogImage == nil else { return false }
+            let report = CutoutQuality.assess(candidate.cutout.cgImage)
+            DiagnosticsLog.record(
+                "RECORTE",
+                "\(candidate.displayName): \(report.summary) → "
+                    + (report.isGoodEnough ? "vale tal cual" : "se reconstruye")
+            )
+            return !report.isGoodEnough
+        }.map(\.id)
+
+        guard !ids.isEmpty else {
+            DiagnosticsLog.record("CATÁLOGO", "los recortes valen: no se genera nada")
+            return
+        }
         phase = .generating(done: 0, total: ids.count)
         for (index, id) in ids.enumerated() {
             await restyle(candidateWithID: id)

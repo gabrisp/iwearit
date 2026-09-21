@@ -823,3 +823,66 @@ struct ChromaCutoutTests {
         #expect(centre.b > centre.r, "el azul marino sigue siendo azul")
     }
 }
+
+@Suite("Calidad del recorte")
+struct CutoutQualityTests {
+
+    /// Un recorte normal: la prenda de una pieza, con aire alrededor.
+    private func wholeGarment(side: Int = 128) -> CGImage {
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.clear(CGRect(x: 0, y: 0, width: side, height: side))
+        context.setFillColor(red: 0.2, green: 0.3, blue: 0.6, alpha: 1)
+        let inset = side / 5
+        context.fill(CGRect(x: inset, y: inset, width: side - 2 * inset, height: side - 2 * inset))
+        return context.makeImage()!
+    }
+
+    /// Y el fallo que de verdad ocurre: el segmentador parte la prenda en dos
+    /// trozos separados —el pantalón cortado por el cinturón—.
+    private func splitGarment(side: Int = 128) -> CGImage {
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.clear(CGRect(x: 0, y: 0, width: side, height: side))
+        context.setFillColor(red: 0.2, green: 0.3, blue: 0.6, alpha: 1)
+        let piece = side / 3
+        context.fill(CGRect(x: piece, y: 4, width: piece, height: piece))
+        context.fill(CGRect(x: piece, y: side - piece - 4, width: piece, height: piece))
+        return context.makeImage()!
+    }
+
+    @Test("Un recorte entero se da por bueno")
+    func wholeGarmentPasses() {
+        let report = CutoutQuality.assess(wholeGarment())
+        #expect(report.isGoodEnough, "\(report.summary)")
+    }
+
+    /// Este es el que justifica el gasto: partido en dos, se reconstruye.
+    @Test("Un recorte partido en dos no vale")
+    func splitGarmentFails() {
+        let report = CutoutQuality.assess(splitGarment())
+        #expect(!report.isGoodEnough, "\(report.summary)")
+    }
+
+    @Test("Un recorte vacío no vale")
+    func emptyFails() {
+        let side = 32
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.clear(CGRect(x: 0, y: 0, width: side, height: side))
+        let report = CutoutQuality.assess(context.makeImage()!)
+        #expect(report.score == 0)
+    }
+}
