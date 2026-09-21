@@ -91,34 +91,43 @@ private struct OverscrollAction: ViewModifier {
     /// hacía desaparecer en oscuro.
     static let fillInk = Color.white
 
-    /// Cuánto mide el borde difuminado del aura, en fracción de la píldora.
+    /// El aura: un **círculo difuso** que nace en el centro y crece.
     ///
-    /// Ancho a propósito: más estrecho vuelve a ser una frontera, y es
-    /// justamente lo que no queremos que se vea.
-    private static let auraEdge: CGFloat = 0.22
-
-    /// El aura: nace **en el centro** y se abre hacia los dos lados.
+    /// Elíptica y no lineal. La lineal tapaba de golpe toda la altura de la
+    /// píldora, así que por suave que fuera el borde seguía siendo una franja
+    /// cruzando de lado a lado. Un círculo que se abre desde el centro no
+    /// tiene ni dirección ni frontera.
     ///
-    /// Desde un lado, el aura tenía un delante y un detrás —o sea, una
-    /// dirección— y eso convertía la píldora en una barra de progreso otra
-    /// vez. Desde el centro no avanza: crece. Y crece desde donde está la
-    /// palabra, que es lo que hace que se lea como la píldora encendiéndose y
-    /// no como algo que la recorre.
-    static func aura(to progress: CGFloat, of color: Color) -> LinearGradient {
-        let half = progress / 2
-        let clear = color.opacity(0)
-        return LinearGradient(
-            stops: [
-                .init(color: clear, location: 0),
-                .init(color: clear, location: max(0, 0.5 - half - auraEdge)),
-                .init(color: color, location: max(0, 0.5 - half)),
-                .init(color: color, location: min(1, 0.5 + half)),
-                .init(color: clear, location: min(1, 0.5 + half + auraEdge)),
-                .init(color: clear, location: 1),
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+    /// La difuminación se hace con **paradas**, no con `blur`: un desenfoque
+    /// dentro de la vista que lleva el `glassEffect` obliga a SwiftUI a
+    /// rasterizar el grupo, y un cristal rasterizado se queda fuera de la
+    /// transición de su contenedor. Cuatro paradas con caída larga dan la
+    /// misma nube sin rasterizar nada.
+    ///
+    /// A progreso cero devuelve transparente **explícitamente**: un degradado
+    /// elíptico de radio cero es degenerado y a veces se pinta entero del
+    /// primer color, que es lo que hacía aparecer la píldora rellena un
+    /// instante.
+    @ViewBuilder
+    static func aura(to progress: CGFloat, of color: Color) -> some View {
+        if progress <= 0 {
+            Color.clear
+        } else {
+            EllipticalGradient(
+                stops: [
+                    .init(color: color, location: 0),
+                    .init(color: color.opacity(0.62), location: 0.34),
+                    .init(color: color.opacity(0.24), location: 0.62),
+                    .init(color: color.opacity(0), location: 1),
+                ],
+                center: .center,
+                startRadiusFraction: 0,
+                // Más allá de la mitad: una píldora es mucho más ancha que
+                // alta, y un círculo que solo llegue a su borde corto deja las
+                // puntas sin teñir.
+                endRadiusFraction: progress * 1.9
+            )
+        }
     }
 
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
