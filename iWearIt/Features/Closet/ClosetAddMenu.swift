@@ -35,6 +35,7 @@ struct ClosetAddMenu: View {
         case menu
         // case library   ← la galería ya no es un paso: se abre desde el menú
         case camera
+        case web
         case review(ImportableImage)
         case newCategory
         case shelfOrder
@@ -43,6 +44,7 @@ struct ClosetAddMenu: View {
             switch self {
             case .menu: "menu"
             case .camera: "camera"
+            case .web: "web"
             case let .review(image): image.id.uuidString
             case .newCategory: "category"
             case .shelfOrder: "order"
@@ -96,6 +98,12 @@ struct ClosetAddMenu: View {
             CameraScreen { captured in
                 self.step = .review(ImportableImage(cgImage: captured))
             }
+        case .web:
+            // A pantalla completa y sin poder arrastrarse para cerrar: ver
+            // `WebImportScreen`.
+            WebImportScreen { captured in
+                self.step = .review(ImportableImage(cgImage: captured))
+            }
         case let .review(image):
             ImportSheet(image: image.cgImage)
         case .newCategory:
@@ -139,12 +147,22 @@ struct ClosetAddMenu: View {
             WKMenuItem(id: "camera", title: "Hacer una foto", systemImage: "camera") {
                 appEnvironment.gate.require(.garments) { step = .camera }
             },
-            WKMenuItem(id: "shelf", title: "Nueva balda", systemImage: "rectangle.stack.badge.plus") {
-                appEnvironment.gate.require(.customCategories) { step = .newCategory }
+            // **Desde la tienda.** La mejor foto de una prenda recién
+            // comprada no está en tu carrete: está en su ficha, sobre fondo
+            // blanco, que es justo con lo que el recorte funciona mejor.
+            WKMenuItem(id: "web", title: "Desde la web", systemImage: "globe") {
+                appEnvironment.gate.require(.garments) { step = .web }
             },
-            WKMenuItem(id: "order", title: "Ordenar baldas", systemImage: "arrow.up.arrow.down") {
-                step = .shelfOrder
-            },
+            // **Lo de las baldas ya no vive aquí.** Se queda comentado y no
+            // borrado: crear y ordenar baldas se hace desde la píldora del
+            // final del armario, que es donde estás cuando se te ocurre.
+            //
+            // WKMenuItem(id: "shelf", title: "Nueva balda", systemImage: "rectangle.stack.badge.plus") {
+            // appEnvironment.gate.require(.customCategories) { step = .newCategory }
+            // },
+            // WKMenuItem(id: "order", title: "Ordenar baldas", systemImage: "arrow.up.arrow.down") {
+            // step = .shelfOrder
+            // },
         ]
     }
 }
