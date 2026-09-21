@@ -53,8 +53,10 @@ public final class GarmentCategory {
     public var minSimilarity: Double = 0.28
     public var autoAssignEnabled: Bool = false
 
-    @Relationship(deleteRule: .nullify, inverse: \Garment.category)
-    public var garments: [Garment] = []
+    @Relationship(deleteRule: .nullify, originalName: "garments", inverse: \Garment.category)
+    public var storedGarments: [Garment]? = []
+
+    public var garments: [Garment] { storedGarments ?? [] }
 
     public init(
         slug: String,
@@ -91,8 +93,10 @@ public final class GarmentStack {
     /// `true` cuando el usuario ya decidió sobre este grupo (fusionar/descartar).
     public var isResolved: Bool = false
 
-    @Relationship(deleteRule: .nullify, inverse: \Garment.stack)
-    public var members: [Garment] = []
+    @Relationship(deleteRule: .nullify, originalName: "members", inverse: \Garment.stack)
+    public var storedMembers: [Garment]? = []
+
+    public var members: [Garment] { storedMembers ?? [] }
 
     public init(representativeGarmentID: UUID, centroidEmbedding: Data? = nil) {
         self.id = UUID()

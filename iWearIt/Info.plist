@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Avisos silenciosos de CloudKit. Sin esto, los cambios del iPad no
+	     llegan al iPhone hasta que el iPhone se abre — y CloudKit lo dice en
+	     la consola: "push notifications require the 'remote-notification'
+	     background mode". El ajuste INFOPLIST_KEY_UIBackgroundModes no sirve:
+	     Xcode no lo traslada al plist generado. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
+</plist>

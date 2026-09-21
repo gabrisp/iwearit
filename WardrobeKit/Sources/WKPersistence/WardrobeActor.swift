@@ -220,6 +220,33 @@ public actor WardrobeActor {
         return keys
     }
 
+    // MARK: - Dispositivos
+
+    /// Deja constancia de que esta instalación está viva.
+    ///
+    /// Se llama al arrancar. La primera vez crea la fila; las demás solo
+    /// actualiza la fecha, que es lo que permite distinguir un dispositivo en
+    /// uso de uno que lleva meses apagado.
+    public func registerCurrentDevice(named name: String) throws {
+        let id = SyncDevice.currentInstallationID
+        var descriptor = FetchDescriptor<SyncDevice>(
+            predicate: #Predicate { $0.installationID == id }
+        )
+        descriptor.fetchLimit = 1
+
+        if let existing = try modelContext.fetch(descriptor).first {
+            existing.lastSeenAt = Date()
+            // Volver a abrir la app en un dispositivo que se había quitado de
+            // la lista lo devuelve: quitarlo era decir "ya no lo uso", y
+            // usarlo otra vez contradice eso.
+            existing.removedAt = nil
+        } else {
+            modelContext.insert(SyncDevice(installationID: id, name: name))
+            DiagnosticsLog.record("SINCRONIZA", "dispositivo registrado: \(name)")
+        }
+        try modelContext.save()
+    }
+
     // MARK: - Converger sin destruir
 
     /// Junta lo que dos dispositivos crearon por separado.

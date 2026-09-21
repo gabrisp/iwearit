@@ -66,6 +66,26 @@ struct OutfitPickerSheet: View {
     private var categories: [GarmentCategory]
 
     var body: some View {
+        // **Con pila de navegación.** La cabecera de cada balda tenía chevron
+        // —o sea, prometía abrirse— y no hacía nada. Ahora se abre aquí dentro,
+        // que es donde estás eligiendo: salir de la hoja para ver una balda
+        // entera y volver perdería lo que llevaras marcado.
+        NavigationStack {
+            picker
+                .navigationDestination(for: PersistentIdentifier.self) { id in
+                    PickerShelfScreen(
+                        categoryID: id,
+                        store: store,
+                        mode: mode,
+                        picking: picking,
+                        picked: $picked,
+                        flying: $flying
+                    )
+                }
+        }
+    }
+
+    private var picker: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: WK.Spacing.l) {
                 ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
@@ -212,11 +232,15 @@ private struct PickerShelf: View {
                 // Cabecera con chevron: la balda entera se puede abrir, igual
                 // que en el armario. Aquí solo se marca, pero el gesto de
                 // "ver más" tiene que estar donde ya está en el resto.
-                Label(category.name.lowercased(), systemImage: "chevron.right")
-                    .labelStyle(TrailingChevronStyle())
-                    .font(WK.Font.rowTitle)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .padding(.horizontal, WK.Spacing.screenInset)
+                NavigationLink(value: category.persistentModelID) {
+                    Label(category.name.lowercased(), systemImage: "chevron.right")
+                        .labelStyle(TrailingChevronStyle())
+                        .font(WK.Font.rowTitle)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .padding(.horizontal, WK.Spacing.screenInset)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(WKPressStyle())
 
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: WK.Spacing.m) {
@@ -403,6 +427,70 @@ private struct TrailingChevronStyle: LabelStyle {
             configuration.icon
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(WK.Palette.secondaryText)
+        }
+    }
+}
+
+
+/// Una balda entera, dentro de la hoja de elegir.
+///
+/// La misma celda y el mismo `picked` que la fila de fuera: lo que marques aquí
+/// ya está marcado al volver, porque es literalmente la misma selección.
+private struct PickerShelfScreen: View {
+    let categoryID: PersistentIdentifier
+    let store: ImageStore
+    let mode: OutfitPickerSheet.Mode
+    let picking: Namespace.ID
+    @Binding var picked: [PersistentIdentifier]
+    @Binding var flying: PersistentIdentifier?
+
+    @Environment(\.modelContext) private var modelContext
+
+    private var category: GarmentCategory? {
+        modelContext.model(for: categoryID) as? GarmentCategory
+    }
+
+    private let columns = [GridItem(.adaptive(minimum: 104), spacing: WK.Spacing.m)]
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
+                ForEach(category?.visibleGarments ?? []) { garment in
+                    PickerCell(
+                        garment: garment,
+                        store: store,
+                        picking: picking,
+                        isPicked: picked.contains(garment.persistentModelID),
+                        isFlying: flying == garment.persistentModelID
+                    ) {
+                        toggle(garment)
+                    }
+                }
+            }
+            .padding(WK.Spacing.screenInset)
+        }
+        .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .background(WK.Palette.canvas.ignoresSafeArea())
+        .navigationTitle(category?.name ?? "Balda")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// La misma regla que en la fila de fuera: montando un outfit, marcar una
+    /// prenda de esta balda sustituye a la que hubiera — un outfit no lleva dos
+    /// pantalones. Haciendo la maleta se acumulan.
+    private func toggle(_ garment: Garment) {
+        let id = garment.persistentModelID
+        withAnimation(WKAnimation.selection) {
+            if picked.contains(id) {
+                picked.removeAll { $0 == id }
+                return
+            }
+            if mode == .outfit, let siblings = category?.visibleGarments {
+                let ids = Set(siblings.map(\.persistentModelID))
+                picked.removeAll { ids.contains($0) }
+            }
+            picked.append(id)
         }
     }
 }

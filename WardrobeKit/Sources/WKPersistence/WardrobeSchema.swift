@@ -31,6 +31,7 @@ public enum WardrobeSchemaV1: VersionedSchema {
             PackingEntry.self,
             BodyProfile.self,
             GarmentImageBlob.self,
+            SyncDevice.self,
         ]
     }
 

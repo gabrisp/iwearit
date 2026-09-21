@@ -22,8 +22,10 @@ public final class PlannedDay {
     /// Ordenados por `createdAt`: el orden en que se montaron es el orden en el
     /// que se recuerdan, y reordenarlos por otra cosa haría que el lienzo de
     /// arriba cambiara solo.
-    @Relationship(deleteRule: .cascade, inverse: \Outfit.plannedDay)
-    public var outfits: [Outfit] = []
+    @Relationship(deleteRule: .cascade, originalName: "outfits", inverse: \Outfit.plannedDay)
+    public var storedOutfits: [Outfit]? = []
+
+    public var outfits: [Outfit] { storedOutfits ?? [] }
 
     /// Los outfits en orden estable, **sin los marcados para borrar**.
     ///

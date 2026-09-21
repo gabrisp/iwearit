@@ -35,8 +35,10 @@ public final class Outfit {
     /// conservar 32,56° exactos, y un snap silencioso los destruiría.
     public var snapToGrid: Bool = false
 
-    @Relationship(deleteRule: .cascade, inverse: \CanvasItem.outfit)
-    public var items: [CanvasItem] = []
+    @Relationship(deleteRule: .cascade, originalName: "items", inverse: \CanvasItem.outfit)
+    public var storedItems: [CanvasItem]? = []
+
+    public var items: [CanvasItem] { storedItems ?? [] }
 
     public var plannedDay: PlannedDay?
     public var suitcase: Suitcase?

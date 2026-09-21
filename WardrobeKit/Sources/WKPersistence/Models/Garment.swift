@@ -67,8 +67,25 @@ public final class Garment {
     public var category: GarmentCategory?
     public var stack: GarmentStack?
 
-    @Relationship(deleteRule: .cascade, inverse: \CanvasItem.garment)
-    public var canvasItems: [CanvasItem] = []
+    // **Guardado como opcional, leído como lista.**
+    //
+    // CloudKit exige que toda relación sea opcional: un `[CanvasItem]` a secas
+    // hace que el store no cargue con réplica —comprobado ejecutándolo—. El
+    // `originalName` conserva la columna que ya existe, así que esto no migra
+    // nada; y el accesorio de abajo deja el resto del código exactamente igual
+    // que estaba.
+    @Relationship(deleteRule: .cascade, originalName: "canvasItems", inverse: \CanvasItem.garment)
+    public var storedCanvasItems: [CanvasItem]? = []
+
+    public var canvasItems: [CanvasItem] { storedCanvasItems ?? [] }
+
+    /// Las entradas de equipaje que la nombran.
+    ///
+    /// Existe para darle **inverso** a `PackingEntry.garment`: sin él, CloudKit
+    /// rechaza el modelo entero. Nadie la lee; la relación se sigue usando
+    /// desde el otro lado.
+    @Relationship(deleteRule: .cascade, inverse: \PackingEntry.garment)
+    public var storedPackingEntries: [PackingEntry]? = []
 
     public init(
         id: UUID = UUID(),

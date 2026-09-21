@@ -74,15 +74,32 @@ final class CloudSync {
     private let container: ModelContainer
     private var observers: [NSObjectProtocol] = []
 
+    /// Hay cuenta de iCloud **y la app se abrió sin ella**.
+    ///
+    /// Es el caso de "no había iCloud cuando arrancaste y ahora sí": el store
+    /// se abrió en local, y encender la réplica exige volver a abrirlo. En vez
+    /// de hacerlo por la cara —que reconstruye el contenedor debajo de la
+    /// pantalla que estés mirando— se pregunta.
+    private(set) var canEnableNow = false
+
     init(container: ModelContainer, isEnabled: Bool) {
         self.container = container
         self.isEnabled = isEnabled
-        guard isEnabled else {
-            status = .unavailable("sincronización apagada")
-            return
+        if isEnabled {
+            observe()
+        } else {
+            status = .unavailable("sin iCloud")
+            // **La cuenta se vigila igual.** Si no hay sesión al arrancar se
+            // sigue en local, pero cuando aparece hay que poder ofrecerlo: sin
+            // este observador, el usuario tendría que adivinar que ahora sí
+            // podría sincronizar.
+            observeAccount()
         }
-        observe()
         Task { await refreshAccountStatus() }
+    }
+
+    func dismissEnablePrompt() {
+        canEnableNow = false
     }
 
     deinit {
@@ -149,10 +166,15 @@ final class CloudSync {
             }
         )
 
-        // 3. Cambio de cuenta de iCloud: sesión cerrada, otra cuenta, o
-        //    restricciones parentales.
+        // 3. Y la cuenta.
+        observeAccount()
+    }
+
+    /// Cambio de cuenta de iCloud: sesión cerrada, otra cuenta, o
+    /// restricciones parentales.
+    private func observeAccount() {
         observers.append(
-            center.addObserver(
+            NotificationCenter.default.addObserver(
                 forName: .CKAccountChanged,
                 object: nil,
                 queue: .main
@@ -207,7 +229,9 @@ final class CloudSync {
 
             switch account {
             case .available:
-                if case .unavailable = status { status = .idle }
+                // Hay cuenta pero la app se abrió sin réplica: se ofrece.
+                if !isEnabled, AppConfiguration.syncsWithCloud { canEnableNow = true }
+                if isEnabled, case .unavailable = status { status = .idle }
             case .noAccount:
                 status = .unavailable("sin sesión de iCloud")
             case .restricted:

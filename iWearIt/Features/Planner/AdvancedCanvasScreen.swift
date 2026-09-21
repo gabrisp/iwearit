@@ -637,13 +637,11 @@ private struct CanvasGarmentTray: View {
     }
 
     var body: some View {
-        VStack(spacing: WK.Spacing.s) {
-            TrayFilterBar(
-                filters: [.all] + shelves + styles,
-                selection: $filter
-            )
-
-            ScrollView {
+        // Los chips **en barra** y no como primera fila: siendo contenido se
+        // iban con el scroll, y el filtro tiene que quedarse a la vista
+        // mientras recorres el armario. Sin fondo: las prendas pasan por
+        // debajo, que es lo que dice que hay más.
+        ScrollView {
                 LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
                     ForEach(visible) { garment in
                         Button { onPick(garment) } label: {
@@ -679,7 +677,12 @@ private struct CanvasGarmentTray: View {
                         .foregroundStyle(WK.Palette.secondaryText)
                 }
             }
-        }
+            .safeAreaInset(edge: .top) {
+                TrayFilterBar(
+                    filters: [.all] + shelves + styles,
+                    selection: $filter
+                )
+            }
         // Si la balda filtrada se queda sin prendas —las has usado todas— el
         // filtro vuelve solo a "Todo" en vez de dejar una rejilla vacía que
         // parece una app rota.

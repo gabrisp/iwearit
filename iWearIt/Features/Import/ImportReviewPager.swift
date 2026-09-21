@@ -31,11 +31,6 @@ struct ImportReviewPager: View {
     /// que es a la vez índice y atajo: tocar una miniatura salta a su ficha.
     @State private var current: UUID?
 
-    /// Lo que mide la tira. Se mide y no se fija: cambia con el tipo de letra
-    /// del sistema, y con un número a mano la reserva de abajo se queda corta
-    /// justo en los tamaños grandes.
-    @State private var stripHeight: CGFloat = 96
-
     var body: some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
@@ -44,8 +39,7 @@ struct ImportReviewPager: View {
                         model: model,
                         candidate: candidate,
                         photo: photo,
-                        isCurrent: candidate.id == current,
-                        topInset: stripHeight
+                        isCurrent: candidate.id == current
                     )
                     .id(candidate.id)
                 }
@@ -55,19 +49,17 @@ struct ImportReviewPager: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $current)
         .scrollIndicators(.hidden)
-        // **Encima, sin recortar.** En un `VStack` la tira quedaba dentro de su
-        // celda y el aro de la miniatura elegida —que se sale un par de puntos
-        // por arriba— salía cortado.
-        .overlay(alignment: .top) {
+        // **En barra de área segura y sin fondo.** Es el mismo sitio donde
+        // viven el resto de barras de la app: aparta el contenido lo que mide
+        // —sin reservas a mano— y deja que las fichas pasen por debajo al
+        // deslizar. Como no pinta superficie, lo que se ve debajo es la propia
+        // ficha.
+        .adaptiveSafeAreaBar(edge: .top) {
             ImportCandidateStrip(
                 candidates: model.candidates,
                 current: $current,
                 onToggleKeep: { id, keep in model.setKeep(keep, forCandidateWithID: id) }
             )
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
-                guard measured > 0, abs(measured - stripHeight) > 0.5 else { return }
-                stripHeight = measured
-            }
         }
         .background(WK.Palette.canvas)
         .task {
@@ -88,7 +80,6 @@ private struct ImportPagerPage: View {
     let candidate: ImportCandidate
     let photo: CGImage
     let isCurrent: Bool
-    let topInset: CGFloat
 
     var body: some View {
         ImportSingleCard(
@@ -107,12 +98,6 @@ private struct ImportPagerPage: View {
             onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
             onRestyle: { await model.restyle(candidateWithID: candidate.id) }
         )
-        // El hueco de la tira, reservado **dentro de cada ficha**: la tira flota
-        // por encima —si no, su contenedor le recorta el borde de la miniatura
-        // elegida— y lo que flota no aparta nada por su cuenta.
-        .safeAreaInset(edge: .top) {
-            Color.clear.frame(height: topInset)
-        }
         // Cada ficha ocupa una pantalla exacta: es lo que hace que el gesto se
         // sienta como pasar de prenda y no como un scroll que se para donde le
         // apetece.

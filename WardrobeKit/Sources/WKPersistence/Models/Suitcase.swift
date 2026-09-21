@@ -35,11 +35,15 @@ public final class Suitcase {
     public var modifiedAt: Date = Date()
     public var deletedAt: Date?
 
-    @Relationship(deleteRule: .cascade, inverse: \Outfit.suitcase)
-    public var outfits: [Outfit] = []
+    @Relationship(deleteRule: .cascade, originalName: "outfits", inverse: \Outfit.suitcase)
+    public var storedOutfits: [Outfit]? = []
 
-    @Relationship(deleteRule: .cascade, inverse: \PackingEntry.suitcase)
-    public var packingEntries: [PackingEntry] = []
+    public var outfits: [Outfit] { storedOutfits ?? [] }
+
+    @Relationship(deleteRule: .cascade, originalName: "packingEntries", inverse: \PackingEntry.suitcase)
+    public var storedPackingEntries: [PackingEntry]? = []
+
+    public var packingEntries: [PackingEntry] { storedPackingEntries ?? [] }
 
     public init(id: UUID = UUID(), name: String, startDate: Date? = nil, endDate: Date? = nil) {
         self.id = id

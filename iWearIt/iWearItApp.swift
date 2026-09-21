@@ -77,6 +77,28 @@ struct iWearItApp: App {
                 .environment(toasts)
                 .wkToastLayer(toasts)
                 .task { await environment.bootstrap() }
+                // **iCloud que aparece más tarde.**
+                //
+                // Si al arrancar no había sesión, la app se abrió en local. En
+                // cuanto la hay se pregunta, porque encenderla significa volver
+                // a abrir el store: se reconstruye el entorno entero —mismo
+                // fichero, mismos datos— y la app sigue.
+                .alert(
+                    "Se ha detectado iCloud",
+                    isPresented: Binding(
+                        get: { environment.sync.canEnableNow },
+                        set: { if !$0 { environment.sync.dismissEnablePrompt() } }
+                    )
+                ) {
+                    Button("Ahora no", role: .cancel) {
+                        environment.sync.dismissEnablePrompt()
+                    }
+                    Button("Sincronizar") {
+                        environment = AppEnvironment.live()
+                    }
+                } message: {
+                    Text("Tu armario puede copiarse a tus otros dispositivos. Nada sale de este iPhone hasta que lo actives.")
+                }
                 #if DEBUG
                 // `probe-toast` enseña un aviso al arrancar, para poder
                 // capturarlo sin tener que recorrer una importación entera.

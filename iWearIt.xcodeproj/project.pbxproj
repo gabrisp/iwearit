@@ -20,9 +20,23 @@
 		ED86A00D305F2C80004B31A4 /* iWearIt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iWearIt.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EDFF000000000000000000E1 /* Excepciones */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				iWearIt.entitlements,
+			);
+			target = ED86A00C305F2C80004B31A4 /* iWearIt */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		ED86A00F305F2C80004B31A4 /* iWearIt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EDFF000000000000000000E1 /* Excepciones */,
+			);
 			path = iWearIt;
 			sourceTree = "<group>";
 		};
@@ -289,7 +303,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "iWearIt analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
 				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
+				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -327,7 +341,7 @@
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "iWearIt analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
 				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
+				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

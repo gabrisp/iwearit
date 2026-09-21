@@ -16,6 +16,7 @@ struct ProfileScreen: View {
                 VStack(spacing: WK.Spacing.l) {
                     SubscriptionSection()
                     SyncSection()
+                    DevicesSection()
                     WardrobeStatsSection()
                     ModelSection()
                     DiagnosticsSection()
@@ -91,6 +92,73 @@ private struct SyncSection: View {
         isEnabled == appEnvironment.sync.isEnabled
             ? "Tu armario está en este iPhone. iCloud solo lo copia a tus otros dispositivos."
             : "Se aplica al abrir la app otra vez. Tus datos se quedan donde están."
+    }
+}
+
+/// Los dispositivos que comparten este armario.
+///
+/// ## Qué se puede hacer aquí y qué no
+///
+/// Se puede **quitar** uno de la lista, y quitarlo no borra ni un dato suyo:
+/// deja de contarse, nada más. Si vuelves a abrir la app en él, vuelve solo.
+///
+/// Lo que no se puede es quitar el primero. No por capricho: es el que creó el
+/// armario, y dejar la lista sin ninguno es el camino corto a que una limpieza
+/// futura crea que no hay nadie a quien esperar.
+private struct DevicesSection: View {
+    @Query(sort: [SortDescriptor(\SyncDevice.firstSeenAt)])
+    private var devices: [SyncDevice]
+
+    @Environment(\.modelContext) private var modelContext
+
+    private var active: [SyncDevice] { devices.filter(\.isActive) }
+    /// El primero que se registró. Computado y no guardado: así no puede
+    /// quedarse apuntando a una fila que ya no está.
+    private var founder: SyncDevice? { active.first }
+
+    private static let seen: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    var body: some View {
+        if !active.isEmpty {
+            WKSection("Dispositivos", footer: footer) {
+                ForEach(Array(active.enumerated()), id: \.element.installationID) { index, device in
+                    WKRow(showsSeparator: index < active.count - 1) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(label(for: device))
+                                .font(WK.Font.rowTitle)
+                                .foregroundStyle(WK.Palette.primaryText)
+                            Text(Self.seen.localizedString(for: device.lastSeenAt, relativeTo: Date()))
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                        }
+                    } trailing: {
+                        if device !== founder {
+                            Button("Quitar") {
+                                withAnimation(WKAnimation.content) { device.removedAt = Date() }
+                            }
+                            .font(WK.Font.caption)
+                            .foregroundStyle(.red)
+                            .buttonStyle(WKPressStyle())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func label(for device: SyncDevice) -> String {
+        var text = device.name
+        if device === founder { text += " · principal" }
+        if device.installationID == SyncDevice.currentInstallationID { text += " · este" }
+        return text
+    }
+
+    private var footer: String {
+        "Quitar un dispositivo no borra nada suyo. Si vuelves a abrir la app en él, aparece otra vez."
     }
 }
 

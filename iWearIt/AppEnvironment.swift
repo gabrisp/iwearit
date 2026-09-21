@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import SwiftData
+import UIKit
 import WKCore
 import WKPersistence
 import WKServices
@@ -247,6 +248,8 @@ public final class AppEnvironment {
             await imageStore.attachBlobStore(wardrobe)
 
             try await wardrobe.seedCategoriesIfNeeded()
+            // Quién soy, para que el otro dispositivo sepa que existo.
+            try await wardrobe.registerCurrentDevice(named: await UIDevice.current.model)
             // Y si dos dispositivos sembraron sus baldas por separado, se
             // juntan **moviendo**, nunca borrando: ver `reconcileDuplicates`.
             if sync.isEnabled { try await wardrobe.reconcileDuplicates() }

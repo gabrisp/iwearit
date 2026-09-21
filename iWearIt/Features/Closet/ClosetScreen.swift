@@ -34,7 +34,9 @@ struct ClosetScreen: View {
     @State private var sheet: Sheet?
 
     private enum Sheet: String, Identifiable {
-        case profile, capture, review
+        // `profile` ya no está: Ajustes se empuja como pantalla, no se
+        // presenta como hoja. Ver `ClosetRoute.settings`.
+        case capture, review
         var id: String { rawValue }
     }
 
@@ -112,7 +114,11 @@ struct ClosetScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    ProfileButton { sheet = .profile }
+                    NavigationLink(value: ClosetRoute.settings) {
+                        ProfileButton {}
+                            .allowsHitTesting(false)
+                    }
+                    .buttonStyle(WKPressStyle())
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     ClosetAddMenu()
@@ -120,8 +126,6 @@ struct ClosetScreen: View {
             }
             .sheet(item: $sheet) { which in
                 switch which {
-                case .profile:
-                    NavigationStack { ProfileScreen() }
                 case .capture:
                     CameraScreen { image in
                         captured = ImportableImage(cgImage: image)
@@ -166,6 +170,8 @@ private struct ClosetRouteDestination: View {
             CategoryScreen(slug: slug, name: name)
         case let .suitcase(id):
             SuitcaseDetailScreen(id: id)
+        case .settings:
+            ProfileScreen()
         }
     }
 }
