@@ -28,6 +28,56 @@ enum Morphology {
         erode(from: swollen, into: &mask, width: width, height: height, radius: radius)
     }
 
+    /// Rellena los huecos **encerrados** por la máscara, del tamaño que sean.
+    ///
+    /// El cierre de arriba tapa grietas finas; esto tapa agujeros. Son fallos
+    /// distintos: un pliegue con sombra en mitad de un pantalón sale como
+    /// fondo, y puede ser un agujero de cien píxeles que ningún radio
+    /// razonable cierra. Pero es un agujero **rodeado de tela**, y eso se
+    /// reconoce sin saber nada de ropa.
+    ///
+    /// La forma barata de encontrarlos es al revés: lo que no es prenda y
+    /// **toca el borde** de la imagen es fondo de verdad; todo lo demás que no
+    /// es prenda está encerrado, así que es prenda mal clasificada.
+    static func fillHoles(_ mask: inout [UInt8], width: Int, height: Int) {
+        guard width > 2, height > 2 else { return }
+
+        // Inundación desde los cuatro cantos sobre lo que **no** es prenda.
+        var outside = [Bool](repeating: false, count: width * height)
+        var stack: [Int] = []
+        stack.reserveCapacity(width * 2 + height * 2)
+
+        func seed(_ x: Int, _ y: Int) {
+            let index = y * width + x
+            guard mask[index] == 0, !outside[index] else { return }
+            outside[index] = true
+            stack.append(index)
+        }
+
+        for x in 0..<width {
+            seed(x, 0)
+            seed(x, height - 1)
+        }
+        for y in 0..<height {
+            seed(0, y)
+            seed(width - 1, y)
+        }
+
+        while let index = stack.popLast() {
+            let x = index % width
+            let y = index / width
+            if x > 0 { seed(x - 1, y) }
+            if x < width - 1 { seed(x + 1, y) }
+            if y > 0 { seed(x, y - 1) }
+            if y < height - 1 { seed(x, y + 1) }
+        }
+
+        // Lo que no es prenda y no se alcanzó desde fuera estaba encerrado.
+        for index in 0..<(width * height) where mask[index] == 0 && !outside[index] {
+            mask[index] = 1
+        }
+    }
+
     /// Máximo en una ventana cuadrada, en dos pasadas.
     ///
     /// Separable —primero filas, luego columnas— porque hacerlo con la ventana

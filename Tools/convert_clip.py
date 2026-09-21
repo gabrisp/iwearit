@@ -46,7 +46,26 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 
 ROOT = pathlib.Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT / "build"
-REPO = "wkcn/TinyCLIP-ViT-40M-32-Text-19M-LAION400M"
+# **El de moda, no el genérico.**
+#
+# TinyCLIP está entrenado con LAION: distingue una camiseta de un coche, pero
+# no una bomber de una cazadora ni unos chinos de unos vaqueros — y eso es
+# exactamente lo que esta app le pregunta. `fashion-clip` es el mismo CLIP
+# ViT-B/32 afinado con 800.000 fichas de catálogo de moda, es **MIT**
+# (comprobado en la API de Hugging Face, no supuesto) y proyecta a **512
+# dimensiones igual que TinyCLIP**: el banco de prompts, los centroides de las
+# baldas y el detector de duplicados siguen valiendo tal cual.
+#
+# El anterior se queda comentado como alternativa ligera: es la mitad de
+# grande y para un armario pequeño puede bastar.
+#
+#     REPO = "wkcn/TinyCLIP-ViT-40M-32-Text-19M-LAION400M"
+#
+# Y si algún día hiciera falta más precisión, `Marqo/marqo-fashionSigLIP`
+# (Apache-2.0) es mejor en los benchmarks de moda — pero proyecta a 768
+# dimensiones y usa otro tokenizador, así que obliga a regenerar todo lo que
+# hoy es de 512.
+REPO = "patrickjohncyh/fashion-clip"
 
 # CLIP responde mucho mejor a una frase que a una palabra suelta. Las prendas
 # entran ya recortadas sobre fondo transparente, así que la plantilla describe
@@ -164,16 +183,27 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--quantize", default="palettize6",
                         choices=["none", "fp16", "palettize6"])
+    # **Qué checkpoint.**
+    #
+    # Por defecto el de moda: la torre genérica entrenada con LAION distingue
+    # "camiseta" de "coche" sin problema, pero no "bomber" de "cazadora" ni
+    # "chinos" de "vaqueros", que es justo lo que esta app pregunta. Un
+    # codificador afinado con catálogo de moda acierta esas y usa **las mismas
+    # 512 dimensiones**, así que el banco de prompts, los centroides de las
+    # baldas y el detector de duplicados siguen valiendo — siempre que se
+    # regeneren juntos, que es lo que hace este script.
+    parser.add_argument("--checkpoint", default=REPO)
     args = parser.parse_args()
+    repo = args.checkpoint
 
     import coremltools as ct
     import numpy as np
     import torch
     from transformers import CLIPModel, CLIPTokenizer
 
-    print(f"Cargando {REPO}…")
-    model = CLIPModel.from_pretrained(REPO).eval()
-    tokenizer = CLIPTokenizer.from_pretrained(REPO)
+    print(f"Cargando {repo}…")
+    model = CLIPModel.from_pretrained(repo).eval()
+    tokenizer = CLIPTokenizer.from_pretrained(repo)
 
     size = model.config.vision_config.image_size
     print(f"  entrada {size}x{size}, embedding {model.config.projection_dim}d")

@@ -886,3 +886,58 @@ struct CutoutQualityTests {
         #expect(report.score == 0)
     }
 }
+
+@Suite("Arreglar la máscara")
+struct MorphologyTests {
+
+    /// Una prenda con una grieta fina en medio —la sombra de un pliegue, el
+    /// canto de un cinturón—. Sin cerrarla, el contador de componentes ve dos
+    /// prendas donde hay una, que es el pantalón que volvía en tres.
+    @Test("El cierre une lo que una grieta fina había partido")
+    func closingJoinsSplitGarment() {
+        let side = 64
+        var mask = [UInt8](repeating: 0, count: side * side)
+        for y in 0..<side where y != side / 2 {
+            for x in 16..<48 { mask[y * side + x] = 1 }
+        }
+
+        let before = ConnectedComponents.label(mask: mask, width: side, height: side)
+        #expect(before.components.count == 2, "de partida son dos trozos")
+
+        Morphology.close(&mask, width: side, height: side, radius: 2)
+        let after = ConnectedComponents.label(mask: mask, width: side, height: side)
+        #expect(after.components.count == 1, "después es una sola prenda")
+    }
+
+    /// Y el agujero grande, que ningún radio razonable cierra: un hueco en
+    /// mitad de la tela. Rodeado de prenda por los cuatro lados, es prenda.
+    @Test("Los agujeros de dentro se rellenan y el fondo no")
+    func fillingClosesInnerHolesOnly() {
+        let side = 64
+        var mask = [UInt8](repeating: 0, count: side * side)
+        for y in 8..<56 {
+            for x in 8..<56 { mask[y * side + x] = 1 }
+        }
+        // Un boquete de 10×10 dentro.
+        for y in 25..<35 {
+            for x in 25..<35 { mask[y * side + x] = 0 }
+        }
+
+        Morphology.fillHoles(&mask, width: side, height: side)
+
+        #expect(mask[30 * side + 30] == 1, "el agujero de dentro se rellena")
+        #expect(mask[2 * side + 2] == 0, "el fondo de fuera se queda como está")
+    }
+
+    @Test("Una máscara sin agujeros no cambia")
+    func fillingLeavesCleanMasksAlone() {
+        let side = 32
+        var mask = [UInt8](repeating: 0, count: side * side)
+        for y in 8..<24 {
+            for x in 8..<24 { mask[y * side + x] = 1 }
+        }
+        let original = mask
+        Morphology.fillHoles(&mask, width: side, height: side)
+        #expect(mask == original)
+    }
+}

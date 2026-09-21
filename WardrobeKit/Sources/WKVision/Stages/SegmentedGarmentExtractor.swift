@@ -292,6 +292,11 @@ enum SegmentedGarmentExtractor {
             // más finos que el radio desaparecen y el contorno se queda donde
             // estaba.
             Morphology.close(&mask, width: width, height: height, radius: closingRadius)
+            // Y los agujeros de dentro, del tamaño que sean: un pliegue con
+            // sombra en mitad de un pantalón sale como fondo, y puede ser un
+            // boquete que ningún radio razonable cierra. Rodeado de tela por
+            // los cuatro lados, es tela.
+            Morphology.fillHoles(&mask, width: width, height: height)
 
             let labelled = ConnectedComponents.label(mask: mask, width: width, height: height)
             let pieces = labelled.components.filter { $0.pixelCount >= speckleFloor }
