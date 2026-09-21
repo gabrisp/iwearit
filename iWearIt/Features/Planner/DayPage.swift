@@ -214,6 +214,13 @@ private struct DayCanvas: View {
                     // vertical de por medio cualquier arrastre descolocaría
                     // algo por accidente.
                     .allowsHitTesting(false)
+                    // **El área de toque, antes que los gestos.** Este era el
+                    // fallo: puesta después, el doble toque heredaba la forma
+                    // del lienzo —que acaba de quedarse sin hit testing— y no
+                    // se disparaba nunca. Puesta antes, define la zona sobre la
+                    // que los gestos escuchan, que es el lienzo entero y no
+                    // solo donde hay una prenda pintada.
+                    .contentShape(.rect)
                     // Pero entrar a editarlo sí, y desde el propio lienzo.
                     //
                     // Doble toque y mantener pulsado, las dos: un toque simple
@@ -222,10 +229,6 @@ private struct DayCanvas: View {
                     // de si viene de una app de fotos o de una de notas.
                     .onTapGesture(count: 2) { onEdit(current) }
                     .onLongPressGesture(minimumDuration: 0.4) { onEdit(current) }
-                    // Área de toque en todo el lienzo: sin esto, el gesto solo
-                    // existe donde hay una prenda pintada, y el hueco entre
-                    // ellas —que es la mayor parte— no responde.
-                    .contentShape(.rect)
             } else {
                 EmptyDayPrompt(
                     date: date,

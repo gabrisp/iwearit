@@ -57,13 +57,17 @@ struct PlannerScreen: View {
     /// mes. El botón va bajando un nivel y vuelve al principio, que es más
     /// corto que un selector de tres estados para algo que se cambia a ojo.
     @State private var layout: PlannerLayout = .book
-    /// Lo que mide la tira de días. **Medido, no a ojo.**
+    /// Lo que ocupa la hora y la muesca, arriba.
     ///
-    /// La rejilla tiene que empezar justo debajo de ella, y el número estaba
-    /// puesto a mano: 288 puntos, que era casi un tercio de la pantalla en
-    /// blanco. Midiéndola, el hueco es exactamente el que ocupa y se ajusta
-    /// solo si cambia el tipo de letra del sistema.
-    @State private var stripHeight: CGFloat = 72
+    /// **Los dos modos ignoran el área segura**, y tienen que hacerlo: si uno
+    /// la respeta y el otro no, los dos miden distinto y al cruzarse en la
+    /// transición el contenido pega un salto. Ignorándola los dos, el papel
+    /// llega a los cuatro bordes en los dos modos y no hay nada que saltar.
+    ///
+    /// El precio es que el hueco de arriba lo pone el contenido, así que hay
+    /// que saber cuánto vale el área segura. Se mide en la raíz, que es la
+    /// única vista de aquí que todavía la respeta.
+    @State private var safeTop: CGFloat = 0
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.modelContext) private var modelContext
 
@@ -86,6 +90,10 @@ struct PlannerScreen: View {
 
                 topGradient
                 strip
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
+                guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
+                safeTop = measured
             }
             // **El mismo modificador que el CTA del armario.** Así el botón
             // queda exactamente a la misma altura sobre la tab bar en las dos
@@ -132,11 +140,14 @@ struct PlannerScreen: View {
     private var content: some View {
         switch layout {
         case .book:
-            // Se anima **en los dos sentidos**: lo que se va sube
-            // desvaneciéndose y lo que llega baja desde arriba. Con
-            // `.identity` o con un fundido a secas en uno de los dos lados,
-            // ese lado aparecía de golpe y parecía un fallo de dibujo.
-            pager.transition(.wkVertical)
+            // **El contenedor solo se funde. Lo que se mueve son las piezas.**
+            //
+            // Deslizar el bloque entero —arriba, abajo, da igual— tapa lo
+            // único que de verdad cuenta lo que está pasando: cada lienzo
+            // yendo a su sitio, uno hacia arriba y otro hacia abajo, cada uno
+            // al suyo. Con el contenedor moviéndose, todos parecen ir en la
+            // misma dirección y el viaje de cada uno deja de verse.
+            pager.transition(.opacity)
         case .grid:
             // Scroll horizontal paginado, **no el pager de revista**: el paso
             // de hoja con curl es la metáfora del librito, y en rejilla no se
@@ -148,8 +159,9 @@ struct PlannerScreen: View {
                         PlannerGrid(
                             date: date(forOffset: offset),
                             store: appEnvironment.imageStore,
-                            // Lo que mide la tira, no un número a ojo.
-                            topInset: stripHeight,
+                            // Área segura más un respiro. La rejilla pasa por
+                            // debajo de la tira, que flota sobre ella.
+                            topInset: safeTop + WK.Spacing.l,
                             morph: morph,
                             zoom: zoom,
                             onOpen: { editingOutfit = $0 },
@@ -166,10 +178,9 @@ struct PlannerScreen: View {
             .scrollIndicators(.hidden)
             .scrollPosition(id: gridPosition)
             .ignoresSafeArea()
-            // El movimiento es del contenedor; los lienzos en sí **viajan**
-            // además con su `matchedGeometryEffect`, así que al llegar se ve
-            // cada uno yendo a su sitio y no un bloque que sustituye a otro.
-            .transition(.wkVertical)
+            // Igual que el librito: el contenedor se funde y los lienzos
+            // **viajan** con su `matchedGeometryEffect`, cada uno a su celda.
+            .transition(.opacity)
         }
     }
 
@@ -214,10 +225,6 @@ struct PlannerScreen: View {
 
     /// La tira de días y el botón de modo. **Fijos.**
     private var strip: some View {
-        measuredStrip
-    }
-
-    private var measuredStrip: some View {
         DayStripBar(
             anchorDay: anchorDay,
             selectedOffset: animatedDay,
@@ -227,10 +234,6 @@ struct PlannerScreen: View {
                 withAnimation(WKAnimation.arrival) { layout = layout.next }
             }
         )
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
-            guard measured > 0, abs(measured - stripHeight) > 0.5 else { return }
-            stripHeight = measured
-        }
     }
 
     /// El librito: una página por día.
