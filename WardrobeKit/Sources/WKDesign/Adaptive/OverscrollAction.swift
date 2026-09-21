@@ -112,7 +112,7 @@ private struct OverscrollAction: ViewModifier {
                 isTouching = touching
                 fireIfDue()
             }
-            .overlay(alignment: .bottom) { indicator }
+            .overlay(alignment: .bottom) { pill }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 let scrolled = geometry.contentOffset.y + geometry.contentInsets.top
                 let scrollable = max(geometry.contentSize.height - geometry.containerSize.height, 0)
@@ -125,6 +125,27 @@ private struct OverscrollAction: ViewModifier {
             }
     }
 
+    /// Si hay que enseñarla. Binario a propósito: ver `pill`.
+    private var isVisible: Bool { isEligible && offset < -2 }
+
+    /// La píldora, **puesta y quitada** en vez de atenuada.
+    ///
+    /// Con `opacity` la vista existe siempre, y el cristal no tiene nada que
+    /// animar: aparece una superficie ya formada a la que solo le sube el
+    /// alfa. Metiéndola y sacándola de un contenedor de cristal, iOS 26 la
+    /// forma y la deshace de verdad —se despega del fondo al entrar y se
+    /// funde con él al salir—, que es para lo que existe
+    /// `glassEffectTransition`.
+    private var pill: some View {
+        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+            if isVisible { indicator }
+        }
+        .padding(.bottom, bottomInset)
+        // Por encima de todo lo que haya en el scroll.
+        .zIndex(100)
+        .animation(WKAnimation.selection, value: isVisible)
+    }
+
     /// El progreso del indicador, 0-1. Cero mientras este arrastre no pueda
     /// disparar: sin eso, un rebote por inercia dibujaría un aro llenándose
     /// que no va a hacer nada.
@@ -133,15 +154,6 @@ private struct OverscrollAction: ViewModifier {
         guard isEligible, threshold > Self.revealDistance else { return 0 }
         let raw = (overscroll - Self.revealDistance) / (threshold - Self.revealDistance)
         return hasFired ? 1 : min(max(raw, 0), 1)
-    }
-
-    /// Cuánto se ve el indicador. Aparece durante los primeros puntos de
-    /// desbordamiento y solo después empieza a llenarse: así el gesto tiene
-    /// dos tiempos —"hay algo aquí" y "esto es lo que va a pasar"— en vez de
-    /// plantarte una píldora llena a la primera.
-    private var reveal: CGFloat {
-        let overscroll = offset < 0 ? -offset : 0
-        return min(max(overscroll / Self.revealDistance, 0), 1)
     }
 
     /// El contenido de la píldora, **una sola vez**.
@@ -205,10 +217,6 @@ private struct OverscrollAction: ViewModifier {
                 CubicKeyframe(1, duration: 0.15)
             }
             .allowsHitTesting(false)
-            .padding(.bottom, bottomInset)
-            .opacity(reveal)
-            // Por encima de todo lo que haya en el scroll.
-            .zIndex(100)
             .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
