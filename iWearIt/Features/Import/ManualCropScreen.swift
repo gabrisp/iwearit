@@ -98,9 +98,19 @@ struct ManualCropScreen: View {
                 .font(WK.Font.callout)
                 .foregroundStyle(WK.Palette.secondaryText)
             Spacer()
-            Text("Rodea la prenda")
-                .font(WK.Font.headline)
-                .foregroundStyle(WK.Palette.primaryText)
+            // **Sin exigir puntería.** El trazo es una pista de por dónde
+            // anda el contorno, no la línea de corte: decirlo aquí evita que
+            // la gente intente rodear una manga al píxel con el dedo, que no
+            // se puede y encima sale peor.
+            VStack(spacing: 2) {
+                Text("Rodea la prenda")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(WK.Palette.primaryText)
+
+                Text("Nos vale aproximado: lo usamos de referencia")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
             Spacer()
             // Con recortes ya hechos, el botón de la derecha pasa a ser el de
             // acabar: es lo que se quiere después del último.

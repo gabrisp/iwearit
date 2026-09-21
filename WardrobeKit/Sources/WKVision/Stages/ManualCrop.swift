@@ -105,6 +105,43 @@ public enum ManualCrop {
         // Y se aplica sobre el alfa, premultiplicando el color: el resto del
         // pipeline —la caja opaca, la máscara de toque, el encaje— da por hecho
         // que el color viene multiplicado por su alfa.
+        // **El lazo es una pista, no unas tijeras.**
+        //
+        // Nadie rodea una prenda al píxel con el dedo, y no hace falta: lo que
+        // el trazo dice es *por aquí anda el contorno*. Tomándolo al pie de la
+        // letra, lo que quedó fuera —media manga, el bajo de un pantalón— se
+        // perdía, y encima el borde salía con la forma temblorosa del dedo.
+        //
+        // Así que se usa como semilla y se crece desde ahí por todo lo que no
+        // sea del color del fondo, exactamente igual que sobre fondo liso:
+        // ver `OutlineRefiner`. Lo que se recupera es la prenda; la mesa no,
+        // porque la mesa **sí** es del color del fondo.
+        //
+        // Con presupuesto largo —tres veces el normal— porque aquí el error
+        // de partida es humano y puede ser de bastantes píxeles, no de los
+        // pocos que deja un mapa de clases.
+        var seed = [UInt8](repeating: 0, count: width * height)
+        for index in 0..<(width * height) where mask[index] >= 128 { seed[index] = 1 }
+
+        let grown = OutlineRefiner.refine(
+            &seed, in: image, width: width, height: height, maximumGrowth: 120
+        )
+        if grown > 0 {
+            // Y se limpia como cualquier otra máscara: grietas cerradas,
+            // agujeros de dentro rellenos y el canto alisado, que es lo que
+            // quita el temblor del trazo.
+            Morphology.close(&seed, width: width, height: height, radius: 3)
+            Morphology.fillHoles(&seed, width: width, height: height)
+            Morphology.smooth(&seed, width: width, height: height, radius: 3)
+            for index in 0..<(width * height) {
+                mask[index] = seed[index] == 1 ? 255 : 0
+            }
+            DiagnosticsLog.record(
+                "RECORTE",
+                "lazo a mano ampliado por contraste: \(grown) píxeles recuperados"
+            )
+        }
+
         var kept = 0
         for y in 0..<height {
             let row = y * width

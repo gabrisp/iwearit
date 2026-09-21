@@ -51,7 +51,7 @@ public enum OutlineRefiner {
     /// Un tope, no una expectativa. Sin él, una prenda que toca una sombra
     /// larga se lleva la sombra entera; con él, lo peor que puede pasar es un
     /// reborde de este grosor.
-    static let maximumGrowth = 40
+    public static let maximumGrowth = 40
 
     /// Crece la máscara hasta el contorno real de la prenda.
     ///
@@ -65,7 +65,8 @@ public enum OutlineRefiner {
         _ mask: inout [UInt8],
         in image: CGImage,
         width: Int,
-        height: Int
+        height: Int,
+        maximumGrowth: Int = OutlineRefiner.maximumGrowth
     ) -> Int {
         guard
             width > 8, height > 8,
