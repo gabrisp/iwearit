@@ -79,6 +79,18 @@ private struct OverscrollAction: ViewModifier {
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
 
+    /// El relleno. Negro translúcido y no el color del texto: sobre cristal,
+    /// un relleno opaco tapa lo que hay detrás y la píldora deja de parecer
+    /// cristal para parecer una pastilla pegada encima. Al 60% la superficie
+    /// sigue dejando ver el lienzo y aun así hay contraste de sobra para la
+    /// letra invertida.
+    static let fill = Color.black.opacity(0.6)
+
+    /// Y la tinta que va encima de ese relleno. Blanca en los dos temas,
+    /// porque el relleno es negro en los dos: atarla al color de fondo la
+    /// hacía desaparecer en oscuro.
+    static let fillInk = Color.white
+
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
     /// Separa "estás desbordando" de "estás pidiendo algo".
     private static let revealDistance: CGFloat = 50
@@ -159,7 +171,7 @@ private struct OverscrollAction: ViewModifier {
             // "espera".
             .background {
                 GeometryReader { proxy in
-                    WK.Palette.primaryText
+                    Self.fill
                         .frame(width: proxy.size.width * progress)
                 }
                 .clipShape(.capsule)
@@ -173,7 +185,7 @@ private struct OverscrollAction: ViewModifier {
             // un umbral — que es lo que se notaba como un parpadeo.
             .overlay {
                 GeometryReader { proxy in
-                    WK.Palette.canvas
+                    Self.fillInk
                         .frame(width: proxy.size.width * progress)
                 }
                 .mask { pillContent }
