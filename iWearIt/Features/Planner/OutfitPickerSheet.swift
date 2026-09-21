@@ -38,7 +38,7 @@ struct OutfitPickerSheet: View {
 
     private enum CaptureStep: Identifiable {
         case camera
-        case review(ImportableImage)
+        case review(ImportableBatch)
 
         var id: String {
             switch self {
@@ -141,10 +141,10 @@ struct OutfitPickerSheet: View {
             switch step {
             case .camera:
                 CameraScreen { image in
-                    capture = .review(ImportableImage(cgImage: image))
+                    capture = .review(ImportableBatch(images: [image]))
                 }
-            case let .review(image):
-                ImportSheet(image: image.cgImage)
+            case let .review(batch):
+                ImportSheet(images: batch.images)
             }
         }
         .task {

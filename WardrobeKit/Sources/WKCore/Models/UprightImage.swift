@@ -1,6 +1,11 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+
+// Solo hay orientación que corregir donde hay fotos: el paquete también
+// compila para macOS cuando se corren las pruebas por línea de comandos, y
+// allí no existe `UIKit`. Sin esta guarda, `swift test` no llega ni a empezar.
+#if canImport(UIKit)
 import UIKit
 
 /// Pone la imagen **derecha** antes de que la vea nadie.
@@ -66,3 +71,4 @@ public enum UprightImage {
         cgImage(from: data)
     }
 }
+#endif

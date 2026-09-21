@@ -6,7 +6,12 @@ import WKVision
 
 /// Hoja de importación: procesa una foto y deja revisar el resultado.
 struct ImportSheet: View {
-    let image: CGImage
+    /// Las fotos a revisar. Varias: ver `ImportPhotoStrip`.
+    let images: [CGImage]
+
+    init(images: [CGImage]) { self.images = images }
+    /// Una sola, que es de donde vienen la cámara y la web.
+    init(image: CGImage) { self.images = [image] }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -23,7 +28,7 @@ struct ImportSheet: View {
                 if let model {
                     ImportPhaseContent(
                         model: model,
-                        photo: image,
+                        photos: images,
                         hasRevealed: $hasRevealed
                     )
                 } else {
@@ -35,11 +40,12 @@ struct ImportSheet: View {
                     // había quedado colgada. Es el mismo sitio de la pantalla y
                     // la misma animación que luego continúa: no hay salto.
                     VStack(spacing: WK.Spacing.m) {
-                        ImportRevealView(
-                            photo: image,
+                        ImportPhotoStrip(
+                            photos: images,
                             candidates: [],
-                            isScanning: true
-                        ) {}
+                            analysed: 0,
+                            onFinished: {}
+                        )
 
                         // **Qué está pasando, con palabras.** "Buscando
                         // prendas…" mientras en realidad se descargan 34 MB es
@@ -93,7 +99,7 @@ struct ImportSheet: View {
                 wardrobe: appEnvironment.wardrobe
             )
             model = created
-            await created.process(image)
+            await created.process(images)
         }
     }
 
@@ -154,7 +160,7 @@ struct ImportSheet: View {
 /// `switch` dentro de su `@ViewBuilder`.
 private struct ImportPhaseContent: View {
     let model: ImportModel
-    let photo: CGImage
+    let photos: [CGImage]
     @Binding var hasRevealed: Bool
 
     var body: some View {
@@ -175,7 +181,7 @@ private struct ImportPhaseContent: View {
             // es una prenda; solo después se reconstruye. Ver
             // `ImportDetectedStep`.
             if hasRevealed {
-                ImportDetectedStep(model: model, photo: photo)
+                ImportDetectedStep(model: model, photos: photos)
                     .transition(AnyTransition(.blurReplace))
             } else {
                 reveal(isScanning: false, status: "Recortando")
@@ -192,19 +198,19 @@ private struct ImportPhaseContent: View {
                     if model.candidates.count == 1, let only = model.candidates.first {
                         ImportSingleCard(
                             candidate: only,
-                            photo: photo,
+                            photo: model.photo(for: only) ?? photos[0],
                             onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
                             onChangeName: { model.setName($0, forCandidateWithID: only.id) },
                             onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
                             onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
                             onRestyle: { await model.restyle(candidateWithID: only.id) },
-onImprove: { model.improve(candidateWithID: only.id, in: photo) }
+                            onImprove: { model.improve(candidateWithID: only.id) }
                         )
                     } else {
                         // **La misma ficha, paginada.** Antes aquí había una
                         // lista de filas de 64 puntos donde no se podía tocar
                         // nada; ver `ImportReviewPager`.
-                        ImportReviewPager(model: model, photo: photo)
+                        ImportReviewPager(model: model, photos: photos)
                     }
                 }
                     .transition(AnyTransition(.blurReplace))
@@ -258,10 +264,13 @@ private extension ImportPhaseContent {
     /// La foto con su barrido, y las prendas saliendo de ella.
     func reveal(isScanning: Bool, status: String) -> some View {
         VStack(spacing: WK.Spacing.m) {
-            ImportRevealView(
-                photo: photo,
+            // El mismo carrete con una foto o con seis: con una no enseña
+            // contador ni deja arrastrar, así que no hay dos pantallas que
+            // mantener por lo mismo.
+            ImportPhotoStrip(
+                photos: photos,
                 candidates: model.candidates,
-                isScanning: isScanning
+                analysed: isScanning ? model.analysedCount : photos.count
             ) {
                 withAnimation(WKAnimation.content) { hasRevealed = true }
             }

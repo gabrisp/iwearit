@@ -28,7 +28,8 @@ struct ClosetAddMenu: View {
     /// una hoja intermedia —un título, un párrafo y un botón "Abrir galería"—
     /// que solo servía para volver a pedir lo que el usuario ya había pedido.
     @State private var isPickingFromLibrary = false
-    @State private var libraryItem: PhotosPickerItem?
+    /// Varias: en la galería la ropa está en tandas, no de una en una.
+    @State private var libraryItems: [PhotosPickerItem] = []
     @State private var isLoadingLibraryPick = false
 
     private enum Step: Identifiable {
@@ -36,7 +37,7 @@ struct ClosetAddMenu: View {
         // case library   ← la galería ya no es un paso: se abre desde el menú
         case camera
         case web
-        case review(ImportableImage)
+        case review(ImportableBatch)
         case newCategory
         case shelfOrder
 
@@ -45,7 +46,7 @@ struct ClosetAddMenu: View {
             case .menu: "menu"
             case .camera: "camera"
             case .web: "web"
-            case let .review(image): image.id.uuidString
+            case let .review(batch): batch.id.uuidString
             case .newCategory: "category"
             case .shelfOrder: "order"
             }
@@ -76,12 +77,16 @@ struct ClosetAddMenu: View {
         //
         // No choca con el `sheet` de arriba porque nunca están los dos a la
         // vez: al abrirse el picker, el paso vale `nil`.
+        // **Varias de una vez.** Diez es el tope: más de eso es una tarde de
+        // análisis, y la pantalla de revisión se vuelve un catálogo por el que
+        // hay que navegar en vez de una tanda que se despacha.
         .photosPicker(
             isPresented: $isPickingFromLibrary,
-            selection: $libraryItem,
+            selection: $libraryItems,
+            maxSelectionCount: 10,
             matching: .images
         )
-        .task(id: libraryItem) { await loadLibraryPick() }
+        .task(id: libraryItems.count) { await loadLibraryPick() }
     }
 
     @ViewBuilder
@@ -98,16 +103,16 @@ struct ClosetAddMenu: View {
             // peleaba con Vision por la ANE: el análisis se quedaba pensando
             // para siempre.
             CameraScreen { captured in
-                self.step = .review(ImportableImage(cgImage: captured))
+                self.step = .review(ImportableBatch(images: [captured]))
             }
         case .web:
             // A pantalla completa y sin poder arrastrarse para cerrar: ver
             // `WebImportScreen`.
             WebImportScreen { captured in
-                self.step = .review(ImportableImage(cgImage: captured))
+                self.step = .review(ImportableBatch(images: [captured]))
             }
-        case let .review(image):
-            ImportSheet(image: image.cgImage)
+        case let .review(batch):
+            ImportSheet(images: batch.images)
         case .newCategory:
             NewCategorySheet()
         case .shelfOrder:
@@ -116,26 +121,37 @@ struct ClosetAddMenu: View {
     }
 
     /// Lo elegido en la galería, **derecho** y listo para revisar.
+    ///
+    /// Las que no se puedan leer se caen por el camino y las demás siguen: una
+    /// foto rara de entre seis no puede tirar la tanda entera.
     private func loadLibraryPick() async {
-        guard let libraryItem else { return }
+        guard !libraryItems.isEmpty else { return }
+        let picked = libraryItems
         isLoadingLibraryPick = true
         defer {
             isLoadingLibraryPick = false
-            self.libraryItem = nil
+            self.libraryItems = []
         }
 
-        guard
-            let data = try? await libraryItem.loadTransferable(type: Data.self),
-            // Derecha antes de que la vea nadie: `UIImage.cgImage` da los
-            // píxeles en crudo y una foto vertical los guarda en horizontal.
-            let image = UprightImage.cgImage(from: data)
-        else {
-            #if DEBUG
-            NSLog("IMPORT: la foto no se pudo leer")
-            #endif
-            return
+        var images: [CGImage] = []
+        images.reserveCapacity(picked.count)
+        for item in picked {
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                // Derecha antes de que la vea nadie: `UIImage.cgImage` da los
+                // píxeles en crudo y una foto vertical los guarda en horizontal.
+                let image = UprightImage.cgImage(from: data)
+            else {
+                #if DEBUG
+                NSLog("IMPORT: una de las fotos no se pudo leer")
+                #endif
+                continue
+            }
+            images.append(image)
         }
-        step = .review(ImportableImage(cgImage: image))
+
+        guard !images.isEmpty else { return }
+        step = .review(ImportableBatch(images: images))
     }
 
     private var menuItems: [WKMenuItem] {
@@ -174,9 +190,13 @@ struct ClosetAddMenu: View {
 }
 
 /// `sheet(item:)` necesita `Identifiable`, y `CGImage` no lo es.
-struct ImportableImage: Identifiable {
+/// Una tanda de fotos camino de la revisión.
+///
+/// Con identidad propia porque es lo que decide cuándo la hoja se reconstruye:
+/// dos tandas distintas son dos importaciones, aunque lleven la misma foto.
+struct ImportableBatch: Identifiable {
     let id = UUID()
-    let cgImage: CGImage
+    let images: [CGImage]
 }
 
 /// Entrada al perfil, arriba a la izquierda del armario.

@@ -19,12 +19,14 @@ import WKVision
 /// y además es el barato.
 struct ImportDetectedStep: View {
     let model: ImportModel
-    /// La foto original, para rodear a mano lo que el detector no vio.
-    let photo: CGImage
+    /// Las fotos originales, para rodear a mano lo que el detector no vio.
+    let photos: [CGImage]
 
     @State private var isCroppingByHand = false
     /// Qué candidato se está recortando otra vez. `nil` = uno nuevo.
     @State private var recropping: UUID?
+    /// Sobre qué foto se va a dibujar el lazo.
+    @State private var croppingPhoto = 0
 
     private let columns = [GridItem(.adaptive(minimum: 104), spacing: WK.Spacing.m)]
 
@@ -35,39 +37,35 @@ struct ImportDetectedStep: View {
             header
 
             ScrollView {
-                // **La foto original, y debajo todos los recortes.**
+                // **Cada foto con lo suyo debajo.**
                 //
-                // Es contra lo que se comprueba: un recorte solo siempre
-                // parece correcto, y solo mirando la foto se ve que a ese le
-                // falta media manga o que aquello no era una prenda.
-                Image(decorative: photo, scale: 1)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 220)
-                    .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
-                    .padding(.horizontal, WK.Spacing.screenInset)
-                    .padding(.bottom, WK.Spacing.m)
-
-                LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
-                    ForEach(model.candidates) { candidate in
-                        DetectedCell(
-                            candidate: candidate,
-                            onToggle: { model.setKeep(!candidate.isKept, forCandidateWithID: candidate.id) },
-                            onRecrop: {
+                // Con varias fotos, una rejilla única de recortes deja de
+                // poder comprobarse: no se sabe de cuál salió cada cosa, y la
+                // comprobación es justo esa —mirar la foto y ver que a ese
+                // recorte le falta media manga, o que aquello era el sofá.
+                LazyVStack(spacing: WK.Spacing.l) {
+                    ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+                        PhotoSection(
+                            photo: photo,
+                            number: index + 1,
+                            total: photos.count,
+                            candidates: model.candidates.filter { $0.photoIndex == index },
+                            columns: columns,
+                            onToggle: { model.setKeep(!$0.isKept, forCandidateWithID: $0.id) },
+                            onRecrop: { candidate in
                                 recropping = candidate.id
+                                croppingPhoto = index
                                 isCroppingByHand = true
                             },
-                            onDiscard: { model.discard(candidateWithID: candidate.id) }
+                            onDiscard: { model.discard(candidateWithID: $0.id) },
+                            onAddByHand: {
+                                recropping = nil
+                                croppingPhoto = index
+                                isCroppingByHand = true
+                            }
                         )
                     }
-
-                    AddByHandCell {
-                        recropping = nil
-                        isCroppingByHand = true
-                    }
                 }
-                .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.bottom, WK.Spacing.m)
             }
             .scrollIndicators(.hidden)
@@ -77,12 +75,12 @@ struct ImportDetectedStep: View {
         .adaptiveSafeAreaBar(edge: .bottom) { continueBar }
         .fullScreenCover(isPresented: $isCroppingByHand) {
             ManualCropScreen(
-                image: photo,
+                image: photos[min(croppingPhoto, photos.count - 1)],
                 onCrop: { cropped in
                     if let recropping {
                         model.setManualCrop(cropped, forCandidateWithID: recropping)
                     } else {
-                        model.addManualCandidate(cropped)
+                        model.addManualCandidate(cropped, photoIndex: croppingPhoto)
                     }
                 },
                 // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
@@ -122,6 +120,52 @@ struct ImportDetectedStep: View {
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)
         .animation(WKAnimation.selection, value: keptCount)
+    }
+}
+
+/// Una foto del lote y las prendas que salieron de ella.
+private struct PhotoSection: View {
+    let photo: CGImage
+    let number: Int
+    let total: Int
+    let candidates: [ImportCandidate]
+    let columns: [GridItem]
+    let onToggle: (ImportCandidate) -> Void
+    let onRecrop: (ImportCandidate) -> Void
+    let onDiscard: (ImportCandidate) -> Void
+    let onAddByHand: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.s) {
+            if total > 1 {
+                Text("Foto \(number) de \(total)")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .padding(.horizontal, WK.Spacing.screenInset)
+            }
+
+            Image(decorative: photo, scale: 1)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
+                .padding(.horizontal, WK.Spacing.screenInset)
+
+            LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
+                ForEach(candidates) { candidate in
+                    DetectedCell(
+                        candidate: candidate,
+                        onToggle: { onToggle(candidate) },
+                        onRecrop: { onRecrop(candidate) },
+                        onDiscard: { onDiscard(candidate) }
+                    )
+                }
+
+                AddByHandCell(action: onAddByHand)
+            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+        }
     }
 }
 

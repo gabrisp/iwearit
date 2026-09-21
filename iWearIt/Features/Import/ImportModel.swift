@@ -78,6 +78,16 @@ final class ImportModel {
     /// Prendas propuestas, con la decisión del usuario encima.
     private(set) var candidates: [ImportCandidate] = []
 
+    /// Las fotos que entran, en su orden.
+    ///
+    /// Varias, porque lo normal al vaciar un armario es disparar seis fotos
+    /// seguidas. Se analizan **de una en una** —dos pipelines a la vez se
+    /// pelean por la ANE y tardan más que en fila— y cada prenda recuerda de
+    /// cuál salió, que es lo que luego deja agrupar los recortes por foto.
+    private(set) var photos: [CGImage] = []
+    /// Cuántas llevan analizadas. Es el "3 de 6" de la cabecera.
+    private(set) var analysedCount = 0
+
     /// Dónde estaba el registro al empezar esta foto.
     ///
     /// Para poder enseñar en la hoja **solo lo de esta foto** y no el historial
@@ -148,13 +158,72 @@ final class ImportModel {
         )
     }
 
+    /// Una sola foto: el caso de la cámara y el de la web.
     func process(_ image: CGImage) async {
+        await process([image])
+    }
+
+    /// Varias fotos, una detrás de otra.
+    ///
+    /// El reparto de responsabilidades: aquí se lleva la cuenta —qué foto va,
+    /// qué ha salido de cada una, qué hacer si una falla— y `detect(_:)` hace
+    /// el trabajo de una. Una foto que falla **no tira el lote**: se anota y
+    /// se sigue con la siguiente, porque entre seis fotos siempre hay una
+    /// movida y perder las otras cinco por eso sería absurdo.
+    func process(_ images: [CGImage]) async {
         phase = .processing
         candidates = []
+        photos = images
+        analysedCount = 0
         logMarker = DiagnosticsLog.shared.marker
 
+        guard !images.isEmpty else {
+            phase = .nothingFound(.noGarments)
+            return
+        }
+
+        /// El motivo del último fallo, por si al final no hay nada que enseñar.
+        var lastFailure: Phase?
+
+        for (photoIndex, image) in images.enumerated() {
+            do {
+                let detected = try await detect(image, number: photoIndex + 1, of: images.count)
+                candidates += detected.map { ImportCandidate($0, photoIndex: photoIndex) }
+            } catch PipelineError.noPersonFound {
+                lastFailure = .nothingFound(.noPerson)
+            } catch PipelineError.visionUnavailable {
+                lastFailure = .nothingFound(.visionUnavailable)
+            } catch let error as PipelineError {
+                DiagnosticsLog.record("IMPORT", "falla la foto \(photoIndex + 1): \(error)", isProblem: true)
+                lastFailure = .nothingFound(.pipeline(error))
+            } catch {
+                DiagnosticsLog.record("IMPORT", "error en la foto \(photoIndex + 1): \(error)", isProblem: true)
+                lastFailure = .failed(error.localizedDescription)
+            }
+            analysedCount = photoIndex + 1
+        }
+
+        guard !candidates.isEmpty else {
+            phase = lastFailure ?? .nothingFound(.noGarments)
+            return
+        }
+
+        await markDuplicates()
+
+        // **Sin generar nada todavía.** Primero se revisa lo detectado: ver
+        // `Phase.detected` y `confirmDetection()`.
+        phase = .detected
+    }
+
+    /// Lo que sale de **una** foto.
+    private func detect(_ image: CGImage, number: Int, of total: Int) async throws -> [DetectedGarment] {
         let clock = ContinuousClock.now
-        DiagnosticsLog.record("IMPORT", "empieza · foto \(image.width)×\(image.height)")
+        DiagnosticsLog.record(
+            "IMPORT",
+            total > 1
+                ? "foto \(number) de \(total) · \(image.width)×\(image.height)"
+                : "empieza · foto \(image.width)×\(image.height)"
+        )
 
         // **La pose ya no se pide dos veces.**
         //
@@ -163,75 +232,43 @@ final class ImportModel {
         // ANE ocupada son **ocho segundos** tirados antes de empezar, y eso era
         // la mitad del cuelgue.
 
-        do {
-            // **Con tope.** Si una etapa de Vision se queda esperando —pasa con
-            // la ANE ocupada o con un modelo a medio instalar—, sin esto la
-            // pantalla se queda con el barrido dando vueltas para siempre y no
-            // hay forma de saber por qué.
-            let detected: [DetectedGarment] = try await withThrowingTaskGroup(
-                of: [DetectedGarment].self
-            ) { group in
-                let pipeline = self.pipeline
-                group.addTask { try await pipeline.extractGarments(from: image) }
-                group.addTask {
-                    try await Task.sleep(for: .seconds(Self.analysisTimeout))
-                    DiagnosticsLog.record(
-                        "IMPORT",
-                        "se acabó el tiempo a los \(Self.analysisTimeout)s:"
-                            + " lo que estuviera a medias se tira",
-                        isProblem: true
-                    )
-                    throw PipelineError.timedOut
-                }
-                guard let first = try await group.next() else { return [] }
-                group.cancelAll()
-                return first
-            }
-            DiagnosticsLog.record(
-                "IMPORT", "\(detected.count) prenda(s) en \(clock.duration(to: .now))"
-            )
-            for (index, garment) in detected.enumerated() {
+        // **Con tope.** Si una etapa de Vision se queda esperando —pasa con la
+        // ANE ocupada o con un modelo a medio instalar—, sin esto la pantalla
+        // se queda con el barrido dando vueltas para siempre y no hay forma de
+        // saber por qué.
+        let detected: [DetectedGarment] = try await withThrowingTaskGroup(
+            of: [DetectedGarment].self
+        ) { group in
+            let pipeline = self.pipeline
+            group.addTask { try await pipeline.extractGarments(from: image) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(Self.analysisTimeout))
                 DiagnosticsLog.record(
                     "IMPORT",
-                    "[\(index)] \(garment.kind.rawValue) conf \(String(format: "%.2f", garment.confidence))"
-                        + " — " + garment.colors
-                            .map { String(format: "%@ %.0f%%", $0.nameKey, $0.weight * 100) }
-                            .joined(separator: ", ")
+                    "se acabó el tiempo a los \(Self.analysisTimeout)s:"
+                        + " lo que estuviera a medias se tira",
+                    isProblem: true
                 )
+                throw PipelineError.timedOut
             }
-            guard !detected.isEmpty else {
-                phase = .nothingFound(.noGarments)
-                return
-            }
-            candidates = detected.map(ImportCandidate.init)
-            await markDuplicates()
-
-            // **La versión de catálogo, antes de enseñar nada.**
-            //
-            // Es lo que se va a ver. El recorte del segmentador rompe las
-            // prendas largas —un pantalón se parte donde el cinturón o una
-            // sombra cortan la clase— y la reconstrucción lo arregla; enseñar
-            // primero el recorte roto y cambiarlo después es enseñar el fallo
-            // y luego taparlo.
-            //
-            // Por eso se espera aquí, con el contador a la vista: son segundos
-            // por prenda y una pantalla parada sin número parece colgada.
-            // **Sin generar nada todavía.** Primero se revisa lo detectado:
-            // ver `Phase.detected` y `confirmDetection()`.
-            phase = .detected
-        } catch PipelineError.noPersonFound {
-            phase = .nothingFound(.noPerson)
-        } catch PipelineError.visionUnavailable {
-            phase = .nothingFound(.visionUnavailable)
-        } catch let error as PipelineError {
-            // Cada fallo del pipeline con su motivo: "noSubjectFound" y
-            // "maskGenerationFailed" piden cosas distintas al usuario.
-            DiagnosticsLog.record("IMPORT", "falla: \(error)", isProblem: true)
-            phase = .nothingFound(.pipeline(error))
-        } catch {
-            DiagnosticsLog.record("IMPORT", "error: \(error)", isProblem: true)
-            phase = .failed(error.localizedDescription)
+            guard let first = try await group.next() else { return [] }
+            group.cancelAll()
+            return first
         }
+
+        DiagnosticsLog.record(
+            "IMPORT", "\(detected.count) prenda(s) en \(clock.duration(to: .now))"
+        )
+        for (index, garment) in detected.enumerated() {
+            DiagnosticsLog.record(
+                "IMPORT",
+                "[\(index)] \(garment.kind.rawValue) conf \(String(format: "%.2f", garment.confidence))"
+                    + " — " + garment.colors
+                        .map { String(format: "%@ %.0f%%", $0.nameKey, $0.weight * 100) }
+                        .joined(separator: ", ")
+            )
+        }
+        return detected
     }
 
     /// Cierra el paso de revisión: genera lo que haga falta y pasa a la ficha.
@@ -256,7 +293,7 @@ final class ImportModel {
     /// Sin atributos deducidos: lo único que se sabe con certeza es la imagen y
     /// sus colores. El tipo y el nombre se corrigen en la ficha, que es donde
     /// están los controles para eso.
-    func addManualCandidate(_ image: CGImage) {
+    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) {
         let cropped = ImmutableImage(image)
         let detected = DetectedGarment(
             kind: .other,
@@ -266,7 +303,7 @@ final class ImportModel {
             colors: ColorExtractor.dominantColors(in: image),
             featurePrint: nil
         )
-        var candidate = ImportCandidate(detected)
+        var candidate = ImportCandidate(detected, photoIndex: photoIndex)
         candidate.wasCorrectedByUser = true
         candidates.append(candidate)
         DiagnosticsLog.record("IMPORT", "prenda añadida a mano: \(candidates.count) en total")
@@ -295,7 +332,9 @@ final class ImportModel {
             in: candidates.map(\.detected.featurePrint)
         )
         for index in redundant {
-            candidates[index].duplicateOf = "otra de esta misma foto"
+            candidates[index].duplicateOf = photos.count > 1
+                ? "otra de estas fotos"
+                : "otra de esta misma foto"
             candidates[index].isKept = false
         }
 
@@ -511,10 +550,12 @@ final class ImportModel {
     /// Porque es el mismo trabajo. Reconstruir una prenda plana sobre fondo
     /// liso no necesita saber de ropa: necesita saber dónde acaba el color del
     /// fondo, y eso se mide aquí, gratis y sin salir del teléfono.
-    func improve(candidateWithID id: UUID, in photo: CGImage) {
+    func improve(candidateWithID id: UUID) {
         guard
             let index = candidates.firstIndex(where: { $0.id == id }),
-            let rect = candidates[index].detected.sourceRect
+            let rect = candidates[index].detected.sourceRect,
+            // De su propia foto, que con varias ya no hay una sola.
+            let photo = photo(for: candidates[index])
         else { return }
 
         // Un 12% hacia dentro por cada lado: lo justo para dejar fuera las
@@ -554,6 +595,15 @@ final class ImportModel {
     }
 
     var keptCount: Int { candidates.count { $0.isKept } }
+
+    /// La foto de la que salió una prenda.
+    ///
+    /// Con índice y no con la imagen dentro del candidato: seis fotos de 12 MP
+    /// repetidas una vez por prenda son memoria tirada, y aquí la misma foto
+    /// puede haber dado cuatro.
+    func photo(for candidate: ImportCandidate) -> CGImage? {
+        photos.indices.contains(candidate.photoIndex) ? photos[candidate.photoIndex] : photos.first
+    }
 
     /// Escribe las imágenes a disco y da de alta las prendas.
     func save(imageStore: ImageStore, wardrobe: WardrobeActor) async throws -> Int {
@@ -602,6 +652,8 @@ final class ImportModel {
 struct ImportCandidate: Identifiable {
     let id = UUID()
     let detected: DetectedGarment
+    /// De qué foto del lote salió. Cero cuando solo hay una, que es lo normal.
+    let photoIndex: Int
     var kind: GarmentKind
     var isKept: Bool
     var wasCorrectedByUser = false
@@ -654,8 +706,9 @@ struct ImportCandidate: Identifiable {
         return [first] + detected.colors.dropFirst()
     }
 
-    init(_ detected: DetectedGarment) {
+    init(_ detected: DetectedGarment, photoIndex: Int = 0) {
         self.detected = detected
+        self.photoIndex = photoIndex
         self.kind = detected.kind
         // Se marcan todas por defecto: es más rápido descartar una que marcar
         // cuatro, y lo normal es quedárselas casi todas.

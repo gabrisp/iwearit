@@ -37,9 +37,7 @@ public enum GarmentKind: String, Codable, Sendable, CaseIterable, Hashable {
         case .upperBody:  "camisetas"
         case .outerLayer: "chaquetas"
         case .lowerBody:  "pantalones"
-        // Un vestido o un mono cubre torso y piernas. Sin balda propia en la
-        // lista, cae con lo de arriba, que es donde se busca.
-        case .wholeBody:  "camisetas"
+        case .wholeBody:  "vestidos"
         case .feet:       "zapatos"
         case .head:       "accesorios"
         case .bag:        "bolsos"

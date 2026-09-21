@@ -40,7 +40,7 @@ struct ClosetScreen: View {
         var id: String { rawValue }
     }
 
-    @State private var captured: ImportableImage?
+    @State private var captured: ImportableBatch?
     /// El atajo del sobre-scroll: seguir tirando al final del armario crea un
     /// outfit para hoy.
     @State private var isCreatingOutfit = false
@@ -167,12 +167,12 @@ struct ClosetScreen: View {
                 switch which {
                 case .capture:
                     CameraScreen { image in
-                        captured = ImportableImage(cgImage: image)
+                        captured = ImportableBatch(images: [image])
                         sheet = .review
                     }
                 case .review:
                     if let captured {
-                        ImportSheet(image: captured.cgImage)
+                        ImportSheet(images: captured.images)
                     }
                 case .shelves:
                     NavigationStack { ShelfOrderScreen() }

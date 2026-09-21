@@ -25,7 +25,9 @@ import WKVision
 /// quedas**.
 struct ImportReviewPager: View {
     let model: ImportModel
-    let photo: CGImage
+    /// Las fotos del lote. Cada ficha enseña **la suya**, que con varias ya no
+    /// hay una foto original única.
+    let photos: [CGImage]
 
     /// En qué prenda está puesta la vista. Compartido con la tira de arriba,
     /// que es a la vez índice y atajo: tocar una miniatura salta a su ficha.
@@ -38,7 +40,7 @@ struct ImportReviewPager: View {
                     ImportPagerPage(
                         model: model,
                         candidate: candidate,
-                        photo: photo,
+                        photo: model.photo(for: candidate) ?? photos[0],
                         isCurrent: candidate.id == current
                     )
                     .id(candidate.id)
@@ -97,7 +99,7 @@ private struct ImportPagerPage: View {
             onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
             onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
             onRestyle: { await model.restyle(candidateWithID: candidate.id) },
-onImprove: { model.improve(candidateWithID: candidate.id, in: photo) }
+            onImprove: { model.improve(candidateWithID: candidate.id) }
         )
         // Cada ficha ocupa una pantalla exacta: es lo que hace que el gesto se
         // sienta como pasar de prenda y no como un scroll que se para donde le
