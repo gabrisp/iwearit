@@ -42,9 +42,15 @@ public enum WKTabBarMetrics {
     /// dentro del plan no queda ninguna vista que todavía lo conozca —la barra
     /// se lo ha comido y el contenido lo ignora—, así que medirlo ahí da cero
     /// y la píldora acababa media tapada.
+    /// El mismo aire que deja el armario, que es donde está bien: allí la
+    /// barra ya le ha recortado el sitio al scroll y basta `WK.Spacing.m`
+    /// desde el canto de la barra. Aquí hay que llegar a ese mismo canto
+    /// contando lo que mide la barra **de verdad** —no `reservedHeight`, que
+    /// lleva un margen de más y dejaba la píldora flotando ocho puntos por
+    /// encima de donde debía— y el indicador de inicio de debajo.
     @MainActor
     public static var clearance: CGFloat {
-        reservedHeight + WK.Spacing.m + windowBottomInset
+        barHeight + 2 * WK.Spacing.xs + WK.Spacing.m + windowBottomInset
     }
 
     @MainActor
