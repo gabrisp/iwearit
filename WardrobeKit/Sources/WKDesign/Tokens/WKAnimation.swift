@@ -38,53 +38,17 @@ public extension AnyTransition {
             .combined(with: .opacity)
     }
 
-    /// Cambio de modo sobre el mismo contenido: entra desde arriba y sale por
-    /// abajo, siempre con opacidad.
+    /// Cambio de modo sobre el mismo contenido: **lo que se va sube
+    /// desvaneciéndose y lo que llega baja desde arriba.**
     ///
-    /// Asimétrica a propósito. Con la misma dirección en los dos sentidos las
-    /// dos vistas se cruzan —una sube mientras la otra baja por el mismo
-    /// sitio— y se lee como un parpadeo con ruido. Yendo las dos hacia abajo,
-    /// lo que se ve es una capa que se aparta y otra que ocupa su lugar.
+    /// Las dos por el borde de arriba, y por eso se cruzan: es el gesto de
+    /// apartar una hoja para ver la de debajo, y el cruce es precisamente lo
+    /// que dice que son dos capas de lo mismo y no dos pantallas distintas.
     ///
-    /// Y con movimiento y no solo opacidad: dos contenidos distintos
-    /// fundiéndose sin moverse no dicen de dónde viene el nuevo.
+    /// Con movimiento y no solo opacidad: dos contenidos fundiéndose sin
+    /// moverse no dicen de dónde viene el nuevo ni adónde se fue el viejo.
     static var wkVertical: AnyTransition {
-        .asymmetric(
-            insertion: .move(edge: .top).combined(with: .opacity),
-            removal: .move(edge: .bottom).combined(with: .opacity)
-        )
-    }
-
-    /// Pasar de una vista general al detalle, **por el lado del detalle**.
-    ///
-    /// ## Por qué solo se anima un sentido
-    ///
-    /// Alejarse y acercarse no son el mismo gesto al revés. Al alejarse, lo que
-    /// llega es un montón de cosas pequeñas colocándose cada una en su sitio: ya
-    /// hay movimiento de sobra y añadirle más al contenedor lo emborrona. Al
-    /// acercarse no llega nada que se coloque —llega **una** cosa, a pantalla
-    /// completa— y sin movimiento eso es un fundido y se lee como un corte.
-    ///
-    /// Por eso este par es asimétrico en el sentido menos obvio: el detalle
-    /// **entra** creciendo y **sale** sin más.
-    ///
-    /// Los dos lados crecen a la vez —el que se va se pasa de largo, el que
-    /// llega se coloca— porque eso es lo que hace que se lea como acercarse y
-    /// no como dos vistas cambiándose el turno.
-    static var wkDetailReturn: AnyTransition {
-        .asymmetric(
-            insertion: .scale(scale: 0.94).combined(with: .opacity),
-            removal: .opacity
-        )
-    }
-
-    /// Y el mismo paso **por el lado de la vista general**: se queda quieta al
-    /// llegar y se pasa de largo al irse.
-    static var wkOverviewLeave: AnyTransition {
-        .asymmetric(
-            insertion: .opacity,
-            removal: .scale(scale: 1.08).combined(with: .opacity)
-        )
+        .move(edge: .top).combined(with: .opacity)
     }
 
     /// Entrada lateral con desenfoque, para pasos de un flujo.

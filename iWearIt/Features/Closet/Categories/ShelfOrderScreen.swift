@@ -61,22 +61,18 @@ struct ShelfOrderScreen: View {
         }
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .adaptiveSafeAreaBar(edge: .top) {
-            HStack {
-                Text("Baldas").font(WK.Font.headline)
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .font(WK.Font.headline)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .frame(width: 34, height: 34)
-                        .background(WK.Palette.ink(0.07), in: .circle)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(WKPressStyle())
+        // **En la barra de verdad**, igual que la hoja de crear outfit. Una
+        // fila puesta a mano tenía que imitar a ojo lo que el sistema ya hace:
+        // colocar el título, darle su cristal al botón en iOS 26 y difuminar
+        // solo el contenido que pasa por debajo. Y quedaba distinta de la otra
+        // hoja, que es lo que se nota.
+        .navigationTitle("Baldas")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { dismiss() } label: { Image(systemName: "xmark") }
+                    .tint(WK.Palette.primaryText)
             }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.vertical, WK.Spacing.s)
         }
         .sheet(isPresented: $isCreating) { NewCategorySheet() }
     }

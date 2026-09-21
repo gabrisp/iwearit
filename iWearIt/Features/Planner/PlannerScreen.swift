@@ -132,12 +132,11 @@ struct PlannerScreen: View {
     private var content: some View {
         switch layout {
         case .book:
-            // Solo se anima **el regreso**. Ir a rejilla ya tenía movimiento
-            // de sobra —los lienzos colocándose cada uno en su celda— y
-            // deslizar además el contenedor entero lo emborronaba. Volver no
-            // tenía ninguno: era un fundido y se leía como un corte. Ver
-            // `wkDetailReturn`.
-            pager.transition(.wkDetailReturn)
+            // Se anima **en los dos sentidos**: lo que se va sube
+            // desvaneciéndose y lo que llega baja desde arriba. Con
+            // `.identity` o con un fundido a secas en uno de los dos lados,
+            // ese lado aparecía de golpe y parecía un fallo de dibujo.
+            pager.transition(.wkVertical)
         case .grid:
             // Scroll horizontal paginado, **no el pager de revista**: el paso
             // de hoja con curl es la metáfora del librito, y en rejilla no se
@@ -167,12 +166,10 @@ struct PlannerScreen: View {
             .scrollIndicators(.hidden)
             .scrollPosition(id: gridPosition)
             .ignoresSafeArea()
-            // Al llegar, la opacidad es del contenedor y basta: los lienzos en
-            // sí **viajan** con su `matchedGeometryEffect`, así que lo que se
-            // ve es cada uno yendo a su sitio, no un bloque que se cambia por
-            // otro. Al irse no queda nadie viajando, así que se pasa de largo
-            // creciendo. Ver `wkOverviewLeave`.
-            .transition(.wkOverviewLeave)
+            // El movimiento es del contenedor; los lienzos en sí **viajan**
+            // además con su `matchedGeometryEffect`, así que al llegar se ve
+            // cada uno yendo a su sitio y no un bloque que sustituye a otro.
+            .transition(.wkVertical)
         }
     }
 

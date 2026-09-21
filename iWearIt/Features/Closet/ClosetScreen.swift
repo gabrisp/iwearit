@@ -101,7 +101,11 @@ struct ClosetScreen: View {
             .animation(WKAnimation.content, value: garments.isEmpty)
             .background(WK.Palette.canvas.ignoresSafeArea())
             .adaptiveScrollEdge(.top)
-            .adaptiveFloatingAccessory { MakeOutfitsAccessory() }
+            // **Sin "Crear outfit" en el armario, por ahora.** Se queda
+            // comentado y no se borra: el CTA y su flujo siguen enteros, solo
+            // que el armario no es ahora mismo el sitio desde el que se monta
+            // un outfit.
+            // .adaptiveFloatingAccessory { MakeOutfitsAccessory() }
             .rootTabBar(selection: $tab)
             .navigationDestination(for: ClosetRoute.self) { route in
                 ClosetRouteDestination(route: route)
