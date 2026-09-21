@@ -140,10 +140,25 @@ public enum CanvasMath {
         let halfWidth = (size.width * cosine + size.height * sine) / 2
         let halfHeight = (size.width * sine + size.height * cosine) / 2
 
-        result.x = clamp(result.x, half: halfWidth, limit: CanvasSpace.width)
-        result.y = clamp(result.y, half: halfHeight, limit: CanvasSpace.height)
+        result.x = clamp(
+            result.x, half: halfWidth, limit: CanvasSpace.width,
+            before: sideOverhang, after: sideOverhang
+        )
+        result.y = clamp(
+            result.y, half: halfHeight, limit: CanvasSpace.height,
+            before: topOverhang, after: bottomOverhang
+        )
         return (result, centering)
     }
+
+    /// Cuánto más puede asomar por cada borde, en puntos de canvas.
+    ///
+    /// Solo por arriba: es donde se coloca lo que enmarca —un gorro, la
+    /// fecha, un título— y ahí sale bien que sobresalga un poco del papel. Por
+    /// los lados, lo que asoma se lee como descuadrado.
+    static let topOverhang: Double = 28
+    static let sideOverhang: Double = 0
+    static let bottomOverhang: Double = 0
 
     /// Cuánto de la prenda tiene que quedar dentro del papel.
     ///
@@ -159,10 +174,16 @@ public enum CanvasMath {
     /// Si no cabe —una prenda más ancha que el papel— se centra en ese eje: es
     /// lo único que no deja un borde sin cubrir, y sobre todo evita que el
     /// tope la empuje a una esquina de la que no se puede sacar.
-    private static func clamp(_ value: Double, half: Double, limit: Double) -> Double {
+    private static func clamp(
+        _ value: Double,
+        half: Double,
+        limit: Double,
+        before: Double,
+        after: Double
+    ) -> Double {
         let margin = half * keptInside
         guard margin * 2 < limit else { return limit / 2 }
-        return min(max(value, margin), limit - margin)
+        return min(max(value, margin - before), limit - margin + after)
     }
 
     /// Punto tocado, de coordenadas de canvas al espacio unitario de la prenda.
