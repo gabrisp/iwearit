@@ -8,17 +8,94 @@ import WKPersistence
 
 /// El editor del outfit, a pantalla completa.
 ///
+/// **Edita en un contexto aparte y solo guarda al confirmar.**
+///
+/// Antes escribía directamente en el contexto de la app, así que cada
+/// arrastre, cada trazo y cada sticker era un cambio guardado — y, con la
+/// sincronización puesta, un cambio camino de iCloud. Colocar una prenda a
+/// ojo son cincuenta escrituras que a nadie le importan; la que importa es
+/// la de cuando dices que ya está.
+///
+/// Con un contexto propio, lo que pasa aquí dentro no existe fuera hasta que
+/// tocas el check. Y eso trae gratis lo otro: la X puede preguntar si
+/// descartas, porque descartar es de verdad posible — basta con no guardar.
+struct AdvancedCanvasScreen: View {
+    let outfit: Outfit
+    let store: ImageStore
+
+    @Environment(\.modelContext) private var parentContext
+    @State private var session: CanvasEditingSession?
+
+    var body: some View {
+        Group {
+            if let session {
+                CanvasEditorScreen(outfit: session.outfit, store: store, session: session)
+                    // Todo lo de dentro —las bandejas, el selector de prendas,
+                    // los `@Query`— pasa a hablar con el contexto de la
+                    // sesión. Es lo que hace que ni un solo cambio se escape
+                    // al de la app por accidente.
+                    .modelContext(session.context)
+            } else {
+                // Un instante, mientras se prepara la sesión. Del color del
+                // lienzo para que no se vea un parpadeo blanco al entrar.
+                WK.Palette.canvas.ignoresSafeArea()
+            }
+        }
+        .task {
+            guard session == nil else { return }
+            session = CanvasEditingSession(editing: outfit, from: parentContext)
+        }
+    }
+}
+
+/// Lo que se está editando y dónde.
+///
+/// El contexto **no se guarda solo**: esa es toda la idea. Se guarda cuando
+/// alguien llama a `commit()`, y si nadie lo hace, los cambios se van con él.
+@MainActor
+final class CanvasEditingSession {
+    let context: ModelContext
+    let outfit: Outfit
+
+    init?(editing outfit: Outfit, from parent: ModelContext) {
+        // **El padre se guarda primero.** Un outfit recién creado —el caso de
+        // "crear outfit", que lo inserta y abre el editor en el mismo turno—
+        // todavía no está en el almacén, y un contexto nuevo no puede ver lo
+        // que otro tiene sin guardar. Sin esto, el editor se abría vacío.
+        try? parent.save()
+
+        let context = ModelContext(parent.container)
+        context.autosaveEnabled = false
+        guard let editable = context.model(for: outfit.persistentModelID) as? Outfit else {
+            return nil
+        }
+        self.context = context
+        self.outfit = editable
+    }
+
+    /// Si hay algo que perder. Es lo que decide si la X pregunta o se limita
+    /// a cerrar: un "¿seguro?" cuando no has tocado nada enseña a confirmar
+    /// sin leer.
+    var hasChanges: Bool { context.hasChanges }
+
+    /// Lo hecho aquí pasa a ser lo que hay. **Una escritura, no cincuenta.**
+    func commit() { try? context.save() }
+}
+
+/// El lienzo y sus controles.
+///
 /// No es el modo por defecto: montar un outfit suele ser "esta camiseta con
 /// estos pantalones", y para eso está el compositor. Esto es para colocar al
-/// milímetro — y edita el mismo outfit, así que se puede ir y volver sin
-/// perder nada.
-struct AdvancedCanvasScreen: View {
+/// milímetro.
+private struct CanvasEditorScreen: View {
     /// `@Bindable` y no `let`: es lo que garantiza que esta vista observe al
     /// objeto. Con un `let`, el color de fondo se escribía en el modelo pero
     /// el editor no se reevaluaba, así que el cambio solo se veía al salir y
     /// volver a entrar.
     @Bindable var outfit: Outfit
     let store: ImageStore
+    /// Quién guarda y quién sabe si hay algo que guardar.
+    let session: CanvasEditingSession
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -72,6 +149,7 @@ struct AdvancedCanvasScreen: View {
     /// objeto para saber qué color y qué grosor están puestos, y si viviera
     /// dentro del canvas nadie de fuera podría tocarlo.
     @State private var drawing = CanvasDrawing()
+    @State private var isConfirmingDiscard = false
 
     private var isTrayOpen: Bool { trayKind != nil }
     /// Lo que mide la bandeja.
@@ -131,6 +209,13 @@ struct AdvancedCanvasScreen: View {
     private func close() {
         if trayKind != nil {
             withAnimation(WKAnimation.arrival) { trayKind = nil }
+            return
+        }
+        // **Preguntar solo si hay algo que perder.** Un "¿seguro?" cuando no
+        // has tocado nada no protege de nada: enseña a confirmar sin leer, y
+        // el día que sí haya cambios el aviso ya no dice nada.
+        if session.hasChanges {
+            isConfirmingDiscard = true
         } else {
             dismiss()
         }
@@ -181,9 +266,13 @@ struct AdvancedCanvasScreen: View {
             // propia de transformaciones y trazos, que se puede deshacer sin
             // tocar la base de datos. Eso es un bloque aparte.
             ToolbarItem(placement: .topBarTrailing) {
-                Button { dismiss() } label: { Image(systemName: "checkmark") }
-                    .tint(WK.Palette.primaryText)
-                    .adaptiveProminentButton()
+                // **Aquí es donde se guarda.** Hasta este toque, nada de lo
+                // hecho existe fuera del editor.
+                Button { session.commit(); dismiss() } label: {
+                    Image(systemName: "checkmark")
+                }
+                .tint(WK.Palette.primaryText)
+                .adaptiveProminentButton()
             }
         }
         // **Sin `UndoManager` en el contexto.** Ponerlo aquí —aunque fuera
@@ -196,6 +285,15 @@ struct AdvancedCanvasScreen: View {
         // hasta que el historial sea del lienzo y no de la base de datos: una
         // pila de transformaciones propia, que es lo único que se puede
         // deshacer sin tocar el contexto compartido.
+        // Descartar es **no guardar**: el contexto de la sesión se va con la
+        // pantalla y se lleva los cambios con él. Por eso la pregunta puede
+        // prometer lo que promete.
+        .alert("¿Descartar los cambios?", isPresented: $isConfirmingDiscard) {
+            Button("Descartar", role: .destructive) { dismiss() }
+            Button("Seguir editando", role: .cancel) {}
+        } message: {
+            Text("Se perderá todo lo que hayas hecho desde que abriste el editor.")
+        }
         // **Con la bandeja puesta, la barra se apaga y deja su hueco.**
         //
         // Las dos mitades importan. Apagarla porque debajo de la bandeja no
