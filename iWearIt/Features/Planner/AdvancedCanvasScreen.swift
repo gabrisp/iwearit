@@ -247,6 +247,28 @@ private struct CanvasEditorScreen: View {
         drawing.load(from: outfit.drawingData)
     }
 
+    /// Guardar y salir.
+    private func finish() {
+        session.commit()
+        closeEverything()
+        dismiss()
+    }
+
+    /// **Todo lo que esté abierto encima, cerrado.**
+    ///
+    /// Al salir, una hoja que sigue puesta se lleva por delante la animación
+    /// de vuelta: la pantalla se va y la bandeja se queda un instante flotando
+    /// sobre el plan, o peor, se cierra después y parece que algo ha vuelto a
+    /// abrirse. Se cierran aquí, en el mismo turno en que se decide salir.
+    private func closeEverything() {
+        trayKind = nil
+        sheet = nil
+        editingText = nil
+        editingTextItemID = nil
+        photoItem = nil
+        selection.clear()
+    }
+
     private func close() {
         if trayKind != nil {
             withAnimation(WKAnimation.arrival) { trayKind = nil }
@@ -315,7 +337,7 @@ private struct CanvasEditorScreen: View {
             ToolbarItem(placement: .topBarTrailing) {
                 // **Aquí es donde se guarda.** Hasta este toque, nada de lo
                 // hecho existe fuera del editor.
-                Button { session.commit(); dismiss() } label: {
+                Button { finish() } label: {
                     Image(systemName: "checkmark")
                 }
                 .tint(WK.Palette.primaryText)
@@ -348,6 +370,7 @@ private struct CanvasEditorScreen: View {
         .alert("¿Descartar los cambios?", isPresented: $isConfirmingDiscard) {
             Button("Descartar", role: .destructive) {
                 session.discard()
+                closeEverything()
                 dismiss()
             }
             Button("Seguir editando", role: .cancel) {}

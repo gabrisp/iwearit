@@ -35,6 +35,20 @@ struct ImportDetectedStep: View {
             header
 
             ScrollView {
+                // **La foto original, y debajo todos los recortes.**
+                //
+                // Es contra lo que se comprueba: un recorte solo siempre
+                // parece correcto, y solo mirando la foto se ve que a ese le
+                // falta media manga o que aquello no era una prenda.
+                Image(decorative: photo, scale: 1)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 220)
+                    .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                    .padding(.bottom, WK.Spacing.m)
+
                 LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
                     ForEach(model.candidates) { candidate in
                         DetectedCell(
@@ -128,9 +142,14 @@ private struct DetectedCell: View {
             candidate.image
                 .resizable()
                 .scaledToFit()
-                .frame(height: 104)
+                // **Todas iguales.** El recorte de una zapatilla es ancho y el
+                // de un vestido, alto: dejando que cada celda midiera lo suyo,
+                // la rejilla salía con filas de alturas distintas y parecía
+                // rota. Con la celda cuadrada y la imagen ajustada dentro,
+                // todas ocupan lo mismo y lo que cambia es la prenda.
                 .padding(WK.Spacing.xs)
                 .frame(maxWidth: .infinity)
+                .frame(height: 112)
                 .background {
                     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
                         .fill(WK.Palette.ink(0.04))

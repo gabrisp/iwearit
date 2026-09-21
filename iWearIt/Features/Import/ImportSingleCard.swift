@@ -55,13 +55,15 @@ struct ImportSingleCard: View {
     private enum Field: Hashable { case name, color }
 
     private enum Source: String, CaseIterable, Identifiable {
-        case cutout, catalog, photo
+        // `catalog` se queda fuera mientras la generación con IA está
+        // apagada: una pestaña que solo sabe decir "esto no existe" es peor
+        // que no tenerla. Ver `ImportModel.confirmDetection`.
+        case cutout, photo
         var id: String { rawValue }
 
         var label: String {
             switch self {
             case .cutout: "Recorte"
-            case .catalog: "Catálogo"
             case .photo: "Foto"
             }
         }
@@ -86,17 +88,6 @@ struct ImportSingleCard: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 300)
-                // Se genera sola al detectar. Esto es para reintentarlo si
-                // aquella vez falló, y una sola vez: si ya está, volver a esta
-                // pestaña no la vuelve a pagar.
-                .onChange(of: source) { _, new in
-                    guard
-                        new == .catalog,
-                        candidate.catalogImage == nil,
-                        candidate.catalogFailure != nil
-                    else { return }
-                    Task { await onRestyle() }
-                }
 
                 VStack(spacing: WK.Spacing.xs) {
                     // **Editable.** El nombre se construye con el color, y el
@@ -258,48 +249,6 @@ struct ImportSingleCard: View {
                 // ver a partir de ahora, y verla aquí igual evita la sorpresa.
                 .shadow(color: WK.Palette.ink(0.18), radius: 10, y: 6)
                 .transition(.opacity)
-        case .catalog:
-            if let catalog = candidate.catalogImage {
-                Image(decorative: catalog.cgImage, scale: 1)
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
-                    .transition(.opacity)
-            } else {
-                VStack(spacing: WK.Spacing.s) {
-                    if candidate.isRestyling {
-                        ProgressView()
-                        Text("Redibujando la prenda…")
-                    } else {
-                        Button {
-                            Task { await onRestyle() }
-                        } label: {
-                            Label(
-                                candidate.catalogFailure == nil ? "Redibujar con IA" : "Reintentar",
-                                systemImage: candidate.catalogFailure == nil
-                                    ? "wand.and.sparkles"
-                                    : "arrow.clockwise"
-                            )
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.accent)
-                        }
-                        .buttonStyle(WKPressStyle())
-                    }
-                    // **Sin catálogo ya no es un fallo.** Solo se genera cuando
-                    // el recorte no vale; que no lo haya quiere decir que el
-                    // recorte salió bien, y decirlo evita que parezca que algo
-                    // se quedó a medias.
-                    Text(
-                        candidate.catalogFailure
-                            ?? "Este recorte ha salido bien. Puedes redibujarlo como foto de tienda si quieres."
-                    )
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, WK.Spacing.l)
-                }
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
         case .photo:
             Image(decorative: photo, scale: 1)
                 .resizable()

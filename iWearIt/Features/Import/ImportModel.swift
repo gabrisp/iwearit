@@ -221,7 +221,14 @@ final class ImportModel {
     /// queda: es el único momento en el que se sabe qué es una prenda de
     /// verdad y qué era un trozo suelto.
     func confirmDetection() async {
-        await restyleKept()
+        // **La versión de catálogo, apagada de momento.**
+        //
+        // Se queda comentada y no borrada: el camino entero —medir el recorte,
+        // decidir si merece la pena, pedirla y guardarla— sigue escrito y
+        // probado. Lo que no se hace es llamarlo, así que ninguna importación
+        // llega al servidor y lo que se guarda es siempre el recorte local.
+        //
+        // await restyleKept()
         phase = .review
     }
 
