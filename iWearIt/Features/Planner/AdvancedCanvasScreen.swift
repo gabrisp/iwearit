@@ -793,31 +793,53 @@ private struct CanvasGarmentTray: View {
     @Query(FetchDescriptor<GarmentCategory>.visibleCategories())
     private var categories: [GarmentCategory]
 
-    @State private var filter: TrayFilter = .all
+    /// **Varios a la vez.** Vacío = todo el armario.
+    ///
+    /// Antes era uno solo, y eso convertía cada filtro en un callejón:
+    /// elegías "camisetas" y dejabas de ver todo lo demás, cuando lo normal
+    /// es querer camisetas **y** pantalones para montar el conjunto.
+    @State private var filters: Set<TrayFilter> = []
 
     private let columns = [GridItem(.adaptive(minimum: 88), spacing: WK.Spacing.m)]
 
     /// Las prendas que pasan el filtro.
     private var visible: [Garment] {
-        switch filter {
-        case .all:
-            garments
-        case .recent:
+        // **O dentro de cada sección, Y entre secciones.**
+        //
+        // "Camisetas o pantalones" es una lista; "camisetas y negro" es un
+        // cruce. Es como funciona cualquier filtro de tienda y es lo que la
+        // gente espera sin que nadie se lo explique.
+        let shelfSlugs = Set(filters.compactMap { filter -> String? in
+            if case let .category(slug, _) = filter { return slug }
+            return nil
+        })
+        let colorKeys = Set(filters.compactMap(\.colorKey))
+        let tags = Set(filters.compactMap { filter -> String? in
+            if case let .tag(tag) = filter { return tag }
+            return nil
+        })
+
+        var result = garments
+        if !shelfSlugs.isEmpty {
+            result = result.filter { shelfSlugs.contains($0.category?.slug ?? "") }
+        }
+        if !colorKeys.isEmpty {
+            result = result.filter { garment in
+                garment.colors.contains { colorKeys.contains($0.nameKey) }
+            }
+        }
+        if !tags.isEmpty {
+            result = result.filter { !tags.isDisjoint(with: $0.tags) }
+        }
+        if filters.contains(.recent) {
             // Por lo último que pasó con ella: puesta o metida. Doce, que es
-            // lo que cabe en dos baldas sin tener que desplazarse.
-            garments
+            // lo que cabe en dos filas sin tener que desplazarse.
+            result = result
                 .sorted { Self.lastTouched($0) > Self.lastTouched($1) }
                 .prefix(12)
                 .map { $0 }
-        case let .category(slug, _):
-            garments.filter { $0.category?.slug == slug }
-        case let .tag(tag):
-            garments.filter { $0.tags.contains(tag) }
-        case let .color(name):
-            garments.filter { garment in
-                garment.colors.contains { $0.nameKey == name }
-            }
         }
+        return result
     }
 
     /// Lo último que pasó con una prenda: habérsela puesto, o haberla metido.
@@ -920,29 +942,28 @@ private struct CanvasGarmentTray: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
         }
-        // **Los filtros, abajo y en varias filas.**
+        // **Los filtros arriba, por secciones y con su nombre.**
         //
-        // Abajo porque es donde está el pulgar con la hoja puesta, y arriba
-        // competían con la primera fila de prendas. En varias filas porque son
-        // tres criterios distintos —dónde está, de qué color es, de qué estilo
-        // es— y en una sola fila había que desplazarse a ciegas para descubrir
-        // que existían los otros dos.
-        .safeAreaInset(edge: .bottom) {
+        // Con nombre porque tres filas de píldoras sin etiqueta son tres
+        // filas de palabras sueltas: "negro" y "deporte" no dicen por sí solas
+        // que una es un color y la otra un estilo.
+        .safeAreaInset(edge: .top) {
             TrayFilterBars(
-                rows: [
-                    [.all, .recent] + shelves,
-                    colors,
-                    styles,
+                sections: [
+                    .init(title: "Atajos", filters: [.recent]),
+                    .init(title: "Baldas", filters: shelves),
+                    .init(title: "Color", filters: colors),
+                    .init(title: "Estilo", filters: styles),
                 ],
                 swatches: swatches,
-                selection: $filter
+                selection: $filters
             )
         }
         // Si la balda filtrada se queda sin prendas —las has usado todas— el
         // filtro vuelve solo a "Todo" en vez de dejar una rejilla vacía que
         // parece una app rota.
         .onChange(of: visible.isEmpty) { _, isEmpty in
-            if isEmpty, filter != .all { filter = .all }
+            if isEmpty, !filters.isEmpty { filters.removeAll() }
         }
     }
 }
@@ -953,7 +974,6 @@ private struct CanvasGarmentTray: View {
 /// pinta igual, el chip los compara igual y añadir un tercer criterio —color,
 /// temporada— es un caso más aquí y nada más.
 enum TrayFilter: Hashable {
-    case all
     /// Lo último que has metido o puesto. Es el filtro que más se usa sin
     /// saberlo: casi siempre quieres la camiseta de la semana pasada, no la
     /// del año pasado.
@@ -964,7 +984,6 @@ enum TrayFilter: Hashable {
 
     var label: String {
         switch self {
-        case .all: "Todo"
         case .recent: "Reciente"
         case let .category(_, name): name
         case let .tag(tag): tag.capitalized
@@ -981,21 +1000,38 @@ enum TrayFilter: Hashable {
     }
 }
 
-/// Las filas de filtros. Vista propia: cambiar de filtro no tiene por qué
+/// Las secciones de filtros. Vista propia: cambiar de filtro no tiene por qué
 /// reevaluar la rejilla entera de prendas.
 private struct TrayFilterBars: View {
-    /// Una fila por criterio. Las vacías no se dibujan: un armario sin estilos
-    /// puestos no necesita una franja de aire donde iría la fila.
-    let rows: [[TrayFilter]]
+    struct Section: Identifiable {
+        let title: String
+        let filters: [TrayFilter]
+        var id: String { title }
+    }
+
+    /// Una sección por criterio. Las vacías no se dibujan: un armario sin
+    /// estilos puestos no necesita una franja de aire donde iría la fila.
+    let sections: [Section]
     /// La muestra de cada color, sacada del propio armario.
     let swatches: [String: NamedColor]
-    @Binding var selection: TrayFilter
+    @Binding var selection: Set<TrayFilter>
 
     var body: some View {
-        VStack(spacing: WK.Spacing.xs) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                if !row.isEmpty {
-                    TrayFilterRow(filters: row, swatches: swatches, selection: $selection)
+        VStack(alignment: .leading, spacing: WK.Spacing.s) {
+            ForEach(sections) { section in
+                if !section.filters.isEmpty {
+                    VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+                        Text(section.title)
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.tertiaryText)
+                            .padding(.horizontal, WK.Spacing.m)
+
+                        TrayFilterRow(
+                            filters: section.filters,
+                            swatches: swatches,
+                            selection: $selection
+                        )
+                    }
                 }
             }
         }
@@ -1006,22 +1042,27 @@ private struct TrayFilterBars: View {
 private struct TrayFilterRow: View {
     let filters: [TrayFilter]
     let swatches: [String: NamedColor]
-    @Binding var selection: TrayFilter
+    @Binding var selection: Set<TrayFilter>
 
     var body: some View {
         ScrollView(.horizontal) {
-            // Un solo contenedor de cristal por fila: el cristal no puede
-            // muestrear otro cristal, y píldoras sueltas vecinas se ven
-            // inconsistentes entre sí.
-            AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
-                HStack(spacing: WK.Spacing.xs) {
-                    ForEach(filters, id: \.self) { filter in
-                        TrayFilterChip(
-                            label: filter.label,
-                            swatch: filter.colorKey.flatMap { swatches[$0] },
-                            isSelected: filter == selection
-                        ) {
-                            withAnimation(WKAnimation.selection) { selection = filter }
+            // **Sin contenedor de cristal compartido.** El contenedor funde
+            // las superficies vecinas —para eso está— y aquí eso se leía como
+            // que el relleno de la elegida se derramaba sobre las de al lado.
+            // Son botones independientes, no un control segmentado.
+            HStack(spacing: WK.Spacing.s) {
+                ForEach(filters, id: \.self) { filter in
+                    TrayFilterChip(
+                        label: filter.label,
+                        swatch: filter.colorKey.flatMap { swatches[$0] },
+                        isSelected: selection.contains(filter)
+                    ) {
+                        withAnimation(WKAnimation.selection) {
+                            if selection.contains(filter) {
+                                selection.remove(filter)
+                            } else {
+                                selection.insert(filter)
+                            }
                         }
                     }
                 }
