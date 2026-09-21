@@ -219,6 +219,50 @@ struct BrandRecognizerTests {
         #expect(BrandRecognizer.match("LEVIS") == "Levi's")
         #expect(BrandRecognizer.match("Stüssy") == "Stüssy")
     }
+
+    @Test("El nombre de la sociedad también nombra la tienda, si es de una sola")
+    func readsLegalNames() {
+        // Lo que sale impreso en la etiqueta de composición, no el logo.
+        #expect(BrandRecognizer.match("PUNTO FA S L") == "Mango")
+        #expect(BrandRecognizer.match("DEVANLAY ESPANA S A") == "Lacoste")
+        #expect(BrandRecognizer.match("Penneys") == "Primark")
+    }
+
+    @Test("La firma del grupo se reconoce, pero no es una marca")
+    func groupSignatures() {
+        #expect(
+            RetailGroups.signature(in: "industria de diseno textil s a") == "Inditex"
+        )
+        #expect(RetailGroups.signature(in: "100 algodon made in china") == nil)
+        // Y no nombra ninguna tienda por su cuenta: Inditex son siete.
+        #expect(BrandRecognizer.match("INDUSTRIA DE DISEÑO TEXTIL") == nil)
+        #expect(RetailGroups.group(of: "Bershka") == "Inditex")
+        #expect(RetailGroups.group(of: "Patagonia") == nil)
+    }
+
+    @Test("Una lectura con errata pasa el listón si el grupo la firma")
+    func corroborationLiftsATypo() {
+        // "8ERSHKA" leído al 90%: 0,62 × 0,9 = 0,558. Solo, no basta.
+        let alone = BrandRecognizer.corroborated(0.558, of: "Bershka", by: [])
+        #expect(BrandVerdict.resolve([
+            BrandEvidence(brand: "Bershka", source: .ocr, confidence: alone)
+        ]) == nil)
+
+        // Con "INDUSTRIA DE DISEÑO TEXTIL" debajo, ya no hay duda.
+        let backed = BrandRecognizer.corroborated(0.558, of: "Bershka", by: ["Inditex"])
+        #expect(backed > BrandVerdict.displayThreshold)
+        #expect(BrandVerdict.resolve([
+            BrandEvidence(brand: "Bershka", source: .ocr, confidence: backed)
+        ]) == "Bershka")
+    }
+
+    @Test("Corroborar la nada no da nada")
+    func corroborationNeedsAReading() {
+        // Un grupo que no es el dueño de esa marca no la sube.
+        #expect(BrandRecognizer.corroborated(0.5, of: "Nike", by: ["Inditex"]) == 0.5)
+        // Y una marca sin grupo tampoco.
+        #expect(BrandRecognizer.corroborated(0.5, of: "Patagonia", by: ["VF"]) == 0.5)
+    }
 }
 
 // MARK: - Instancias

@@ -32,30 +32,97 @@ public enum BrandRecognizer {
     /// la misma cara tanto si estaba escrito nítido como si el OCR leyó "Zora"
     /// y alguien decidió que se parecía bastante.
     public static func evidence(in image: CGImage) async -> [BrandEvidence] {
-        var request = RecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = false
-        request.customWords = Array(catalogue.keys)
+        var harvest = await gather(in: image)
 
-        guard let observations = try? await request.perform(on: image) else { return [] }
-
-        var found: [String: Double] = [:]
-        for observation in observations {
-            guard
-                let candidate = observation.topCandidates(1).first,
-                candidate.confidence >= minimumConfidence
-            else { continue }
-            guard let reading = read(candidate.string) else { continue }
-
-            // La confianza del OCR entra en la cuenta: una etiqueta leída al
-            // 50% no es lo mismo que una leída al 95%, aunque las dos casen.
-            let score = reading.score * Double(candidate.confidence)
-            found[reading.brand] = max(found[reading.brand] ?? 0, score)
+        // Segunda pasada solo si la primera no leyó ninguna marca. Ver
+        // `LabelEnhancer`: ampliar y estirar el contraste cuesta, y cuando el
+        // logo va bordado grande en el pecho la primera pasada ya lo tiene.
+        if harvest.brands.isEmpty, let boosted = LabelEnhancer.enhanced(image) {
+            let second = await gather(in: boosted)
+            harvest.absorb(second)
         }
+        guard !harvest.brands.isEmpty else { return [] }
 
-        return found
-            .map { BrandEvidence(brand: $0.key, source: .ocr, confidence: $0.value) }
+        return harvest.brands
+            .map { brand, score in
+                BrandEvidence(
+                    brand: brand,
+                    source: .ocr,
+                    confidence: corroborated(score, of: brand, by: harvest.groups)
+                )
+            }
             .sorted { $0.confidence > $1.confidence }
+    }
+
+    /// Sube una lectura si el grupo dueño de esa marca también está escrito.
+    ///
+    /// Ver `RetailGroups`: una etiqueta que pone "BERSHKA" con una errata y
+    /// debajo "INDUSTRIA DE DISEÑO TEXTIL" no deja margen a la duda, aunque
+    /// ninguna de las dos lecturas baste por su cuenta.
+    static func corroborated(_ score: Double, of brand: String, by groups: Set<String>) -> Double {
+        guard let group = RetailGroups.group(of: brand), groups.contains(group) else { return score }
+        DiagnosticsLog.record("MARCA", "\(brand) corroborada: la etiqueta firma \(group)")
+        return 1 - (1 - score) * (1 - RetailGroups.corroboration)
+    }
+
+    /// Lo que una pasada de OCR deja en claro.
+    struct Harvest {
+        /// Marca → mejor puntuación conseguida.
+        var brands: [String: Double] = [:]
+        /// Grupos cuya firma aparece escrita en la prenda.
+        var groups: Set<String> = []
+
+        mutating func absorb(_ other: Harvest) {
+            for (brand, score) in other.brands {
+                brands[brand] = max(brands[brand] ?? 0, score)
+            }
+            groups.formUnion(other.groups)
+        }
+    }
+
+    /// Cuánto vale cada candidato del OCR según su puesto.
+    ///
+    /// Vision no devuelve una lectura: devuelve varias ordenadas, y la buena es
+    /// la segunda más veces de las que parece —"ZARA" contra "7ARA" es
+    /// exactamente el tipo de duda que resuelve mirando el catálogo, no
+    /// mirando la tinta. Quedarse solo con la primera tiraba esa información.
+    /// El puesto penaliza, pero no descalifica.
+    static let candidateWeights = [1.0, 0.8, 0.65]
+
+    /// Una pasada de OCR, leída contra el catálogo y contra las firmas.
+    static func gather(in image: CGImage) async -> Harvest {
+        var request = RecognizeTextRequest()
+        // `.accurate` y no `.fast`: el texto de una prenda va curvado sobre la
+        // tela, en bajo contraste y a veces del revés. `.fast` está pensado
+        // para documentos y aquí no lee nada.
+        request.recognitionLevel = .accurate
+        // Sin corrección de idioma y con el catálogo como pistas: "adidas" no
+        // está en ningún diccionario, y la corrección lo convertía en palabras
+        // reales.
+        request.usesLanguageCorrection = false
+        request.customWords = Array(catalogue.keys) + RetailGroups.vocabulary
+
+        guard let observations = try? await request.perform(on: image) else { return Harvest() }
+
+        var harvest = Harvest()
+        for observation in observations {
+            let candidates = observation.topCandidates(candidateWeights.count)
+            for (rank, candidate) in candidates.enumerated() {
+                guard candidate.confidence >= minimumConfidence else { continue }
+
+                let normalized = normalize(candidate.string)
+                if let group = RetailGroups.signature(in: normalized) {
+                    harvest.groups.insert(group)
+                }
+                guard let reading = read(candidate.string) else { continue }
+
+                // La confianza del OCR entra en la cuenta: una etiqueta leída al
+                // 50% no es lo mismo que una leída al 95%, aunque las dos casen.
+                let score = reading.score * Double(candidate.confidence) * candidateWeights[rank]
+                harvest.brands[reading.brand] = max(harvest.brands[reading.brand] ?? 0, score)
+            }
+        }
+        return harvest
     }
 
     /// Lo que casa, y **cómo** de bien.
@@ -75,33 +142,18 @@ public enum BrandRecognizer {
     /// resolutor remoto la confirme o la tire.
     static let typoScore = 0.62
 
-    /// Lee el texto del recorte y lo casa contra el catálogo.
+    /// La marca que se puede **afirmar**, o nada.
+    ///
+    /// Pasa por el mismo listón que todo lo demás (`BrandVerdict`): una lectura
+    /// con errata y sin corroborar no sale por aquí. Antes esto devolvía la
+    /// primera coincidencia que encontrara, y era la única vía del código que
+    /// se saltaba el listón.
     ///
     /// - Parameter image: el recorte **sin normalizar**. Normalizado se ha
     ///   escalado a 768 y el texto de una etiqueta queda ilegible; en bruto
     ///   conserva los píxeles originales, que es lo que el OCR necesita.
     public static func brand(in image: CGImage) async -> String? {
-        var request = RecognizeTextRequest()
-        // `.accurate` y no `.fast`: el texto de una prenda va curvado sobre la
-        // tela, en bajo contraste y a veces del revés. `.fast` está pensado
-        // para documentos y aquí no lee nada.
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = false
-        // Sin corrección de idioma y con el catálogo como pistas: "adidas" no
-        // está en ningún diccionario, y la corrección lo convertía en palabras
-        // reales.
-        request.customWords = Array(catalogue.keys)
-
-        guard let observations = try? await request.perform(on: image) else { return nil }
-
-        for observation in observations {
-            guard
-                let candidate = observation.topCandidates(1).first,
-                candidate.confidence >= minimumConfidence
-            else { continue }
-            if let brand = match(candidate.string) { return brand }
-        }
-        return nil
+        BrandVerdict.resolve(await evidence(in: image))
     }
 
     /// Casa un trozo de texto leído contra el catálogo.
@@ -125,7 +177,25 @@ public enum BrandRecognizer {
         let compact = normalized.replacingOccurrences(of: " ", with: "")
         if let exact = catalogue[compact] { return Reading(brand: exact, score: exactScore) }
 
-        for word in normalized.split(separator: " ") where word.count >= 4 {
+        // Marcas de varias palabras dentro de una línea más larga. Sin esto,
+        // "PUNTO FA, S.L." o "hecho para THE NORTH FACE" no casaban con nada:
+        // la línea entera no es la clave y ninguna palabra suelta tampoco. De
+        // la más larga a la más corta, para que "the north face" gane a "face".
+        let words = normalized.split(separator: " ").map(String.init)
+        if words.count > 1 {
+            for length in stride(from: min(4, words.count), through: 2, by: -1) {
+                for start in 0...(words.count - length) {
+                    let window = words[start..<(start + length)].joined(separator: " ")
+                    // Sin perdonar erratas: en una ventana de tres palabras, una
+                    // letra de margen casa demasiadas cosas.
+                    if let exact = catalogue[window] {
+                        return Reading(brand: exact, score: exactScore)
+                    }
+                }
+            }
+        }
+
+        for word in words where word.count >= 4 {
             if let exact = catalogue[String(word)] { return Reading(brand: exact, score: exactScore) }
             // Una letra de margen: el OCR confunde constantemente rn/m, l/I,
             // 0/O. Solo para palabras de cinco o más — con cuatro letras, una
@@ -203,11 +273,15 @@ public enum BrandRecognizer {
             ("Pull&Bear", ["pull bear", "pullbear"]),
             ("Stradivarius", ["stradivarius"]),
             ("Massimo Dutti", ["massimo dutti", "massimo"]),
-            ("Mango", ["mango"]),
+            // "Punto Fa" es la sociedad de Mango y sale impresa en cada
+            // etiqueta de composición. Va aquí y no en `RetailGroups` porque
+            // identifica una sola tienda: leerla **es** leer la marca.
+            ("Mango", ["mango", "punto fa", "mng"]),
             ("H&M", ["h m", "hm", "divided"]),
             ("Uniqlo", ["uniqlo"]),
             ("Levi's", ["levis", "levi strauss"]),
-            ("Lacoste", ["lacoste"]),
+            // "Devanlay" fabrica la ropa de Lacoste y firma sus etiquetas.
+            ("Lacoste", ["lacoste", "devanlay"]),
             ("Ralph Lauren", ["ralph lauren", "polo ralph lauren"]),
             ("Tommy Hilfiger", ["tommy hilfiger", "tommy jeans", "tommy"]),
             ("Calvin Klein", ["calvin klein", "calvin"]),
@@ -231,7 +305,7 @@ public enum BrandRecognizer {
             ("Scalpers", ["scalpers"]),
             ("El Ganso", ["el ganso"]),
             ("Lefties", ["lefties"]),
-            ("Primark", ["primark"]),
+            ("Primark", ["primark", "penneys", "primark stores"]),
             ("Decathlon", ["decathlon", "quechua", "kalenji", "domyos"]),
             ("Hollister", ["hollister"]),
             ("Superdry", ["superdry"]),
@@ -308,6 +382,26 @@ public enum BrandRecognizer {
             ("Adolfo Domínguez", ["adolfo dominguez"]),
             ("Purificación García", ["purificacion garcia"]),
             ("Bimba", ["bimba"]),
+            ("Sfera", ["sfera"]),
+            ("Easy Wear", ["easy wear", "easywear"]),
+            ("Pedro del Hierro", ["pedro del hierro"]),
+            ("Fifty", ["fifty outlet", "fifty factory"]),
+            ("Calzedonia", ["calzedonia"]),
+            ("Tezenis", ["tezenis"]),
+            ("Intimissimi", ["intimissimi"]),
+            ("Kiabi", ["kiabi"]),
+            ("Shein", ["shein"]),
+            ("ASOS", ["asos", "asos design"]),
+            ("Parfois", ["parfois"]),
+            // Las marcas de prenda en blanco: en una camiseta serigrafiada, lo
+            // único que hay escrito en la etiqueta es quién la tejió, y es una
+            // respuesta tan buena como cualquier otra a "¿de qué es esto?".
+            ("Fruit of the Loom", ["fruit of the loom"]),
+            ("Gildan", ["gildan"]),
+            ("Stedman", ["stedman"]),
+            ("B&C", ["b c collection"]),
+            ("Russell Athletic", ["russell athletic"]),
+            ("Sol's", ["sols", "sol s"]),
             ("Gymshark", ["gymshark"]),
             ("Oysho Sport", ["oysho sport"]),
         ]
