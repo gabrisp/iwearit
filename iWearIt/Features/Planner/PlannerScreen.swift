@@ -33,6 +33,8 @@ struct PlannerScreen: View {
     /// vive en su propio `UIHostingController`, fuera del `NavigationStack`, y
     /// desde ahí un `navigationDestination` no llega a ninguna parte.
     @State private var editingOutfit: Outfit?
+    /// Si el que se está editando se creó para esto. Ver `AdvancedCanvasScreen`.
+    @State private var editingIsNew = false
     /// Para que el editor crezca **desde** el lienzo que ya se está viendo, en
     /// vez de aparecer desde abajo como una pantalla distinta.
     @Namespace private var zoom
@@ -135,7 +137,11 @@ struct PlannerScreen: View {
             .animation(WKAnimation.arrival, value: layout)
             .rootTabBar(selection: $tab)
             .navigationDestination(item: $editingOutfit) { outfit in
-                AdvancedCanvasScreen(outfit: outfit, store: appEnvironment.imageStore)
+                AdvancedCanvasScreen(
+                    outfit: outfit,
+                    store: appEnvironment.imageStore,
+                    isNew: editingIsNew
+                )
                     // El mismo id que la fuente: en rejilla es la celda, en
                     // revista el lienzo entero. En los dos casos el editor sale
                     // **de donde estaba** lo que se abre.
@@ -169,7 +175,7 @@ struct PlannerScreen: View {
                     // nada hasta que hay algo que poner dentro.
                     OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                         guard !picked.isEmpty else { return }
-                        editingOutfit = makeOutfit(with: picked)
+                        edit(makeOutfit(with: picked), isNew: true)
                     }
                 }
             }
@@ -208,7 +214,7 @@ struct PlannerScreen: View {
                             morph: morph,
                             zoom: zoom,
                             bottomInset: overscrollInset,
-                            onOpen: { editingOutfit = $0 },
+                            onOpen: { edit($0) },
                             onCreate: { sheet = .newOutfit }
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -296,7 +302,7 @@ struct PlannerScreen: View {
             DayPage(
                 date: date(forOffset: offset),
                 bottomInset: overscrollInset,
-                onEdit: { editingOutfit = $0 },
+                onEdit: { outfit, isNew in edit(outfit, isNew: isNew) },
                 // Cada día apunta lo suyo. Quién llega primero da igual.
                 onFocus: { reported, outfit in
                     if let outfit {
@@ -352,11 +358,18 @@ struct PlannerScreen: View {
     /// Abre el lienzo que se está viendo, creándolo si está vacío.
     private func editCurrent(forcingNew: Bool = false) {
         if !forcingNew, let focusedOutfit {
-            editingOutfit = focusedOutfit
+            edit(focusedOutfit)
             return
         }
         // Sin outfit en el lienzo visible: se crea uno para hoy y se abre.
-        editingOutfit = makeOutfit(with: [])
+        edit(makeOutfit(with: []), isNew: true)
+    }
+
+    /// Abre el editor diciendo **de dónde sale** el outfit: descartar no es lo
+    /// mismo en uno que ya existía que en uno que se acaba de crear.
+    private func edit(_ outfit: Outfit, isNew: Bool = false) {
+        editingIsNew = isNew
+        editingOutfit = outfit
     }
 
     /// Un outfit nuevo en el día que se está mirando, con las prendas

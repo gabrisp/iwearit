@@ -41,7 +41,12 @@ private struct OutfitCreationFlow: ViewModifier {
                 }
             }
             .fullScreenCover(item: $outfit) { outfit in
-                AdvancedCanvasScreen(outfit: outfit, store: appEnvironment.imageStore)
+                // Siempre nuevo: este flujo **es** el de crear.
+                AdvancedCanvasScreen(
+                    outfit: outfit,
+                    store: appEnvironment.imageStore,
+                    isNew: true
+                )
             }
     }
 

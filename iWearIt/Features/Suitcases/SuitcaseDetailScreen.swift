@@ -40,6 +40,8 @@ private struct SuitcaseContent: View {
     /// pila de navegación: las páginas del pager viven en sus propios
     /// controladores y desde ahí no se puede empujar nada.
     @State private var editingOutfit: Outfit?
+    /// Si el que se edita se creó para esto. Ver `AdvancedCanvasScreen`.
+    @State private var editingIsNew = false
     /// Para que el editor crezca desde el lienzo que ya se está viendo.
     @Namespace private var zoom
 
@@ -65,7 +67,10 @@ private struct SuitcaseContent: View {
                 tab: tab,
                 dayIndex: $dayIndex,
                 zoom: zoom,
-                onEdit: { editingOutfit = $0 }
+                onEdit: { outfit, isNew in
+                    editingIsNew = isNew
+                    editingOutfit = outfit
+                }
             )
                 .transition(.wkContent)
                 .id(tab)
@@ -139,7 +144,11 @@ private struct SuitcaseContent: View {
         // verdad — por eso aquí el id es el del outfit y no uno fijo.
         .adaptiveZoomSource(id: "suitcase-editor", in: zoom)
         .navigationDestination(item: $editingOutfit) { outfit in
-            AdvancedCanvasScreen(outfit: outfit, store: appEnvironment.imageStore)
+            AdvancedCanvasScreen(
+                outfit: outfit,
+                store: appEnvironment.imageStore,
+                isNew: editingIsNew
+            )
                 .adaptiveZoomDestination(
                     id: suitcase.tripDayCount == nil
                         ? AnyHashable(outfit.stableID)
@@ -268,7 +277,7 @@ private struct SuitcaseTabContent: View {
     let tab: SuitcaseTab
     @Binding var dayIndex: Int
     let zoom: Namespace.ID
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
         switch tab {

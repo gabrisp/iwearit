@@ -23,6 +23,13 @@ import WKPersistence
 struct AdvancedCanvasScreen: View {
     let outfit: Outfit
     let store: ImageStore
+    /// El outfit **se acaba de crear para esto**.
+    ///
+    /// Importa al descartar: si venías de "crear outfit", descartar los
+    /// cambios tiene que llevarse también el outfit. Si solo estabas editando
+    /// uno que ya existía, descartar deja las cosas como estaban y el outfit
+    /// sigue ahí.
+    var isNew = false
 
     @Environment(\.modelContext) private var modelContext
     @State private var session: CanvasEditingSession?
@@ -39,7 +46,11 @@ struct AdvancedCanvasScreen: View {
         }
         .task {
             guard session == nil else { return }
-            session = CanvasEditingSession(holding: modelContext)
+            session = CanvasEditingSession(
+                holding: modelContext,
+                outfit: outfit,
+                isNew: isNew
+            )
         }
     }
 }
@@ -53,14 +64,19 @@ struct AdvancedCanvasScreen: View {
 @MainActor
 final class CanvasEditingSession {
     private let context: ModelContext
+    private let outfit: Outfit
+    private let isNew: Bool
 
-    init(holding context: ModelContext) {
-        // Lo que hubiera pendiente de antes se guarda ya: a partir de aquí,
-        // lo que quede sin guardar es lo que se ha hecho en el editor, y eso
-        // es lo que `rollback()` tiene que poder tirar.
-        try? context.save()
+    init(holding context: ModelContext, outfit: Outfit, isNew: Bool) {
+        // **Sin guardar al entrar.** Lo hacía para que un contexto aparte
+        // pudiera ver el outfit recién creado, y ese contexto ya no existe.
+        // Lo que sí hacía era volver permanente el outfit vacío que acababa de
+        // crear "crear outfit": después, descartar no tenía nada que tirar y
+        // el outfit se quedaba.
         context.autosaveEnabled = false
         self.context = context
+        self.outfit = outfit
+        self.isNew = isNew
     }
 
     deinit {
@@ -71,7 +87,10 @@ final class CanvasEditingSession {
     /// Si hay algo que perder. Es lo que decide si la X pregunta o se limita
     /// a cerrar: un "¿seguro?" cuando no has tocado nada enseña a confirmar
     /// sin leer.
-    var hasChanges: Bool { context.hasChanges }
+    ///
+    /// Un outfit recién creado cuenta **siempre** como algo que perder: aunque
+    /// no hayas movido nada, salir sin querer lo dejaría puesto en el día.
+    var hasChanges: Bool { isNew || context.hasChanges }
 
     /// Lo hecho aquí pasa a ser lo que hay. **Una escritura, no cincuenta.**
     func commit() {
@@ -79,10 +98,23 @@ final class CanvasEditingSession {
         context.autosaveEnabled = true
     }
 
-    /// Descartar es tirar lo que no se ha guardado, que es justo todo lo que
-    /// se ha hecho en el editor.
+    /// Descartar.
+    ///
+    /// Si el outfit venía de antes, basta con tirar lo que no se ha guardado.
+    /// Si se creó para esta sesión, **se borra**: descartar los cambios de algo
+    /// que no existía hace un minuto es que no exista.
+    ///
+    /// El borrado explícito y no confiando en que `rollback()` se lleve lo
+    /// insertado: entre crear el outfit y abrir el editor pasa un turno con el
+    /// autoguardado todavía encendido, así que puede haberse guardado ya. Un
+    /// `delete` funciona en los dos casos.
     func discard() {
-        context.rollback()
+        if isNew {
+            context.delete(outfit)
+            try? context.save()
+        } else {
+            context.rollback()
+        }
         context.autosaveEnabled = true
     }
 }

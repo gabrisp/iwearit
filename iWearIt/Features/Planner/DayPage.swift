@@ -26,7 +26,7 @@ struct DayPage: View {
     /// Cuánto hay que dejar libre abajo: la barra de pestañas y el indicador
     /// de inicio. La página ignora el área segura, así que no lo sabe sola.
     private let bottomInset: CGFloat
-    private let onEdit: (Outfit) -> Void
+    private let onEdit: (Outfit, Bool) -> Void
     /// Avisa de qué lienzo se está viendo, para que la sección de abajo sepa
     /// si hay outfit que editar o uno que crear. La página no lleva botón: uno
     /// por lienzo se repetiría en cada página del scroll vertical.
@@ -45,7 +45,7 @@ struct DayPage: View {
     init(
         date: Date,
         bottomInset: CGFloat = 0,
-        onEdit: @escaping (Outfit) -> Void,
+        onEdit: @escaping (Outfit, Bool) -> Void,
         onFocus: @escaping (Date, Outfit?) -> Void = { _, _ in }
     ) {
         let dayStart = Calendar.current.startOfDay(for: date)
@@ -131,7 +131,7 @@ struct DayPage: View {
         .sheet(isPresented: $isPickingForNew) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                 guard !picked.isEmpty else { return }
-                onEdit(makeOutfit(with: picked))
+                onEdit(makeOutfit(with: picked), true)
             }
         }
         // **Por visibilidad y no solo por posición.**
@@ -253,7 +253,7 @@ struct DayPage: View {
 private struct DayCanvas: View {
     let date: Date
     let outfit: Outfit?
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
     /// Crea el outfit cuando este lienzo es el hueco vacío del final.
     var makeOutfit: (() -> Outfit)?
 
@@ -304,8 +304,8 @@ private struct DayCanvas: View {
                     // no puede ser —compite con el scroll de página y con
                     // deseleccionar—, y cuál de las dos espera cada uno depende
                     // de si viene de una app de fotos o de una de notas.
-                    .onTapGesture(count: 2) { onEdit(current) }
-                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(current) }
+                    .onTapGesture(count: 2) { onEdit(current, false) }
+                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(current, false) }
             } else {
                 EmptyDayPrompt(
                     date: date,
@@ -349,7 +349,7 @@ private struct DayCanvas: View {
         }
         .sheet(isPresented: $isPickingGarments) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
-                onEdit(fill(with: picked))
+                onEdit(fill(with: picked), created != nil)
             }
         }
     }

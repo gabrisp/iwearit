@@ -21,7 +21,7 @@ struct SuitcaseOutfitsTab: View {
     /// La página no puede navegar por su cuenta: vive en su propio
     /// `UIHostingController` dentro del pager, fuera de la pila. Por eso lo
     /// pide hacia arriba en vez de presentarlo a pantalla completa.
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
         if let dayCount = suitcase.tripDayCount {
@@ -42,7 +42,7 @@ struct DatedOutfits: View {
     let suitcase: Suitcase
     let dayCount: Int
     @Binding var dayIndex: Int
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
         // El mismo pager del planificador: el paso de página solo arranca
@@ -162,7 +162,7 @@ struct TripDayChip: View {
 struct TripDayPage: View {
     let suitcase: Suitcase
     let dayIndex: Int
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -183,8 +183,8 @@ struct TripDayPage: View {
                     // puede ser —compite con el paso de página—, y cuál de las
                     // dos espera cada uno depende de si vienes de una app de
                     // fotos o de una de notas.
-                    .onTapGesture(count: 2) { onEdit(ensureOutfit()) }
-                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(ensureOutfit()) }
+                    .onTapGesture(count: 2) { onEdit(ensureOutfit(), outfit == nil) }
+                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(ensureOutfit(), outfit == nil) }
                     // En todo el lienzo: sin esto el gesto solo existe donde
                     // hay una prenda pintada, y el hueco entre ellas —que es
                     // casi todo— no respondería.
@@ -197,14 +197,14 @@ struct TripDayPage: View {
         // forma de abrir el editor, así que un outfit de viaje se podía montar
         // pero no retocar.
         .overlay(alignment: .bottomTrailing) {
-            DayActionButton(symbol: "pencil") { onEdit(ensureOutfit()) }
+            DayActionButton(symbol: "pencil") { onEdit(ensureOutfit(), outfit == nil) }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.bottom, WK.Spacing.xl)
         }
         .sheet(isPresented: $isPickingGarments) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                 fill(with: picked)
-                onEdit(ensureOutfit())
+                onEdit(ensureOutfit(), outfit == nil)
             }
         }
         // Lo que se meta en el outfit del viaje entra solo en el checklist:
@@ -300,7 +300,7 @@ struct TripDayPage: View {
 /// que distingue esta maleta de la que sí los tiene.
 private struct PreparedOutfits: View {
     let suitcase: Suitcase
-    let onEdit: (Outfit) -> Void
+    let onEdit: (Outfit, Bool) -> Void
     /// Para que el editor crezca **desde la celda tocada**, igual que en el
     /// plan, y no desde el centro de la pantalla.
     let zoom: Namespace.ID
@@ -315,7 +315,7 @@ private struct PreparedOutfits: View {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
                 ForEach(suitcase.visibleOutfits) { outfit in
-                    Button { onEdit(outfit) } label: {
+                    Button { onEdit(outfit, false) } label: {
                         // Con el color de la maleta de fondo, no el de la app.
                         // Un lienzo de maleta es de su color siempre, y la
                         // rejilla enseña lo mismo que la página: sin esto, las
@@ -356,7 +356,7 @@ private struct PreparedOutfits: View {
         .sheet(isPresented: $isPickingForNew) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                 guard !picked.isEmpty else { return }
-                onEdit(createOutfit(with: picked))
+                onEdit(createOutfit(with: picked), true)
             }
         }
     }
