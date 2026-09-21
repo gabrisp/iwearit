@@ -61,6 +61,14 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
     /// papel de 1000— así que un conjunto entero ocupaba media hoja y parecía
     /// un muestrario en vez de un look.
     ///
+    /// ## El papel se reparte, no se llena de miniaturas
+    ///
+    /// Cada prenda tiene **su banda** y la ocupa: la chaqueta se lleva dos
+    /// tercios del ancho, el pantalón una banda entera para él solo y el
+    /// calzado la de abajo. Repartir el papel entre cuatro o cinco piezas y
+    /// darle a cada una lo suyo es lo que hace que se vean como ropa; dejarlas
+    /// pequeñas en el centro las convierte en iconos de un inventario.
+    ///
     /// ## Cómo están repartidos
     ///
     /// Como se mira un conjunto tendido en la cama: el torso arriba, las
@@ -74,21 +82,21 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
     /// deforma para llenar su caja — solo no se queda pequeño.
     public var transform: ItemTransform {
         switch self {
-        // Detrás de todo, a la izquierda: es la pieza más grande del conjunto.
+        // Detrás de todo y a la izquierda: es la pieza más grande del
+        // conjunto, y ocupa dos tercios del ancho del papel.
         case .outer:
-            ItemTransform(x: 320, y: 540, baseWidth: 540, baseHeight: 620, zIndex: 0)
-        // Delante de la chaqueta y un poco a su derecha, como si estuviera
-        // apoyada encima.
+            ItemTransform(x: 330, y: 600, baseWidth: 660, baseHeight: 740, zIndex: 0)
+        // Delante de la chaqueta y a su derecha, como apoyada encima.
         case .top:
-            ItemTransform(x: 650, y: 500, baseWidth: 470, baseHeight: 560, zIndex: 1)
-        // Las piernas, justo debajo del torso y rozándolo.
+            ItemTransform(x: 690, y: 560, baseWidth: 560, baseHeight: 620, zIndex: 1)
+        // Las piernas, en su propia banda y rozando el torso.
         case .bottom:
-            ItemTransform(x: 430, y: 1160, baseWidth: 480, baseHeight: 660, zIndex: 1)
+            ItemTransform(x: 450, y: 1230, baseWidth: 600, baseHeight: 780, zIndex: 1)
         case .shoes:
-            ItemTransform(x: 640, y: 1540, baseWidth: 430, baseHeight: 300, zIndex: 2)
+            ItemTransform(x: 620, y: 1560, baseWidth: 520, baseHeight: 340, zIndex: 2)
         // Arriba a la derecha, en el hueco que deja el torso.
         case .accessory:
-            ItemTransform(x: 820, y: 280, baseWidth: 320, baseHeight: 300, zIndex: 3)
+            ItemTransform(x: 800, y: 220, baseWidth: 340, baseHeight: 320, zIndex: 3)
         }
     }
 
