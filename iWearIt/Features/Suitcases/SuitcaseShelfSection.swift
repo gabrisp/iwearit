@@ -22,13 +22,15 @@ struct SuitcaseShelfSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Abre la balda entera, como cualquier otra. Estaba desactivada:
+            // el chevron prometía algo que no pasaba.
             ShelfHeaderButton(
                 slug: "__suitcases__",
                 name: "Maletas",
                 symbol: "suitcase",
-                count: suitcases.count
+                count: suitcases.count,
+                route: .suitcases
             )
-            .disabled(true)
 
             ScrollView(.horizontal) {
                 LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
@@ -49,11 +51,11 @@ struct SuitcaseShelfSection: View {
 
             ShelfPlank()
         }
-        // **Más aire que en las demás baldas, y a propósito.** Esta es la
-        // última: debajo no hay otra balda que separe, hay el botón flotante de
-        // "Crear outfit" y la barra de pestañas. Con el mismo margen que el
-        // resto, el canto del altillo quedaba pegado al cristal de abajo.
-        .padding(.bottom, WK.Spacing.xxl + WK.Spacing.xl)
+        // El mismo margen que las demás baldas. El aire de más que llevaba
+        // —para despegarla del botón flotante— se notaba como un salto: es la
+        // única balda que medía distinto. Lo que hace falta debajo lo pone el
+        // scroll, que ya reserva el hueco de la barra.
+        .padding(.bottom, WK.Spacing.l)
         .sheet(isPresented: $isPresentingNew) { NewSuitcaseSheet() }
     }
 }
@@ -133,7 +135,12 @@ struct SuitcaseCard: View {
 //     }
 // }
 
-private struct NewSuitcaseCard: View {
+/// La tarjeta de "nueva maleta".
+///
+/// Deja de ser privada porque la usan las dos: la fila del altillo y la balda
+/// abierta. Duplicarla habría dejado dos trazos discontinuos que se separan al
+/// primer retoque.
+struct NewSuitcaseCard: View {
     let action: () -> Void
 
     var body: some View {

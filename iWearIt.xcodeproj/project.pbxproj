@@ -21,11 +21,10 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		EDFF000000000000000000E1 /* Excepciones */ = {
+		EDFF000000000000000000E1 /* Exceptions for "iWearIt" folder in "iWearIt" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				iWearIt.entitlements,
 			);
 			target = ED86A00C305F2C80004B31A4 /* iWearIt */;
 		};
@@ -35,7 +34,7 @@
 		ED86A00F305F2C80004B31A4 /* iWearIt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				EDFF000000000000000000E1 /* Excepciones */,
+				EDFF000000000000000000E1 /* Exceptions for "iWearIt" folder in "iWearIt" target */,
 			);
 			path = iWearIt;
 			sourceTree = "<group>";
@@ -293,17 +292,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7B25H5898A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
+				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Haz una foto a una prenda para añadirla a tu armario.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "iWearIt analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
-				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
+				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -331,17 +330,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 7B25H5898A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
+				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Haz una foto a una prenda para añadirla a tu armario.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "iWearIt analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
-				CODE_SIGN_ENTITLEMENTS = iWearIt/iWearIt.entitlements;
+				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_FILE = iWearIt/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

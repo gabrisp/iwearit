@@ -179,6 +179,8 @@ private struct ClosetRouteDestination: View {
             SuitcaseDetailScreen(id: id)
         case .settings:
             ProfileScreen()
+        case .suitcases:
+            SuitcasesScreen()
         }
     }
 }

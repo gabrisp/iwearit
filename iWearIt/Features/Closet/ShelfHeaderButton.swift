@@ -11,9 +11,19 @@ struct ShelfHeaderButton: View {
     let name: String
     let symbol: String?
     let count: Int
+    /// A dónde lleva.
+    ///
+    /// Parámetro y no un enlace por fuera: envolver esta vista en otro
+    /// `NavigationLink` anida dos enlaces, y el de dentro se come el toque. Es
+    /// exactamente lo que dejó muerto el botón de Ajustes.
+    var route: ClosetRoute?
+
+    private var destination: ClosetRoute {
+        route ?? .category(slug: slug, name: name)
+    }
 
     var body: some View {
-        NavigationLink(value: ClosetRoute.category(slug: slug, name: name)) {
+        NavigationLink(value: destination) {
             HStack(spacing: WK.Spacing.xs) {
                 Text(name)
                     .font(WK.Font.shelfTitle)
@@ -45,4 +55,7 @@ enum ClosetRoute: Hashable {
     case settings
     case category(slug: String, name: String)
     case suitcase(id: UUID)
+    /// Todas las maletas. La cabecera del altillo prometía abrirse —tenía
+    /// chevron— y estaba desactivada.
+    case suitcases
 }
