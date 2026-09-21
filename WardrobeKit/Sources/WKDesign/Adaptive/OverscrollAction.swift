@@ -79,44 +79,46 @@ private struct OverscrollAction: ViewModifier {
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
 
-    /// La luz del aura.
-    ///
-    /// Blanca: no es un relleno que tapa, es un foco que se enciende detrás de
-    /// la palabra. Un relleno oscuro tapaba lo que había debajo y la píldora
-    /// dejaba de parecer cristal para parecer una pastilla pegada encima.
-    ///
-    /// Sin `blendMode` aditivo, por mucho que quede mejor: mezclar dentro del
-    /// cristal es justo lo que lo deja fuera de su propia transición.
-    static let fill = Color.white
+    /// El relleno. Negro translúcido y no el color del texto: sobre cristal,
+    /// un relleno opaco tapa lo que hay detrás y la píldora deja de parecer
+    /// cristal para parecer una pastilla pegada encima. Al 60% la superficie
+    /// sigue dejando ver el lienzo y aun así hay contraste de sobra para la
+    /// letra invertida.
+    static let fill = Color.black.opacity(0.6)
 
-    /// El aura: una luz blanca que se abre desde el centro.
+    /// Y la tinta que va encima de ese relleno. Blanca en los dos temas,
+    /// porque el relleno es negro en los dos: atarla al color de fondo la
+    /// hacía desaparecer en oscuro.
+    static let fillInk = Color.white
+
+    /// Cuánto mide el borde difuminado del aura, en fracción de la píldora.
     ///
-    /// Elíptica y en fracciones del tamaño, así que no hay que medir la
-    /// píldora y el foco escala solo si cambia el texto.
+    /// Ancho a propósito: más estrecho vuelve a ser una frontera, y es
+    /// justamente lo que no queremos que se vea.
+    private static let auraEdge: CGFloat = 0.22
+
+    /// El aura: nace **en el centro** y se abre hacia los dos lados.
     ///
-    /// A progreso cero devuelve transparente **explícitamente**: un degradado
-    /// elíptico con radio cero es degenerado y algunas veces se pinta entero
-    /// del primer color, que es por lo que la píldora aparecía rellena un
-    /// instante al salir.
-    @ViewBuilder
-    static func aura(progress: CGFloat) -> some View {
-        if progress <= 0 {
-            Color.clear
-        } else {
-            EllipticalGradient(
-                stops: [
-                    .init(color: fill, location: 0),
-                    .init(color: fill.opacity(0.55), location: 0.5),
-                    .init(color: fill.opacity(0), location: 1),
-                ],
-                center: .center,
-                startRadiusFraction: 0,
-                // Más allá de la mitad: una píldora es mucho más ancha que
-                // alta, y un foco que solo llegue a su borde corto deja las
-                // puntas sin encender.
-                endRadiusFraction: progress * 1.8
-            )
-        }
+    /// Desde un lado, el aura tenía un delante y un detrás —o sea, una
+    /// dirección— y eso convertía la píldora en una barra de progreso otra
+    /// vez. Desde el centro no avanza: crece. Y crece desde donde está la
+    /// palabra, que es lo que hace que se lea como la píldora encendiéndose y
+    /// no como algo que la recorre.
+    static func aura(to progress: CGFloat, of color: Color) -> LinearGradient {
+        let half = progress / 2
+        let clear = color.opacity(0)
+        return LinearGradient(
+            stops: [
+                .init(color: clear, location: 0),
+                .init(color: clear, location: max(0, 0.5 - half - auraEdge)),
+                .init(color: color, location: max(0, 0.5 - half)),
+                .init(color: color, location: min(1, 0.5 + half)),
+                .init(color: clear, location: min(1, 0.5 + half + auraEdge)),
+                .init(color: clear, location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
@@ -165,37 +167,9 @@ private struct OverscrollAction: ViewModifier {
     /// funde con él al salir—, que es para lo que existe
     /// `glassEffectTransition`.
     private var pill: some View {
-        let isFull = progress == 1
-
-        // **La píldora está siempre aquí, quieta.**
-        //
-        // No entra ni sale del contenedor: eso era el problema. Un cristal que
-        // se inserta en un `GlassEffectContainer` usa `.matchedGeometry` por
-        // defecto, y sin pareja el sistema lo hace salir de un punto
-        // degenerado — la píldora llegaba volando desde una esquina.
-        //
-        // Lo que aparece y desaparece es **el cristal**, no la vista:
-        // `glassEffect(isEnabled:)` forma y deshace la materia sin mover nada
-        // de sitio, y eso es exactamente lo que `glassEffectTransition` sabe
-        // animar.
-        return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if isVisible { indicator }
         }
-        // **El rebote, por fuera de la píldora.**
-        //
-        // Dentro se peleaba con lo que ya estaba pasando ahí: el cristal
-        // formándose, el aura creciendo y el relleno avanzando bajo las
-        // letras, todo a la vez y todo con su propia animación. Escalado desde
-        // fuera, lo que rebota es la píldora entera como objeto, con su
-        // contenido quieto por dentro. Y va con el háptico, que es lo que
-        // avisa de que ya está.
-        .keyframeAnimator(initialValue: 1.0, trigger: isFull) { view, scale in
-            view.scaleEffect(scale)
-        } keyframes: { _ in
-            CubicKeyframe(1.1, duration: 0.15)
-            CubicKeyframe(1, duration: 0.15)
-        }
-        .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
         .padding(.bottom, bottomInset)
         // Por encima de todo lo que haya en el scroll.
         .zIndex(100)
@@ -234,27 +208,46 @@ private struct OverscrollAction: ViewModifier {
     }
 
     private var indicator: some View {
-        pillContent
+        let isFull = progress == 1
+
+        return pillContent
             .foregroundStyle(WK.Palette.primaryText)
-            // **Una luz que crece, no una barra que se rellena.**
+            // **Un aura que avanza, no una barra que se rellena.**
             //
-            // Y **sin desenfoque ni modo de mezcla**, que es lo que rompió
-            // esto dos veces: cualquiera de los dos dentro de la vista que
-            // lleva el `glassEffect` obliga a SwiftUI a rasterizar el grupo, y
-            // un cristal rasterizado se queda fuera de la transición de su
-            // contenedor — aparece con el desenfoque de material en vez de
-            // formarse.
+            // El corte recto de una barra de progreso marca una frontera, y
+            // una frontera pide leerse: la mitad rellena y la mitad vacía
+            // parecían dos píldoras pegadas. Con el borde difuminado lo que se
+            // ve es una sola superficie tiñéndose, que es lo que hace el gesto.
             //
-            // Un degradado no rasteriza nada y da la misma luz: blanco en el
-            // centro, transparente en el borde. Es un foco encendiéndose
-            // detrás de la palabra.
+            // Sin `GeometryReader`: el degradado ocupa la píldora entera y lo
+            // que se mueve con el progreso son sus paradas, así que no hace
+            // falta medir nada y el borde no da saltos de píxel.
             .background {
-                Self.aura(progress: progress)
+                Self.aura(to: progress, of: Self.fill)
                     .clipShape(.capsule)
             }
+            // **La letra no cambia de color: le pasa el aura por debajo.**
+            //
+            // Encima va la misma pieza con el aura **inversa** —el color
+            // contrario, con el mismo borde difuminado y en la misma
+            // posición— y enmascarada con las propias letras. Así cada letra
+            // se va invirtiendo según la alcanza, con el mismo desvanecido que
+            // el fondo, en vez de cambiar de golpe al pasar un umbral.
+            .overlay {
+                Self.aura(to: progress, of: Self.fillInk)
+                    .mask { pillContent }
+            }
             .adaptiveGlass(in: .capsule)
+            // Aparece **donde está**, sin subir desde ningún sitio: la píldora
+            // ya estaba ahí con opacidad cero, y el cristal se encarga de que
+            // llegar no parezca un corte.
             .adaptiveGlassTransition()
+            // **Sin rebote al completarse.** Lo que avisa de que ya está es el
+            // háptico, y llega al mismo sitio sin mover nada: un salto de
+            // tamaño en algo que estás mirando de cerca mientras arrastras se
+            // lee como un tirón, no como una confirmación.
             .allowsHitTesting(false)
+            .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
     private func fireIfDue() {
