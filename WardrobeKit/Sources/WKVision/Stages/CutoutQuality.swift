@@ -30,6 +30,18 @@ public enum CutoutQuality {
     /// mejor que cobrar de más.
     public static let acceptable = 0.55
 
+    /// Y por debajo de esto **tampoco se reconstruye**, pero por lo contrario:
+    /// no queda prenda suficiente de la que partir.
+    ///
+    /// Es la diferencia entre una camiseta a la que le falta una manga y una a
+    /// la que le faltan las dos. La primera se arregla: el modelo ve el resto
+    /// y completa lo que falta. La segunda no se arregla, **se inventa** — y
+    /// lo que devuelve es una prenda que no es la tuya, cobrada igual.
+    ///
+    /// Ahí lo honesto es no gastar y decirlo: con el recorte a mano se
+    /// resuelve en dos segundos.
+    public static let reconstructible = 0.25
+
     public struct Report: Sendable {
         /// 0-1.
         public let score: Double
@@ -37,6 +49,90 @@ public enum CutoutQuality {
         public let summary: String
 
         public var isGoodEnough: Bool { score >= CutoutQuality.acceptable }
+
+        /// Roto, pero **con arreglo**: falta algo y queda bastante para que la
+        /// reconstrucción sepa qué prenda es.
+        public var needsReconstruction: Bool {
+            !isGoodEnough && score >= CutoutQuality.reconstructible
+        }
+
+        /// Tan roto que reconstruirlo sería inventarlo.
+        public var isBeyondRepair: Bool { score < CutoutQuality.reconstructible }
+    }
+
+    /// Cuánto de lo que se ha quedado dentro **sigue siendo fondo**.
+    ///
+    /// ## Por qué hace falta además de la forma
+    ///
+    /// Porque las tres medidas de abajo —cuánto ocupa, si está de una pieza, si
+    /// toca el borde— miran la **silueta**, y una silueta puede ser perfecta y
+    /// estar mal: un recorte que se ha llevado media mesa junto con la prenda
+    /// es una sola mancha, de buen tamaño y sin tocar el canto. Puntúa alto y
+    /// es el peor de todos.
+    ///
+    /// Esto es lo que distingue esos dos casos: si dentro del recorte hay
+    /// muchos píxeles del color del fondo, es que el fondo se coló. No mira la
+    /// forma, mira el contenido — y son los dos errores distintos que puede
+    /// cometer un recorte.
+    ///
+    /// - Returns: 0 = todo lo que hay dentro es prenda. 1 = todo es fondo.
+    public static func contamination(
+        of cutout: CGImage,
+        backgroundOf original: CGImage
+    ) -> Double {
+        guard
+            let background = averageBorderColor(of: original),
+            let buffer = PixelBuffer(width: cutout.width, height: cutout.height),
+            let context = buffer.makeContext()
+        else { return 0 }
+        context.draw(cutout, in: CGRect(x: 0, y: 0, width: cutout.width, height: cutout.height))
+
+        var opaque = 0
+        var looksLikeBackground = 0
+        for y in 0..<cutout.height {
+            for x in 0..<cutout.width where buffer[x, y, 3] > 200 {
+                opaque += 1
+                // Premultiplicado y opaco: el color se lee tal cual.
+                let dr = Double(buffer[x, y, 0]) / 255 - background.r
+                let dg = Double(buffer[x, y, 1]) / 255 - background.g
+                let db = Double(buffer[x, y, 2]) / 255 - background.b
+                if (dr * dr + dg * dg + db * db).squareRoot() < ColorSplitter.separation {
+                    looksLikeBackground += 1
+                }
+            }
+        }
+        guard opaque > 0 else { return 0 }
+        return Double(looksLikeBackground) / Double(opaque)
+    }
+
+    /// El color del marco, que sobre fondo liso **es** el color del fondo.
+    private static func averageBorderColor(
+        of image: CGImage
+    ) -> (r: Double, g: Double, b: Double)? {
+        let width = image.width
+        let height = image.height
+        guard
+            width > 8, height > 8,
+            let buffer = PixelBuffer(width: width, height: height),
+            let context = buffer.makeContext()
+        else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        var sum = (r: 0.0, g: 0.0, b: 0.0)
+        var count = 0.0
+        let band = max(2, min(width, height) / 25)
+        for x in stride(from: 0, to: width, by: 2) {
+            for offset in 0..<band {
+                for y in [offset, height - 1 - offset] {
+                    sum.r += Double(buffer[x, y, 0]) / 255
+                    sum.g += Double(buffer[x, y, 1]) / 255
+                    sum.b += Double(buffer[x, y, 2]) / 255
+                    count += 1
+                }
+            }
+        }
+        guard count > 16 else { return nil }
+        return (sum.r / count, sum.g / count, sum.b / count)
     }
 
     /// Mide el recorte.

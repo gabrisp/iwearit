@@ -941,3 +941,122 @@ struct MorphologyTests {
         #expect(mask == original)
     }
 }
+
+@Suite("Contorno por contraste")
+struct OutlineRefinerTests {
+
+    /// Una prenda con una **doblez**: la misma tela en otro tono, en medio, y
+    /// el segmentador la ha dejado fuera de la máscara. Es el pantalón que
+    /// volvía partido.
+    private func garmentWithFold(side: Int = 96) -> (image: CGImage, mask: [UInt8]) {
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        // Fondo liso claro, como una cama o una mesa.
+        context.setFillColor(red: 0.92, green: 0.90, blue: 0.88, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+        // La prenda, azul marino.
+        context.setFillColor(red: 0.18, green: 0.24, blue: 0.42, alpha: 1)
+        context.fill(CGRect(x: 24, y: 16, width: 48, height: 64))
+        // Y la doblez: más oscura, pero sigue siendo tela.
+        context.setFillColor(red: 0.10, green: 0.14, blue: 0.26, alpha: 1)
+        context.fill(CGRect(x: 24, y: 44, width: 48, height: 8))
+
+        var mask = [UInt8](repeating: 0, count: side * side)
+        for y in 0..<side {
+            // La máscara del segmentador: la prenda **menos** la doblez, que
+            // salió con otra clase.
+            let inGarment = y >= 16 && y < 80
+            let inFold = y >= 44 && y < 52
+            guard inGarment, !inFold else { continue }
+            for x in 24..<72 { mask[y * side + x] = 1 }
+        }
+        return (context.makeImage()!, mask)
+    }
+
+    @Test("La doblez entra y el fondo no")
+    func foldIsIncludedBackgroundIsNot() {
+        let side = 96
+        var (image, mask) = (garmentWithFold(side: side).image, garmentWithFold(side: side).mask)
+
+        // Antes: la doblez está fuera.
+        #expect(mask[48 * side + 48] == 0)
+
+        OutlineRefiner.refine(&mask, in: image, width: side, height: side)
+
+        #expect(mask[48 * side + 48] == 1, "la doblez es tela y tiene que entrar")
+        #expect(mask[4 * side + 4] == 0, "el fondo de la esquina se queda fuera")
+        #expect(mask[40 * side + 10] == 0, "el fondo de al lado de la prenda también")
+    }
+
+    /// Y la garantía que lo hace seguro: sin máscara de partida no inventa
+    /// nada, porque no hay desde dónde crecer.
+    @Test("Sin nada marcado no crece nada")
+    func emptyMaskStaysEmpty() {
+        let side = 96
+        let image = garmentWithFold(side: side).image
+        var mask = [UInt8](repeating: 0, count: side * side)
+
+        let added = OutlineRefiner.refine(&mask, in: image, width: side, height: side)
+
+        #expect(added == 0)
+        #expect(!mask.contains(1))
+    }
+}
+
+@Suite("Elegir entre recortes")
+struct CutoutComparisonTests {
+
+    private func scene(side: Int = 96) -> CGImage {
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.setFillColor(red: 0.92, green: 0.90, blue: 0.88, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+        context.setFillColor(red: 0.18, green: 0.24, blue: 0.42, alpha: 1)
+        context.fill(CGRect(x: 30, y: 20, width: 36, height: 56))
+        return context.makeImage()!
+    }
+
+    private func cutout(of scene: CGImage, keeping rect: CGRect) -> CGImage {
+        let side = scene.width
+        let context = CGContext(
+            data: nil, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        context.clear(CGRect(x: 0, y: 0, width: side, height: side))
+        context.clip(to: rect)
+        context.draw(scene, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return context.makeImage()!
+    }
+
+    /// El fallo que la forma sola no ve: un recorte generoso que se lleva
+    /// medio fondo dentro. Su silueta es impecable —una mancha, buen tamaño—
+    /// y es el peor de los dos.
+    @Test("Un recorte que se traga el fondo se nota por el contenido")
+    func contaminationCatchesGreedyCrops() {
+        let image = scene()
+        let tight = cutout(of: image, keeping: CGRect(x: 30, y: 20, width: 36, height: 56))
+        let greedy = cutout(of: image, keeping: CGRect(x: 10, y: 8, width: 76, height: 80))
+
+        let tightDirt = CutoutQuality.contamination(of: tight, backgroundOf: image)
+        let greedyDirt = CutoutQuality.contamination(of: greedy, backgroundOf: image)
+
+        #expect(tightDirt < 0.05, "el ajustado no lleva fondo dentro")
+        #expect(greedyDirt > 0.3, "el generoso sí, y mucho")
+
+        // Y por la forma sola, el generoso no era peor.
+        let tightShape = CutoutQuality.assess(tight).score
+        let greedyShape = CutoutQuality.assess(greedy).score
+        #expect(greedyShape >= tightShape - 0.2, "por silueta parecían comparables")
+        #expect(tightShape - tightDirt > greedyShape - greedyDirt, "con las dos notas gana el bueno")
+    }
+}

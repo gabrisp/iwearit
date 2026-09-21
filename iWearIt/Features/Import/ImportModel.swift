@@ -111,7 +111,16 @@ final class ImportModel {
             segmenter: segmenter,
             embedder: embedder,
             promptBank: promptBank,
-            resolver: resolver,
+            // **Sin segunda opinión de pago para los atributos.**
+            //
+            // El servidor se queda para una sola cosa: redibujar la prenda.
+            // Todo lo que es reconocer —tipo, forma, etiquetas, color y la
+            // marca por OCR— sale del dispositivo, y desde que el codificador
+            // es de moda y no genérico sale bien. Preguntar fuera por cada
+            // prenda dudosa era pagar por lo que ya se sabía aquí.
+            //
+            // El `resolver` de este modelo sigue vivo: lo usa `restyle`.
+            resolver: nil,
             // **Una foto, una prenda.** Partir una clase en instancias es del
             // escaneo de la galería; aquí se está fotografiando una cosa y
             // partir solo puede equivocarse — el pantalón que volvía en tres.
@@ -308,12 +317,23 @@ final class ImportModel {
         let ids = candidates.filter { candidate in
             guard candidate.isKept, candidate.catalogImage == nil else { return false }
             let report = CutoutQuality.assess(candidate.cutout.cgImage)
-            DiagnosticsLog.record(
-                "RECORTE",
-                "\(candidate.displayName): \(report.summary) → "
-                    + (report.isGoodEnough ? "vale tal cual" : "se reconstruye")
-            )
-            return !report.isGoodEnough
+
+            // Tres casos y solo uno cuesta dinero:
+            //
+            // - El recorte vale → se guarda tal cual.
+            // - Le falta algo pero queda prenda de sobra → se reconstruye, que
+            //   es justo para lo que sirve.
+            // - No queda casi nada → **tampoco** se reconstruye: con eso el
+            //   modelo no completa, inventa, y lo inventado se cobra igual.
+            let verdict = if report.isGoodEnough {
+                "vale tal cual"
+            } else if report.isBeyondRepair {
+                "demasiado roto: mejor recortarlo a mano"
+            } else {
+                "se reconstruye"
+            }
+            DiagnosticsLog.record("RECORTE", "\(candidate.displayName): \(report.summary) → \(verdict)")
+            return report.needsReconstruction
         }.map(\.id)
 
         guard !ids.isEmpty else {

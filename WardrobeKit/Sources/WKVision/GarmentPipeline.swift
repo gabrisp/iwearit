@@ -186,7 +186,7 @@ public actor GarmentPipeline {
         if let segmenter {
             if let garments = try? await extractWithSegmenter(segmenter, from: image),
                !garments.isEmpty {
-                return garments
+                return await refinedOnSolidBackground(garments, from: image)
             }
             DiagnosticsLog.record(
                 "PIPELINE",
@@ -526,6 +526,135 @@ public actor GarmentPipeline {
     /// sujeto es la persona entera, y devolverla como "una prenda" es
     /// exactamente el error que tenía el pipeline al principio. Quien decide
     /// eso es `extractGarments`, que ya ha mirado la pose.
+    /// Sobre fondo liso, el recorte lo pone Vision y la clase el segmentador.
+    ///
+    /// ## Qué arregla
+    ///
+    /// La foto de una prenda sola sobre una mesa o una cama. El segmentador
+    /// —entrenado con gente vestida— acierta **qué** prenda es y falla en el
+    /// contorno: deja picos, se come un puño, incluye un trozo de mesa. Y
+    /// levantar el sujeto, que ahí es casi perfecto, no sabe qué ha levantado.
+    ///
+    /// Así que se usan las dos: la clase, las etiquetas y el color siguen
+    /// viniendo del segmentador y del embedder; los píxeles, de la máscara de
+    /// sujeto.
+    ///
+    /// ## Cuándo no
+    ///
+    /// - Con **más de una prenda** en la foto: el sujeto sería las dos juntas.
+    /// - Con **persona**: el sujeto es la persona entera, y eso ya nos costó
+    ///   dar de alta al usuario como una prenda.
+    /// - Con fondo **no liso**: ahí el segmentador es mejor que Vision, que se
+    ///   llevaría la silla de detrás.
+    private func refinedOnSolidBackground(
+        _ garments: [DetectedGarment],
+        from image: CGImage
+    ) async -> [DetectedGarment] {
+        guard
+            garments.count == 1,
+            let garment = garments.first,
+            SolidBackground.isLikely(in: image),
+            (try? await VisionStages.bodyLandmarks(in: image)) == nil
+        else { return garments }
+
+        // **Tres técnicas y se mide.**
+        //
+        // Ninguna gana siempre: el segmentador sabe de ropa pero no de esta
+        // foto, la máscara de sujeto sabe de objetos pero no de ropa, y el
+        // corte por color no sabe de nada pero sobre fondo liso acierta el
+        // borde al píxel. Así que se hacen las tres y se puntúan igual —
+        // ver `CutoutQuality`—, que es más barato que decidir a priori cuál
+        // debería ganar.
+        var candidates: [(name: String, garment: DetectedGarment)] = [
+            ("segmentador", garment),
+        ]
+
+        if let lifted = await subjectCutout(from: image) {
+            candidates.append(("sujeto", garment.replacingImages(
+                normalized: lifted.normalized,
+                rawCrop: lifted.rawCrop
+            )))
+        }
+
+        if let split = ColorSplitter.split(image),
+           let cut = ColorSplitter.cutout(image, using: split),
+           let tight = CropNormalizer.opaqueBounds(of: cut),
+           let rawCrop = cut.cropping(to: tight),
+           let normalized = CropNormalizer.normalize(rawCrop, for: garment.kind) {
+            candidates.append(("color", garment.replacingImages(
+                normalized: ImmutableImage(normalized),
+                rawCrop: ImmutableImage(rawCrop)
+            )))
+        }
+
+        // **Dos notas, no una.** La forma dice si el recorte está entero; la
+        // contaminación dice si se ha traído medio mueble dentro. Un recorte
+        // que se lleva la mesa tiene silueta impecable —una mancha, buen
+        // tamaño, sin tocar el canto— y es el peor de los tres. Sin la segunda
+        // nota, gana.
+        let scored = candidates.map { candidate -> (String, DetectedGarment, Double) in
+            let cutout = candidate.garment.normalized.cgImage
+            let shape = CutoutQuality.assess(cutout).score
+            let dirt = CutoutQuality.contamination(of: cutout, backgroundOf: image)
+            return (candidate.name, candidate.garment, shape - dirt)
+        }
+        DiagnosticsLog.record(
+            "RECORTE",
+            "fondo liso · " + scored
+                .map { String(format: "%@ %.2f", $0.0, $0.2) }
+                .joined(separator: " · ")
+        )
+        guard
+            let best = scored.max(by: { $0.2 < $1.2 }),
+            best.0 != "segmentador"
+        else { return garments }
+
+        DiagnosticsLog.record("RECORTE", "gana el recorte por \(best.0)")
+        let winner = best.1
+        return [
+            DetectedGarment(
+                kind: winner.kind,
+                confidence: winner.confidence,
+                normalized: winner.normalized,
+                rawCrop: winner.rawCrop,
+                // El color se remide sobre el recorte bueno: medido sobre el
+                // malo llevaba dentro píxeles de mesa.
+                colors: ColorExtractor.dominantColors(in: winner.normalized.cgImage),
+                featurePrint: winner.featurePrint,
+                subcategory: winner.subcategory,
+                material: winner.material,
+                tags: winner.tags,
+                seasons: winner.seasons,
+                brand: winner.brand,
+                brandEvidence: winner.brandEvidence,
+                instanceIndex: winner.instanceIndex,
+                sourceRect: winner.sourceRect
+            ),
+        ]
+    }
+
+    /// La prenda levantada del fondo, sin describirla.
+    ///
+    /// Comparte trabajo con `extractSingleSubject`, que hace lo mismo y además
+    /// la clasifica: aquí la clase ya la sabemos.
+    private func subjectCutout(
+        from image: CGImage
+    ) async -> (normalized: ImmutableImage, rawCrop: ImmutableImage)? {
+        guard
+            let observation = try? await VisionStages.foregroundInstances(in: image),
+            let buffer = try? observation.generateMaskedImage(
+                for: observation.allInstances,
+                imageFrom: ImageRequestHandler(image),
+                croppedToInstancesExtent: true
+            ),
+            let subject = Self.cgImage(from: buffer),
+            let tight = CropNormalizer.opaqueBounds(of: subject),
+            let rawCrop = subject.cropping(to: tight),
+            let normalized = CropNormalizer.normalize(rawCrop)
+        else { return nil }
+        return (ImmutableImage(normalized), ImmutableImage(rawCrop))
+    }
+
     private func extractSingleSubject(from image: CGImage) async -> [DetectedGarment] {
         guard
             let observation = try? await VisionStages.foregroundInstances(in: image),

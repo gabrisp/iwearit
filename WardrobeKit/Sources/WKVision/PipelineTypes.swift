@@ -206,3 +206,29 @@ public enum BodyBand: Sendable, CaseIterable {
         }
     }
 }
+
+public extension DetectedGarment {
+    /// La misma prenda con otro recorte.
+    ///
+    /// Existe porque el recorte se decide **después** de saber qué prenda es:
+    /// el pipeline genera varios —segmentador, sujeto, color— y se queda con el
+    /// que mejor puntúa, conservando todo lo demás. Ver `CutoutQuality`.
+    func replacingImages(normalized: ImmutableImage, rawCrop: ImmutableImage) -> DetectedGarment {
+        DetectedGarment(
+            kind: kind,
+            confidence: confidence,
+            normalized: normalized,
+            rawCrop: rawCrop,
+            colors: colors,
+            featurePrint: featurePrint,
+            subcategory: subcategory,
+            material: material,
+            tags: tags,
+            seasons: seasons,
+            brand: brand,
+            brandEvidence: brandEvidence,
+            instanceIndex: instanceIndex,
+            sourceRect: sourceRect
+        )
+    }
+}
