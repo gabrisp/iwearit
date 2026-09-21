@@ -39,16 +39,21 @@ struct GarmentEditSheet: View {
         var id: String { rawValue }
     }
 
+    // **En la barra de verdad**, como la hoja de crear outfit y la de baldas.
+    //
+    // La cabecera puesta a mano tenía que imitar a ojo lo que el sistema hace
+    // solo: colocar el título, dar cristal a los botones en iOS 26 y difuminar
+    // el contenido que pasa por debajo. Y quedaba distinta de las otras hojas,
+    // que es lo que se nota.
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, WK.Spacing.screenInset)
-                .padding(.top, WK.Spacing.m)
+        NavigationStack { content }
+    }
 
+    private var content: some View {
+        VStack(spacing: 0) {
             // **Con scroll.** La hoja cabía justo hasta que se le añadió la
             // sección de imagen; con ella, en un iPhone pequeño el último
             // control quedaba por debajo del borde y no había forma de llegar.
-            // La cabecera se queda fuera: es el chrome, y no se desplaza.
             ScrollView {
                 VStack(spacing: WK.Spacing.m) {
                     hero
@@ -66,6 +71,9 @@ struct GarmentEditSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas.ignoresSafeArea())
+        .navigationTitle("Editar")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { chrome }
         // **La única a pantalla completa.** Mirar una prenda es un vistazo y
         // por eso su hoja es del tamaño de su contenido; editarla es sentarse a
         // cambiar cinco campos, y ahí una hoja a media altura deja la imagen
@@ -108,43 +116,31 @@ struct GarmentEditSheet: View {
 
     // MARK: Chrome
 
-    private var header: some View {
-        ZStack {
-            Text("Editar")
-                .font(WK.Font.headline)
-                .foregroundStyle(WK.Palette.primaryText)
+    @ToolbarContentBuilder
+    private var chrome: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                garment.isFavorite.toggle()
+            } label: {
+                Image(systemName: garment.isFavorite ? "heart.fill" : "heart")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(garment.isFavorite ? .red : WK.Palette.secondaryText)
+                    .contentTransition(.symbolEffect(.replace.downUp))
+                    .scaleEffect(garment.isFavorite ? 1.08 : 1)
+                    .contentShape(.rect)
+            }
+            .animation(.spring(duration: 0.32, bounce: 0.45), value: garment.isFavorite)
+            .sensoryFeedback(.impact(weight: .medium), trigger: garment.isFavorite)
+        }
 
-            HStack {
-                Button {
-                    garment.isFavorite.toggle()
-                } label: {
-                    Image(systemName: garment.isFavorite ? "heart.fill" : "heart")
-                        .font(WK.Font.headline)
-                        .foregroundStyle(garment.isFavorite ? .red : WK.Palette.secondaryText)
-                        .contentTransition(.symbolEffect(.replace.downUp))
-                        .frame(width: 38, height: 38)
-                        .background(WK.Palette.ink(0.07), in: .circle)
-                        .contentShape(.circle)
-                        .scaleEffect(garment.isFavorite ? 1.08 : 1)
-                }
-                .buttonStyle(WKPressStyle())
-                .animation(.spring(duration: 0.32, bounce: 0.45), value: garment.isFavorite)
-                .sensoryFeedback(.impact(weight: .medium), trigger: garment.isFavorite)
-
-                Spacer()
-
-                Button { isConfirmingDelete = true } label: {
-                    Image(systemName: "trash")
-                        .font(WK.Font.headline)
-                        .foregroundStyle(.red)
-                        .frame(width: 38, height: 38)
-                        .background(WK.Palette.ink(0.07), in: .circle)
-                        .contentShape(.circle)
-                }
-                .buttonStyle(WKPressStyle())
+        ToolbarItem(placement: .topBarTrailing) {
+            Button { isConfirmingDelete = true } label: {
+                Image(systemName: "trash")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(.red)
+                    .contentShape(.rect)
             }
         }
-        .padding(.top, WK.Spacing.s)
     }
 
     private var hero: some View {
