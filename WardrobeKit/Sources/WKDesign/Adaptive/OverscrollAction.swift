@@ -242,7 +242,15 @@ private struct OverscrollAction: ViewModifier {
                     .clipShape(.capsule)
             }
             .adaptiveGlass(in: .capsule)
-            .adaptiveGlassTransition()
+            // **Quieta.** Dentro de un contenedor de cristal, una superficie
+            // usa `.matchedGeometry` por defecto, y sin pareja el sistema la
+            // hace salir de un punto degenerado del contenedor: la píldora
+            // llegaba volando desde la esquina de abajo a la derecha. Eso era
+            // lo que se veía, y no un desenfoque.
+            .adaptiveGlassStill()
+            // Y ya que la materia no se mueve, la vista aparece como debe:
+            // encendiéndose donde está.
+            .transition(.opacity)
             .allowsHitTesting(false)
     }
 

@@ -105,6 +105,26 @@ public extension View {
         }
     }
 
+    /// El cristal **no** se mueve al aparecer ni al desaparecer.
+    ///
+    /// Hace falta decirlo explícitamente, y esa es la parte que no es obvia:
+    /// dentro de un `GlassEffectContainer`, una superficie de cristal usa
+    /// `.matchedGeometry` **por defecto**. Cuando tiene pareja —otro cristal
+    /// con el mismo id— eso es exactamente lo que se quiere. Cuando no la
+    /// tiene, el sistema la hace salir de un punto degenerado del contenedor:
+    /// se ve como una píldora que llega volando desde una esquina.
+    ///
+    /// Con `.identity`, la materia se queda quieta y quien decide cómo llega
+    /// la vista es su propia `transition`.
+    @ViewBuilder
+    func adaptiveGlassStill() -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffectTransition(.identity)
+        } else {
+            self
+        }
+    }
+
     /// Identidad para que dos superficies de cristal se transformen una en otra.
     /// En iOS 18 el equivalente honesto es `matchedGeometryEffect`.
     @ViewBuilder
