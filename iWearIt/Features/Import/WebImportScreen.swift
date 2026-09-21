@@ -40,6 +40,12 @@ struct WebImportScreen: View {
                 // por debajo como en cualquier otra pantalla de la app, y no
                 // hay nada que reservar ni que tapar.
                 .navigationBarTitleDisplayMode(.inline)
+                // **Sin fondo en la barra.** Encima de una web, cualquier
+                // superficie nuestra es una franja de otra app pegada sobre la
+                // página: la web ya trae su propia cabecera y su propio color,
+                // y dos cabeceras seguidas no se leen como una.
+                .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
+                .toolbarBackgroundVisibility(.hidden, for: .bottomBar)
                 .toolbar {
                     // Atrás y adelante, a la izquierda. En un navegador son la
                     // mitad de la navegación: entras en un producto, no es,
