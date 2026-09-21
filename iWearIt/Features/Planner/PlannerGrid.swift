@@ -132,20 +132,11 @@ struct PlannerGrid: View {
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
-        // **Rebota aunque quepa todo.** Sin esto, un día con dos outfits no
-        // tiene nada que desplazar y el sobre-scroll no existe: el gesto se
-        // queda muerto justo en el caso más común.
-        .scrollBounceBehavior(.always, axes: .vertical)
-        // Seguir tirando al final crea otro, igual que en revista. La celda
-        // con el trazo discontinuo sigue estando: son dos caminos a lo mismo
-        // y cada uno aparece en un momento distinto —uno lo ves, el otro lo
-        // encuentras sin buscarlo—.
-        .overscrollAction(
-            threshold: 120,
-            symbol: "plus",
-            label: "Crear nuevo outfit",
-            bottomInset: WKTabBarMetrics.reservedHeight + WK.Spacing.m
-        ) { onCreate() }
+        // **Sin sobre-scroll aquí.** En revista el gesto tiene sentido porque
+        // no hay otra forma de pedir otro lienzo: llegas al último y sigues
+        // tirando. En rejilla la celda con el trazo discontinuo ya está a la
+        // vista desde el primer momento, y añadir un segundo camino al mismo
+        // sitio solo hace que el scroll se comporte distinto sin motivo.
         .sheet(item: $movingOutfit) { outfit in
             MoveOutfitSheet(outfit: outfit)
         }

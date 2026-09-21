@@ -308,7 +308,7 @@ private struct PreparedOutfits: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    /// El selector, abierto por el "+" o por seguir tirando al final.
+    /// El selector, abierto por el "+".
     @State private var isPickingForNew = false
 
     var body: some View {
@@ -351,15 +351,8 @@ private struct PreparedOutfits: View {
             .padding(.bottom, WK.Spacing.xl)
         }
         .scrollIndicators(.hidden)
-        // Rebota aunque quepa todo: con dos outfits no hay nada que desplazar
-        // y el gesto no existiría.
-        .scrollBounceBehavior(.always, axes: .vertical)
-        .overscrollAction(
-            threshold: 120,
-            symbol: "plus",
-            label: "Crear nuevo outfit",
-            bottomInset: WK.Spacing.xxl
-        ) { isPickingForNew = true }
+        // Sin sobre-scroll: es una rejilla, y la celda de crear ya se ve. Ver
+        // `PlannerGrid`.
         .sheet(isPresented: $isPickingForNew) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                 guard !picked.isEmpty else { return }
