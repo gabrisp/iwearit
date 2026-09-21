@@ -550,16 +550,68 @@ public actor GarmentPipeline {
     ///   dar de alta al usuario como una prenda.
     /// - Con fondo **no liso**: ahí el segmentador es mejor que Vision, que se
     ///   llevaría la silla de detrás.
+    /// La prenda con la que seguir, si es que hay **una sola**.
+    ///
+    /// - Si el segmentador ya devolvió una, esa.
+    /// - Si devolvió varias pero el color dice que la mancha es una, se
+    ///   quedan unificadas en la mejor de ellas: el recorte bueno lo va a
+    ///   producir el corte por color, que recorta la mancha entera, así que lo
+    ///   único que hace falta de las piezas es **qué prenda es**.
+    /// - Si el color también ve varias, no se toca nada: son prendas de
+    ///   verdad, separadas sobre la misma foto.
+    private func unified(_ garments: [DetectedGarment], pieces: Int?) -> DetectedGarment? {
+        if garments.count == 1 { return garments.first }
+        guard pieces == 1 else { return nil }
+
+        // La mejor de ellas es la que menos se parece a un descarte: entre un
+        // "otro" y un "pantalón", el pantalón. A igualdad, la primera, que es
+        // la de mayor área — así llegan ordenadas.
+        let best = garments.min { first, second in
+            rank(first.kind) < rank(second.kind)
+        }
+        DiagnosticsLog.record(
+            "RECORTE",
+            "el color ve 1 pieza y el segmentador \(garments.count):"
+                + " se unifican en \(best?.kind.rawValue ?? "—")"
+        )
+        return best
+    }
+
+    /// Cuánto pesa cada tipo al elegir con cuál quedarse. Menos es mejor.
+    private func rank(_ kind: GarmentKind) -> Int {
+        switch kind {
+        case .other: 3
+        case .head, .bag: 2
+        default: 1
+        }
+    }
+
     private func refinedOnSolidBackground(
         _ garments: [DetectedGarment],
         from image: CGImage
     ) async -> [DetectedGarment] {
         guard
-            garments.count == 1,
-            let garment = garments.first,
+            !garments.isEmpty,
             SolidBackground.isLikely(in: image),
             (try? await VisionStages.bodyLandmarks(in: image)) == nil
         else { return garments }
+
+        // **Cuántas prendas hay lo dice el color, no el segmentador.**
+        //
+        // Este es el caso del pantalón sobre fondo liso: el mapa de clases lo
+        // parte por el tiro o por la doblez y devuelve dos o tres piezas, y a
+        // partir de ahí todo va mal — tres fichas, tres recortes a medias y
+        // tres reconstrucciones que pagar.
+        //
+        // Sobre fondo liso hay una forma barata de contarlas que no depende de
+        // saber de ropa: mirar cuántas manchas separadas hay que no sean del
+        // color del fondo. Dos perneras unidas por el tiro son **una** mancha;
+        // una camiseta y un pantalón tirados aparte son dos. Ver
+        // `ColorSplitter`.
+        let split = ColorSplitter.split(image)
+        guard let garment = unified(garments, pieces: split?.pieceCount) else {
+            return garments
+        }
 
         // **Tres técnicas y se mide.**
         //
@@ -580,7 +632,7 @@ public actor GarmentPipeline {
             )))
         }
 
-        if let split = ColorSplitter.split(image),
+        if let split,
            let cut = ColorSplitter.cutout(image, using: split),
            let tight = CropNormalizer.opaqueBounds(of: cut),
            let rawCrop = cut.cropping(to: tight),

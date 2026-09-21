@@ -78,6 +78,63 @@ enum Morphology {
         }
     }
 
+    /// Alisa el contorno: quita los escalones sin comerse la prenda.
+    ///
+    /// ## Qué se ve cuando falta esto
+    ///
+    /// Un borde a escalones. La máscara sale de decidir píxel a píxel, así que
+    /// el contorno de una manga en diagonal es una escalera de un píxel, y
+    /// cada píxel mal clasificado del borde es una muesca. En la miniatura no
+    /// se nota; a tamaño de lienzo, el recorte parece roto.
+    ///
+    /// ## Cómo se alisa
+    ///
+    /// Promediando la vecindad y volviendo a decidir. Un píxel rodeado de
+    /// prenda pasa a ser prenda aunque estuviera fuera; uno rodeado de fondo
+    /// se va. Los escalones de un píxel desaparecen porque su vecindad está
+    /// medio llena, y el contorno grande no se mueve porque el suyo sigue
+    /// estando claro.
+    ///
+    /// ## Y por qué corta de menos
+    ///
+    /// El listón está **por debajo de la mitad**. En la duda —un píxel con la
+    /// vecindad repartida— se queda dentro. Pasarse un poco deja un reborde de
+    /// fondo de un par de píxeles, que no se ve; quedarse corto muerde la
+    /// prenda, y eso sí se ve. Entre las dos formas de equivocarse, esta es la
+    /// barata.
+    static func smooth(_ mask: inout [UInt8], width: Int, height: Int, radius: Int = 2) {
+        guard radius > 0, width > 2 * radius, height > 2 * radius else { return }
+
+        // Suma por filas y luego por columnas: la ventana cuadrada cuesta el
+        // radio al cuadrado por píxel, y esto se corre sobre medio millón.
+        let side = 2 * radius + 1
+        var horizontal = [Int](repeating: 0, count: width * height)
+        for y in 0..<height {
+            let row = y * width
+            for x in 0..<width {
+                var total = 0
+                for dx in -radius...radius {
+                    let nx = min(max(x + dx, 0), width - 1)
+                    total += Int(mask[row + nx])
+                }
+                horizontal[row + x] = total
+            }
+        }
+
+        // 0,42 y no 0,5: ver la nota de arriba.
+        let threshold = Double(side * side) * 0.42
+        for y in 0..<height {
+            for x in 0..<width {
+                var total = 0
+                for dy in -radius...radius {
+                    let ny = min(max(y + dy, 0), height - 1)
+                    total += horizontal[ny * width + x]
+                }
+                mask[y * width + x] = Double(total) >= threshold ? 1 : 0
+            }
+        }
+    }
+
     /// Máximo en una ventana cuadrada, en dos pasadas.
     ///
     /// Separable —primero filas, luego columnas— porque hacerlo con la ventana

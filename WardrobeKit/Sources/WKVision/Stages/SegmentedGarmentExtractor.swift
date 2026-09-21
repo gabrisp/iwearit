@@ -305,6 +305,9 @@ enum SegmentedGarmentExtractor {
             // boquete que ningún radio razonable cierra. Rodeado de tela por
             // los cuatro lados, es tela.
             Morphology.fillHoles(&mask, width: width, height: height)
+            // Y el contorno, alisado: ver `Morphology.smooth`. Sin esto el borde
+            // sale a escalones y a tamaño de lienzo el recorte parece roto.
+            Morphology.smooth(&mask, width: width, height: height)
 
             let labelled = ConnectedComponents.label(mask: mask, width: width, height: height)
             let pieces = labelled.components.filter { $0.pixelCount >= speckleFloor }
