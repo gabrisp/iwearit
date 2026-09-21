@@ -111,15 +111,20 @@ struct PlannerScreen: View {
             // duplicaría la misma acción a dos centímetros. Y "Editar" no
             // significa nada ahí: en rejilla no hay un outfit a la vista, hay
             // todos los del día.
-            .adaptiveFloatingAccessory {
-                if layout == .book {
-                    PlannerBottomBar(
-                        hasOutfit: focusedOutfit != nil,
-                        onEdit: { editCurrent() }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
+            // **Sin el botón de editar, de momento.** Se queda comentado y no
+            // se borra: al lienzo se entra con doble toque o pulsación larga,
+            // y la píldora de "crear nuevo outfit" del sobre-scroll aparece
+            // justo donde estaba este botón.
+            //
+            // .adaptiveFloatingAccessory {
+            //     if layout == .book {
+            //         PlannerBottomBar(
+            //             hasOutfit: focusedOutfit != nil,
+            //             onEdit: { editCurrent() }
+            //         )
+            //         .transition(.move(edge: .bottom).combined(with: .opacity))
+            //     }
+            // }
             .animation(WKAnimation.arrival, value: layout)
             .rootTabBar(selection: $tab)
             .navigationDestination(item: $editingOutfit) { outfit in

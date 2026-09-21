@@ -354,7 +354,12 @@ private struct PreparedOutfits: View {
         // Rebota aunque quepa todo: con dos outfits no hay nada que desplazar
         // y el gesto no existiría.
         .scrollBounceBehavior(.always, axes: .vertical)
-        .overscrollAction(threshold: 120, symbol: "plus") { isPickingForNew = true }
+        .overscrollAction(
+            threshold: 120,
+            symbol: "plus",
+            label: "Crear nuevo outfit",
+            bottomInset: WK.Spacing.xxl
+        ) { isPickingForNew = true }
         .sheet(isPresented: $isPickingForNew) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
                 guard !picked.isEmpty else { return }

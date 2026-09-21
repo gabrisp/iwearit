@@ -87,7 +87,7 @@ struct OutfitPickerSheet: View {
 
     private var picker: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: WK.Spacing.l) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
                     PickerShelf(
                         category: category,
@@ -251,22 +251,21 @@ private struct PickerShelf: View {
 
     var body: some View {
         if !category.garments.isEmpty {
-            VStack(alignment: .leading, spacing: WK.Spacing.s) {
-                // Cabecera con chevron: la balda entera se puede abrir, igual
-                // que en el armario. Aquí solo se marca, pero el gesto de
-                // "ver más" tiene que estar donde ya está en el resto.
+            // **La balda del armario, no una parecida.**
+            //
+            // Misma cabecera, mismo alto, mismas perchas y el mismo canto de
+            // madera debajo. Antes esto tenía su propio título en minúsculas,
+            // sus celdas con otras medidas y una banda gris alterna en vez del
+            // tablero: el mismo armario se veía de dos maneras según por dónde
+            // entraras, y la de aquí era la mala.
+            VStack(alignment: .leading, spacing: 0) {
                 NavigationLink(value: category.persistentModelID) {
-                    Label(category.name.lowercased(), systemImage: "chevron.right")
-                        .labelStyle(TrailingChevronStyle())
-                        .font(WK.Font.rowTitle)
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .padding(.horizontal, WK.Spacing.screenInset)
-                        .contentShape(.rect)
+                    ShelfHeaderLabel(name: category.name, count: category.garments.count)
                 }
                 .buttonStyle(WKPressStyle())
 
                 ScrollView(.horizontal) {
-                    LazyHStack(spacing: WK.Spacing.m) {
+                    LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
                         ForEach(category.garments) { garment in
                             PickerCell(
                                 garment: garment,
@@ -280,15 +279,14 @@ private struct PickerShelf: View {
                         }
                     }
                     .padding(.horizontal, WK.Spacing.screenInset)
+                    .frame(height: WK.Shelf.height, alignment: .bottom)
                 }
                 .scrollIndicators(.hidden)
+
+                ShelfPlank()
             }
-            .padding(.vertical, WK.Spacing.m)
+            .padding(.bottom, WK.Spacing.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Banda a sangre y alterna. Es lo que separa una balda de la
-            // siguiente sin meter una línea: con prendas recortadas sobre un
-            // fondo plano, dos baldas seguidas se leen como una sola.
-            .background(isEven ? WK.Palette.ink(0.035) : Color.clear)
         }
     }
 
@@ -324,19 +322,29 @@ private struct PickerCell: View {
     let isFlying: Bool
     let action: () -> Void
 
+    /// El mismo valor que usa la balda del armario: de ahí salen el nombre y
+    /// el balanceo, y así los dos sitios inclinan la prenda igual.
+    private var ref: GarmentRef { GarmentRef(garment) }
+
     var body: some View {
         Button(action: action) {
-            StoredImage(
-                key: garment.normalizedImageKey,
-                variant: .thumb,
-                store: store,
-                shadow: .init(opacity: 0.5, radius: 6, y: 3)
-            )
-            .frame(width: 104, height: 124)
-            // Elegida = apagada. La prenda se ha ido abajo, a la píldora, y
-            // dejarla igual de viva que las que siguen disponibles obliga a
-            // buscar el check para saber cuál has cogido.
-            .opacity(isPicked ? 0.3 : 1)
+            VStack(spacing: 2) {
+                StoredImage(
+                    key: garment.normalizedImageKey,
+                    variant: .thumb,
+                    store: store,
+                    alignment: .bottom,
+                    shadow: .init(opacity: 0.5, radius: 8, y: 5)
+                )
+                .frame(width: WK.Shelf.garmentWidth, height: WK.Shelf.imageHeight)
+                // Colgada de la percha, igual que en el armario: el balanceo
+                // es determinista a partir del id, así que la misma prenda se
+                // inclina lo mismo en las dos pantallas.
+                .rotationEffect(.degrees(ref.swayDegrees), anchor: .top)
+                // Elegida = apagada. La prenda se ha ido abajo, a la píldora, y
+                // dejarla igual de viva que las que siguen disponibles obliga a
+                // buscar el check para saber cuál has cogido.
+                .opacity(isPicked ? 0.3 : 1)
             // El origen del vuelo es un **proxy transparente**, y solo existe
             // durante el vuelo.
             //
@@ -345,25 +353,35 @@ private struct PickerCell: View {
             // píldora: o salía una copia fantasma pegada a cada prenda, o
             // desaparecía la miniatura de abajo. Con el proxy, en todo momento
             // hay como mucho una fuente por id y la imagen nunca se mueve.
-            .overlay {
-                if isFlying {
-                    Color.clear.matchedGeometryEffect(
-                        id: garment.persistentModelID,
-                        in: picking,
-                        isSource: true
-                    )
+                .overlay {
+                    if isFlying {
+                        Color.clear.matchedGeometryEffect(
+                            id: garment.persistentModelID,
+                            in: picking,
+                            isSource: true
+                        )
+                    }
                 }
-            }
-            .overlay(alignment: .topTrailing) {
-                if isPicked {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(WK.Palette.onAccent)
-                        .frame(width: 26, height: 26)
-                        .background(WK.Palette.accent, in: .circle)
-                        .transition(.scale.combined(with: .opacity))
+                .overlay(alignment: .topTrailing) {
+                    if isPicked {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(WK.Palette.onAccent)
+                            .frame(width: 26, height: 26)
+                            .background(WK.Palette.accent, in: .circle)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
+
+                Text(ref.name)
+                    .font(WK.Font.garmentName)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(width: WK.Shelf.garmentWidth)
+                    .padding(.bottom, WK.Shelf.labelBottomInset)
             }
+            .frame(height: WK.Shelf.height, alignment: .bottom)
             .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())

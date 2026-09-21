@@ -38,25 +38,42 @@ public extension View {
     /// - Parameters:
     ///   - threshold: cuánto hay que desbordar, en puntos.
     ///   - symbol: el símbolo del indicador.
+    ///   - label: qué va a pasar, escrito. Un icono solo obliga a adivinarlo
+    ///     justo cuando todavía puedes echarte atrás.
+    ///   - bottomInset: cuánto separarlo del borde. Lo que haya ahí abajo
+    ///     —barra de pestañas, accesorio flotante— lo taparía.
     ///   - action: se ejecuta al soltar pasado el umbral.
     @ViewBuilder
     func overscrollAction(
         threshold: CGFloat = 120,
         symbol: String = "plus",
+        label: String,
+        bottomInset: CGFloat = 0,
         action: @MainActor @escaping () -> Void
     ) -> some View {
-        modifier(OverscrollAction(threshold: threshold, symbol: symbol, action: action))
+        modifier(
+            OverscrollAction(
+                threshold: threshold,
+                symbol: symbol,
+                label: label,
+                bottomInset: bottomInset,
+                action: action
+            )
+        )
     }
 }
 
 private struct OverscrollAction: ViewModifier {
     let threshold: CGFloat
     let symbol: String
+    let label: String
+    let bottomInset: CGFloat
     let action: @MainActor () -> Void
 
     /// Cuánto se ha pasado del final. Negativo = desbordando.
     @State private var offset: CGFloat = 0
-    @GestureState private var isDragging = false
+    /// Si el dedo está puesto en el scroll **ahora mismo**.
+    @State private var isTouching = false
     /// Si **este** arrastre puede disparar. Ver el punto 1 de la nota.
     @State private var isEligible = false
     /// Ya disparado: no se repite hasta volver al final.
@@ -68,15 +85,21 @@ private struct OverscrollAction: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .contentShape(.rect)
-            // `simultaneousGesture` sobre un `ScrollView` funciona desde iOS
-            // 18. Antes había que envolverlo en UIKit para saber si el dedo
-            // seguía puesto.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0).updating($isDragging) { _, state, _ in
-                    state = true
-                }
-            )
+            // **Sin reconocedor propio.** La muestra original añade un
+            // `DragGesture(minimumDistance: 0)` para saber si el dedo sigue
+            // puesto, y aquí eso no sale gratis: este scroll vive dentro del
+            // pasador de hoja y encima de un lienzo con doble toque y pulsación
+            // larga, y un reconocedor más compitiendo por el mismo toque
+            // rompía el paso de página.
+            //
+            // `onScrollPhaseChange` dice lo mismo y no compite con nada: es el
+            // propio scroll contando en qué está.
+            .onScrollPhaseChange { _, phase in
+                let touching = phase == .tracking || phase == .interacting
+                if touching, !isTouching { isEligible = offset < threshold * 1.2 }
+                isTouching = touching
+                fireIfDue()
+            }
             .overlay(alignment: .bottom) { indicator }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 let scrolled = geometry.contentOffset.y + geometry.contentInsets.top
@@ -86,10 +109,6 @@ private struct OverscrollAction: ViewModifier {
                 return scrollable - scrolled
             } action: { _, new in
                 offset = new
-                fireIfDue()
-            }
-            .onChange(of: isDragging) { _, dragging in
-                if dragging { isEligible = offset < threshold * 1.2 }
                 fireIfDue()
             }
     }
@@ -113,25 +132,29 @@ private struct OverscrollAction: ViewModifier {
     private var indicator: some View {
         let isFull = progress == 1
 
-        return ZStack {
-            Circle()
-                .fill(WK.Palette.primaryText)
-                .opacity(isFull ? 1 : 0)
-
-            // Se llena por los dos lados a la vez y no como un reloj: así no
-            // hay un punto de inicio que mirar, y el gesto se lee como algo
-            // que se cierra.
-            ZStack {
-                ArcHalf(progress: progress)
-                ArcHalf(progress: progress).scaleEffect(x: -1)
-            }
-            .padding(3)
-
+        return HStack(spacing: WK.Spacing.s) {
             Image(systemName: symbol)
                 .font(WK.Font.headline)
-                .foregroundStyle(isFull ? WK.Palette.canvas : WK.Palette.primaryText)
+            Text(label)
+                .font(WK.Font.headline)
+                .lineLimit(1)
         }
-        .frame(width: 55, height: 55)
+        .foregroundStyle(isFull ? WK.Palette.canvas : WK.Palette.primaryText)
+        .padding(.horizontal, WK.Spacing.l)
+        .padding(.vertical, WK.Spacing.s + 2)
+        // Al completarse se rellena entera: el aro dice cuánto falta, el
+        // relleno dice que ya no falta nada.
+        .background {
+            Capsule().fill(WK.Palette.primaryText).opacity(isFull ? 1 : 0)
+        }
+        // Se dibuja por los dos lados a la vez y no como un reloj: así no hay
+        // un punto de inicio que mirar, y se lee como algo que se cierra.
+        .overlay {
+            ZStack {
+                CapsuleHalf(progress: progress)
+                CapsuleHalf(progress: progress).scaleEffect(x: -1)
+            }
+        }
         // Un rebote corto al completarse: dice "ya está" antes de que sueltes,
         // que es lo que evita soltar a medias y no entender por qué no pasó
         // nada.
@@ -142,32 +165,32 @@ private struct OverscrollAction: ViewModifier {
             CubicKeyframe(1, duration: 0.15)
         }
         .allowsHitTesting(false)
+        .padding(.bottom, bottomInset)
         .offset(y: Self.revealDistance - (Self.revealDistance * reveal))
         .opacity(reveal)
         .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
 
     private func fireIfDue() {
-        if !isDragging, isEligible, -offset >= threshold, !hasFired {
+        if !isTouching, isEligible, -offset >= threshold, !hasFired {
             action()
             hasFired = true
         }
         // Se rearma al volver al final. Con margen: pedir exactamente 0 no
         // ocurre casi nunca porque el rebote deja décimas.
-        if hasFired, !isDragging, offset.rounded() > -10 {
+        if hasFired, !isTouching, offset.rounded() > -10 {
             hasFired = false
         }
     }
 }
 
-/// Media circunferencia que se dibuja según el progreso.
-private struct ArcHalf: View {
+/// Media cápsula que se dibuja según el progreso.
+private struct CapsuleHalf: View {
     let progress: CGFloat
 
     var body: some View {
-        Circle()
+        Capsule()
             .trim(from: 0, to: progress / 2)
-            .stroke(WK.Palette.primaryText, lineWidth: 3)
-            .rotationEffect(.degrees(90))
+            .stroke(WK.Palette.primaryText, lineWidth: 2.5)
     }
 }

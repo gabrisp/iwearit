@@ -140,7 +140,12 @@ struct PlannerGrid: View {
         // con el trazo discontinuo sigue estando: son dos caminos a lo mismo
         // y cada uno aparece en un momento distinto —uno lo ves, el otro lo
         // encuentras sin buscarlo—.
-        .overscrollAction(threshold: 120, symbol: "plus") { onCreate() }
+        .overscrollAction(
+            threshold: 120,
+            symbol: "plus",
+            label: "Crear nuevo outfit",
+            bottomInset: WKTabBarMetrics.reservedHeight + WK.Spacing.m
+        ) { onCreate() }
         .sheet(item: $movingOutfit) { outfit in
             MoveOutfitSheet(outfit: outfit)
         }

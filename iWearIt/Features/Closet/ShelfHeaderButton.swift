@@ -24,24 +24,40 @@ struct ShelfHeaderButton: View {
 
     var body: some View {
         NavigationLink(value: destination) {
-            HStack(spacing: WK.Spacing.xs) {
-                Text(name)
-                    .font(WK.Font.shelfTitle)
-                    .foregroundStyle(WK.Palette.primaryText)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(WK.Palette.secondaryText)
-                Spacer()
-                Text(count.formatted())
-                    .font(.footnote)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .monospacedDigit()
-            }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.bottom, WK.Spacing.s)
-            .contentShape(.rect)
+            ShelfHeaderLabel(name: name, count: count)
         }
         .buttonStyle(WKPressStyle())
+    }
+}
+
+/// Cómo se ve la cabecera de una balda.
+///
+/// Separada del enlace porque **no siempre lleva al mismo sitio**: en el
+/// armario empuja una `ClosetRoute`, y en la hoja de crear outfit empuja la
+/// balda dentro de la propia hoja. Lo que no puede cambiar es el aspecto: una
+/// balda tiene que verse igual la abras desde donde la abras, y teniendo cada
+/// sitio su propia cabecera acabaron siendo dos cosas distintas.
+struct ShelfHeaderLabel: View {
+    let name: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.xs) {
+            Text(name)
+                .font(WK.Font.shelfTitle)
+                .foregroundStyle(WK.Palette.primaryText)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(WK.Palette.secondaryText)
+            Spacer()
+            Text(count.formatted())
+                .font(.footnote)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.bottom, WK.Spacing.s)
+        .contentShape(.rect)
     }
 }
 

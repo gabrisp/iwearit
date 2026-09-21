@@ -105,7 +105,14 @@ struct DayPage: View {
         //
         // Y crea **nada** si cierras el selector: el outfit no existe hasta
         // que hay prendas que poner en él. Ver `overscrollAction`.
-        .overscrollAction(threshold: 120, symbol: "plus") {
+        .overscrollAction(
+            threshold: 120,
+            symbol: "plus",
+            label: "Crear nuevo outfit",
+            // Por encima de la barra de pestañas: pegado al borde quedaba
+            // debajo de ella y solo se veía la mitad de arriba.
+            bottomInset: WKTabBarMetrics.reservedHeight + WK.Spacing.m
+        ) {
             guard !outfits.isEmpty else { return }
             isPickingForNew = true
         }
@@ -146,8 +153,17 @@ struct DayPage: View {
         // ejecutaba también al bajar al hueco —porque entonces la posición era
         // `nil`— y volvía a empujar el foco al primer outfit.
         .task(id: outfits.count) {
-            if visiblePage == nil {
-                visiblePage = outfits.first.map { Page.outfit($0.persistentModelID) } ?? .new
+            // **El sitio tiene que existir.**
+            //
+            // `scrollPosition` con un id que ya no está en el layout deja el
+            // scroll apuntando a ninguna parte: la página se quedaba en
+            // blanco y no respondía. Pasaba justo al crear el primer outfit
+            // del día —estabas en el hueco, el hueco desaparece— y al borrar
+            // el que estabas mirando.
+            if let page = visiblePage, !exists(page) {
+                visiblePage = fallbackPage
+            } else if visiblePage == nil {
+                visiblePage = fallbackPage
             }
             report(visiblePage)
         }
@@ -160,6 +176,20 @@ struct DayPage: View {
         .onAppear { report(visiblePage) }
         .background(WK.Palette.canvas.ignoresSafeArea())
         .ignoresSafeArea()
+    }
+
+    /// Si esa página sigue estando en el layout.
+    private func exists(_ page: Page) -> Bool {
+        switch page {
+        case let .outfit(id): outfits.contains { $0.persistentModelID == id }
+        case .new: outfits.isEmpty
+        }
+    }
+
+    /// Dónde ponerse cuando no hay sitio válido: el último outfit, o el hueco
+    /// si el día está vacío.
+    private var fallbackPage: Page {
+        outfits.last.map { Page.outfit($0.persistentModelID) } ?? .new
     }
 
     /// Qué outfit está a la vista, o ninguno si es el hueco.
