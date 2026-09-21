@@ -89,11 +89,12 @@ public struct DatePadGlyph: View {
         ZStack {
             shape.strokeBorder(lineWidth: line)
 
-            // La cabecera del taco: una raya, no un bloque. Recortada con la
-            // misma forma para que no se salga por las esquinas redondeadas.
+            // La cabecera del taco, **maciza**. Como raya fina no se leía a
+            // este tamaño: parecía un borde mal dibujado en vez de la banda
+            // del calendario. Recortada con la misma forma para que no se
+            // salga por las esquinas redondeadas.
             VStack(spacing: 0) {
-                Color.clear.frame(height: header)
-                Rectangle().frame(height: line)
+                Rectangle().frame(height: header)
                 Spacer(minLength: 0)
             }
             .clipShape(shape)
