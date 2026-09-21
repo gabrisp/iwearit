@@ -78,18 +78,17 @@ private struct OverscrollAction: ViewModifier {
     @State private var isEligible = false
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
+    /// La identidad del cristal. Ver `pill`.
+    @Namespace private var glass
 
-    /// El relleno. Negro translúcido y no el color del texto: sobre cristal,
-    /// un relleno opaco tapa lo que hay detrás y la píldora deja de parecer
-    /// cristal para parecer una pastilla pegada encima. Al 60% la superficie
-    /// sigue dejando ver el lienzo y aun así hay contraste de sobra para la
-    /// letra invertida.
-    static let fill = Color.black.opacity(0.6)
-
-    /// Y la tinta que va encima de ese relleno. Blanca en los dos temas,
-    /// porque el relleno es negro en los dos: atarla al color de fondo la
-    /// hacía desaparecer en oscuro.
-    static let fillInk = Color.white
+    /// La luz del aura.
+    ///
+    /// Blanca y **aditiva**: no es un relleno que tapa, es un foco que se
+    /// enciende detrás de la palabra. Un relleno oscuro tapaba lo que había
+    /// debajo y la píldora dejaba de parecer cristal para parecer una pastilla
+    /// pegada encima; sumando luz, lo de debajo sigue estando y solo se
+    /// ilumina.
+    static let fill = Color.white
 
     /// El aura: **un punto desenfocado** que crece desde el centro.
     ///
@@ -110,6 +109,9 @@ private struct OverscrollAction: ViewModifier {
             .fill(color)
             .frame(width: dotSize, height: dotSize)
             .blur(radius: dotBlur)
+            // Suma luz en vez de pintar encima: es lo que hace que la píldora
+            // parezca encenderse y no mancharse.
+            .blendMode(.plusLighter)
             // Hasta cubrir la píldora entera. Llega deslavazado a las puntas,
             // que es justo lo que se quiere: se tiñen las últimas y sin canto.
             .scaleEffect(max(0, progress) * dotGrowth)
@@ -173,7 +175,23 @@ private struct OverscrollAction: ViewModifier {
         let isFull = progress == 1
 
         return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-            if isVisible { indicator }
+            if isVisible {
+                indicator
+                    // **El cristal necesita nombre.**
+                    //
+                    // `glassEffectTransition(.matchedGeometry)` no transiciona
+                    // nada por sí solo: empareja superficies que comparten
+                    // `glassEffectID`. Sin id no hay a quién parecerse, así que
+                    // iOS caía a su transición por defecto —la que se ve como
+                    // un desenfoque sustituyendo a otro— y el modificador no
+                    // pintaba nada.
+                    .adaptiveGlassID("overscroll", in: glass)
+                    // Y una entrada dicha explícitamente, para que no vuelva a
+                    // decidirla nadie por nosotros: crece un pelo y aparece.
+                    // El desenfoque sobra: el aura de dentro ya es todo lo
+                    // difuso que esto tiene que ser.
+                    .transition(.scale(scale: 0.88).combined(with: .opacity))
+            }
         }
         // **El rebote, por fuera de la píldora.**
         //
@@ -230,31 +248,20 @@ private struct OverscrollAction: ViewModifier {
     private var indicator: some View {
         pillContent
             .foregroundStyle(WK.Palette.primaryText)
-            // **Un aura que avanza, no una barra que se rellena.**
+            // **Una luz que crece, no una barra que se rellena.**
             //
             // El corte recto de una barra de progreso marca una frontera, y
-            // una frontera pide leerse: la mitad rellena y la mitad vacía
-            // parecían dos píldoras pegadas. Con el borde difuminado lo que se
-            // ve es una sola superficie tiñéndose, que es lo que hace el gesto.
-            //
-            // Sin `GeometryReader`: el degradado ocupa la píldora entera y lo
-            // que se mueve con el progreso son sus paradas, así que no hace
-            // falta medir nada y el borde no da saltos de píxel.
+            // una frontera pide leerse: la mitad llena y la mitad vacía
+            // parecían dos píldoras pegadas. Un punto de luz difuminado no
+            // tiene borde en ninguna parte: la píldora se va encendiendo.
             .background {
                 Self.aura(Self.fill, progress: progress)
                     .clipShape(.capsule)
             }
-            // **La letra no cambia de color: le pasa el aura por debajo.**
-            //
-            // Encima va la misma pieza con el aura **inversa** —el color
-            // contrario, con el mismo borde difuminado y en la misma
-            // posición— y enmascarada con las propias letras. Así cada letra
-            // se va invirtiendo según la alcanza, con el mismo desvanecido que
-            // el fondo, en vez de cambiar de golpe al pasar un umbral.
-            .overlay {
-                Self.aura(Self.fillInk, progress: progress)
-                    .mask { pillContent }
-            }
+            // **Sin letras invertidas.** Existían para salvar el texto de un
+            // relleno oscuro que le pasaba por debajo. Con luz en vez de
+            // relleno no hay nada de lo que salvarlas: la palabra se queda
+            // igual y lo que cambia es cuánta luz tiene detrás.
             .adaptiveGlass(in: .capsule)
             // Aparece **donde está**, sin subir desde ningún sitio: la píldora
             // ya estaba ahí con opacidad cero, y el cristal se encarga de que
