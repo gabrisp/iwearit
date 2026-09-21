@@ -77,26 +77,35 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
     /// como se ve un conjunto de verdad, y separarlo todo con aire igual lo
     /// convierte en una ficha de inventario.
     ///
-    /// El alto y el ancho son el **hueco**, no la prenda: la imagen se ajusta
-    /// dentro conservando su proporción, así que un pantalón estrecho no se
-    /// deforma para llenar su caja — solo no se queda pequeño.
+    /// ## Por qué los huecos son cuadrados
+    ///
+    /// Porque la imagen lo es. El recorte normalizado sale de la tubería en un
+    /// lienzo cuadrado, y la imagen se ajusta al hueco **conservando su
+    /// proporción**: en una caja de 520×340, un cuadrado entra a 340×340 y
+    /// sobran 180 puntos de ancho que nadie ve pero que empequeñecen la prenda.
+    /// Con la caja cuadrada, la imagen la llena entera y la prenda sale tan
+    /// grande como el recorte permite.
+    ///
+    /// Lo que sigue quedando por dentro es el aire del propio recorte —la
+    /// prenda no toca los bordes de su PNG—, y eso no se arregla aquí sino
+    /// recortando los márgenes transparentes al colocar. Queda pendiente.
     public var transform: ItemTransform {
         switch self {
         // Detrás de todo y a la izquierda: es la pieza más grande del
-        // conjunto, y ocupa dos tercios del ancho del papel.
+        // conjunto.
         case .outer:
-            ItemTransform(x: 330, y: 600, baseWidth: 660, baseHeight: 740, zIndex: 0)
+            ItemTransform(x: 360, y: 620, baseWidth: 720, baseHeight: 720, zIndex: 0)
         // Delante de la chaqueta y a su derecha, como apoyada encima.
         case .top:
-            ItemTransform(x: 690, y: 560, baseWidth: 560, baseHeight: 620, zIndex: 1)
+            ItemTransform(x: 690, y: 560, baseWidth: 620, baseHeight: 620, zIndex: 1)
         // Las piernas, en su propia banda y rozando el torso.
         case .bottom:
-            ItemTransform(x: 450, y: 1230, baseWidth: 600, baseHeight: 780, zIndex: 1)
+            ItemTransform(x: 450, y: 1230, baseWidth: 700, baseHeight: 700, zIndex: 1)
         case .shoes:
-            ItemTransform(x: 620, y: 1560, baseWidth: 520, baseHeight: 340, zIndex: 2)
+            ItemTransform(x: 620, y: 1490, baseWidth: 480, baseHeight: 480, zIndex: 2)
         // Arriba a la derecha, en el hueco que deja el torso.
         case .accessory:
-            ItemTransform(x: 800, y: 220, baseWidth: 340, baseHeight: 320, zIndex: 3)
+            ItemTransform(x: 790, y: 240, baseWidth: 360, baseHeight: 360, zIndex: 3)
         }
     }
 
