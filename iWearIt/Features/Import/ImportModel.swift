@@ -553,11 +553,53 @@ final class ImportModel {
     func improve(candidateWithID id: UUID) {
         guard
             let index = candidates.firstIndex(where: { $0.id == id }),
-            let rect = candidates[index].detected.sourceRect,
+            let rect = candidates[index].rect,
             // De su propia foto, que con varias ya no hay una sola.
+            let photo = photo(for: candidates[index]),
+            let improved = Self.refinedCrop(of: rect, in: photo)
+        else {
+            DiagnosticsLog.record("RECORTE", "no se pudo mejorar el recorte", isProblem: true)
+            return
+        }
+        candidates[index].manualCrop = ImmutableImage(improved)
+        DiagnosticsLog.record("RECORTE", "recorte mejorado on-device")
+    }
+
+    /// El usuario ha movido o estirado el recuadro de una prenda sobre la foto.
+    ///
+    /// Se rehace el recorte **ahí dentro**, no se guarda el rectángulo tal
+    /// cual: lo que se pide señalando es "la prenda está aquí", y devolver un
+    /// rectángulo de foto con su trozo de fondo sería contestar otra cosa.
+    func setRect(_ rect: CGRect, forCandidateWithID id: UUID) {
+        guard
+            let index = candidates.firstIndex(where: { $0.id == id }),
             let photo = photo(for: candidates[index])
         else { return }
 
+        candidates[index].editedRect = rect
+        candidates[index].wasCorrectedByUser = true
+        guard let improved = Self.refinedCrop(of: rect, in: photo) else {
+            DiagnosticsLog.record("RECORTE", "el recuadro nuevo no dio recorte", isProblem: true)
+            return
+        }
+        candidates[index].manualCrop = ImmutableImage(improved)
+        candidates[index].catalogImage = nil
+        candidates[index].catalogFailure = nil
+        DiagnosticsLog.record(
+            "RECORTE",
+            String(
+                format: "recuadro corregido a %.2f,%.2f %.2f×%.2f",
+                rect.minX, rect.minY, rect.width, rect.height
+            )
+        )
+    }
+
+    /// El recorte de una zona de la foto, repasado en el propio teléfono.
+    ///
+    /// La semilla va **metida hacia dentro**: un rectángulo incluye las
+    /// esquinas, y las esquinas de un rectángulo alrededor de una prenda son
+    /// fondo. Empezando desde dentro, lo que se propaga es tela.
+    private static func refinedCrop(of rect: CGRect, in photo: CGImage) -> CGImage? {
         // Un 12% hacia dentro por cada lado: lo justo para dejar fuera las
         // esquinas sin quedarse en una mota en el centro.
         let inset = 0.12
@@ -575,14 +617,7 @@ final class ImportModel {
         ]
         // Repetidos para pasar el mínimo de puntos del lazo: ocho puntos es lo
         // que distingue un trazo de un resbalón, y un rectángulo tiene cuatro.
-        let path = corners + corners
-
-        guard let improved = ManualCrop.apply(to: photo, path: path) else {
-            DiagnosticsLog.record("RECORTE", "no se pudo mejorar el recorte", isProblem: true)
-            return
-        }
-        candidates[index].manualCrop = ImmutableImage(improved)
-        DiagnosticsLog.record("RECORTE", "recorte mejorado on-device")
+        return ManualCrop.apply(to: photo, path: corners + corners)
     }
 
     func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
@@ -667,6 +702,15 @@ struct ImportCandidate: Identifiable {
     /// Por qué no la hay. `nil` = no se ha intentado o salió bien.
     var catalogFailure: String?
 
+    /// Dónde está la prenda dentro de la foto, si el usuario lo ha corregido.
+    ///
+    /// Aparte de `detected.sourceRect` y no pisándolo: lo detectado es lo que
+    /// dijo el modelo y sigue sirviendo de referencia; esto es lo que dice el
+    /// usuario, que es quien tiene la razón.
+    var editedRect: CGRect?
+    /// Mientras se rehace el recorte de un recuadro recién movido.
+    var isRecropping = false
+
     /// El recorte hecho a dedo, si lo hay, **y manda sobre el detectado**.
     ///
     /// Aparte y no pisando `detected`: lo detectado sigue sirviendo —el color,
@@ -714,6 +758,9 @@ struct ImportCandidate: Identifiable {
         // cuatro, y lo normal es quedárselas casi todas.
         self.isKept = true
     }
+
+    /// El recuadro que vale: el corregido si lo hay, y si no el detectado.
+    var rect: CGRect? { editedRect ?? detected.sourceRect }
 
     /// El recorte que vale: el de dedo si lo hay, y si no el detectado.
     var cutout: ImmutableImage { manualCrop ?? detected.normalized }

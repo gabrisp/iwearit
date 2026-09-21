@@ -58,6 +58,7 @@ struct ImportDetectedStep: View {
                                 isCroppingByHand = true
                             },
                             onDiscard: { model.discard(candidateWithID: $0.id) },
+                            onChangeRect: { model.setRect($1, forCandidateWithID: $0.id) },
                             onAddByHand: {
                                 recropping = nil
                                 croppingPhoto = index
@@ -99,7 +100,7 @@ struct ImportDetectedStep: View {
             Text(
                 model.candidates.isEmpty
                     ? "Rodéala con el dedo y la recortamos igual."
-                    : "Quita lo que no sea ropa. Si algo salió partido, recórtalo a mano."
+                    : "Mueve o estira un recuadro para decirnos dónde está la prenda, y quita con la X lo que no sea ropa."
             )
             .font(WK.Font.caption)
             .foregroundStyle(WK.Palette.secondaryText)
@@ -133,6 +134,7 @@ private struct PhotoSection: View {
     let onToggle: (ImportCandidate) -> Void
     let onRecrop: (ImportCandidate) -> Void
     let onDiscard: (ImportCandidate) -> Void
+    let onChangeRect: (ImportCandidate, CGRect) -> Void
     let onAddByHand: () -> Void
 
     var body: some View {
@@ -148,8 +150,20 @@ private struct PhotoSection: View {
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity)
-                .frame(height: 220)
+                // Más alta que antes porque ahora se toca: sobre 220 puntos
+                // los recuadros de una foto vertical salen del tamaño de una
+                // uña y estirar la esquina es imposible.
+                .frame(height: 300)
                 .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
+                // Lo detectado, señalado encima. Ver `ImportDetectionBoxes`.
+                .overlay {
+                    ImportDetectionBoxes(
+                        photo: photo,
+                        candidates: candidates,
+                        onChange: onChangeRect,
+                        onDiscard: onDiscard
+                    )
+                }
                 .padding(.horizontal, WK.Spacing.screenInset)
 
             LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
