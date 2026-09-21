@@ -19,7 +19,15 @@ struct PlannerScreen: View {
     /// entero, ordenable e infinito en ambos sentidos.
     @State private var anchorDay = Calendar.current.startOfDay(for: Date())
     @State private var dayOffset = 0
-    @State private var isPresentingCalendar = false
+    /// Una sola hoja. Apilar `.sheet` en la misma vista deja mudos a todos
+    /// menos a uno — ya nos costó que el color de fondo del editor no abriera
+    /// nada.
+    @State private var sheet: Sheet?
+
+    private enum Sheet: String, Identifiable {
+        case calendar, newOutfit
+        var id: String { rawValue }
+    }
     /// El outfit que se está editando. Vive **aquí** y no dentro de la página
     /// porque la pila de navegación es de esta pantalla: cada página del pager
     /// vive en su propio `UIHostingController`, fuera del `NavigationStack`, y
@@ -124,13 +132,25 @@ struct PlannerScreen: View {
             }
             .background(WK.Palette.canvas.ignoresSafeArea())
             .toolbarVisibility(.hidden, for: .navigationBar)
-            .sheet(isPresented: $isPresentingCalendar) {
-                CalendarJumpSheet(
-                    selection: Binding(
-                        get: { date(forOffset: dayOffset) },
-                        set: { dayOffset = offset(for: $0) }
+            .sheet(item: $sheet) { which in
+                switch which {
+                case .calendar:
+                    CalendarJumpSheet(
+                        selection: Binding(
+                            get: { date(forOffset: dayOffset) },
+                            set: { dayOffset = offset(for: $0) }
+                        )
                     )
-                )
+                case .newOutfit:
+                    // **El "+" elige prendas primero.** Abría el editor con un
+                    // lienzo vacío, y eso dejaba un outfit en blanco en el día
+                    // en cuanto tocabas el hueco sin querer. Así no existe
+                    // nada hasta que hay algo que poner dentro.
+                    OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                        guard !picked.isEmpty else { return }
+                        editingOutfit = makeOutfit(with: picked)
+                    }
+                }
             }
         }
     }
@@ -160,12 +180,13 @@ struct PlannerScreen: View {
                             date: date(forOffset: offset),
                             store: appEnvironment.imageStore,
                             // Área segura más un respiro. La rejilla pasa por
-                            // debajo de la tira, que flota sobre ella.
-                            topInset: safeTop + WK.Spacing.l,
+                            // debajo de la tira, que flota sobre ella, y con
+                            // 24 la primera fila le quedaba pegada.
+                            topInset: safeTop + WK.Spacing.l + 12,
                             morph: morph,
                             zoom: zoom,
                             onOpen: { editingOutfit = $0 },
-                            onCreate: { editCurrent(forcingNew: true) }
+                            onCreate: { sheet = .newOutfit }
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .containerRelativeFrame(.horizontal)
@@ -235,7 +256,7 @@ struct PlannerScreen: View {
         DayStripBar(
             anchorDay: anchorDay,
             selectedOffset: animatedDay,
-            onOpenCalendar: { isPresentingCalendar = true },
+            onOpenCalendar: { sheet = .calendar },
             layoutSymbol: layout.symbol,
             onToggleLayout: {
                 withAnimation(WKAnimation.arrival) { layout = layout.next }
@@ -281,6 +302,12 @@ struct PlannerScreen: View {
             return
         }
         // Sin outfit en el lienzo visible: se crea uno para hoy y se abre.
+        editingOutfit = makeOutfit(with: [])
+    }
+
+    /// Un outfit nuevo en el día que se está mirando, con las prendas
+    /// elegidas ya en su hueco.
+    private func makeOutfit(with garments: [Garment]) -> Outfit {
         let outfit = Outfit()
         modelContext.insert(outfit)
         let dayStart = date(forOffset: dayOffset)
@@ -293,7 +320,14 @@ struct PlannerScreen: View {
             return new
         }()
         outfit.plannedDay = day
-        editingOutfit = outfit
+
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
+        return outfit
     }
 
     /// Frena el avance en el tope del plan y abre el paywall en su lugar.

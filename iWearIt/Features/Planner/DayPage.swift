@@ -70,6 +70,8 @@ struct DayPage: View {
 
     /// Qué lienzo se está viendo. `nil` **solo** mientras no se ha medido.
     @State private var visiblePage: Page?
+    /// El selector abierto por el sobre-scroll del final.
+    @State private var isPickingForNew = false
 
     var body: some View {
         // Vertical y paginado: cada lienzo ocupa la página entera, como el día
@@ -83,15 +85,36 @@ struct DayPage: View {
                         .id(Page.outfit(outfit.persistentModelID))
                 }
 
-                // El hueco siguiente, siempre. Es lo que convierte "crear otro
-                // outfit" en seguir bajando.
-                DayCanvas(date: date, outfit: nil, onEdit: onEdit, makeOutfit: makeOutfit)
-                    .containerRelativeFrame(.vertical)
-                    .id(Page.new)
+                // El hueco **solo cuando el día está vacío**.
+                //
+                // Con un outfit ya puesto, una página en blanco detrás dice
+                // que el día tiene dos cosas cuando tiene una, y al pasar de
+                // día se quedaba a medio camino enseñando el vacío. Teniendo
+                // ya algo, crear el siguiente es seguir tirando: ver
+                // `overscrollAction` más abajo.
+                if outfits.isEmpty {
+                    DayCanvas(date: date, outfit: nil, onEdit: onEdit, makeOutfit: makeOutfit)
+                        .containerRelativeFrame(.vertical)
+                        .id(Page.new)
+                }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
+        // **Seguir tirando al final crea otro.**
+        //
+        // Y crea **nada** si cierras el selector: el outfit no existe hasta
+        // que hay prendas que poner en él. Ver `overscrollAction`.
+        .overscrollAction(threshold: 120, symbol: "plus") {
+            guard !outfits.isEmpty else { return }
+            isPickingForNew = true
+        }
+        .sheet(isPresented: $isPickingForNew) {
+            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                guard !picked.isEmpty else { return }
+                onEdit(makeOutfit(with: picked))
+            }
+        }
         // **Por visibilidad y no solo por posición.**
         //
         // `scrollPosition` avisa cuando el scroll **se asienta**, y con el
@@ -164,6 +187,18 @@ struct DayPage: View {
         let outfit = Outfit()
         modelContext.insert(outfit)
         outfit.plannedDay = day
+        return outfit
+    }
+
+    /// El mismo outfit, ya con las prendas elegidas en su hueco.
+    private func makeOutfit(with garments: [Garment]) -> Outfit {
+        let outfit = makeOutfit()
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
         return outfit
     }
 }
