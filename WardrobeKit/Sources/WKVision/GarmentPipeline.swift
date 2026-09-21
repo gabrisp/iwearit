@@ -33,6 +33,28 @@ public actor GarmentPipeline {
     /// borrarlos uno a uno y a desconfiar del resto.
     static let minimumAreaFraction = 0.03
 
+    /// Lado máximo con el que se analiza. Ver `extractGarments`.
+    static let workingMaxSide = 1400
+
+    /// La misma foto, más pequeña, si hacía falta.
+    static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
+        let side = max(image.width, image.height)
+        guard side > maxSide else { return nil }
+
+        let factor = Double(maxSide) / Double(side)
+        let width = Int(Double(image.width) * factor)
+        let height = Int(Double(image.height) * factor)
+        guard
+            width > 0, height > 0,
+            let buffer = PixelBuffer(width: width, height: height),
+            let context = buffer.makeContext()
+        else { return nil }
+
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
     /// Por encima de esto, la región es casi toda piel y no una prenda.
     static let maximumSkinFraction = 0.40
 
@@ -161,9 +183,30 @@ public actor GarmentPipeline {
     /// Antes se probaba el segmentador siempre y la máscara de sujeto solo
     /// como último recurso: para el caso más común de "añadir una prenda" eso
     /// era pagar la ruta cara entera para acabar usando la barata.
-    public func extractGarments(from image: CGImage) async throws -> [DetectedGarment] {
-        if skipsUtilityImages, (try? await VisionStages.isUtilityImage(image)) == true {
+    public func extractGarments(from original: CGImage) async throws -> [DetectedGarment] {
+        if skipsUtilityImages, (try? await VisionStages.isUtilityImage(original)) == true {
             return []
+        }
+
+        // **Se trabaja en pequeño.**
+        //
+        // Una foto de tienda o de cámara llega con doce millones de píxeles, y
+        // todo lo que viene después los recorre enteros: el corte por color,
+        // el cierre morfológico, el relleno de agujeros, el alisado y las dos
+        // notas de calidad. Son media docena de pasadas sobre doce millones,
+        // en Swift, y eso son segundos — los segundos que se notan esperando.
+        //
+        // Y no se pierde nada, porque **el recorte acaba en 768 píxeles de
+        // todos modos**: `CropNormalizer` lo escala ahí antes de guardarlo.
+        // Analizar a 1400 de lado es analizar con más detalle del que va a
+        // sobrevivir.
+        let image = Self.scaledDown(original, maxSide: Self.workingMaxSide) ?? original
+        if image !== original {
+            DiagnosticsLog.record(
+                "PIPELINE",
+                "se trabaja a \(image.width)×\(image.height)"
+                    + " en vez de \(original.width)×\(original.height)"
+            )
         }
 
         DiagnosticsLog.record(

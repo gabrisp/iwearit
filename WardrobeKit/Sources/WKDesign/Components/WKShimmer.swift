@@ -63,6 +63,15 @@ public struct WKShimmer: ViewModifier {
             .task(id: isActive) {
                 guard isActive else { return }
                 phase = -1.2
+                // **Un turno de margen antes de animar.**
+                //
+                // Poner la fase inicial y animar en la misma pasada deja a
+                // SwiftUI sin un estado "antes" que dibujar: toma los dos
+                // valores como uno solo y no anima nada. El resultado era una
+                // banda quieta fuera de cuadro, o sea, ningún brillo.
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+
                 withAnimation(.linear(duration: 1.3).repeatForever(autoreverses: false)) {
                     phase = 1.2
                 }
