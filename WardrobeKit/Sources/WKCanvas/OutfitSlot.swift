@@ -50,23 +50,45 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    /// Dónde cae en el lienzo, en coordenadas de `CanvasSpace`.
+    /// Dónde cae en el lienzo y **cuánto ocupa**, en coordenadas de
+    /// `CanvasSpace` (1000 × 1400).
     ///
-    /// La disposición imita cómo se mira un conjunto: torso arriba, piernas
-    /// debajo, calzado al fondo. No es una rejilla regular a propósito — una
-    /// rejilla perfecta se lee como una ficha de inventario, no como un look.
+    /// ## Quién decide el tamaño
+    ///
+    /// Esto. Al soltar una prenda en un outfit nadie elige nada: se le da el
+    /// hueco que le toca por su tipo, con su sitio y su medida. Las de antes
+    /// se quedaban cortas —ninguna pasaba de 420 puntos de ancho sobre un
+    /// papel de 1000— así que un conjunto entero ocupaba media hoja y parecía
+    /// un muestrario en vez de un look.
+    ///
+    /// ## Cómo están repartidos
+    ///
+    /// Como se mira un conjunto tendido en la cama: el torso arriba, las
+    /// piernas debajo, el calzado al fondo y los complementos a un lado. Se
+    /// **solapan un poco** a propósito: una chaqueta detrás de la camiseta es
+    /// como se ve un conjunto de verdad, y separarlo todo con aire igual lo
+    /// convierte en una ficha de inventario.
+    ///
+    /// El alto y el ancho son el **hueco**, no la prenda: la imagen se ajusta
+    /// dentro conservando su proporción, así que un pantalón estrecho no se
+    /// deforma para llenar su caja — solo no se queda pequeño.
     public var transform: ItemTransform {
         switch self {
-        case .top:
-            ItemTransform(x: 340, y: 430, baseWidth: 400, baseHeight: 420, zIndex: 1)
+        // Detrás de todo, a la izquierda: es la pieza más grande del conjunto.
         case .outer:
-            ItemTransform(x: 690, y: 400, baseWidth: 420, baseHeight: 440, zIndex: 0)
+            ItemTransform(x: 320, y: 430, baseWidth: 540, baseHeight: 580, zIndex: 0)
+        // Delante de la chaqueta y un poco a su derecha, como si estuviera
+        // apoyada encima.
+        case .top:
+            ItemTransform(x: 650, y: 400, baseWidth: 470, baseHeight: 520, zIndex: 1)
+        // Las piernas, justo debajo del torso y rozándolo.
         case .bottom:
-            ItemTransform(x: 330, y: 900, baseWidth: 380, baseHeight: 480, zIndex: 1)
+            ItemTransform(x: 430, y: 940, baseWidth: 480, baseHeight: 600, zIndex: 1)
         case .shoes:
-            ItemTransform(x: 700, y: 1090, baseWidth: 400, baseHeight: 300, zIndex: 2)
+            ItemTransform(x: 640, y: 1240, baseWidth: 430, baseHeight: 280, zIndex: 2)
+        // Arriba a la derecha, en el hueco que deja el torso.
         case .accessory:
-            ItemTransform(x: 720, y: 790, baseWidth: 300, baseHeight: 200, zIndex: 2)
+            ItemTransform(x: 820, y: 250, baseWidth: 320, baseHeight: 280, zIndex: 3)
         }
     }
 
