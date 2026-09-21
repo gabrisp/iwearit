@@ -91,6 +91,36 @@ private struct OverscrollAction: ViewModifier {
     /// hacía desaparecer en oscuro.
     static let fillInk = Color.white
 
+    /// Cuánto mide el borde difuminado del aura, en fracción de la píldora.
+    ///
+    /// Ancho a propósito: más estrecho vuelve a ser una frontera, y es
+    /// justamente lo que no queremos que se vea.
+    private static let auraEdge: CGFloat = 0.22
+
+    /// El aura: nace **en el centro** y se abre hacia los dos lados.
+    ///
+    /// Desde un lado, el aura tenía un delante y un detrás —o sea, una
+    /// dirección— y eso convertía la píldora en una barra de progreso otra
+    /// vez. Desde el centro no avanza: crece. Y crece desde donde está la
+    /// palabra, que es lo que hace que se lea como la píldora encendiéndose y
+    /// no como algo que la recorre.
+    static func aura(to progress: CGFloat, of color: Color) -> LinearGradient {
+        let half = progress / 2
+        let clear = color.opacity(0)
+        return LinearGradient(
+            stops: [
+                .init(color: clear, location: 0),
+                .init(color: clear, location: max(0, 0.5 - half - auraEdge)),
+                .init(color: color, location: max(0, 0.5 - half)),
+                .init(color: color, location: min(1, 0.5 + half)),
+                .init(color: clear, location: min(1, 0.5 + half + auraEdge)),
+                .init(color: clear, location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
     /// Separa "estás desbordando" de "estás pidiendo algo".
     private static let revealDistance: CGFloat = 50
@@ -143,7 +173,11 @@ private struct OverscrollAction: ViewModifier {
         .padding(.bottom, bottomInset)
         // Por encima de todo lo que haya en el scroll.
         .zIndex(100)
-        .animation(WKAnimation.selection, value: isVisible)
+        // **Despacio.** Formar cristal no es encender una luz: a la velocidad
+        // de una selección se veía aparecer la píldora ya hecha. Con medio
+        // segundo largo la superficie se cuaja mientras sigues tirando, que es
+        // el tiempo que dura el gesto.
+        .animation(.smooth(duration: 0.55), value: isVisible)
     }
 
     /// El progreso del indicador, 0-1. Cero mientras este arrastre no pueda
@@ -178,44 +212,40 @@ private struct OverscrollAction: ViewModifier {
 
         return pillContent
             .foregroundStyle(WK.Palette.primaryText)
-            // **Se llena de izquierda a derecha**, como una barra de progreso,
-            // y no como un aro que se cierra: es lo que dice "sigue" en vez de
-            // "espera".
-            .background {
-                GeometryReader { proxy in
-                    Self.fill
-                        .frame(width: proxy.size.width * progress)
-                }
-                .clipShape(.capsule)
-            }
-            // **La letra no cambia de color: se le pasa el relleno por debajo.**
+            // **Un aura que avanza, no una barra que se rellena.**
             //
-            // Encima va la misma pieza en el color contrario, recortada justo
-            // a lo que ya está relleno y **enmascarada con las propias
-            // letras**. Así cada letra se invierte en el momento exacto en que
-            // el relleno la alcanza, en vez de cambiar todas de golpe al pasar
-            // un umbral — que es lo que se notaba como un parpadeo.
+            // El corte recto de una barra de progreso marca una frontera, y
+            // una frontera pide leerse: la mitad rellena y la mitad vacía
+            // parecían dos píldoras pegadas. Con el borde difuminado lo que se
+            // ve es una sola superficie tiñéndose, que es lo que hace el gesto.
+            //
+            // Sin `GeometryReader`: el degradado ocupa la píldora entera y lo
+            // que se mueve con el progreso son sus paradas, así que no hace
+            // falta medir nada y el borde no da saltos de píxel.
+            .background {
+                Self.aura(to: progress, of: Self.fill)
+                    .clipShape(.capsule)
+            }
+            // **La letra no cambia de color: le pasa el aura por debajo.**
+            //
+            // Encima va la misma pieza con el aura **inversa** —el color
+            // contrario, con el mismo borde difuminado y en la misma
+            // posición— y enmascarada con las propias letras. Así cada letra
+            // se va invirtiendo según la alcanza, con el mismo desvanecido que
+            // el fondo, en vez de cambiar de golpe al pasar un umbral.
             .overlay {
-                GeometryReader { proxy in
-                    Self.fillInk
-                        .frame(width: proxy.size.width * progress)
-                }
-                .mask { pillContent }
+                Self.aura(to: progress, of: Self.fillInk)
+                    .mask { pillContent }
             }
             .adaptiveGlass(in: .capsule)
             // Aparece **donde está**, sin subir desde ningún sitio: la píldora
             // ya estaba ahí con opacidad cero, y el cristal se encarga de que
             // llegar no parezca un corte.
             .adaptiveGlassTransition()
-            // Un rebote corto al completarse: dice "ya está" antes de que
-            // sueltes, que es lo que evita soltar a medias y no entender por
-            // qué no pasó nada.
-            .keyframeAnimator(initialValue: 1.0, trigger: isFull) { view, scale in
-                view.scaleEffect(scale)
-            } keyframes: { _ in
-                CubicKeyframe(1.1, duration: 0.15)
-                CubicKeyframe(1, duration: 0.15)
-            }
+            // **Sin rebote al completarse.** Lo que avisa de que ya está es el
+            // háptico, y llega al mismo sitio sin mover nada: un salto de
+            // tamaño en algo que estás mirando de cerca mientras arrastras se
+            // lee como un tirón, no como una confirmación.
             .allowsHitTesting(false)
             .sensoryFeedback(.selection, trigger: isFull) { _, new in new }
     }
