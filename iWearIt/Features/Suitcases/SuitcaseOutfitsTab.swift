@@ -308,6 +308,9 @@ private struct PreparedOutfits: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
+    /// El selector, abierto por el "+" o por seguir tirando al final.
+    @State private var isPickingForNew = false
+
     var body: some View {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
@@ -338,13 +341,38 @@ private struct PreparedOutfits: View {
                     }
                 }
 
-                NewOutfitGridCell { onEdit(createOutfit()) }
+                // **Elige prendas primero.** Abría el editor con un lienzo
+                // vacío, así que tocar la celda sin querer dejaba un outfit en
+                // blanco en la maleta. Igual que en el plan.
+                NewOutfitGridCell { isPickingForNew = true }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .safeAreaPadding(.vertical)
             .padding(.bottom, WK.Spacing.xl)
         }
         .scrollIndicators(.hidden)
+        // Rebota aunque quepa todo: con dos outfits no hay nada que desplazar
+        // y el gesto no existiría.
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .overscrollAction(threshold: 120, symbol: "plus") { isPickingForNew = true }
+        .sheet(isPresented: $isPickingForNew) {
+            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                guard !picked.isEmpty else { return }
+                onEdit(createOutfit(with: picked))
+            }
+        }
+    }
+
+    /// Un outfit nuevo de la maleta, con las prendas elegidas ya colocadas.
+    private func createOutfit(with garments: [Garment]) -> Outfit {
+        let outfit = createOutfit()
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
+        return outfit
     }
 
     private func createOutfit() -> Outfit {
