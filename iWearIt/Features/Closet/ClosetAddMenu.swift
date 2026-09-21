@@ -67,6 +67,21 @@ struct ClosetAddMenu: View {
         .sheet(item: $step) { current in
             content(for: current)
         }
+        // **La galería cuelga de aquí, no de la hoja del menú.**
+        //
+        // El menú se cierra a sí mismo al tocar una opción —como cualquier
+        // menú—, y con él se iba el `photosPicker` que llevaba colgado: la
+        // hoja se cerraba y no se abría nada. Puesto en el botón, que es quien
+        // sobrevive, el picker se presenta cuando el menú ya se ha ido.
+        //
+        // No choca con el `sheet` de arriba porque nunca están los dos a la
+        // vez: al abrirse el picker, el paso vale `nil`.
+        .photosPicker(
+            isPresented: $isPickingFromLibrary,
+            selection: $libraryItem,
+            matching: .images
+        )
+        .task(id: libraryItem) { await loadLibraryPick() }
     }
 
     @ViewBuilder
@@ -74,22 +89,9 @@ struct ClosetAddMenu: View {
         switch step {
         case .menu:
             WKMenuSheet(title: "Añadir", items: menuItems)
-                // **La galería del sistema, encima del menú.**
-                //
-                // `PhotosPicker` corre en otro proceso: no compite por la
-                // cámara ni por la ANE y no depende de que una sesión de
-                // captura arranque bien. Colgado de la hoja del menú y no del
-                // botón de la toolbar, que es quien ya tiene su `sheet` y no
-                // admite dos presentaciones.
-                .photosPicker(
-                    isPresented: $isPickingFromLibrary,
-                    selection: $libraryItem,
-                    matching: .images
-                )
                 .overlay {
                     if isLoadingLibraryPick { ProgressView() }
                 }
-                .task(id: libraryItem) { await loadLibraryPick() }
         case .camera:
             // Al pasar a la revisión, la cámara **se destruye**. Con dos hojas
             // apiladas seguía viva por debajo, y su sesión de captura se
@@ -142,7 +144,11 @@ struct ClosetAddMenu: View {
             // galería, así que preguntar antes "¿foto nueva o existente?" es
             // una bifurcación que el usuario no había pedido.
             WKMenuItem(id: "library", title: "Elegir de la galería", systemImage: "photo.on.rectangle") {
-                appEnvironment.gate.require(.garments) { isPickingFromLibrary = true }
+                appEnvironment.gate.require(.garments) {
+                    // Un turno de margen: pedirlo mientras la hoja del menú
+                    // aún se está cerrando deja la petición en el aire.
+                    DispatchQueue.main.async { isPickingFromLibrary = true }
+                }
             },
             WKMenuItem(id: "camera", title: "Hacer una foto", systemImage: "camera") {
                 appEnvironment.gate.require(.garments) { step = .camera }
