@@ -88,12 +88,29 @@ public struct WKIconTabBar<Tab: Hashable>: View {
 /// justo al cambiar de pestaña. Aquí se reaplica en cada pasada de layout, que
 /// es exactamente cuando UIKit ha terminado de rehacerlas.
 final class ChromelessSegmentedControl: UISegmentedControl {
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Todas menos la última: la última es el glifo del segmento activo, y
-        // apagarla deja la barra vacía.
-        for view in subviews.dropLast() where view is UIImageView {
-            view.alpha = 0
+
+        // **Por lo que es cada vista, no por dónde está en la lista.**
+        //
+        // Aquí estaba el parpadeo al cambiar de pestaña. Antes se apagaban
+        // "todas menos la última", dando por hecho que la última era el glifo
+        // activo — y UIKit **reordena** estas subvistas cada vez que cambia la
+        // selección. Según cómo cayera el orden en esa pasada, se apagaba un
+        // icono de verdad o volvía a aparecer el fondo del control. Y como el
+        // alfa solo se ponía a cero y nunca se devolvía, un icono apagado por
+        // error se quedaba apagado.
+        //
+        // El fondo y los divisores se reconocen por su forma: el fondo ocupa el
+        // control entero y un divisor es una raya de un par de puntos de ancho.
+        // Todo lo demás es contenido y se enciende **explícitamente**, que es
+        // lo que impide que un error de una pasada se quede pegado.
+        for case let imageView as UIImageView in subviews {
+            let size = imageView.bounds.size
+            let isBackground = size.width >= bounds.width - 1 && size.height >= bounds.height - 1
+            let isDivider = size.width <= 3 && size.height >= bounds.height * 0.4
+            imageView.alpha = isBackground || isDivider ? 0 : 1
         }
     }
 }
