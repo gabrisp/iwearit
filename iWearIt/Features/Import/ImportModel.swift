@@ -87,6 +87,19 @@ final class ImportModel {
 
     private var pipeline: GarmentPipeline
     /// Para pedir la versión de catálogo. El mismo que usa el pipeline.
+    /// Cuánto se espera al análisis antes de darlo por perdido.
+    ///
+    /// Cuarenta y no veinte. Con veinte se cortaba trabajo que iba **bien**:
+    /// el registro enseñaba "el color ve 1 pieza y el segmentador 2: se
+    /// unifican" y acto seguido el tope lo tiraba todo, así que el usuario
+    /// veía un fallo donde había un acierto.
+    ///
+    /// El tope sigue haciendo falta: una etapa de Vision con la ANE ocupada no
+    /// falla, **no vuelve**, y sin esto la pantalla se queda con el barrido
+    /// dando vueltas para siempre. Pero tiene que cortar lo que está colgado,
+    /// no lo que está tardando.
+    nonisolated static let analysisTimeout = 40
+
     private let resolver: (any ClothingResolving)?
     /// Para comparar contra lo que ya hay. Opcional porque las previsualizaciones
     /// construyen el modelo sin armario detrás.
@@ -161,7 +174,13 @@ final class ImportModel {
                 let pipeline = self.pipeline
                 group.addTask { try await pipeline.extractGarments(from: image) }
                 group.addTask {
-                    try await Task.sleep(for: .seconds(20))
+                    try await Task.sleep(for: .seconds(Self.analysisTimeout))
+                    DiagnosticsLog.record(
+                        "IMPORT",
+                        "se acabó el tiempo a los \(Self.analysisTimeout)s:"
+                            + " lo que estuviera a medias se tira",
+                        isProblem: true
+                    )
                     throw PipelineError.timedOut
                 }
                 guard let first = try await group.next() else { return [] }

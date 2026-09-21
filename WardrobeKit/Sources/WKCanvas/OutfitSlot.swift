@@ -94,18 +94,18 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
         // Detrás de todo y a la izquierda: es la pieza más grande del
         // conjunto.
         case .outer:
-            ItemTransform(x: 360, y: 620, baseWidth: 720, baseHeight: 720, zIndex: 0)
+            ItemTransform(x: 430, y: 660, baseWidth: 820, baseHeight: 820, zIndex: 0)
         // Delante de la chaqueta y a su derecha, como apoyada encima.
         case .top:
-            ItemTransform(x: 690, y: 560, baseWidth: 620, baseHeight: 620, zIndex: 1)
+            ItemTransform(x: 620, y: 600, baseWidth: 720, baseHeight: 720, zIndex: 1)
         // Las piernas, en su propia banda y rozando el torso.
         case .bottom:
-            ItemTransform(x: 450, y: 1230, baseWidth: 700, baseHeight: 700, zIndex: 1)
+            ItemTransform(x: 500, y: 1250, baseWidth: 800, baseHeight: 800, zIndex: 1)
         case .shoes:
-            ItemTransform(x: 620, y: 1490, baseWidth: 480, baseHeight: 480, zIndex: 2)
+            ItemTransform(x: 600, y: 1460, baseWidth: 560, baseHeight: 560, zIndex: 2)
         // Arriba a la derecha, en el hueco que deja el torso.
         case .accessory:
-            ItemTransform(x: 790, y: 240, baseWidth: 360, baseHeight: 360, zIndex: 3)
+            ItemTransform(x: 780, y: 260, baseWidth: 420, baseHeight: 420, zIndex: 3)
         }
     }
 

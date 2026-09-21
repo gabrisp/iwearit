@@ -76,17 +76,25 @@ public enum CanvasEditing {
     }
 
     /// Añade una prenda, centrada y al frente.
+    ///
+    /// **Del tamaño que le toca por su tipo**, no de uno fijo. Estaba clavado
+    /// en 240×320 sobre un papel de 1000 de ancho: una camiseta añadida desde
+    /// la bandeja entraba a menos de la cuarta parte del lienzo, y había que
+    /// agrandarla a mano cada vez. Ahora entra midiendo lo mismo que si la
+    /// hubiera colocado el compositor —ver `OutfitSlot`—, solo que en el
+    /// centro, que es donde se espera lo que acabas de añadir.
     @discardableResult
     public static func insert(
         garment: Garment,
         in outfit: Outfit,
         context: ModelContext
     ) -> CanvasItem {
+        let slot = OutfitSlot.slot(for: garment.kind).transform
         let transform = ItemTransform(
             x: CanvasSpace.center.x,
             y: CanvasSpace.center.y,
-            baseWidth: 240,
-            baseHeight: 320,
+            baseWidth: slot.baseWidth,
+            baseHeight: slot.baseHeight,
             scale: 1,
             rotation: 0,
             zIndex: outfit.nextZIndex
