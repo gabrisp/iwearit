@@ -37,17 +37,31 @@ final class CanvasHistory {
     private var past: [CanvasSnapshot] = []
     private var future: [CanvasSnapshot] = []
 
-    /// Mientras esto está puesto, lo que cambie **no se apunta**: es el propio
-    /// deshacer escribiendo en el lienzo, y apuntarlo lo convertiría en un
-    /// paso nuevo del que ya no se podría salir.
-    private(set) var isRestoring = false
+    /// Lo que el propio deshacer acaba de escribir.
+    ///
+    /// **Una bandera no servía**, y ese era el bucle: `onChange` no se dispara
+    /// mientras se escribe, sino en la siguiente pasada de la vista, cuando la
+    /// bandera ya se había bajado. Así que el deshacer se apuntaba como un
+    /// paso más, y volver a pulsar deshacía el deshacer: la pila entera se
+    /// convertía en dos estados dando vueltas.
+    ///
+    /// Guardando **qué** se escribió, el aviso que llega después se reconoce
+    /// por su contenido y no por el momento en que llega.
+    private var justApplied: CanvasSnapshot?
 
     var canUndo: Bool { !past.isEmpty }
     var canRedo: Bool { !future.isEmpty }
 
     /// Apunta cómo estaba el lienzo **antes** del cambio que acaba de pasar.
-    func record(_ previous: CanvasSnapshot) {
-        guard !isRestoring else { return }
+    /// - Parameters:
+    ///   - previous: cómo estaba antes del cambio.
+    ///   - current: cómo está ahora. Sirve para reconocer el eco del propio
+    ///     deshacer.
+    func record(_ previous: CanvasSnapshot, current: CanvasSnapshot) {
+        if let justApplied, justApplied == current {
+            self.justApplied = nil
+            return
+        }
         past.append(previous)
         if past.count > Self.depth { past.removeFirst() }
         // Rehacer deja de tener sentido en cuanto haces algo nuevo: la rama
@@ -68,11 +82,10 @@ final class CanvasHistory {
         return next
     }
 
-    /// Envuelve la escritura para que no se apunte a sí misma.
-    func restoring(_ work: () -> Void) {
-        isRestoring = true
-        work()
-        isRestoring = false
+    /// Anuncia lo que se va a escribir, para que el aviso de cambio que
+    /// llegue después se reconozca y no se apunte como un paso nuevo.
+    func willApply(_ state: CanvasSnapshot) {
+        justApplied = state
     }
 }
 

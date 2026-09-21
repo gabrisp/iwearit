@@ -239,10 +239,9 @@ private struct CanvasEditorScreen: View {
     /// se sale.
     private func apply(_ state: CanvasSnapshot) {
         selection.clear()
-        history.restoring {
-            withAnimation(WKAnimation.content) {
-                state.restore(into: outfit, context: modelContext)
-            }
+        history.willApply(state)
+        withAnimation(WKAnimation.content) {
+            state.restore(into: outfit, context: modelContext)
         }
         // La pintura vive además en memoria, en su propio objeto: sin esto, el
         // lienzo volvía atrás y los trazos se quedaban donde estaban.
@@ -341,8 +340,8 @@ private struct CanvasEditorScreen: View {
         // lienzo entero: cuando cambia, lo de antes pasa a la pila. Así no hay
         // forma de que una acción nueva se quede sin registrar, que es
         // exactamente lo que deja un deshacer a medias.
-        .onChange(of: snapshot) { previous, _ in
-            history.record(previous)
+        .onChange(of: snapshot) { previous, current in
+            history.record(previous, current: current)
         }
         // Descartar es **no guardar**: el contexto de la sesión se va con la
         // pantalla y se lleva los cambios con él. Por eso la pregunta puede

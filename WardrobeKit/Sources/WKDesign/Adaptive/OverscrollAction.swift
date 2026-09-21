@@ -167,6 +167,17 @@ private struct OverscrollAction: ViewModifier {
     private var pill: some View {
         let isFull = progress == 1
 
+        // **La píldora está siempre aquí, quieta.**
+        //
+        // No entra ni sale del contenedor: eso era el problema. Un cristal que
+        // se inserta en un `GlassEffectContainer` usa `.matchedGeometry` por
+        // defecto, y sin pareja el sistema lo hace salir de un punto
+        // degenerado — la píldora llegaba volando desde una esquina.
+        //
+        // Lo que aparece y desaparece es **el cristal**, no la vista:
+        // `glassEffect(isEnabled:)` forma y deshace la materia sin mover nada
+        // de sitio, y eso es exactamente lo que `glassEffectTransition` sabe
+        // animar.
         return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if isVisible { indicator }
         }
@@ -242,15 +253,7 @@ private struct OverscrollAction: ViewModifier {
                     .clipShape(.capsule)
             }
             .adaptiveGlass(in: .capsule)
-            // **Quieta.** Dentro de un contenedor de cristal, una superficie
-            // usa `.matchedGeometry` por defecto, y sin pareja el sistema la
-            // hace salir de un punto degenerado del contenedor: la píldora
-            // llegaba volando desde la esquina de abajo a la derecha. Eso era
-            // lo que se veía, y no un desenfoque.
-            .adaptiveGlassStill()
-            // Y ya que la materia no se mueve, la vista aparece como debe:
-            // encendiéndose donde está.
-            .transition(.opacity)
+            .adaptiveGlassTransition()
             .allowsHitTesting(false)
     }
 
