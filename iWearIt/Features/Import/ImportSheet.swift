@@ -265,10 +265,11 @@ private extension ImportPhaseContent {
                 withAnimation(WKAnimation.content) { hasRevealed = true }
             }
 
-            Text(status)
-                .font(WK.Font.callout)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .contentTransition(.opacity)
+            // **Que se note que sigue trabajando.** Analizar una foto tarda
+            // lo que tarda, y una sola frase quieta durante quince segundos se
+            // lee como colgado. El texto va cambiando por los pasos reales del
+            // embudo, así que además dice en qué anda.
+            ImportStatusTicker(base: status, isRunning: isScanning)
 
             if isScanning {
                 DiagnosticsLogView(
@@ -280,6 +281,54 @@ private extension ImportPhaseContent {
         .padding(WK.Spacing.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas)
+    }
+}
+
+/// El texto de espera, que va pasando por los pasos.
+///
+/// Los pasos son **los de verdad** y en su orden: primero se mira si hay
+/// alguien, luego se separa la prenda del fondo, luego se repasa el contorno y
+/// al final se miden los colores. Inventar frases de relleno haría lo mismo a
+/// la vista y mentiría; estas, además, sitúan el fallo cuando algo se atasca.
+private struct ImportStatusTicker: View {
+    let base: String
+    let isRunning: Bool
+
+    @State private var step = 0
+
+    private static let steps = [
+        "Mirando la foto…",
+        "Buscando la prenda…",
+        "Separándola del fondo…",
+        "Repasando el contorno…",
+        "Midiendo los colores…",
+        "Casi está…",
+    ]
+
+    /// Cuánto dura cada frase.
+    ///
+    /// Dos segundos y pico: menos parece nervioso —y da la impresión de que
+    /// cada paso dura eso, que no es verdad— y más vuelve a parecer quieto.
+    private static let interval = Duration.milliseconds(2200)
+
+    var body: some View {
+        Text(isRunning ? Self.steps[step] : base)
+            .font(WK.Font.callout)
+            .foregroundStyle(WK.Palette.secondaryText)
+            .contentTransition(.numericText())
+            .animation(WKAnimation.content, value: step)
+            .animation(WKAnimation.content, value: isRunning)
+            .task(id: isRunning) {
+                guard isRunning else { return }
+                // La última se queda puesta: seguir rotando después de "casi
+                // está" convertiría la espera en un carrusel y quitaría la
+                // única señal de que esto ya va a acabar.
+                while !Task.isCancelled, step < Self.steps.count - 1 {
+                    try? await Task.sleep(for: Self.interval)
+                    guard !Task.isCancelled else { return }
+                    step += 1
+                }
+            }
     }
 }
 
