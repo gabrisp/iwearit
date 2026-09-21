@@ -473,6 +473,58 @@ final class ImportModel {
     /// Y **tira la reconstrucción**: la que hubiera se generó a partir del
     /// recorte viejo, que es justo el que no valía. La nueva se pide sola al
     /// volver a la ficha.
+    /// Mejora el recorte **sin salir del dispositivo**.
+    ///
+    /// ## Qué usa
+    ///
+    /// Lo que ya tenemos: dónde cayó la prenda en la foto —el recorte
+    /// aproximado— y la foto entera. Con eso se vuelve a cortar como se corta
+    /// a mano: el sitio conocido es la semilla, y desde ahí se crece por todo
+    /// lo que no sea del color del fondo. Lo que estaba fuera y era prenda
+    /// entra; lo que es mesa, no.
+    ///
+    /// La semilla va **metida hacia dentro**: un rectángulo incluye las
+    /// esquinas, y las esquinas de un rectángulo alrededor de una prenda son
+    /// fondo. Empezando desde dentro, lo que se propaga es tela.
+    ///
+    /// ## Por qué esto y no la IA
+    ///
+    /// Porque es el mismo trabajo. Reconstruir una prenda plana sobre fondo
+    /// liso no necesita saber de ropa: necesita saber dónde acaba el color del
+    /// fondo, y eso se mide aquí, gratis y sin salir del teléfono.
+    func improve(candidateWithID id: UUID, in photo: CGImage) {
+        guard
+            let index = candidates.firstIndex(where: { $0.id == id }),
+            let rect = candidates[index].detected.sourceRect
+        else { return }
+
+        // Un 12% hacia dentro por cada lado: lo justo para dejar fuera las
+        // esquinas sin quedarse en una mota en el centro.
+        let inset = 0.12
+        let seed = CGRect(
+            x: rect.minX + rect.width * inset,
+            y: rect.minY + rect.height * inset,
+            width: rect.width * (1 - 2 * inset),
+            height: rect.height * (1 - 2 * inset)
+        )
+        let corners = [
+            CGPoint(x: seed.minX, y: seed.minY),
+            CGPoint(x: seed.maxX, y: seed.minY),
+            CGPoint(x: seed.maxX, y: seed.maxY),
+            CGPoint(x: seed.minX, y: seed.maxY),
+        ]
+        // Repetidos para pasar el mínimo de puntos del lazo: ocho puntos es lo
+        // que distingue un trazo de un resbalón, y un rectángulo tiene cuatro.
+        let path = corners + corners
+
+        guard let improved = ManualCrop.apply(to: photo, path: path) else {
+            DiagnosticsLog.record("RECORTE", "no se pudo mejorar el recorte", isProblem: true)
+            return
+        }
+        candidates[index].manualCrop = ImmutableImage(improved)
+        DiagnosticsLog.record("RECORTE", "recorte mejorado on-device")
+    }
+
     func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].manualCrop = ImmutableImage(image)

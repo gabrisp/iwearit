@@ -40,6 +40,8 @@ struct ImportSingleCard: View {
     /// Vuelve a pedir la versión de catálogo. Se genera sola al detectar; esto
     /// es para reintentarlo si falló.
     let onRestyle: () async -> Void
+    /// Vuelve a cortar la prenda del fondo con lo que ya hay en el teléfono.
+    let onImprove: () -> Void
 
     /// Qué imagen se está mirando. Vive aquí porque es estado de presentación:
     /// cambiarla no toca la prenda.
@@ -107,6 +109,17 @@ struct ImportSingleCard: View {
                         .font(WK.Font.caption)
                         .foregroundStyle(WK.Palette.secondaryText)
                 }
+
+                // **Mejorar, aquí mismo.** Donde estaba "redibujar con IA":
+                // hace el mismo trabajo —volver a cortar la prenda del
+                // fondo— con lo que ya hay en el teléfono. Ver
+                // `ImportModel.improve`.
+                Button { onImprove() } label: {
+                    Label("Mejorar recorte", systemImage: "wand.and.sparkles")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.accent)
+                }
+                .buttonStyle(WKPressStyle())
 
                 HStack(spacing: WK.Spacing.s) {
                     if let color = candidate.colors.first {

@@ -197,7 +197,8 @@ private struct ImportPhaseContent: View {
                             onChangeName: { model.setName($0, forCandidateWithID: only.id) },
                             onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
                             onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
-                            onRestyle: { await model.restyle(candidateWithID: only.id) }
+                            onRestyle: { await model.restyle(candidateWithID: only.id) },
+onImprove: { model.improve(candidateWithID: only.id, in: photo) }
                         )
                     } else {
                         // **La misma ficha, paginada.** Antes aquí había una

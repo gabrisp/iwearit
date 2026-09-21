@@ -550,6 +550,25 @@ public actor GarmentPipeline {
     ///   dar de alta al usuario como una prenda.
     /// - Con fondo **no liso**: ahí el segmentador es mejor que Vision, que se
     ///   llevaría la silla de detrás.
+    /// La misma prenda con el recorte que da el corte por color.
+    private func colourCutout(
+        of garment: DetectedGarment,
+        from image: CGImage,
+        using split: ColorSplitter.Split
+    ) -> DetectedGarment? {
+        guard
+            let cut = ColorSplitter.cutout(image, using: split),
+            let tight = CropNormalizer.opaqueBounds(of: cut),
+            let rawCrop = cut.cropping(to: tight),
+            let normalized = CropNormalizer.normalize(rawCrop, for: garment.kind)
+        else { return nil }
+
+        return garment.replacingImages(
+            normalized: ImmutableImage(normalized),
+            rawCrop: ImmutableImage(rawCrop)
+        )
+    }
+
     /// La prenda con la que seguir, si es que hay **una sola**.
     ///
     /// - Si el segmentador ya devolvió una, esa.
@@ -613,6 +632,31 @@ public actor GarmentPipeline {
             return garments
         }
 
+        // **Atajo para la foto de tienda.**
+        //
+        // Fondo blanco, prenda sola, una sola mancha: ahí el corte por color
+        // no es una de tres opciones, es **la** respuesta. Calcular además la
+        // máscara de sujeto —que es una petición a Vision, la parte cara de
+        // todo esto— y puntuar tres recortes a resolución completa era gastar
+        // segundos para volver a elegir el que ya se sabía.
+        //
+        // Se comprueba igualmente antes de quedárselo: si el recorte por color
+        // no puntúa bien, se sigue por el camino largo y compiten los tres.
+        if let split, split.pieceCount == 1, let quick = colourCutout(of: garment, from: image, using: split) {
+            let report = CutoutQuality.assess(quick.normalized.cgImage)
+            if report.isGoodEnough {
+                DiagnosticsLog.record(
+                    "RECORTE",
+                    "fondo liso y una sola pieza: vale el corte por color (\(report.summary))"
+                )
+                return [quick]
+            }
+            DiagnosticsLog.record(
+                "RECORTE",
+                "el corte por color no basta (\(report.summary)): se prueban los tres"
+            )
+        }
+
         // **Tres técnicas y se mide.**
         //
         // Ninguna gana siempre: el segmentador sabe de ropa pero no de esta
@@ -632,15 +676,8 @@ public actor GarmentPipeline {
             )))
         }
 
-        if let split,
-           let cut = ColorSplitter.cutout(image, using: split),
-           let tight = CropNormalizer.opaqueBounds(of: cut),
-           let rawCrop = cut.cropping(to: tight),
-           let normalized = CropNormalizer.normalize(rawCrop, for: garment.kind) {
-            candidates.append(("color", garment.replacingImages(
-                normalized: ImmutableImage(normalized),
-                rawCrop: ImmutableImage(rawCrop)
-            )))
+        if let split, let coloured = colourCutout(of: garment, from: image, using: split) {
+            candidates.append(("color", coloured))
         }
 
         // **Dos notas, no una.** La forma dice si el recorte está entero; la
