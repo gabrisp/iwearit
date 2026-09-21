@@ -204,7 +204,15 @@ final class CloudSync {
     /// Un error de CloudKit, traducido a lo único que hay que decidir: si esto
     /// es un problema del usuario, de la red, o nuestro.
     private func describe(code: CKError.Code?, message: String) -> CloudSyncStatus {
-        guard let code else { return .failed(message) }
+        guard let code else {
+            // El fallo de arranque más común no llega como `CKError` sino como
+            // error de Core Data: 134400 es "no hay sesión de iCloud". Sin
+            // traducirlo, Ajustes enseñaba "Error de Cocoa 134400", que no le
+            // dice nada a nadie.
+            return message.contains("134400") || message.lowercased().contains("icloud account")
+                ? .unavailable("sin sesión de iCloud")
+                : .failed(message)
+        }
         return switch code {
         case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited:
             .offline

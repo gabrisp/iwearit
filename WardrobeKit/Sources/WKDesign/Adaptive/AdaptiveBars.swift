@@ -130,3 +130,20 @@ public extension View {
         padding(.horizontal, -inset)
     }
 }
+
+public extension View {
+    /// Subtítulo de la barra de navegación.
+    ///
+    /// Existe desde iOS 26. En iOS 18 no hay dónde ponerlo y se omite: es
+    /// contexto, no información imprescindible, y meterlo como primera fila del
+    /// contenido lo convertiría en algo que se va con el scroll — que es justo
+    /// lo que se quería evitar subiéndolo a la barra.
+    @ViewBuilder
+    func wkNavigationSubtitle(_ subtitle: String) -> some View {
+        if #available(iOS 26, *) {
+            self.navigationSubtitle(subtitle)
+        } else {
+            self
+        }
+    }
+}

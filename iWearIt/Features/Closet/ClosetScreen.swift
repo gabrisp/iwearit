@@ -114,11 +114,18 @@ struct ClosetScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
+                    // **El icono suelto, no un `Button` dentro del enlace.**
+                    // Metido dentro, el botón se comía el toque y el enlace no
+                    // llegaba a dispararse nunca; apagándole el hit testing,
+                    // el enlace se quedaba sin nada que tocar. Un
+                    // `NavigationLink` ya es pulsable: lo que necesita es una
+                    // etiqueta, no otro botón.
                     NavigationLink(value: ClosetRoute.settings) {
-                        ProfileButton {}
-                            .allowsHitTesting(false)
+                        Image(systemName: "person.crop.circle")
+                            .font(WK.Font.headline)
+                            .contentShape(.rect)
                     }
-                    .buttonStyle(WKPressStyle())
+                    .tint(WK.Palette.primaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     ClosetAddMenu()

@@ -106,7 +106,25 @@ struct OutfitPickerSheet: View {
         // Cabecera en barra, no como primera fila del scroll: siendo contenido
         // se iba con él, y el título y la X tienen que quedarse quietos
         // mientras recorres el armario entero.
-        .adaptiveSafeAreaBar(edge: .top) { header }
+        // **Barra del sistema, no una fila puesta a mano.**
+        //
+        // La de antes era contenido: se movía con el layout, se recolocaba al
+        // aparecer la selección de abajo y había que reservarle hueco. En la
+        // barra de verdad el título se queda quieto pase lo que pase debajo, y
+        // los dos botones caen donde el sistema los pone en toda la app.
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .wkNavigationSubtitle(subtitle)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { capture = .camera } label: { Image(systemName: "plus") }
+                    .tint(WK.Palette.primaryText)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { dismiss() } label: { Image(systemName: "xmark") }
+                    .tint(WK.Palette.primaryText)
+            }
+        }
         .adaptiveSafeAreaBar(edge: .bottom) { bottom }
         .sheet(item: $capture) { step in
             switch step {
@@ -124,28 +142,33 @@ struct OutfitPickerSheet: View {
         }
     }
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(WK.Font.headline)
-                    .foregroundStyle(WK.Palette.primaryText)
-                Text(subtitle)
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-            }
-            Spacer()
-            // Círculos de cristal, no una cápsula opaca: la barra no lleva
-            // fondo propio y el armario sigue viéndose por debajo.
-            HStack(spacing: WK.Spacing.s) {
-                HeaderButton(symbol: "plus") { capture = .camera }
-                HeaderButton(symbol: "xmark") { dismiss() }
-            }
-        }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.top, WK.Spacing.m)
-        .padding(.bottom, WK.Spacing.s)
-    }
+    // **La cabecera de antes, comentada y no borrada.** Era una fila de
+    // contenido con el título, el subtítulo y los dos botones de cristal.
+    // Funcionaba, pero se movía con el layout: ahora eso lo resuelve la barra
+    // del sistema.
+    //
+    // private var header: some View {
+    // HStack(alignment: .top) {
+    // VStack(alignment: .leading, spacing: 2) {
+    // Text(title)
+    // .font(WK.Font.headline)
+    // .foregroundStyle(WK.Palette.primaryText)
+    // Text(subtitle)
+    // .font(WK.Font.caption)
+    // .foregroundStyle(WK.Palette.secondaryText)
+    // }
+    // Spacer()
+    // // Círculos de cristal, no una cápsula opaca: la barra no lleva
+    // // fondo propio y el armario sigue viéndose por debajo.
+    // HStack(spacing: WK.Spacing.s) {
+    // HeaderButton(symbol: "plus") { capture = .camera }
+    // HeaderButton(symbol: "xmark") { dismiss() }
+    // }
+    // }
+    // .padding(.horizontal, WK.Spacing.screenInset)
+    // .padding(.top, WK.Spacing.m)
+    // .padding(.bottom, WK.Spacing.s)
+    // }
 
     /// Filtros, lo que llevas elegido y el botón de seguir.
     ///

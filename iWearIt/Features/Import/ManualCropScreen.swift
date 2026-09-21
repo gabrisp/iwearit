@@ -18,7 +18,17 @@ struct ManualCropScreen: View {
     let image: CGImage
     /// Devuelve el recorte hecho a mano. Quien llama decide qué hacer con él:
     /// en la importación sustituye al candidato, en la ficha a la prenda.
+    ///
+    /// Puede llamarse **varias veces**: una foto suele traer más de una prenda
+    /// y obligar a entrar y salir por cada una era hacer el mismo camino tres
+    /// veces. Ver `keepsGoing`.
     let onCrop: (CGImage) -> Void
+    /// Si al terminar un recorte la pantalla se queda para el siguiente.
+    ///
+    /// En la importación sí: estás separando las prendas de una foto. Al
+    /// cambiar la imagen de una prenda que ya existe, no: ahí se recorta una y
+    /// se vuelve.
+    var keepsGoing = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -27,6 +37,8 @@ struct ManualCropScreen: View {
     /// teléfono a mitad no invalida lo dibujado.
     @State private var path: [CGPoint] = []
     @State private var isWorking = false
+    /// Cuántas van en esta sesión. Solo para poder decirlo.
+    @State private var cropped = 0
 
     private var canCrop: Bool { path.count >= ManualCrop.minimumPoints }
 
@@ -90,32 +102,49 @@ struct ManualCropScreen: View {
                 .font(WK.Font.headline)
                 .foregroundStyle(WK.Palette.primaryText)
             Spacer()
-            Button("Repetir") { path = [] }
-                .font(WK.Font.callout)
-                .foregroundStyle(canCrop ? WK.Palette.accent : WK.Palette.tertiaryText)
-                .disabled(!canCrop)
+            // Con recortes ya hechos, el botón de la derecha pasa a ser el de
+            // acabar: es lo que se quiere después del último.
+            if keepsGoing, cropped > 0, !canCrop {
+                Button("Listo") { dismiss() }
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.accent)
+            } else {
+                Button("Repetir") { path = [] }
+                    .font(WK.Font.callout)
+                    .foregroundStyle(canCrop ? WK.Palette.accent : WK.Palette.tertiaryText)
+                    .disabled(!canCrop)
+            }
         }
         .padding(.top, WK.Spacing.m)
     }
 
     private var footer: some View {
         VStack(spacing: WK.Spacing.s) {
-            Text(
-                canCrop
-                    ? "Se queda lo de dentro del trazo."
-                    : "Dibuja alrededor de la prenda sin levantar el dedo."
-            )
+            Text(status)
             .font(WK.Font.caption)
             .foregroundStyle(WK.Palette.secondaryText)
             .contentTransition(.opacity)
 
-            WKPrimaryButton(isWorking ? "Recortando…" : "Usar este recorte") {
-                crop()
-            }
+            WKPrimaryButton(primaryTitle) { crop() }
             .disabled(!canCrop || isWorking)
             .opacity(canCrop ? 1 : 0.4)
         }
         .animation(WKAnimation.selection, value: canCrop)
+    }
+
+    private var status: String {
+        if canCrop { return "Se queda lo de dentro del trazo." }
+        if cropped > 0 {
+            return cropped == 1
+                ? "Una prenda recortada. Rodea otra o toca Listo."
+                : "\(cropped) prendas recortadas. Rodea otra o toca Listo."
+        }
+        return "Dibuja alrededor de la prenda sin levantar el dedo."
+    }
+
+    private var primaryTitle: String {
+        if isWorking { return "Recortando…" }
+        return keepsGoing && cropped > 0 ? "Añadir esta también" : "Usar este recorte"
     }
 
     /// Dónde cae la imagen dentro del hueco, con `scaledToFit`.
@@ -160,7 +189,16 @@ struct ManualCropScreen: View {
             isWorking = false
             guard let result else { return }
             onCrop(result)
-            dismiss()
+            cropped += 1
+
+            // Con varias prendas en la foto, la pantalla se queda: se borra el
+            // trazo y se puede rodear la siguiente. Salir y volver a entrar por
+            // cada una era recorrer el mismo camino tres veces.
+            if keepsGoing {
+                withAnimation(WKAnimation.content) { path = [] }
+            } else {
+                dismiss()
+            }
         }
     }
 }

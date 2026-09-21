@@ -233,6 +233,13 @@ enum SegmentedGarmentExtractor {
     ///   Encendido —el escaneo de la galería— sí hace falta: ahí una foto
     ///   puede traer dos camisetas dobladas sobre la cama y meterlas en la
     ///   misma prenda las pierde las dos.
+    /// Radio del cierre, en píxeles del mapa de clases.
+    ///
+    /// Tres sobre un mapa de 512 es aproximadamente medio centímetro de tela en
+    /// una foto de cuerpo entero: tapa arrugas y cinturones, y no llega a unir
+    /// una camiseta con un pantalón que se tocan.
+    static let closingRadius = 3
+
     static func regions(in map: ClassMap, splitting: Bool = true) -> [Region] {
         let width = map.width
         let height = map.height
@@ -271,6 +278,20 @@ enum SegmentedGarmentExtractor {
             for index in 0..<(width * height) where groupOf[index] == Int8(group) {
                 mask[index] = 1
             }
+
+            // **Cerrar los agujeros antes de contar manchas.**
+            //
+            // Es lo que arregla el pantalón que se detectaba como tres prendas.
+            // Una arruga marcada, la sombra de un pliegue o el cinturón cambian
+            // el color lo justo para que una franja de píxeles salga con otra
+            // clase, y esa grieta parte la máscara en dos. El contador de
+            // componentes hace lo que debe —ve dos manchas— pero la prenda era
+            // una.
+            //
+            // El cierre engorda la máscara y la vuelve a adelgazar: los huecos
+            // más finos que el radio desaparecen y el contorno se queda donde
+            // estaba.
+            Morphology.close(&mask, width: width, height: height, radius: closingRadius)
 
             let labelled = ConnectedComponents.label(mask: mask, width: width, height: height)
             let pieces = labelled.components.filter { $0.pixelCount >= speckleFloor }

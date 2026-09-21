@@ -74,8 +74,13 @@ struct AdvancedCanvasScreen: View {
     @State private var drawing = CanvasDrawing()
 
     private var isTrayOpen: Bool { trayKind != nil }
-    /// Lo que mide la bandeja. Lo rellena la propia hoja al medirse, y sirve
-    /// para reservarle el hueco aquí fuera.
+    /// Lo que mide la bandeja.
+    ///
+    /// Solo para decirle su alto a la hoja. **Ya no reserva hueco en el
+    /// editor**: reservarlo era lo que movía los botones de abajo cada vez que
+    /// se abría o cerraba algo, y al cerrarse dejaba la barra colocada donde
+    /// estaba la bandeja más alta —fuera de la pantalla y sin responder—.
+    /// Ahora los controles no se mueven nunca: la bandeja se pone encima.
     @State private var trayHeight: CGFloat = CanvasTray.initialHeight
     @State private var editingText: TextSticker?
     /// Qué elemento del lienzo es el texto que se está editando.
@@ -192,7 +197,6 @@ struct AdvancedCanvasScreen: View {
         .interactiveDismissDisabled()
         .toolbarVisibility(.hidden, for: .tabBar)
         .animation(WKAnimation.arrival, value: selection.selectedID)
-        .animation(WKAnimation.arrival, value: isTrayOpen)
         .onChange(of: selection.selectedID) { _, id in
             if id != nil { trayKind = nil }
         }
@@ -206,12 +210,6 @@ struct AdvancedCanvasScreen: View {
         // esto, el mismo arrastre haría las dos cosas.
         .onChange(of: trayKind) { _, kind in
             drawing.isActive = kind == .drawing
-            // **El hueco reservado se devuelve al cerrar.** Si no, la barra de
-            // abajo se queda a la altura que tenía la bandeja más alta que se
-            // abrió, y parece que se ha ido hacia abajo sola.
-            if kind == nil {
-                withAnimation(WKAnimation.arrival) { trayHeight = CanvasTray.initialHeight }
-            }
         }
         .fullScreenCover(item: $editingText) { sticker in
             TextStickerEditor(sticker: sticker) { edited in
@@ -321,19 +319,6 @@ struct AdvancedCanvasScreen: View {
             )
             .padding(.bottom, WK.Spacing.m)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-        } else if isTrayOpen {
-            // **El mismo hueco de siempre, ahora vacío.**
-            //
-            // Aquí se dibujaba la bandeja. Su contenido se ha mudado a una
-            // hoja —que trae el arrastre del sistema y su física—, pero el
-            // sitio se sigue reservando en el mismo punto del layout: una hoja
-            // se pone *encima* y no empuja nada, así que sin este hueco los
-            // botones del editor se quedarían debajo de ella.
-            //
-            // El alto lo mide la propia hoja y llega por `trayHeight`, de modo
-            // que el hueco es exactamente el que ocupa y no un número a mano.
-            Color.clear
-                .frame(height: trayHeight)
         } else {
             // **Cuatro iconos y el color, en una sola pieza.**
             //

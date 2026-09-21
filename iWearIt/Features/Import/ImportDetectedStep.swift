@@ -62,13 +62,19 @@ struct ImportDetectedStep: View {
         .background(WK.Palette.canvas)
         .adaptiveSafeAreaBar(edge: .bottom) { continueBar }
         .fullScreenCover(isPresented: $isCroppingByHand) {
-            ManualCropScreen(image: photo) { cropped in
-                if let recropping {
-                    model.setManualCrop(cropped, forCandidateWithID: recropping)
-                } else {
-                    model.addManualCandidate(cropped)
-                }
-            }
+            ManualCropScreen(
+                image: photo,
+                onCrop: { cropped in
+                    if let recropping {
+                        model.setManualCrop(cropped, forCandidateWithID: recropping)
+                    } else {
+                        model.addManualCandidate(cropped)
+                    }
+                },
+                // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
+                // una que ya está, se vuelve al acabar.
+                keepsGoing: recropping == nil
+            )
         }
     }
 

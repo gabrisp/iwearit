@@ -11,27 +11,31 @@ import WKPersistence
 /// comporta distinto en cada versión de iOS.
 struct ProfileScreen: View {
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: WK.Spacing.l) {
-                    SubscriptionSection()
-                    SyncSection()
-                    DevicesSection()
-                    WardrobeStatsSection()
-                    ModelSection()
-                    DiagnosticsSection()
-                    #if DEBUG
-                    DebugSection()
-                    #endif
-                }
-                .padding(.horizontal, WK.Spacing.screenInset)
-                .padding(.bottom, WK.Spacing.xxl)
+        // **Sin `NavigationStack` propia.** Ajustes es ahora una pantalla que
+        // se empuja sobre la del armario; creando aquí otra pila, la pantalla
+        // quedaba dentro de una navegación que nadie estaba usando —con su
+        // barra escondida encima de la de verdad— y el contenido no llegaba a
+        // dibujarse. La barra la pone quien empuja.
+        ScrollView {
+            VStack(spacing: WK.Spacing.l) {
+                SubscriptionSection()
+                SyncSection()
+                DevicesSection()
+                WardrobeStatsSection()
+                ModelSection()
+                DiagnosticsSection()
+                #if DEBUG
+                DebugSection()
+                #endif
             }
-            .scrollIndicators(.hidden)
-            .background(WK.Palette.canvas.ignoresSafeArea())
-            .adaptiveScrollEdge(.top)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.bottom, WK.Spacing.xxl)
         }
+        .scrollIndicators(.hidden)
+        .background(WK.Palette.canvas.ignoresSafeArea())
+        .adaptiveScrollEdge(.top)
+        .navigationTitle("Ajustes")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
