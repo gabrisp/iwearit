@@ -68,7 +68,6 @@ final class CanvasEditingSession {
 
         let context = ModelContext(parent.container)
         context.autosaveEnabled = false
-        context.undoManager = undoManager
         guard let editable = context.model(for: outfit.persistentModelID) as? Outfit else {
             return nil
         }
@@ -95,33 +94,6 @@ final class CanvasEditingSession {
         parent.rollback()
     }
 
-    /// El historial **de esta sesión**.
-    ///
-    /// Aquí sí se puede. En el contexto de la app no: es el que respalda la
-    /// sincronización, y registrar cada cambio para deshacerlo por encima de
-    /// eso tiraba el editor al aparecer. Este contexto no sincroniza nada
-    /// hasta el check, así que su historial es asunto suyo.
-    let undoManager = UndoManager()
-
-    /// Deshacer, **en el siguiente turno del run loop**.
-    ///
-    /// Y esto es lo que faltaba. `UndoManager` agrupa por evento: abre un
-    /// grupo al empezar el evento y lo cierra al acabarlo. Llamar a `undo()`
-    /// desde la acción de un botón es llamarlo **con el grupo abierto**, y eso
-    /// no es un fallo silencioso: lanza *"undo was called with too many nested
-    /// undo groups"* y se lleva la app por delante. Era exactamente el crash.
-    ///
-    /// Aplazándolo un turno, el grupo ya está cerrado y la operación es la que
-    /// se espera: un paso, el del gesto que acaba de terminar.
-    func undo() {
-        guard undoManager.canUndo else { return }
-        DispatchQueue.main.async { [undoManager] in undoManager.undo() }
-    }
-
-    func redo() {
-        guard undoManager.canRedo else { return }
-        DispatchQueue.main.async { [undoManager] in undoManager.redo() }
-    }
 }
 
 /// El lienzo y sus controles.
@@ -192,10 +164,10 @@ private struct CanvasEditorScreen: View {
     /// dentro del canvas nadie de fuera podría tocarlo.
     @State private var drawing = CanvasDrawing()
     @State private var isConfirmingDiscard = false
-    /// `UndoManager` no es observable, así que el estado de los dos botones se
-    /// copia a mano cada vez que el historial puede haber cambiado.
-    @State private var canUndo = false
-    @State private var canRedo = false
+    @State private var history = CanvasHistory()
+
+    /// Cómo está el lienzo ahora mismo.
+    private var snapshot: CanvasSnapshot { CanvasSnapshot(outfit) }
 
     private var isTrayOpen: Bool { trayKind != nil }
     /// Lo que mide la bandeja.
@@ -252,9 +224,29 @@ private struct CanvasEditorScreen: View {
         return Color(red: components.red, green: components.green, blue: components.blue)
     }
 
-    private func refreshHistory() {
-        if canUndo != session.undoManager.canUndo { canUndo = session.undoManager.canUndo }
-        if canRedo != session.undoManager.canRedo { canRedo = session.undoManager.canRedo }
+    private func undo() {
+        guard let previous = history.undo(from: snapshot) else { return }
+        apply(previous)
+    }
+
+    private func redo() {
+        guard let next = history.redo(from: snapshot) else { return }
+        apply(next)
+    }
+
+    /// Escribe una instantánea en el lienzo **sin que cuente como un paso
+    /// nuevo**: es el propio deshacer, y apuntarlo dejaría un bucle del que no
+    /// se sale.
+    private func apply(_ state: CanvasSnapshot) {
+        selection.clear()
+        history.restoring {
+            withAnimation(WKAnimation.content) {
+                state.restore(into: outfit, context: modelContext)
+            }
+        }
+        // La pintura vive además en memoria, en su propio objeto: sin esto, el
+        // lienzo volvía atrás y los trazos se quedaban donde estaban.
+        drawing.load(from: outfit.drawingData)
     }
 
     private func close() {
@@ -310,15 +302,15 @@ private struct CanvasEditorScreen: View {
             // —que es lo que probamos antes— el editor ni se abría.
             ToolbarItem(placement: .principal) {
                 HStack(spacing: WK.Spacing.l) {
-                    Button { session.undo() } label: {
+                    Button { undo() } label: {
                         Image(systemName: "arrow.uturn.backward")
                     }
-                    .disabled(!canUndo)
+                    .disabled(!history.canUndo)
 
-                    Button { session.redo() } label: {
+                    Button { redo() } label: {
                         Image(systemName: "arrow.uturn.forward")
                     }
-                    .disabled(!canRedo)
+                    .disabled(!history.canRedo)
                 }
                 .tint(WK.Palette.primaryText)
             }
@@ -342,16 +334,15 @@ private struct CanvasEditorScreen: View {
         // hasta que el historial sea del lienzo y no de la base de datos: una
         // pila de transformaciones propia, que es lo único que se puede
         // deshacer sin tocar el contexto compartido.
-        // El historial cambia en cada escritura del lienzo, y `UndoManager`
-        // avisa por notificación. Filtrada al de esta sesión: hay otros en la
-        // app y no tienen nada que ver con estos dos botones.
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: .NSUndoManagerCheckpoint,
-                object: session.undoManager
-            )
-        ) { _ in
-            refreshHistory()
+        // **El historial se apunta solo.**
+        //
+        // En vez de enganchar cada acción —mover, borrar, pintar, cambiar el
+        // color del fondo, que además se escribe desde otra vista— se mira el
+        // lienzo entero: cuando cambia, lo de antes pasa a la pila. Así no hay
+        // forma de que una acción nueva se quede sin registrar, que es
+        // exactamente lo que deja un deshacer a medias.
+        .onChange(of: snapshot) { previous, _ in
+            history.record(previous)
         }
         // Descartar es **no guardar**: el contexto de la sesión se va con la
         // pantalla y se lleva los cambios con él. Por eso la pregunta puede

@@ -78,56 +78,46 @@ private struct OverscrollAction: ViewModifier {
     @State private var isEligible = false
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
-    /// La identidad del cristal. Ver `pill`.
-    @Namespace private var glass
-    /// El nombre tiene que ser **el mismo** en los dos extremos: es lo único
-    /// que le dice a `.matchedGeometry` que son la misma superficie.
-    private static let glassName = "overscroll"
 
     /// La luz del aura.
     ///
-    /// Blanca y **aditiva**: no es un relleno que tapa, es un foco que se
-    /// enciende detrás de la palabra. Un relleno oscuro tapaba lo que había
-    /// debajo y la píldora dejaba de parecer cristal para parecer una pastilla
-    /// pegada encima; sumando luz, lo de debajo sigue estando y solo se
-    /// ilumina.
+    /// Blanca: no es un relleno que tapa, es un foco que se enciende detrás de
+    /// la palabra. Un relleno oscuro tapaba lo que había debajo y la píldora
+    /// dejaba de parecer cristal para parecer una pastilla pegada encima.
+    ///
+    /// Sin `blendMode` aditivo, por mucho que quede mejor: mezclar dentro del
+    /// cristal es justo lo que lo deja fuera de su propia transición.
     static let fill = Color.white
 
-    /// El aura: **un punto desenfocado** que crece desde el centro.
+    /// El aura: una luz blanca que se abre desde el centro.
     ///
-    /// Un círculo pequeño con mucho desenfoque, y no un degradado, por dos
-    /// razones.
+    /// Elíptica y en fracciones del tamaño, así que no hay que medir la
+    /// píldora y el foco escala solo si cambia el texto.
     ///
-    /// La primera es un fallo: con el progreso a cero el degradado elíptico es
-    /// degenerado —radio cero— y se pinta **entero del primer color**. Por eso
-    /// la píldora salía rellena durante un instante y luego se corregía. Un
-    /// punto a escala cero mide cero y no hay nada que corregir.
-    ///
-    /// La segunda es que un degradado de tres paradas, por suave que sea,
-    /// tiene un sitio donde acaba. Un punto desenfocado no acaba en ninguna
-    /// parte: es una mancha de luz detrás de la palabra que se va comiendo la
-    /// píldora.
-    static func aura(_ color: Color, progress: CGFloat) -> some View {
-        Circle()
-            .fill(color)
-            .frame(width: dotSize, height: dotSize)
-            .blur(radius: dotBlur)
-            // Suma luz en vez de pintar encima: es lo que hace que la píldora
-            // parezca encenderse y no mancharse.
-            .blendMode(.plusLighter)
-            // Hasta cubrir la píldora entera. Llega deslavazado a las puntas,
-            // que es justo lo que se quiere: se tiñen las últimas y sin canto.
-            .scaleEffect(max(0, progress) * dotGrowth)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    /// A progreso cero devuelve transparente **explícitamente**: un degradado
+    /// elíptico con radio cero es degenerado y algunas veces se pinta entero
+    /// del primer color, que es por lo que la píldora aparecía rellena un
+    /// instante al salir.
+    @ViewBuilder
+    static func aura(progress: CGFloat) -> some View {
+        if progress <= 0 {
+            Color.clear
+        } else {
+            EllipticalGradient(
+                stops: [
+                    .init(color: fill, location: 0),
+                    .init(color: fill.opacity(0.55), location: 0.5),
+                    .init(color: fill.opacity(0), location: 1),
+                ],
+                center: .center,
+                startRadiusFraction: 0,
+                // Más allá de la mitad: una píldora es mucho más ancha que
+                // alta, y un foco que solo llegue a su borde corto deja las
+                // puntas sin encender.
+                endRadiusFraction: progress * 1.8
+            )
+        }
     }
-
-    /// De qué tamaño parte el punto, cuánto se difumina y cuánto crece.
-    ///
-    /// El desenfoque es casi tan grande como el punto: por debajo de eso se le
-    /// ve la forma de círculo y deja de ser un aura.
-    private static let dotSize: CGFloat = 22
-    private static let dotBlur: CGFloat = 16
-    private static let dotGrowth: CGFloat = 14
 
     /// Cuánto hay que desbordar para que el indicador acabe de aparecer.
     /// Separa "estás desbordando" de "estás pidiendo algo".
@@ -178,30 +168,7 @@ private struct OverscrollAction: ViewModifier {
         let isFull = progress == 1
 
         return AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-            // **Las dos caras del mismo cristal.**
-            //
-            // Y esto es lo que faltaba. `.matchedGeometry` no inventa una
-            // transición: **empareja dos superficies** con el mismo
-            // `glassEffectID`. Con una sola —la píldora apareciendo de la
-            // nada— no hay pareja, y iOS cae a su transición de material, que
-            // es literalmente un desenfoque sustituyendo a otro. Por eso
-            // seguía saliendo borrosa por mucho contenedor e id que le
-            // pusiéramos: le faltaba el otro extremo.
-            //
-            // El otro extremo es esta gota de un punto: existe cuando la
-            // píldora no, lleva el mismo cristal y el mismo id, y no se ve.
-            // Con ella, el cristal tiene de dónde salir y adónde volver, y lo
-            // que se ve es la superficie estirándose hasta ser la píldora.
-            if isVisible {
-                indicator
-            } else {
-                Color.clear
-                    .frame(width: 1, height: 1)
-                    .adaptiveGlass(in: .capsule)
-                    .adaptiveGlassID(Self.glassName, in: glass)
-                    .adaptiveGlassTransition()
-                    .allowsHitTesting(false)
-            }
+            if isVisible { indicator }
         }
         // **El rebote, por fuera de la píldora.**
         //
@@ -256,25 +223,27 @@ private struct OverscrollAction: ViewModifier {
     }
 
     private var indicator: some View {
-        // **El aura, hermana del cristal y no dentro de él.**
-        //
-        // Un desenfoque o un modo de mezcla dentro de la vista que lleva el
-        // `glassEffect` obliga a SwiftUI a rasterizar ese grupo, y un cristal
-        // rasterizado deja de participar en la transición del contenedor. Como
-        // hermana en un `ZStack`, la luz se compone encima y el cristal se
-        // queda limpio.
-        ZStack {
-            pillContent
-                .foregroundStyle(WK.Palette.primaryText)
-                .adaptiveGlass(in: .capsule)
-                .adaptiveGlassID(Self.glassName, in: glass)
-                .adaptiveGlassTransition()
-
-            Self.aura(Self.fill, progress: progress)
-                .clipShape(.capsule)
-                .allowsHitTesting(false)
-        }
-        .allowsHitTesting(false)
+        pillContent
+            .foregroundStyle(WK.Palette.primaryText)
+            // **Una luz que crece, no una barra que se rellena.**
+            //
+            // Y **sin desenfoque ni modo de mezcla**, que es lo que rompió
+            // esto dos veces: cualquiera de los dos dentro de la vista que
+            // lleva el `glassEffect` obliga a SwiftUI a rasterizar el grupo, y
+            // un cristal rasterizado se queda fuera de la transición de su
+            // contenedor — aparece con el desenfoque de material en vez de
+            // formarse.
+            //
+            // Un degradado no rasteriza nada y da la misma luz: blanco en el
+            // centro, transparente en el borde. Es un foco encendiéndose
+            // detrás de la palabra.
+            .background {
+                Self.aura(progress: progress)
+                    .clipShape(.capsule)
+            }
+            .adaptiveGlass(in: .capsule)
+            .adaptiveGlassTransition()
+            .allowsHitTesting(false)
     }
 
     private func fireIfDue() {
