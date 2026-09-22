@@ -79,6 +79,12 @@ struct GarmentEditSheet: View {
         // cambiar cinco campos, y ahí una hoja a media altura deja la imagen
         // recortada y las filas apretadas contra el teclado.
         .presentationDetents([.large])
+        // Cualquier cambio en lo que forma el nombre lo rehace.
+        .onChange(of: garment.subcategory) { regenerateName() }
+        .onChange(of: garment.material) { regenerateName() }
+        .onChange(of: garment.brand) { regenerateName() }
+        .onChange(of: garment.kindRaw) { regenerateName() }
+        .onChange(of: garment.colors) { regenerateName() }
         .sheet(item: $editing) { field in
             sheet(for: field)
         }
@@ -182,7 +188,10 @@ struct GarmentEditSheet: View {
 
     private var rows: some View {
         VStack(spacing: 0) {
-            NameRow(name: $garment.name)
+            // **El nombre no se escribe: se compone.** Sale del tipo y de su
+            // marca, material o color, y se rehace solo cuando cambian. Ver
+            // `regenerateName()`. La fila editable se queda comentada.
+            // NameRow(name: $garment.name)
             ColorRow(color: garment.dominantColor)
             // "Balda" y no "Parte": la balda es camisetas, pantalones… La parte
             // del cuerpo es un filtro para buscar, no un sitio.
@@ -229,6 +238,17 @@ struct GarmentEditSheet: View {
     /// `nil` y `""` son lo mismo para quien escribe y distintos para la base
     /// de datos: guardar cadenas vacías llena el modelo de campos que parecen
     /// puestos y no dicen nada.
+    /// El nombre, compuesto con la misma regla que al importar.
+    private func regenerateName() {
+        garment.name = GarmentNaming.name(
+            kind: garment.kind,
+            subcategory: GarmentVocabulary.displayType(garment.subcategory),
+            material: garment.material,
+            colors: garment.colors,
+            brand: garment.brand
+        )
+    }
+
     private var notesBinding: Binding<String> {
         Binding(
             get: { garment.notes ?? "" },

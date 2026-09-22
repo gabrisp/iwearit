@@ -38,3 +38,60 @@ public struct SeasonSet: OptionSet, Codable, Sendable, Hashable {
 
     public static let all: SeasonSet = [.spring, .summer, .autumn, .winter]
 }
+
+
+public extension NamedColor {
+
+    /// El color **en una palabra de las de siempre**.
+    ///
+    /// La tabla de colores tiene ciento y pico nombres —"chocolate", "teja",
+    /// "topo"— y aciertan el matiz a costa de que nadie busque por ellos ni
+    /// sepa bien qué color son. Para el nombre de una prenda basta la familia:
+    /// "Camiseta azul", no "Camiseta azul acero". Sale del propio RGB, así que
+    /// un color elegido a mano en el selector también tiene su palabra.
+    var basicName: String {
+        let r = red, g = green, b = blue
+        let maxValue = max(r, g, b), minValue = min(r, g, b)
+        let lightness = (maxValue + minValue) / 2
+        let delta = maxValue - minValue
+        let saturation = delta == 0 ? 0 : delta / (1 - abs(2 * lightness - 1))
+
+        // Sin color: de negro a blanco.
+        if saturation < 0.15 || delta < 0.06 {
+            switch lightness {
+            case ..<0.18: return "negro"
+            case ..<0.45: return "gris oscuro"
+            case ..<0.78: return "gris"
+            default: return "blanco"
+            }
+        }
+
+        var hue: Double
+        switch maxValue {
+        case r: hue = ((g - b) / delta).truncatingRemainder(dividingBy: 6)
+        case g: hue = (b - r) / delta + 2
+        default: hue = (r - g) / delta + 4
+        }
+        hue *= 60
+        if hue < 0 { hue += 360 }
+
+        // Los marrones y los beiges son naranjas apagados u oscuros: el ojo
+        // no los llama naranja.
+        if (15..<50).contains(hue) {
+            if lightness > 0.72 { return "beige" }
+            if lightness < 0.42 || saturation < 0.45 { return "marrón" }
+        }
+        if lightness < 0.14 { return "negro" }
+        if lightness > 0.9 { return "blanco" }
+
+        switch hue {
+        case ..<15, 345...: return lightness > 0.7 ? "rosa" : "rojo"
+        case ..<45: return "naranja"
+        case ..<70: return "amarillo"
+        case ..<165: return "verde"
+        case ..<255: return lightness < 0.3 ? "azul marino" : "azul"
+        case ..<290: return "morado"
+        default: return "rosa"
+        }
+    }
+}

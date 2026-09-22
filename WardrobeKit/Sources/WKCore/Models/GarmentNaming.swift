@@ -50,14 +50,18 @@ public enum GarmentNaming {
     ) -> String {
         let noun = subcategory?.capitalized ?? defaultNoun(for: kind)
 
-        // **Con marca, la marca manda.** Es lo más distintivo que se sabe de
-        // la prenda y lo que se usa para referirse a ella: "el polo de Golden
-        // Goose", no "el polo de algodón azul marino".
-        if let brand { return "\(noun) \(brand)" }
+        // **Un apellido, no tres.** "Zapatillas Golden Goose", "Cazadora
+        // cuero", "Camiseta azul": el tipo y lo que más la distingue. Con
+        // marca, la marca, que es como se llama a una prenda; sin marca, el
+        // material, que distingue una cazadora de cuero de una vaquera; y si
+        // no, el color. Juntarlos todos daba "Polo algodón azul marino
+        // Stüssy", que no es un nombre sino una ficha.
+        if let brand, !brand.isEmpty { return "\(noun) \(brand)" }
+        if let material, !material.isEmpty { return "\(noun) \(material.lowercased())" }
 
         let dominant = colors.max(by: { $0.weight < $1.weight })
-        let color = (dominant?.weight ?? 0) >= colorNameThreshold ? dominant?.nameKey : nil
-        return [noun, material?.capitalized, color].compactMap { $0 }.joined(separator: " ")
+        guard let dominant, dominant.weight >= colorNameThreshold else { return noun }
+        return "\(noun) \(dominant.basicName)"
     }
 
     public static func name(for draft: GarmentDraft) -> String {

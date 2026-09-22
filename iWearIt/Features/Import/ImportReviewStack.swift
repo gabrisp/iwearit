@@ -287,8 +287,13 @@ private struct ImportGarmentCard: View {
             in: .rect(cornerRadius: WK.Radius.card, style: .continuous)
         )
         .overlay {
+            // Naranja si ya tienes una parecida: se ve de lejos, antes de leer
+            // nada, y es justo lo que hay que mirar antes de guardarla.
             RoundedRectangle(cornerRadius: WK.Radius.card, style: .continuous)
-                .stroke(WK.Palette.ink(0.06), lineWidth: 1)
+                .stroke(
+                    candidate.duplicateOf != nil ? Color.orange : WK.Palette.ink(0.06),
+                    lineWidth: candidate.duplicateOf != nil ? 2 : 1
+                )
         }
         // Toda la tarjeta abre la ficha; los botones de dentro siguen a lo
         // suyo porque un `Button` se queda el toque antes que el gesto.
