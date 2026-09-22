@@ -65,9 +65,12 @@ struct ImportPhotoStrip: View {
                             // pequeñas y apagadas. Interactivo para que la
                             // transición vaya con el dedo, no al soltar.
                             .scrollTransition(.interactive) { content, phase in
+                                // Las vecinas, un poco borrosas y al 80%: se ve
+                                // que están ahí sin competir con la del centro.
                                 content
                                     .scaleEffect(phase.isIdentity ? 1 : 0.97)
-                                    .opacity(phase.isIdentity ? 1 : 0.6)
+                                    .opacity(phase.isIdentity ? 1 : 0.8)
+                                    .blur(radius: phase.isIdentity ? 0 : 2.5)
                             }
                             .id(index)
                         }
