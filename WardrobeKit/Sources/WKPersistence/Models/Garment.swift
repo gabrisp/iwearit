@@ -29,6 +29,10 @@ public final class Garment {
     public var brand: String?
     public var size: String?
     public var material: String?
+    /// El corte: la manga en lo de arriba, el largo en lo de abajo. Opcional
+    /// y con nombre libre —se puede escribir uno propio—; ver
+    /// `GarmentVocabulary.cuts(for:)`.
+    public var cut: String?
     public var seasonsRaw: Int = SeasonSet.all.rawValue
     public var tags: [String] = []
     public var notes: String?

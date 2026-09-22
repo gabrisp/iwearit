@@ -35,7 +35,7 @@ struct GarmentEditSheet: View {
     @State private var cropSource: CGImage?
 
     private enum Field: String, Identifiable {
-        case shelf, type, tags, warmth, material
+        case shelf, type, cut, tags, warmth, material
         var id: String { rawValue }
     }
 
@@ -184,14 +184,22 @@ struct GarmentEditSheet: View {
         VStack(spacing: 0) {
             NameRow(name: $garment.name)
             ColorRow(color: garment.dominantColor)
+            // "Balda" y no "Parte": la balda es camisetas, pantalones… La parte
+            // del cuerpo es un filtro para buscar, no un sitio.
             EditRow(
                 value: garment.category?.name ?? "Sin balda",
-                label: "Parte"
+                label: "Balda"
             ) { editing = .shelf }
             EditRow(
                 value: garment.subcategory?.capitalized ?? "Sin definir",
                 label: "Tipo"
             ) { editing = .type }
+            if let cutTitle = GarmentVocabulary.cutTitle(for: garment.kind) {
+                EditRow(
+                    value: garment.cut ?? "Sin definir",
+                    label: cutTitle
+                ) { editing = .cut }
+            }
             EditRow(
                 value: garment.tags.isEmpty ? "Sin etiquetas" : garment.tags.joined(separator: " · "),
                 label: "Etiquetas"
@@ -257,6 +265,18 @@ struct GarmentEditSheet: View {
                     set: { garment.tags = Array($0) }
                 ),
                 limit: GarmentVocabulary.maximumTags
+            )
+        case .cut:
+            WKChipSheet(
+                title: GarmentVocabulary.cutTitle(for: garment.kind) ?? "Corte",
+                subtitle: "Elige uno o escribe el tuyo",
+                options: GarmentVocabulary.cuts(for: garment.kind).map { .init(id: $0, label: $0) },
+                selection: Binding(
+                    get: { Set([garment.cut].compactMap { $0 }) },
+                    set: { garment.cut = $0.first }
+                ),
+                limit: 1,
+                allowsCustom: true
             )
         case .material:
             WKChipSheet(

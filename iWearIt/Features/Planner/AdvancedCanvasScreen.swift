@@ -875,6 +875,10 @@ private struct CanvasGarmentTray: View {
             if case let .category(slug, _) = filter { return slug }
             return nil
         })
+        let parts = Set(filters.compactMap { filter -> GarmentKind? in
+            if case let .part(kind) = filter { return kind }
+            return nil
+        })
         let colorKeys = Set(filters.compactMap(\.colorKey))
         let tags = Set(filters.compactMap { filter -> String? in
             if case let .tag(tag) = filter { return tag }
@@ -882,6 +886,9 @@ private struct CanvasGarmentTray: View {
         })
 
         var result = garments
+        if !parts.isEmpty {
+            result = result.filter { parts.contains($0.kind) }
+        }
         if !shelfSlugs.isEmpty {
             result = result.filter { shelfSlugs.contains($0.category?.slug ?? "") }
         }
@@ -1013,6 +1020,10 @@ private struct CanvasGarmentTray: View {
             TrayFilterBars(
                 sections: [
                     .init(title: "Atajos", filters: [.recent]),
+                    // Solo las partes que de verdad hay en el armario.
+                    .init(title: "Parte", filters: GarmentKind.allCases
+                        .filter { kind in garments.contains { $0.kind == kind } }
+                        .map { .part($0) }),
                     .init(title: "Baldas", filters: shelves),
                     .init(title: "Color", filters: colors),
                     .init(title: "Estilo", filters: styles),
@@ -1040,6 +1051,10 @@ enum TrayFilter: Hashable {
     /// saberlo: casi siempre quieres la camiseta de la semana pasada, no la
     /// del año pasado.
     case recent
+    /// **Parte del cuerpo.** No es una balda: agrupa varias. "Partes de
+    /// arriba" son las camisetas, las camisas y los polos a la vez, que es lo
+    /// que se busca cuando falta la parte de arriba del conjunto.
+    case part(GarmentKind)
     case category(slug: String, name: String)
     case tag(String)
     case color(String)
@@ -1047,9 +1062,23 @@ enum TrayFilter: Hashable {
     var label: String {
         switch self {
         case .recent: "Reciente"
+        case let .part(kind): TrayFilter.partLabel(kind)
         case let .category(_, name): name
         case let .tag(tag): tag.capitalized
         case let .color(name): name.capitalized
+        }
+    }
+
+    static func partLabel(_ kind: GarmentKind) -> String {
+        switch kind {
+        case .upperBody: "Parte de arriba"
+        case .outerLayer: "Abrigo"
+        case .lowerBody: "Parte de abajo"
+        case .wholeBody: "Cuerpo entero"
+        case .feet: "Calzado"
+        case .head: "Cabeza"
+        case .bag: "Bolsos"
+        case .other: "Otros"
         }
     }
 

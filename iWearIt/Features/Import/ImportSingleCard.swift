@@ -37,6 +37,7 @@ struct ImportSingleCard: View {
     /// El color elegido en el selector del sistema.
     var onPickColor: ((Color) -> Void)?
     var onChangeTags: (([String]) -> Void)?
+    var onChangeCut: ((String?) -> Void)?
     var onChangeSeasons: ((SeasonSet) -> Void)?
     /// El tipo fino: "Camisa", "Vaqueros", "Botines".
     var onChangeSubcategory: ((String?) -> Void)?
@@ -67,7 +68,7 @@ struct ImportSingleCard: View {
     @State private var isCroppingByHand = false
     @State private var field: Field?
     private enum Field: String, Identifiable {
-        case part, type, tags, warmth, material
+        case part, type, cut, tags, warmth, material
         var id: String { rawValue }
     }
 
@@ -126,7 +127,9 @@ struct ImportSingleCard: View {
         image
             .frame(height: 230)
             .frame(maxWidth: .infinity)
-            .overlay(alignment: .bottom) { sourcePicker }
+            // Sin conmutador Recorte/Foto: se mira la prenda, que es lo que se
+            // guarda. Se queda comentado.
+            // .overlay(alignment: .bottom) { sourcePicker }
             .overlay(alignment: .topTrailing) { discardButton }
     }
 
@@ -222,9 +225,10 @@ struct ImportSingleCard: View {
                 .disabled(candidate.isRestyling)
             }
 
-            if onManualCrop != nil {
-                ToolButton(title: "recortar", symbol: "lasso") { isCroppingByHand = true }
-            }
+            // Sin "recortar": se queda comentado.
+            // if onManualCrop != nil {
+            //     ToolButton(title: "recortar", symbol: "lasso") { isCroppingByHand = true }
+            // }
         }
         .animation(WKAnimation.content, value: candidate.isRestyling)
     }
@@ -238,27 +242,33 @@ struct ImportSingleCard: View {
     private var rows: some View {
         VStack(spacing: 0) {
             ColorRow(color: candidate.colors.first, picked: colorBinding)
+            // **Qué es, no dónde va.** "Parte superior" es un filtro para
+            // buscar, no algo que se elija: se elige camiseta o pantalón, y la
+            // parte del cuerpo sale de ahí.
             EditRow(
-                value: ImportCandidateLabels.label(for: candidate.kind),
-                label: "Parte"
-            ) { field = .part }
-            EditRow(
-                value: candidate.subcategory?.capitalized ?? "Sin definir",
+                value: candidate.subcategory?.capitalized
+                    ?? GarmentVocabulary.shelfName(for: candidate.kind),
                 label: "Tipo"
             ) { field = .type }
+            if let cutTitle = GarmentVocabulary.cutTitle(for: candidate.kind) {
+                EditRow(
+                    value: candidate.cut ?? "Sin definir",
+                    label: cutTitle
+                ) { field = .cut }
+            }
+            EditRow(
+                value: candidate.material?.capitalized ?? "Sin definir",
+                label: "Material"
+            ) { field = .material }
             EditRow(
                 value: candidate.tags.isEmpty ? "Sin etiquetas" : candidate.tags.joined(separator: " · "),
                 label: "Etiquetas"
             ) { field = .tags }
             EditRow(
                 value: GarmentVocabulary.Warmth.from(candidate.seasons).label,
-                label: "Calidez"
-            ) { field = .warmth }
-            EditRow(
-                value: candidate.material?.capitalized ?? "Sin definir",
-                label: "Material",
+                label: "Calidez",
                 showsSeparator: false
-            ) { field = .material }
+            ) { field = .warmth }
         }
     }
 
@@ -282,6 +292,18 @@ struct ImportSingleCard: View {
                     }
                 ),
                 limit: 1
+            )
+        case .cut:
+            WKChipSheet(
+                title: GarmentVocabulary.cutTitle(for: candidate.kind) ?? "Corte",
+                subtitle: "Elige uno o escribe el tuyo",
+                options: GarmentVocabulary.cuts(for: candidate.kind).map { .init(id: $0, label: $0) },
+                selection: Binding(
+                    get: { Set([candidate.cut].compactMap { $0 }) },
+                    set: { onChangeCut?($0.first) }
+                ),
+                limit: 1,
+                allowsCustom: true
             )
         case .tags:
             WKChipSheet(

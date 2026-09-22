@@ -801,6 +801,12 @@ final class ImportModel {
         candidates[index].wasCorrectedByUser = true
     }
 
+    func setCut(_ cut: String?, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].cut = cut
+        candidates[index].wasCorrectedByUser = true
+    }
+
     func setTags(_ tags: [String], forCandidateWithID id: UUID) {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].editedTags = tags
@@ -862,6 +868,7 @@ final class ImportModel {
                     kind: candidate.kind,
                     subcategory: candidate.subcategory,
                     material: candidate.material,
+                    cut: candidate.cut,
                     colors: candidate.colors,
                     seasons: candidate.seasons,
                     tags: candidate.tags,
@@ -929,6 +936,8 @@ struct ImportCandidate: Identifiable {
     /// El color elegido a mano en el selector del sistema.
     var editedColor: NamedColor?
     var editedTags: [String]?
+    /// La manga o el largo, elegido o escrito a mano.
+    var cut: String?
     var editedSeasons: SeasonSet?
     /// El tipo fino —"Camisa", "Vaqueros", "Botines"— corregido a mano.
     ///

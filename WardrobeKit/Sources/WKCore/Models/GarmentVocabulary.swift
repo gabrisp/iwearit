@@ -30,10 +30,8 @@ public enum GarmentVocabulary {
             // Con la manga aparte: entre una camiseta de manga corta y una de
             // manga larga hay medio armario de diferencia, y es lo primero que
             // se corrige al revisar una prenda recién importada.
-            [
-                "Camiseta", "Camiseta manga larga", "Camisa", "Camisa manga corta",
-                "Blusa", "Polo", "Top", "Jersey", "Sudadera", "Chaleco",
-            ]
+            // La manga ya no va aquí: es su propio campo. Ver `cuts(for:)`.
+            ["Camiseta", "Camisa", "Blusa", "Polo", "Top", "Jersey", "Sudadera", "Chaleco"]
         case .outerLayer:
             ["Chaqueta", "Cazadora", "Abrigo", "Gabardina", "Vaquera", "Cuero", "Blazer", "Plumífero"]
         case .lowerBody:
@@ -48,6 +46,51 @@ public enum GarmentVocabulary {
             ["Bolso", "Mochila", "Bandolera", "Tote"]
         case .other:
             ["Bufanda", "Cinturón", "Corbata", "Guantes"]
+        }
+    }
+
+    /// Cómo se llama el corte de una prenda, según lo que sea.
+    ///
+    /// Lo que distingue a dos camisetas es la manga; a dos pantalones, el
+    /// largo. Un solo campo con el nombre que le toca a cada una, y ninguno
+    /// donde no significa nada —unos zapatos no tienen manga ni largo—.
+    public static func cutTitle(for kind: GarmentKind) -> String? {
+        switch kind {
+        case .upperBody, .outerLayer: "Manga"
+        case .lowerBody, .wholeBody: "Largo"
+        default: nil
+        }
+    }
+
+    /// Los cortes de siempre. **No es una lista cerrada**: se puede escribir
+    /// uno propio, porque cada armario llama a sus pantalones a su manera.
+    public static func cuts(for kind: GarmentKind) -> [String] {
+        switch kind {
+        case .upperBody, .outerLayer:
+            ["Sin manga", "Tirantes", "Manga corta", "Manga 3/4", "Manga larga"]
+        case .lowerBody:
+            ["Short", "Jort", "Bermuda", "Capri", "Tobillero", "Largo"]
+        case .wholeBody:
+            ["Mini", "Midi", "Largo"]
+        default:
+            []
+        }
+    }
+
+    /// El nombre de la balda de un tipo de prenda, en plural.
+    ///
+    /// Lo que se enseña de una prenda es **qué es** —camiseta, pantalón—, no
+    /// en qué parte del cuerpo va: eso es un filtro, no una balda.
+    public static func shelfName(for kind: GarmentKind) -> String {
+        switch kind {
+        case .upperBody: "Camisetas"
+        case .outerLayer: "Chaquetas"
+        case .lowerBody: "Pantalones"
+        case .wholeBody: "Vestidos"
+        case .feet: "Zapatos"
+        case .head: "Accesorios"
+        case .bag: "Bolsos"
+        case .other: "Otros"
         }
     }
 

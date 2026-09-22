@@ -124,6 +124,7 @@ struct ImportReviewStack: View {
                             )
                         },
                         onChangeTags: { model.setTags($0, forCandidateWithID: candidate.id) },
+                        onChangeCut: { model.setCut($0, forCandidateWithID: candidate.id) },
                         onChangeSeasons: { model.setSeasons($0, forCandidateWithID: candidate.id) },
                         onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: candidate.id) },
                         onChangeMaterial: { model.setMaterial($0, forCandidateWithID: candidate.id) },
@@ -131,12 +132,19 @@ struct ImportReviewStack: View {
                         onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
                         onRestyle: { await model.restyle(candidateWithID: candidate.id) }
                     )
-                    .navigationTitle("Prenda")
+                    .navigationTitle("Editar")
                     .navigationBarTitleDisplayMode(.inline)
+                    // Como la hoja de editar: una X y nada más. Lo cambiado ya
+                    // está cambiado; no hay nada que confirmar.
+                    .navigationBarBackButtonHidden()
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Listo") { opened = nil }
-                                .tint(WK.Palette.primaryText)
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { opened = nil } label: {
+                                Image(systemName: "xmark")
+                                    .font(WK.Font.headline)
+                                    .contentShape(.rect)
+                            }
+                            .tint(WK.Palette.primaryText)
                         }
                     }
                 }
@@ -240,12 +248,13 @@ private struct ImportGarmentCard: View {
         }
     }
 
-    /// "Chaquetas · Entretiempo": dónde va y cuánto abriga.
+    /// "Camiseta · Manga corta": qué es y su corte. La parte del cuerpo no
+    /// sale aquí: es un filtro para buscar, no un dato de la prenda.
     private var headline: String {
         [
-            ImportCandidateLabels.label(for: candidate.kind),
-            GarmentVocabulary.Warmth.from(candidate.seasons).label,
-        ].joined(separator: " · ")
+            candidate.subcategory?.capitalized ?? GarmentVocabulary.shelfName(for: candidate.kind),
+            candidate.cut,
+        ].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// Redibujar la prenda fuera. A mano y de una en una: cada una se paga.

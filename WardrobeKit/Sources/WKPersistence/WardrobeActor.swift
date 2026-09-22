@@ -103,6 +103,7 @@ public actor WardrobeActor {
             )
             garment.subcategory = draft.subcategory
             garment.material = draft.material
+            garment.cut = draft.cut
             garment.colors = draft.colors
             garment.seasons = draft.seasons
             garment.tags = draft.tags

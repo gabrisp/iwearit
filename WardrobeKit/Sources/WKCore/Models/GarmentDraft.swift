@@ -11,6 +11,7 @@ public struct GarmentDraft: Sendable, Hashable {
     public var kind: GarmentKind
     public var subcategory: String?
     public var material: String?
+    public var cut: String?
     public var colors: [NamedColor]
     public var seasons: SeasonSet
     public var tags: [String]
@@ -37,6 +38,7 @@ public struct GarmentDraft: Sendable, Hashable {
         kind: GarmentKind,
         subcategory: String? = nil,
         material: String? = nil,
+        cut: String? = nil,
         colors: [NamedColor] = [],
         seasons: SeasonSet = .all,
         tags: [String] = [],
@@ -51,6 +53,7 @@ public struct GarmentDraft: Sendable, Hashable {
         self.kind = kind
         self.subcategory = subcategory
         self.material = material
+        self.cut = cut
         self.colors = colors
         self.seasons = seasons
         self.tags = tags
