@@ -39,6 +39,8 @@ struct ImportReviewStack: View {
     /// camino. Es el mismo arreglo que el "+" del armario.
     @State private var isPickingMore = false
     @State private var morePhotos: [PhotosPickerItem] = []
+    /// El sitio de la tarjeta de carga, para poder bajar hasta ella.
+    private static let addingID = "adding-photos"
 
     private var saveTitle: String {
         let kept = model.keptCount
@@ -155,14 +157,18 @@ struct ImportReviewStack: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
 
-                // La carga ya no va aquí: es una tarjeta en medio de la
-                // pantalla, ver `AddingPhotosCard`.
-                // if model.pendingPhotos > 0 {
-                //     PendingPhotosCard(count: model.pendingPhotos)
-                //         .transition(.opacity)
-                // }
+                // **La carga de "Agregar más", al final de la lista**, que es
+                // donde van a aparecer las prendas. Cristal, con cuántas fotos
+                // quedan y una barra que avanza con cada una; la lista baja
+                // hasta ella al empezar.
+                if model.addingTotal > 0 {
+                    AddingPhotosCard(done: model.addingDone, total: model.addingTotal)
+                        .id(Self.addingID)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .animation(.smooth(duration: 0.45), value: model.candidates.count)
+            .animation(.smooth(duration: 0.45), value: model.addingTotal > 0)
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.top, WK.Spacing.m)
             .padding(.bottom, WK.Spacing.xxl)
@@ -178,16 +184,21 @@ struct ImportReviewStack: View {
                 proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
-        }
-        // **La carga, en medio.** Una tarjeta de cristal por encima de la
-        // lista con cuántas fotos quedan y una barra que avanza con cada una.
-        .overlay {
-            if model.addingTotal > 0 {
-                AddingPhotosCard(done: model.addingDone, total: model.addingTotal)
-                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+        // Al empezar a analizar, hasta la tarjeta de carga.
+        .onChange(of: model.addingTotal > 0) { _, isAdding in
+            guard isAdding else { return }
+            withAnimation(.smooth(duration: 0.5)) {
+                proxy.scrollTo(Self.addingID, anchor: .bottom)
             }
         }
-        .animation(.smooth(duration: 0.35), value: model.addingTotal > 0)
+        }
+        // La carga ya no va en medio de la pantalla sino al final de la lista:
+        // se queda comentado.
+        // .overlay {
+        //     if model.addingTotal > 0 {
+        //         AddingPhotosCard(done: model.addingDone, total: model.addingTotal)
+        //     }
+        // }
         .adaptiveSafeAreaBar(edge: .bottom) { actions }
         // Que la tarjeta se abre no lo dice nada en pantalla: parece una
         // lista de lo que se va a guardar y es además el sitio donde ajustar
@@ -499,7 +510,7 @@ private struct AddingPhotosCard: View {
     private var remaining: Int { max(total - done, 0) }
 
     var body: some View {
-        VStack(spacing: WK.Spacing.m) {
+        VStack(alignment: .leading, spacing: WK.Spacing.s) {
             HStack(spacing: WK.Spacing.xs) {
                 Text("Analizando")
                 Text("\(remaining)")
@@ -511,10 +522,9 @@ private struct AddingPhotosCard: View {
 
             ProgressView(value: Double(done), total: Double(max(total, 1)))
                 .tint(WK.Palette.accent)
-                .frame(width: 180)
         }
-        .padding(.horizontal, WK.Spacing.xl)
-        .padding(.vertical, WK.Spacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(WK.Spacing.l)
         .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.card, style: .continuous))
         .animation(WKAnimation.content, value: done)
     }
