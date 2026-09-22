@@ -76,7 +76,7 @@ public actor GarmentPipeline {
     /// esa foto era también la de 1100, una prenda que ocupa media foto se
     /// quedaba en 500 px y se **ampliaba** a 1024 al normalizar: bordes
     /// pixelados. Con esta, sobra resolución y el recorte se reduce.
-    static let detailMaxSide = 3200
+    static let detailMaxSide = 3200 // Sin uso: ver `extractGarmentsFromPixels`.
 
     /// La misma foto, más pequeña, si hacía falta.
     static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
@@ -289,8 +289,12 @@ public actor GarmentPipeline {
         // sobrevivir —y a 1400 eran un 60% más de píxeles en cada una de esas
         // media docena de pasadas, que es tiempo de espera puro.
         let image = Self.scaledDown(original, maxSide: Self.workingMaxSide) ?? original
-        // Donde se aplican las máscaras de sujeto. Ver `detailMaxSide`.
-        let detail = Self.scaledDown(original, maxSide: Self.detailMaxSide) ?? original
+        // **La original, sin tocar.** Aquí se pide la máscara de sujeto y aquí
+        // se aplica: Vision la calcula a la resolución de la foto que se le
+        // da, así que cualquier reducción previa se paga en el canto del
+        // recorte. Reducida a 3200 ya se notaba.
+        // let detail = Self.scaledDown(original, maxSide: Self.detailMaxSide) ?? original
+        let detail = original
         if image !== original {
             DiagnosticsLog.record(
                 "PIPELINE",
@@ -789,13 +793,17 @@ public actor GarmentPipeline {
         detail: CGImage
     ) async -> [DetectedGarment]? {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: image),
+            // **La máscara se pide sobre la foto grande.** Pedida sobre la
+            // copia de trabajo —1100 px— y aplicada luego sobre la de detalle,
+            // el borde se amplía y sale dentado: eso era lo pixelado. Vision
+            // la calcula a la resolución de la foto que se le da, así que
+            // dándole la buena el canto sale como el de "copiar sujeto".
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             !observation.allInstances.isEmpty,
             let map = try? await segmenter.classMap(for: image)
         else { return nil }
-        let handler = ImageRequestHandler(image)
-        // El recorte, sobre la foto con resolución. Ver `detailMaxSide`.
-        let detailHandler = ImageRequestHandler(detail)
+        let handler = ImageRequestHandler(detail)
+        let detailHandler = handler
         let instances = Array(observation.allInstances)
 
         struct Subject {
@@ -1361,7 +1369,8 @@ public actor GarmentPipeline {
     /// tamaño. Sirve para afinar el canto de los recortes del segmentador.
     private func subjectMask(for image: CGImage, appliedTo detail: CGImage) async -> CGImage? {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: image),
+            // Sobre la grande: ver `extractFromSubjects`.
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             !observation.allInstances.isEmpty,
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
@@ -1381,7 +1390,7 @@ public actor GarmentPipeline {
         detail: CGImage
     ) async -> (normalized: ImmutableImage, rawCrop: ImmutableImage)? {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: image),
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
                 imageFrom: ImageRequestHandler(detail),
@@ -1399,7 +1408,7 @@ public actor GarmentPipeline {
 
     private func extractSingleSubject(from image: CGImage, detail: CGImage) async -> [DetectedGarment] {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: image),
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
                 imageFrom: ImageRequestHandler(detail),

@@ -52,6 +52,9 @@ enum CloudSyncStatus: Equatable {
 /// lo que cruza a la vista.
 private struct CloudEventSummary: Sendable {
     let label: String
+    /// Si es una importación: es la única que trae datos nuevos del otro
+    /// dispositivo, y por tanto la única que puede haber duplicado algo.
+    let isImport: Bool
     let endDate: Date?
     /// El fallo, ya traducido. **Como texto y código y no como `Error`**: un
     /// `Error` no es `Sendable`, y lo único que se necesita de él al otro lado
@@ -82,13 +85,14 @@ final class CloudSync {
     /// pantalla que estés mirando— se pregunta.
     private(set) var canEnableNow = false
 
-    /// Llega algo del otro dispositivo.
+    /// **Ha terminado de bajar lo del otro dispositivo.**
     ///
-    /// Lo escucha `AppEnvironment` para volver a juntar lo duplicado: dos
-    /// iPhone siembran sus baldas por separado y las copias **no aparecen al
-    /// arrancar**, sino cuando la importación termina, minutos después. Sin
-    /// esto había que cerrar y abrir la app para dejar de ver dos "Camisetas".
-    var onRemoteChange: (@MainActor () -> Void)?
+    /// Una sola señal y no un goteo: `NSPersistentStoreRemoteChange` llega
+    /// decenas de veces durante una importación —una por tanda de filas— y
+    /// mirar el armario entero en cada una es trabajo repetido mientras el
+    /// usuario lo tiene delante. CloudKit avisa cuando la importación acaba, y
+    /// ese es el momento en que hay algo nuevo que mirar y solo pasa una vez.
+    var onImportFinished: (@MainActor () -> Void)?
 
     init(container: ModelContainer, isEnabled: Bool) {
         self.container = container
@@ -149,6 +153,7 @@ final class CloudSync {
                 }
                 let summary = CloudEventSummary(
                     label: label,
+                    isImport: event.type == .import,
                     endDate: event.endDate,
                     failure: event.error.map { ($0 as NSError).localizedDescription },
                     code: (event.error as? CKError)?.code
@@ -170,7 +175,6 @@ final class CloudSync {
                     guard let self else { return }
                     self.lastSyncedAt = Date()
                     self.reconcileDeletions()
-                    self.onRemoteChange?()
                 }
             }
         )
@@ -208,6 +212,8 @@ final class CloudSync {
         status = .idle
         lastSyncedAt = ended
         DiagnosticsLog.record("ICLOUD", "\(event.label) terminado")
+        // Solo cuando ha bajado algo: ver `onImportFinished`.
+        if event.isImport { onImportFinished?() }
     }
 
     /// Un error de CloudKit, traducido a lo único que hay que decidir: si esto

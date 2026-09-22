@@ -249,12 +249,12 @@ public final class AppEnvironment {
     /// La reconciliación pendiente. Ver `scheduleReconcile`.
     @ObservationIgnored private var reconcileTask: Task<Void, Never>?
 
-    /// Junta lo duplicado **un momento después** del último cambio remoto.
+    /// Junta lo duplicado cuando CloudKit termina de bajar cambios.
     ///
-    /// Con espera y una sola tarea viva: una importación de iCloud entrega
-    /// decenas de avisos seguidos, y reconciliar en cada uno es recorrer el
-    /// armario entero decenas de veces mientras el usuario lo está mirando —que
-    /// es exactamente el parpadeo de baldas apareciendo y desapareciendo.
+    /// Con una pequeña espera y una sola tarea viva: si llegan dos
+    /// importaciones seguidas, se mira una vez. Lo que **no** se hace es
+    /// revisar el armario en bucle: solo se mira cuando hay motivo, que es
+    /// justo lo que dice el aviso.
     private func scheduleReconcile() {
         reconcileTask?.cancel()
         reconcileTask = Task { [wardrobe] in
@@ -280,9 +280,10 @@ public final class AppEnvironment {
             // juntan **moviendo**, nunca borrando: ver `reconcileDuplicates`.
             if sync.isEnabled {
                 try await wardrobe.reconcileDuplicates()
-                // Y **cada vez que llega algo**, no solo al arrancar: las
-                // copias del otro dispositivo aparecen cuando aparecen.
-                sync.onRemoteChange = { [weak self] in self?.scheduleReconcile() }
+                // Y cuando CloudKit avisa de que ha **terminado** de bajar
+                // cambios: es cuando aparecen las copias del otro dispositivo,
+                // y es una sola señal por importación. Ver `onImportFinished`.
+                sync.onImportFinished = { [weak self] in self?.scheduleReconcile() }
             }
             // Limpieza de imágenes huérfanas: sin esto, descartar prendas en la
             // revisión de stacks deja basura en disco para siempre.
