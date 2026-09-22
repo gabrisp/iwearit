@@ -37,10 +37,12 @@ struct ImportSingleCard: View {
     /// El tipo fino: "Camisa", "Vaqueros", "Botines".
     var onChangeSubcategory: ((String?) -> Void)?
     var onChangeMaterial: ((String?) -> Void)?
-    /// Si esta ficha puede pedir su versión de catálogo al aparecer.
+    /// **Ya no se genera nada al aparecer.**
     ///
-    /// Apagado en las fichas que no estás mirando: cada reconstrucción es una
-    /// petición facturable, y el pager mantiene vivas las de al lado.
+    /// Se queda el parámetro y su documentación por si vuelve la generación
+    /// automática, pero hoy no lo mira nadie: redibujar la prenda es un botón,
+    /// porque cada una es una petición que se paga y mirar una ficha no es
+    /// pedir nada.
     var generatesCatalog: Bool = true
     var onToggleKeep: ((Bool) -> Void)?
     /// Rehacer el recorte a dedo. Lo que devuelva manda sobre lo detectado.
@@ -49,7 +51,11 @@ struct ImportSingleCard: View {
     /// es para reintentarlo si falló.
     let onRestyle: () async -> Void
     /// Vuelve a cortar la prenda del fondo con lo que ya hay en el teléfono.
-    let onImprove: () -> Void
+    ///
+    /// Sin botón propio en la ficha: eso se hace en la pantalla anterior
+    /// moviendo el recuadro sobre la foto, que es donde se ve qué se dejó
+    /// fuera. Se queda por si hace falta volver a sacarlo.
+    var onImprove: (() -> Void)?
 
     /// Qué imagen se está mirando. Vive aquí porque es estado de presentación:
     /// cambiarla no toca la prenda.
@@ -57,7 +63,7 @@ struct ImportSingleCard: View {
     @State private var isCroppingByHand = false
     @State private var field: Field?
     private enum Field: String, Identifiable {
-        case kind, type, material
+        case type, material
         var id: String { rawValue }
     }
 
@@ -104,16 +110,6 @@ struct ImportSingleCard: View {
             }
         }
         .sheet(item: $field) { sheet(for: $0) }
-        .task(id: generatesCatalog) {
-            guard
-                generatesCatalog,
-                isKept,
-                candidate.catalogImage == nil,
-                candidate.catalogFailure == nil,
-                !candidate.isRestyling
-            else { return }
-            await onRestyle()
-        }
     }
 
     // MARK: La prenda
@@ -134,7 +130,7 @@ struct ImportSingleCard: View {
     private var image: some View {
         switch source {
         case .cutout:
-            candidate.image
+            candidate.previewImage
                 .resizable()
                 .scaledToFit()
                 // La misma sombra de contorno que en la balda y en editar: es
@@ -207,15 +203,26 @@ struct ImportSingleCard: View {
     /// Lo que se le puede hacer al recorte, donde en editar está "mejorar".
     private var tools: some View {
         HStack(spacing: WK.Spacing.s) {
-            // **Mejorar, en el teléfono.** Donde estaba "redibujar con IA":
-            // hace el mismo trabajo —volver a cortar la prenda del fondo— con
-            // lo que ya hay aquí. Ver `ImportModel.improve`.
-            ToolButton(title: "mejorar", symbol: "wand.and.sparkles", action: onImprove)
+            // **Mejorar es redibujar la prenda fuera.** Se pide a mano, nunca
+            // sola: cada una cuesta una petición, y lanzarla por el hecho de
+            // mirar una ficha era pagar por prendas que estaban bien.
+            //
+            // Sale del teléfono únicamente el recorte normalizado.
+            if candidate.catalogImage == nil {
+                ToolButton(
+                    title: candidate.isRestyling ? "mejorando…" : "mejorar",
+                    symbol: "wand.and.sparkles"
+                ) {
+                    Task { await onRestyle() }
+                }
+                .disabled(candidate.isRestyling)
+            }
 
             if onManualCrop != nil {
                 ToolButton(title: "recortar", symbol: "lasso") { isCroppingByHand = true }
             }
         }
+        .animation(WKAnimation.content, value: candidate.isRestyling)
     }
 
     // MARK: Los datos
@@ -225,13 +232,13 @@ struct ImportSingleCard: View {
         VStack(spacing: 0) {
             NameRow(name: nameBinding)
             ColorRow(color: candidate.colors.first, name: colorBinding)
-            EditRow(
-                value: ImportCandidateLabels.label(for: candidate.kind),
-                label: "Parte"
-            ) { field = .kind }
+            // **Solo la prenda.** Antes había encima una fila "Parte: Top",
+            // que es la organización interna asomando: nadie tiene un top en
+            // el armario, tiene una camisa. Se elige la prenda y la parte del
+            // cuerpo —la que decide la balda— se deduce de ella.
             EditRow(
                 value: candidate.subcategory?.capitalized ?? "Sin definir",
-                label: "Tipo"
+                label: "Tipo de prenda"
             ) { field = .type }
             EditRow(
                 value: candidate.material?.capitalized ?? "Sin definir",
@@ -246,32 +253,28 @@ struct ImportSingleCard: View {
     @ViewBuilder
     private func sheet(for field: Field) -> some View {
         switch field {
-        case .kind:
-            WKChipSheet(
-                title: "Parte del cuerpo",
-                subtitle: "Decide en qué balda acaba",
-                options: GarmentKind.allCases.map {
-                    .init(id: $0.rawValue, label: ImportCandidateLabels.label(for: $0))
-                },
-                selection: Binding(
-                    get: { [candidate.kind.rawValue] },
-                    set: { set in
-                        guard let raw = set.first, let kind = GarmentKind(rawValue: raw) else { return }
-                        onChangeKind(kind)
-                    }
-                ),
-                limit: 1
-            )
         case .type:
+            // **Todas las prendas, no solo las de su parte.** Si el detector
+            // se equivocó de parte —una chaqueta leída como camiseta—, con la
+            // lista filtrada por esa parte no había forma de arreglarlo desde
+            // aquí: la prenda correcta no aparecía. Eligiendo la prenda se
+            // corrige también la parte, que es lo que se quería corregir.
             WKChipSheet(
                 title: "Qué prenda es",
                 subtitle: "Manga larga, corta, vaqueros… lo que la distingue",
-                options: GarmentVocabulary.types(for: candidate.kind).map {
-                    .init(id: $0, label: $0)
-                } + [.init(id: "", label: "Sin definir")],
+                options: GarmentVocabulary.allTypes.map { .init(id: $0, label: $0) }
+                    + [.init(id: "", label: "Sin definir")],
                 selection: Binding(
                     get: { Set([candidate.subcategory?.capitalized].compactMap { $0 }) },
-                    set: { onChangeSubcategory?($0.first?.isEmpty == false ? $0.first : nil) }
+                    set: { chosen in
+                        let type = chosen.first?.isEmpty == false ? chosen.first : nil
+                        onChangeSubcategory?(type)
+                        // Y con ella, la parte del cuerpo: unos vaqueros van
+                        // abajo aunque el detector dijera otra cosa.
+                        if let type, let kind = GarmentVocabulary.kind(forType: type) {
+                            onChangeKind(kind)
+                        }
+                    }
                 ),
                 limit: 1
             )

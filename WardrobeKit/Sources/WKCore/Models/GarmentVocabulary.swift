@@ -51,6 +51,32 @@ public enum GarmentVocabulary {
         }
     }
 
+    /// Todos los tipos, en el orden en que se enseñan.
+    ///
+    /// **Lo que se elige es la prenda, no la parte del cuerpo.** "Top" y
+    /// "Bottom" son cómo está organizado esto por dentro; nadie tiene un top
+    /// en el armario, tiene una camisa o una camiseta. Así que la lista es de
+    /// prendas, y de la prenda se deduce la parte —ver `kind(forType:)`—, que
+    /// es lo que decide en qué balda acaba.
+    public static let allTypes: [String] = GarmentKind.allCases.flatMap(types(for:))
+
+    /// De qué parte del cuerpo es un tipo.
+    ///
+    /// La vuelta de `types(for:)`, que es donde está escrito una sola vez a
+    /// qué parte pertenece cada prenda. Comparación insensible a mayúsculas y
+    /// acentos porque el tipo puede venir del modelo, del usuario o de una
+    /// lista antigua.
+    public static func kind(forType type: String) -> GarmentKind? {
+        let needle = type.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+        for kind in GarmentKind.allCases {
+            let match = types(for: kind).contains {
+                $0.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil) == needle
+            }
+            if match { return kind }
+        }
+        return nil
+    }
+
     /// Estilo. Hasta tres por prenda: con más, dejan de significar nada.
     public static let tags = [
         "Oficina", "Chic", "Casual", "Ecléctico", "Experimental", "Étnico",

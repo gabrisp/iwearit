@@ -89,6 +89,8 @@ final class ImportModel {
     private(set) var analysedCount = 0
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
+    /// Cómo se está reintentando, para poder decirlo en el botón.
+    private(set) var reanalysingLabel: String?
 
     /// Dónde estaba el registro al empezar esta foto.
     ///
@@ -117,6 +119,53 @@ final class ImportModel {
     /// construyen el modelo sin armario detrás.
     private let wardrobe: WardrobeActor?
 
+    /// Guardados para poder montar el pipeline del reintento.
+    ///
+    /// **El de la primera pasada no se toca.** Está detectando bien y es el
+    /// camino por el que pasa todo; el reintento monta *otro* pipeline con los
+    /// mismos modelos ya cargados y distinta manera de leer su salida.
+    private let segmenter: ClothesSegmenter?
+    private let embedder: GarmentEmbedder?
+    private let promptBank: PromptBank?
+
+    /// Cómo se vuelve a mirar una foto cuando lo que salió no valía.
+    ///
+    /// No es "lo mismo otra vez": repetir la misma pasada da lo mismo y gasta
+    /// otros veinte segundos. Son dos maneras distintas de mirar, y entre las
+    /// dos cubren los dos fallos que de verdad ocurren.
+    enum RetryStrategy: CaseIterable {
+        /// Lo que el detector unió, separado.
+        ///
+        /// La pasada normal trata la foto como "una prenda" a propósito: es lo
+        /// correcto cuando estás fotografiando una cosa, y evita el pantalón
+        /// que volvía partido en tres. Pero cuando en la foto había de verdad
+        /// dos prendas, esa misma decisión las funde en una.
+        case splitPieces
+        /// Solo lo que ocupa de verdad.
+        ///
+        /// Para lo contrario: cuando vuelve con trozos que no son ropa —una
+        /// esquina de sofá, una sombra— se sube el listón de área y se queda
+        /// lo grande. Se pierde alguna prenda pequeña, y por eso no es el
+        /// camino normal.
+        case stricter
+
+        var label: String {
+            switch self {
+            case .splitPieces: "separando piezas"
+            case .stricter: "siendo más estricto"
+            }
+        }
+    }
+
+    /// Por qué estrategia va cada foto. Por foto: reintentar la tercera no
+    /// tiene por qué repetir lo que ya se probó en la primera.
+    private var retries: [Int: Int] = [:]
+
+    /// El listón de la pasada estricta: un 10% de la foto frente al 3% de
+    /// siempre. No vale de normal —una gorra en una foto de cuerpo entero no
+    /// llega— y por eso solo entra cuando el usuario ya ha visto que sobra.
+    private static let strictMinimumAreaFraction = 0.10
+
     /// - Parameters:
     ///   - segmenter: sin él, el pipeline cae a la ruta degradada.
     ///   - embedder, promptBank: sin ellos hay recorte pero no subcategoría ni
@@ -132,6 +181,9 @@ final class ImportModel {
     ) {
         self.wardrobe = wardrobe
         self.resolver = resolver
+        self.segmenter = segmenter
+        self.embedder = embedder
+        self.promptBank = promptBank
         self.pipeline = GarmentPipeline(
             segmenter: segmenter,
             embedder: embedder,
@@ -225,23 +277,66 @@ final class ImportModel {
     /// sabe que esa foto hay que rodearla a mano.
     func reanalyse(photoAt index: Int) async {
         guard photos.indices.contains(index), reanalysing == nil else { return }
+
+        // La siguiente manera de mirar, no la misma otra vez.
+        let attempt = retries[index, default: 0]
+        let strategy = RetryStrategy.allCases[attempt % RetryStrategy.allCases.count]
+        retries[index] = attempt + 1
+
         reanalysing = index
-        defer { reanalysing = nil }
+        reanalysingLabel = strategy.label
+        defer {
+            reanalysing = nil
+            reanalysingLabel = nil
+        }
+
+        DiagnosticsLog.record("IMPORT", "reintento de la foto \(index + 1) \(strategy.label)")
 
         // Lo de esa foto se va, **menos lo que rodeó el usuario**: volver a
         // mirar la foto no invalida un recorte hecho a dedo.
         candidates.removeAll { $0.photoIndex == index && !$0.wasCorrectedByUser }
         do {
-            let detected = try await detect(photos[index], number: index + 1, of: photos.count)
+            let detected = try await detect(
+                photos[index],
+                number: index + 1,
+                of: photos.count,
+                using: pipeline(for: strategy)
+            )
             candidates += detected.map { ImportCandidate($0, photoIndex: index) }
             await markDuplicates()
+            DiagnosticsLog.record("IMPORT", "el reintento da \(detected.count) prenda(s)")
         } catch {
             DiagnosticsLog.record("IMPORT", "el reintento falla: \(error)", isProblem: true)
         }
     }
 
+    /// El pipeline de una estrategia de reintento.
+    ///
+    /// Se construye aparte y se tira al acabar: son los **mismos modelos** ya
+    /// cargados —el segmentador pesa y no se vuelve a cargar por esto—, con
+    /// otra forma de leer su salida.
+    private func pipeline(for strategy: RetryStrategy) -> GarmentPipeline {
+        GarmentPipeline(
+            segmenter: segmenter,
+            embedder: embedder,
+            promptBank: promptBank,
+            resolver: nil,
+            splitsInstances: strategy == .splitPieces,
+            alwaysAsksRemote: false,
+            minimumAreaFraction: strategy == .stricter
+                ? Self.strictMinimumAreaFraction
+                : GarmentPipeline.defaultMinimumAreaFraction
+        )
+    }
+
     /// Lo que sale de **una** foto.
-    private func detect(_ image: CGImage, number: Int, of total: Int) async throws -> [DetectedGarment] {
+    private func detect(
+        _ image: CGImage,
+        number: Int,
+        of total: Int,
+        using pipeline: GarmentPipeline? = nil
+    ) async throws -> [DetectedGarment] {
+        let pipeline = pipeline ?? self.pipeline
         let clock = ContinuousClock.now
         DiagnosticsLog.record(
             "IMPORT",
@@ -264,7 +359,7 @@ final class ImportModel {
         let detected: [DetectedGarment] = try await withThrowingTaskGroup(
             of: [DetectedGarment].self
         ) { group in
-            let pipeline = self.pipeline
+            // El que toque: el de siempre, o el del reintento.
             group.addTask { try await pipeline.extractGarments(from: image) }
             group.addTask {
                 try await Task.sleep(for: .seconds(Self.analysisTimeout))
@@ -829,4 +924,11 @@ struct ImportCandidate: Identifiable {
     var cutout: ImmutableImage { manualCrop ?? detected.normalized }
 
     var image: Image { Image(decorative: cutout.cgImage, scale: 1) }
+
+    /// Lo que se enseña: la versión redibujada si se ha pedido, y si no el
+    /// recorte. Pedir "mejorar" y seguir viendo lo de antes sería no haber
+    /// mejorado nada.
+    var previewImage: Image {
+        Image(decorative: (catalogImage ?? cutout).cgImage, scale: 1)
+    }
 }

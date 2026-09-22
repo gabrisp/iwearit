@@ -141,7 +141,8 @@ struct ImportDetectedStep: View {
                                 recropping = candidate.id
                                 isCroppingByHand = true
                             },
-                            onDiscard: { model.discard(candidateWithID: candidate.id) }
+                            onDiscard: { model.discard(candidateWithID: candidate.id) },
+                            onImprove: { await model.restyle(candidateWithID: candidate.id) }
                         )
                     }
 
@@ -183,7 +184,11 @@ struct ImportDetectedStep: View {
                 Task { await model.reanalyse(photoAt: current) }
             } label: {
                 Label(
-                    model.reanalysing == current ? "mirando otra vez…" : "reintentar",
+                    model.reanalysing == current
+                        // Qué está probando, porque no es lo mismo otra vez:
+                        // "separando piezas" o "siendo más estricto".
+                        ? (model.reanalysingLabel ?? "mirando otra vez…")
+                        : "reintentar",
                     systemImage: "arrow.clockwise"
                 )
                 .font(WK.Font.callout)
@@ -247,10 +252,52 @@ private struct DetectedCell: View {
     let onToggle: () -> Void
     let onRecrop: () -> Void
     let onDiscard: () -> Void
+    /// Redibujar la prenda fuera. Ver `ImportModel.restyle`.
+    let onImprove: () async -> Void
 
     var body: some View {
+        VStack(spacing: WK.Spacing.xs) {
+            cell
+            improveButton
+        }
+    }
+
+    /// **Mejorar, al lado de la prenda.**
+    ///
+    /// Aquí y no escondido en la ficha: es mirando el recorte cuando se ve que
+    /// le falta media manga, y es entonces cuando se quiere pedir que lo
+    /// redibujen. Se pide **a mano y de una en una**: cada una es una petición
+    /// que se paga, así que no se lanza sola por el hecho de mirar la prenda.
+    @ViewBuilder
+    private var improveButton: some View {
+        if candidate.catalogImage == nil {
+            Button { Task { await onImprove() } } label: {
+                Label(
+                    candidate.isRestyling ? "mejorando…" : "mejorar",
+                    systemImage: "wand.and.sparkles"
+                )
+                .font(WK.Font.caption)
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.s)
+                .padding(.vertical, 5)
+                .background(WK.Palette.ink(0.07), in: .capsule)
+                .contentShape(.capsule)
+            }
+            .buttonStyle(WKPressStyle())
+            .disabled(candidate.isRestyling)
+            .animation(WKAnimation.content, value: candidate.isRestyling)
+        } else {
+            Label("mejorada", systemImage: "checkmark")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .padding(.vertical, 5)
+        }
+    }
+
+    private var cell: some View {
         Button(action: onToggle) {
-            candidate.image
+            candidate.previewImage
                 .resizable()
                 .scaledToFit()
                 // **Todas iguales.** El recorte de una zapatilla es ancho y el
@@ -278,6 +325,12 @@ private struct DetectedCell: View {
                         )
                         .padding(WK.Spacing.xs)
                 }
+                .overlay {
+                    if candidate.isRestyling {
+                        ProgressView().controlSize(.small).tint(WK.Palette.accent)
+                    }
+                }
+                .wkShimmer(isActive: candidate.isRestyling)
                 .opacity(candidate.isKept ? 1 : 0.45)
                 .contentShape(.rect)
         }

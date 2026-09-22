@@ -248,7 +248,15 @@ enum SegmentedGarmentExtractor {
     /// una camiseta con un pantalón que se tocan.
     static let closingRadius = 3
 
-    static func regions(in map: ClassMap, splitting: Bool = true) -> [Region] {
+    /// - Parameter minimumArea: el listón de área, por si quien llama quiere
+    ///   ser **más estricto** que el general. Por defecto es el de siempre, así
+    ///   que el camino normal no cambia: solo lo usa el reintento, cuando lo
+    ///   que salió la primera vez traía piezas de más.
+    static func regions(
+        in map: ClassMap,
+        splitting: Bool = true,
+        minimumArea minimumAreaFraction: Double = Self.minimumAreaFraction
+    ) -> [Region] {
         let width = map.width
         let height = map.height
         let total = Double(width * height)

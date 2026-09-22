@@ -61,14 +61,19 @@ public enum GarmentNaming {
 
     /// El sustantivo cuando no hay subcategoría: lo más concreto que se puede
     /// decir sabiendo solo en qué parte del cuerpo va.
+    ///
+    /// **Nombres de prenda, no de parte del cuerpo.** "Top chocolate" y
+    /// "Bottom en azul" son la organización interna asomando: nadie llama top
+    /// a su camiseta. Cuando no se sabe el tipo exacto se pone el más común de
+    /// esa parte, que se lee como ropa y se corrige de un toque.
     public static func defaultNoun(for kind: GarmentKind) -> String {
         switch kind {
-        case .upperBody: "Top"
+        case .upperBody: "Camiseta"
         case .outerLayer: "Chaqueta"
         case .lowerBody: "Pantalón"
         case .wholeBody: "Vestido"
         case .feet: "Zapatos"
-        case .head: "Accesorio"
+        case .head: "Gorra"
         case .bag: "Bolso"
         case .other: "Prenda"
         }

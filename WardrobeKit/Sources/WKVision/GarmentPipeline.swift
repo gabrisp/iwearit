@@ -31,7 +31,7 @@ public actor GarmentPipeline {
     /// **En la duda, no.** Perderse una prenda diminuta se arregla añadiéndola
     /// a mano en dos toques; aparecer con tres recortes de nada obliga a
     /// borrarlos uno a uno y a desconfiar del resto.
-    static let minimumAreaFraction = 0.03
+    public static let defaultMinimumAreaFraction = 0.03
 
     /// Lado máximo con el que se analiza. Ver `extractGarments`.
     static let workingMaxSide = 1400
@@ -100,6 +100,15 @@ public actor GarmentPipeline {
     /// sería una factura y no una función.
     private let alwaysAsksRemote: Bool
 
+    /// Cuánto tiene que ocupar algo para contar como prenda.
+    ///
+    /// Ajustable **solo para el reintento**, y con el valor de siempre por
+    /// defecto: el camino normal detecta bien y no se toca. Subirlo es la
+    /// versión estricta —se queda lo que ocupa de verdad y se van las piezas
+    /// pequeñas que a veces se cuelan— y es una de las dos cosas que se
+    /// prueban cuando el usuario dice "vuelve a mirar".
+    private let minimumAreaFraction: Double
+
     /// A quién preguntar cuando el dispositivo no llega. `nil` = a nadie, y
     /// entonces todo sale de aquí.
     ///
@@ -115,10 +124,12 @@ public actor GarmentPipeline {
         readsBrands: Bool = true,
         skipsUtilityImages: Bool = false,
         splitsInstances: Bool = true,
-        alwaysAsksRemote: Bool = false
+        alwaysAsksRemote: Bool = false,
+        minimumAreaFraction: Double = GarmentPipeline.defaultMinimumAreaFraction
     ) {
         self.splitsInstances = splitsInstances
         self.alwaysAsksRemote = alwaysAsksRemote
+        self.minimumAreaFraction = minimumAreaFraction
         self.segmenter = segmenter
         self.embedder = embedder
         self.promptBank = promptBank
@@ -377,7 +388,14 @@ public actor GarmentPipeline {
             isProblem: seen.isEmpty
         )
 
-        let regions = SegmentedGarmentExtractor.regions(in: map, splitting: splitsInstances)
+        let regions = SegmentedGarmentExtractor.regions(
+            in: map,
+            splitting: splitsInstances,
+            // El listón del pipeline manda sobre el del extractor cuando es
+            // más alto: es lo que hace que el reintento estricto lo sea de
+            // verdad y no solo en el último filtro.
+            minimumArea: max(SegmentedGarmentExtractor.minimumAreaFraction, minimumAreaFraction)
+        )
         DiagnosticsLog.record(
             "SEGMENTA",
             regions.isEmpty
@@ -809,7 +827,7 @@ public actor GarmentPipeline {
         else { return [] }
 
         let area = Double(tight.width * tight.height) / Double(subject.width * subject.height)
-        guard area >= Self.minimumAreaFraction else { return [] }
+        guard area >= minimumAreaFraction else { return [] }
 
         let colors = ColorExtractor.dominantColors(in: normalized)
         // Una mano sujetando la prenda, o la prenda puesta y mal recortada.
@@ -908,7 +926,7 @@ public actor GarmentPipeline {
 
         let area = Double(tight.width * tight.height)
             / Double(person.width * person.height)
-        guard area >= Self.minimumAreaFraction else { return nil }
+        guard area >= minimumAreaFraction else { return nil }
 
         let colors = ColorExtractor.dominantColors(in: normalized)
         // Sin esto, la franja de la cabeza entra como "accesorio" siendo una
