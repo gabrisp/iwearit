@@ -37,11 +37,25 @@ public struct WKMenuItem: Identifiable {
 public struct WKMenuSheet: View {
     private let title: String?
     private let items: [WKMenuItem]
+    /// Una sección propia encima de las opciones, cuando la hoja tiene algo
+    /// más que ofrecer que una lista de acciones.
+    private let header: AnyView?
     @Environment(\.dismiss) private var dismiss
 
     public init(title: String? = nil, items: [WKMenuItem]) {
         self.title = title
         self.items = items
+        self.header = nil
+    }
+
+    public init<Header: View>(
+        title: String? = nil,
+        items: [WKMenuItem],
+        @ViewBuilder header: () -> Header
+    ) {
+        self.title = title
+        self.items = items
+        self.header = AnyView(header())
     }
 
     public var body: some View {
@@ -51,6 +65,8 @@ public struct WKMenuSheet: View {
                     .font(WK.Font.title)
                     .foregroundStyle(WK.Palette.primaryText)
             }
+
+            if let header { header }
 
             WKSection {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in

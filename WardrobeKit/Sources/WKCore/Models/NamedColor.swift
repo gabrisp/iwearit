@@ -84,12 +84,16 @@ public extension NamedColor {
         if lightness < 0.14 { return "negro" }
         if lightness > 0.9 { return "blanco" }
 
+        // Claro u oscuro cuando se nota: unos vaqueros lavados son "azul
+        // claro", no "azul", y es lo que los distingue de los otros.
+        let shade = lightness > 0.66 ? " claro" : (lightness < 0.28 ? " oscuro" : "")
+
         switch hue {
         case ..<15, 345...: return lightness > 0.7 ? "rosa" : "rojo"
         case ..<45: return "naranja"
         case ..<70: return "amarillo"
-        case ..<165: return "verde"
-        case ..<255: return lightness < 0.3 ? "azul marino" : "azul"
+        case ..<165: return "verde" + shade
+        case ..<255: return lightness < 0.3 ? "azul marino" : "azul" + shade
         case ..<290: return "morado"
         default: return "rosa"
         }

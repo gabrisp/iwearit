@@ -98,10 +98,21 @@ struct ClosetAddMenu: View {
     private func content(for step: Step) -> some View {
         switch step {
         case .menu:
-            WKMenuSheet(title: "Añadir", items: menuItems)
-                .overlay {
-                    if isLoadingLibraryPick { ProgressView() }
+            WKMenuSheet(title: "Añadir", items: menuItems) {
+                // **Lo que quedó a medias, en su propia sección.** No como una
+                // opción más de la lista: son prendas ya analizadas, y verlas
+                // es lo que hace que se entienda qué se está retomando.
+                if let pending = appEnvironment.importSession.pending {
+                    PendingImportSection(model: pending) {
+                        if let model = appEnvironment.importSession.take() {
+                            self.step = .restore(model)
+                        }
+                    }
                 }
+            }
+            .overlay {
+                if isLoadingLibraryPick { ProgressView() }
+            }
         case .camera:
             // Al pasar a la revisión, la cámara **se destruye**. Con dos hojas
             // apiladas seguía viva por debajo, y su sesión de captura se
@@ -179,7 +190,8 @@ struct ClosetAddMenu: View {
     }
 
     private var menuItems: [WKMenuItem] {
-        restoreItem + [
+        // restoreItem +   ← ahora es una sección propia: ver `PendingImportSection`
+        [
             // Una sola entrada: la cámara ya lleva dentro el acceso a la
             // galería, así que preguntar antes "¿foto nueva o existente?" es
             // una bifurcación que el usuario no había pedido.
@@ -326,3 +338,44 @@ struct ProfileButton: View {
 //     }
 // }
 //
+
+/// La importación sin terminar: sus prendas en fila y un botón para seguir.
+private struct PendingImportSection: View {
+    let model: ImportModel
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.s) {
+            Text("Sin terminar")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.tertiaryText)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: WK.Spacing.s) {
+                    ForEach(model.candidates) { candidate in
+                        candidate.previewImage
+                            .resizable()
+                            .scaledToFit()
+                            .padding(WK.Spacing.xs)
+                            .frame(width: 64, height: 76)
+                            .background(
+                                WK.Palette.ink(0.05),
+                                in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
+                            )
+                            .opacity(candidate.isKept ? 1 : 0.4)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+
+            WKPrimaryButton(
+                model.candidates.count == 1
+                    ? "Continuar con 1 prenda"
+                    : "Continuar con las \(model.candidates.count) prendas",
+                surface: .glass,
+                action: onContinue
+            )
+        }
+    }
+}

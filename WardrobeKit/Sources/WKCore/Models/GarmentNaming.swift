@@ -57,11 +57,50 @@ public enum GarmentNaming {
         // no, el color. Juntarlos todos daba "Polo algodón azul marino
         // Stüssy", que no es un nombre sino una ficha.
         if let brand, !brand.isEmpty { return "\(noun) \(brand)" }
-        if let material, !material.isEmpty { return "\(noun) \(material.lowercased())" }
+        if let material, !material.isEmpty { return "\(noun) \(titled(material))" }
 
-        let dominant = colors.max(by: { $0.weight < $1.weight })
-        guard let dominant, dominant.weight >= colorNameThreshold else { return noun }
-        return "\(noun) \(dominant.basicName)"
+        // **Siempre con color.** Antes solo entraba si mandaba en más del 45%
+        // del recorte, y en la mayoría de prendas no llegaba: el nombre se
+        // quedaba en "Vaqueros" a secas. Ahora va el dominante siempre, en su
+        // palabra de las de siempre y concordando con la prenda: "Camiseta
+        // Roja", "Vaqueros Negros", "Vaqueros Azul Claro".
+        guard let dominant = colors.max(by: { $0.weight < $1.weight }) else { return noun }
+        return "\(noun) \(titled(agree(dominant.basicName, with: noun)))"
+    }
+
+    /// El color concordado con la prenda.
+    ///
+    /// "Camiseta negra", "Vaqueros negros", "Zapatillas blancas". Los colores
+    /// compuestos —azul claro, azul marino, gris oscuro— y los que son nombre
+    /// de cosa —rosa, naranja, beige— no cambian: "vaqueros azul claro",
+    /// "camisetas rosa".
+    static func agree(_ color: String, with noun: String) -> String {
+        guard !color.contains(" ") else { return color }
+
+        let lower = noun.lowercased()
+        let plural = lower.hasSuffix("s") && !["chándal", "jersey"].contains(lower)
+        let singular = plural ? String(lower.dropLast(lower.hasSuffix("es") && !lower.hasSuffix("tes") ? 0 : 1)) : lower
+        let feminine = singular.hasSuffix("a") || lower.hasSuffix("as")
+
+        switch color {
+        case "negro", "blanco", "rojo", "amarillo", "morado":
+            let stem = String(color.dropLast())
+            return stem + (feminine ? "a" : "o") + (plural ? "s" : "")
+        case "gris", "azul", "marrón":
+            guard plural else { return color }
+            return color == "marrón" ? "marrones" : color + "es"
+        case "verde":
+            return plural ? "verdes" : color
+        default:
+            return color
+        }
+    }
+
+    /// Con mayúscula en cada palabra, como el resto del nombre.
+    static func titled(_ text: String) -> String {
+        text.split(separator: " ")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
     }
 
     public static func name(for draft: GarmentDraft) -> String {
