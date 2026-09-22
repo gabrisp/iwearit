@@ -98,7 +98,7 @@ struct ImportReviewStack: View {
                 isSaving = true
                 Task { await onSave() }
             } label: {
-                Text(model.candidates.isEmpty ? "Nada que guardar" : "Guardar")
+                Text(model.keptCount == 0 ? "Nada que guardar" : "Guardar \(model.keptCount)")
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.onAccent)
                     .frame(maxWidth: .infinity)
@@ -107,8 +107,8 @@ struct ImportReviewStack: View {
             }
             .buttonStyle(.plain)
             .adaptiveGlass(tint: WK.Palette.accent, in: .capsule)
-            .disabled(model.candidates.isEmpty || isSaving)
-            .opacity(model.candidates.isEmpty || isSaving ? 0.5 : 1)
+            .disabled(model.keptCount == 0 || isSaving)
+            .opacity(model.keptCount == 0 || isSaving ? 0.5 : 1)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)
@@ -122,9 +122,9 @@ struct ImportReviewStack: View {
                 ForEach(model.candidates) { candidate in
                     ImportGarmentCard(
                         candidate: candidate,
-                        onDiscard: {
-                            withAnimation(WKAnimation.content) {
-                                model.discard(candidateWithID: candidate.id)
+                        onToggleKeep: {
+                            withAnimation(WKAnimation.selection) {
+                                model.setKeep(!candidate.isKept, forCandidateWithID: candidate.id)
                             }
                         },
                         onImprove: { await model.restyle(candidateWithID: candidate.id) },
@@ -211,7 +211,8 @@ struct ImportReviewStack: View {
 /// mejor. Tocar la tarjeta abre la ficha entera.
 private struct ImportGarmentCard: View {
     let candidate: ImportCandidate
-    let onDiscard: () -> Void
+    /// Marcar o desmarcar: solo se guardan las marcadas.
+    let onToggleKeep: () -> Void
     let onImprove: () async -> Void
     let onOpen: () -> Void
 
@@ -248,14 +249,18 @@ private struct ImportGarmentCard: View {
                         .lineLimit(1)
                 }
 
-                HStack(spacing: WK.Spacing.s) {
-                    improveButton
-                    Spacer(minLength: 0)
-                    discardButton
-                }
-                .padding(.top, 2)
+                // Mejorar solo en la ficha de la prenda, no en la lista: aquí
+                // se decide qué entra, y el botón competía con la casilla.
+                // Se queda comentado.
+                // improveButton
+                //     .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            // **Desmarcada, apagada entera.** No solo la casilla: todo lo de
+            // su lado, para que de un vistazo se vea qué entra y qué no.
+            .opacity(candidate.isKept ? 1 : 0.35)
+
+            keepCheck
         }
         .padding(WK.Spacing.s)
         .frame(maxWidth: .infinity)
@@ -333,18 +338,24 @@ private struct ImportGarmentCard: View {
         }
     }
 
-    /// **Tirarla, no desmarcarla.** Aquí ya no hay "se va a guardar": lo que
-    /// está en la lista entra, y lo que no es ropa se va con la papelera.
-    private var discardButton: some View {
-        Button(action: onDiscard) {
-            Image(systemName: "trash")
-                .font(WK.Font.caption)
-                .foregroundStyle(.red)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(Color.red.opacity(0.12)))
-                .contentShape(.circle)
+    /// **Marcada o no.** Sin papelera: las que no quieres se desmarcan y no
+    /// se guardan, y si cambias de idea se vuelven a marcar — tirarlas era
+    /// irreversible para algo que no hacía falta que lo fuera.
+    private var keepCheck: some View {
+        Button(action: onToggleKeep) {
+            Image(systemName: candidate.isKept ? "checkmark.circle.fill" : "circle")
+                .font(.title2)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(
+                    candidate.isKept ? WK.Palette.onAccent : WK.Palette.tertiaryText,
+                    candidate.isKept ? WK.Palette.accent : WK.Palette.ink(0.08)
+                )
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())
+        .sensoryFeedback(.selection, trigger: candidate.isKept)
     }
 }
 

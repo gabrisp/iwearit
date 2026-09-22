@@ -40,7 +40,7 @@ public enum GarmentVocabulary {
         case .lowerBody:
             // Lo que es el pantalón. El largo —short, capri— va en su propia
             // etiqueta, y "pantalones" es la balda, no un tipo.
-            ["Vaqueros", "Chinos", "De vestir", "Jogger", "Cargo", "Leggings", "Falda"]
+            ["Vaqueros", "Chinos", "De vestir", "Chándal", "Jogger", "Cargo", "Leggings", "Falda"]
         case .wholeBody:
             ["Vestido", "Vestido largo", "Mono", "Peto"]
         case .feet:
@@ -156,7 +156,22 @@ public enum GarmentVocabulary {
         guard let raw, !raw.isEmpty else { return nil }
         let folded = raw.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
         let notTypes: Set<String> = ["top", "tops", "bottom", "bottoms", "upper", "lower"]
-        return notTypes.contains(folded) ? nil : raw.capitalized
+        guard !notTypes.contains(folded) else { return nil }
+
+        // **El tipo, sin repetir la balda.** "Pantalón de chándal" dentro de
+        // la balda Pantalones es decir pantalón dos veces: el tipo es
+        // "Chándal". Lo mismo con "camiseta de tirantes" en Camisetas.
+        let redundant = [
+            "pantalones de ", "pantalon de ", "pantalón de ",
+            "camisetas de ", "camiseta de ", "camisas de ", "camisa de ",
+            "chaqueta de ", "zapatillas de ", "zapatos de ",
+        ]
+        var text = raw.trimmingCharacters(in: .whitespaces)
+        for prefix in redundant where text.lowercased().hasPrefix(prefix) {
+            text = String(text.dropFirst(prefix.count))
+            break
+        }
+        return text.prefix(1).uppercased() + text.dropFirst().lowercased()
     }
 
     /// Estilo. Hasta tres por prenda: con más, dejan de significar nada.

@@ -135,7 +135,9 @@ struct ImportSingleCard: View {
             // Sin conmutador Recorte/Foto: se mira la prenda, que es lo que se
             // guarda. Se queda comentado.
             // .overlay(alignment: .bottom) { sourcePicker }
-            .overlay(alignment: .topTrailing) { discardButton }
+            // Sin X sobre la prenda: marcarla o no se decide con la casilla
+            // de su tarjeta. Se queda comentado.
+            // .overlay(alignment: .topTrailing) { discardButton }
     }
 
     @ViewBuilder
