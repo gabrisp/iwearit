@@ -122,18 +122,19 @@ struct WebImportScreen: View {
                 // izquierda lo que llevas capturado y a la derecha los
                 // botones. Así se recorren cinco productos seguidos y se
                 // importan de una vez.
-                .adaptiveSafeAreaBar(edge: .bottom) {
-                    VStack(spacing: WK.Spacing.s) {
-                        // Las tiendas de siempre, a un toque.
-                        WebSiteBar(
-                            store: sites,
-                            current: model.currentURL,
-                            onOpen: { site in model.go(to: site.url.absoluteString) },
-                            onPin: { Task { await pinCurrent() } }
-                        )
-                        captureBar
-                    }
+                // **Arriba, bajo la dirección**: las tiendas de siempre son por
+                // dónde se empieza, no algo que se hace al final. Abajo queda
+                // lo capturado y los botones.
+                .adaptiveSafeAreaBar(edge: .top) {
+                    WebSiteBar(
+                        store: sites,
+                        current: model.currentURL,
+                        onOpen: { site in model.go(to: site.url.absoluteString) },
+                        onPin: { Task { await pinCurrent() } }
+                    )
+                    .padding(.bottom, WK.Spacing.xs)
                 }
+                .adaptiveSafeAreaBar(edge: .bottom) { captureBar }
                 // Lo visitado se recuerda: las tres últimas salen en la fila.
                 .task(id: model.currentURL) {
                     guard let url = model.currentURL else { return }
