@@ -88,6 +88,14 @@ final class ShelfDragModel {
 
     func register(shelf slug: String, frame: CGRect) { shelfFrames[slug] = frame }
 
+    /// La fila de prendas de cada balda, sin cabecera ni tablero. Hace falta
+    /// para saber dónde colgar en una balda **vacía**: el marco de la balda
+    /// entera incluye el título y el canto, y su centro no es donde van las
+    /// prendas.
+    @ObservationIgnored private var rowFrames: [String: CGRect] = [:]
+
+    func register(row slug: String, frame: CGRect) { rowFrames[slug] = frame }
+
     func register(item id: UUID, in slug: String, frame: CGRect) {
         itemFrames[id] = (slug, frame)
     }
@@ -196,11 +204,15 @@ final class ShelfDragModel {
                     y: last.midY
                 )
             }
-            // Balda vacía: al principio, a la altura de las prendas.
-            let shelf = shelfFrames[slug] ?? originFrame
+            // **Balda vacía:** al principio de su fila y a la altura a la que
+            // cuelgan las prendas —pegadas abajo, como en cualquier balda—.
+            // Antes se calculaba sobre la balda entera, cabecera y canto
+            // incluidos, y caía por debajo de donde luego aparecía.
+            let row = rowFrames[slug] ?? shelfFrames[slug] ?? originFrame
+            let itemHeight = itemFrames.values.first?.frame.height ?? originFrame.height
             return CGPoint(
-                x: shelf.minX + WK.Spacing.screenInset + WK.Shelf.garmentWidth / 2,
-                y: shelf.maxY - WK.Shelf.height / 2
+                x: row.minX + WK.Spacing.screenInset + WK.Shelf.garmentWidth / 2,
+                y: row.maxY - itemHeight / 2
             )
         }
     }
@@ -232,15 +244,14 @@ struct ShelfDragOverlay: View {
         if let garment = model.dragged {
             HangingGarmentView(garment: garment)
                 .frame(width: WK.Shelf.garmentWidth)
-                // **El borde.** Tres halos blancos apilados dibujan el canto
-                // de pegatina alrededor de la silueta —no un rectángulo—, que
-                // es lo que hace que se lea como la prenda despegándose y no
-                // como una captura de pantalla.
-                .shadow(color: .white, radius: 0.8)
-                .shadow(color: .white, radius: 0.8)
-                .shadow(color: .white, radius: 0.8)
-                // Y la sombra de estar en el aire, más lejos cuanto más alta.
-                .shadow(color: WK.Palette.ink(0.28), radius: isLifted ? 22 : 6, y: isLifted ? 18 : 4)
+                // Sin borde ni sombra añadidos: la prenda en el dedo es la
+                // misma que colgaba, con su propia sombra y nada más. Lo que la
+                // levanta es el tamaño y la inclinación.
+                //
+                // .shadow(color: .white, radius: 0.8)
+                // .shadow(color: .white, radius: 0.8)
+                // .shadow(color: .white, radius: 0.8)
+                // .shadow(color: WK.Palette.ink(0.28), radius: isLifted ? 22 : 6, y: isLifted ? 18 : 4)
                 .scaleEffect(isLifted ? 1.12 : 1)
                 .rotationEffect(.degrees(isLifted ? 4 : 0))
                 .position(

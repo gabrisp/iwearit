@@ -247,6 +247,12 @@ struct ShelfSection: View, Equatable {
                 .animation(WKAnimation.arrival, value: data.garments.map(\.id))
             }
             .scrollIndicators(.hidden)
+            // La fila, para saber dónde colgar cuando la balda está vacía.
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .named(ShelfDragModel.space))
+            } action: { frame in
+                drag.register(row: data.id, frame: frame)
+            }
             // Quieta mientras hay una prenda en el dedo: si no, arrastrar hacia
             // un lado desplaza la balda en vez de mover la prenda.
             .scrollDisabled(drag.locksScroll)
