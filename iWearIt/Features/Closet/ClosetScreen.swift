@@ -24,6 +24,9 @@ struct ClosetScreen: View {
     /// `-open suitcase` empuja la primera maleta al arrancar, para poder
     /// capturar pantallas profundas sin navegar a mano.
     @Query private var allSuitcases: [Suitcase]
+    /// El arrastre de prendas entre baldas. Vive aquí porque cruza baldas: es
+    /// el único sitio que las ve todas.
+    @State private var shelfDrag = ShelfDragModel()
     @State private var debugPath = NavigationPath()
     #endif
 
@@ -111,6 +114,15 @@ struct ClosetScreen: View {
             // **Rebota aunque quepa todo**: con dos baldas no hay nada que
             // desplazar y el gesto no existiría.
             .scrollBounceBehavior(.always, axes: .vertical)
+            // **Una prenda en el dedo lo congela todo.** Con el armario
+            // desplazándose por debajo, soltar la prenda donde apuntas es
+            // imposible: la balda se ha ido de sitio mientras llegabas.
+            .scrollDisabled(shelfDrag.isDragging)
+            // El espacio donde se miden las baldas y las prendas, y donde se
+            // dibuja la que va levantada. Ver `ShelfDragModel`.
+            .coordinateSpace(.named(ShelfDragModel.space))
+            .overlay { ShelfDragOverlay(model: shelfDrag) }
+            .environment(shelfDrag)
             // **El atajo.** Seguir tirando al final del armario abre el
             // selector y monta un outfit **para hoy**: estabas mirando ropa y
             // te ha apetecido combinarla, que es exactamente el momento en que

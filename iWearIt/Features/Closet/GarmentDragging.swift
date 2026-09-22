@@ -37,7 +37,7 @@ extension UTType {
 }
 
 /// Dónde cae una prenda soltada.
-enum GarmentDrop {
+enum GarmentDrop: Equatable {
     /// Antes de esta otra prenda.
     case before(UUID)
     /// Al final de esta balda.
@@ -58,31 +58,47 @@ enum GarmentMover {
     static func move(_ id: UUID, to drop: GarmentDrop, in context: ModelContext) {
         guard let moved = garment(id, in: context) else { return }
 
+        // **Se renumera la balda de destino entera.**
+        //
+        // Antes se ponía la prenda a medio camino entre sus dos vecinas. Pero
+        // todas las prendas nacen con el orden a cero, así que entre dos que
+        // nadie había tocado el "medio camino" era cero otra vez: empataba con
+        // todas, el desempate lo decidía la fecha, y la prenda caía a veces
+        // donde la soltabas y a veces al principio.
+        //
+        // Numerando la balda de nuevo —en el orden en que se ve, con la prenda
+        // ya metida en su sitio— no queda ningún empate que desempatar. Son
+        // tantas escrituras como prendas tiene la balda, que son pocas.
+        let category: GarmentCategory
+        var sequence: [Garment]
+
         switch drop {
         case let .before(targetID):
             guard
                 let target = garment(targetID, in: context),
                 target.id != moved.id,
-                let category = target.category
+                let targetCategory = target.category
             else { return }
-
-            let siblings = ordered(in: category, excluding: moved)
-            let index = siblings.firstIndex { $0.id == target.id } ?? 0
-            // El hueco entre la anterior y esta. Sin anterior, un paso por
-            // delante: así la prenda puede seguir subiendo indefinidamente sin
-            // renumerar a las demás.
-            let previous = index > 0 ? siblings[index - 1].shelfOrder : target.shelfOrder - 2 * step
-            moved.shelfOrder = (previous + target.shelfOrder) / 2
-            moved.category = category
-            moved.categoryLockedByUser = true
+            category = targetCategory
+            sequence = ordered(in: category, excluding: moved)
+            let index = sequence.firstIndex { $0.id == target.id } ?? sequence.count
+            sequence.insert(moved, at: index)
 
         case let .endOf(slug):
-            guard let category = category(slug, in: context) else { return }
-            let siblings = ordered(in: category, excluding: moved)
-            moved.shelfOrder = (siblings.last?.shelfOrder ?? 0) + step
-            moved.category = category
-            moved.categoryLockedByUser = true
+            guard let slugCategory = self.category(slug, in: context) else { return }
+            category = slugCategory
+            sequence = ordered(in: category, excluding: moved)
+            sequence.append(moved)
         }
+
+        for (position, item) in sequence.enumerated() {
+            let order = Double(position + 1) * step
+            // Solo lo que cambia: escribir el mismo valor también cuenta como
+            // cambio para la sincronización.
+            if item.shelfOrder != order { item.shelfOrder = order }
+        }
+        moved.category = category
+        moved.categoryLockedByUser = true
 
         moved.modifiedAt = .now
     }
