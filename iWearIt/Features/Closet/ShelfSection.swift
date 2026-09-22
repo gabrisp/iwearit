@@ -42,7 +42,13 @@ struct ShelfSection: View, Equatable {
                     ForEach(data.garments) { garment in
                         HangingGarmentView(garment: garment)
                             // Entra creciendo desde su sitio, no de la nada.
-                            .transition(.scale(scale: 0.7).combined(with: .opacity))
+                            // Salvo la que acaba de posarse: esa ya se ha
+                            // visto bajar, y crecer otra vez sería repetirla.
+                            .transition(
+                                drag.justLanded == garment.id
+                                    ? .identity
+                                    : .scale(scale: 0.7).combined(with: .opacity)
+                            )
                             // **Descolgada, no copiada.** Mientras va en el
                             // dedo, aquí queda su hueco: la prenda está en un
                             // sitio, y ese sitio es ahora el dedo.
@@ -84,8 +90,8 @@ struct ShelfSection: View, Equatable {
                                     }
                                     .onEnded { _ in
                                         guard drag.isDragging else { return }
-                                        withAnimation(WKAnimation.content) {
-                                            if drag.end(in: modelContext) {
+                                        Task {
+                                            if await drag.land(in: modelContext) {
                                                 appEnvironment.tips.complete(.dragGarment)
                                             }
                                         }

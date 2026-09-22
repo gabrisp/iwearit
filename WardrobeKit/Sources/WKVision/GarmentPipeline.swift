@@ -855,38 +855,12 @@ public actor GarmentPipeline {
         from image: CGImage
     ) async -> [DetectedGarment] {
         guard !garments.isEmpty else { return garments }
-        guard SolidBackground.isLikely(in: image) else {
-            // Se dice, porque explica de golpe por qué una foto "de tienda" no
-            // recibió ninguno de los arreglos de fondo liso.
-            DiagnosticsLog.record("RECORTE", "el fondo no es liso: se deja lo del segmentador")
-            return garments
-        }
 
-        // **Primero contar, y preguntar por la pose solo si hace falta.**
-        //
-        // Contar manchas de color es CPU y son milisegundos; la pose es una
-        // petición neuronal con ocho segundos de tope. Preguntarla siempre
-        // —como se hacía— era pagar el paso caro para, la mitad de las veces,
-        // no usar la respuesta: con una sola prenda detectada no hay nada que
-        // unificar, y la pose daba igual.
-        let split = ColorSplitter.split(image)
-
-        // **Una prenda doblada no es una persona.**
-        //
-        // Aquí bastaba con que la pose devolviera *algo* para saltarse toda la
-        // unificación, y una camiseta doblada sobre fondo blanco tiene forma
-        // de torso: Vision le encuentra "hombros" y "caderas" con media
-        // confianza, y con eso la foto pasaba por "hay alguien puesto" y la
-        // doblez acababa siendo una segunda prenda.
-        //
-        // La guarda sigue estando —con una persona vestida, la mancha de color
-        // cubre varias prendas y unificarlas sería meter camiseta y pantalón
-        // en una— pero ahora pide una persona **de verdad**: o rodilla o
-        // tobillo, o una confianza alta. Una prenda tirada en la mesa no tiene
-        // piernas.
-        // Una sola vez, y se usa para dos cosas: si se puede unificar y si se
-        // puede tomar el sujeto entero como prenda. Con alguien puesto, ni una
-        // ni otra.
+        // **Primero: ¿hay alguien puesto?** Con una persona vestida, el
+        // segmentador es el que sabe separar camiseta de pantalón, y todo lo de
+        // abajo —juntar regiones, tomar el sujeto entero— sería mezclarlas.
+        // Una prenda tirada en la mesa no tiene piernas: ver
+        // `hasConvincingPerson`.
         if await Self.hasConvincingPerson(in: image) {
             return garments
         }
@@ -895,14 +869,9 @@ public actor GarmentPipeline {
         //
         // El mapa de clases no parte solo por pliegues: a una camiseta lisa le
         // llama "parte de arriba" al pecho y otra cosa al bajo, y entonces son
-        // dos regiones de clases distintas que se solapan. Cada una sale
-        // recortada por su lado, y la de arriba viene con un mordisco enorme
-        // donde empezaba la otra — que es exactamente lo que se veía.
-        //
-        // Con una persona en la foto esto sería un error: la chaqueta y la
-        // camiseta de debajo se solapan y son dos prendas. Sin persona y sobre
-        // fondo liso, no: es una prenda a la que el mapa le ha puesto dos
-        // nombres.
+        // dos regiones de clases distintas que se solapan. Cada una salía
+        // recortada por su lado, y la de arriba con un mordisco enorme donde
+        // empezaba la otra.
         let collapsed = Self.collapsedIfOverlapping(garments)
         if collapsed.count < garments.count {
             DiagnosticsLog.record(
@@ -910,37 +879,25 @@ public actor GarmentPipeline {
                 "\(garments.count) regiones solapadas sin nadie puesto: es \(collapsed.count) prenda(s)"
             )
         }
-        let garments = collapsed
 
-        // **Cuántas prendas hay lo dice el color, no el segmentador.**
+        // **El sujeto de iOS, primero — con cualquier fondo.**
         //
-        // Este es el caso del pantalón sobre fondo liso: el mapa de clases lo
-        // parte por el tiro o por la doblez y devuelve dos o tres piezas, y a
-        // partir de ahí todo va mal — tres fichas, tres recortes a medias y
-        // tres reconstrucciones que pagar.
+        // "Copiar sujeto" —la máscara de primer plano del sistema, la misma de
+        // mantener pulsada una foto— es el mejor recorte que hay para una cosa
+        // sola: está entrenada para separarla del fondo y lo hace al píxel. Lo
+        // que no sabe es qué es, y eso ya lo ha dicho el segmentador: se toma
+        // el sujeto como imagen y la prenda detectada como todo lo demás.
         //
-        // Sobre fondo liso hay una forma barata de contarlas que no depende de
-        // saber de ropa: mirar cuántas manchas separadas hay que no sean del
-        // color del fondo. Dos perneras unidas por el tiro son **una** mancha;
-        // una camiseta y un pantalón tirados aparte son dos. Ver
-        // `ColorSplitter`.
-        guard let garment = unified(garments, pieces: split?.pieceCount) else {
-            return garments
-        }
-
-        // **El sujeto de iOS, primero.**
+        // Antes esto solo se probaba con fondo liso, y con un fondo gris con
+        // degradado —el de casi todas las fotos de tienda— ni se intentaba:
+        // por eso seguía saliendo el recorte mordido. Ahora se intenta siempre
+        // que haya una sola prenda y nadie puesto.
         //
-        // Sobre fondo liso y sin nadie puesto, "copiar sujeto" —la máscara de
-        // primer plano del sistema, la misma de mantener pulsada una foto— es
-        // el mejor recorte que hay: está entrenada para separar *la cosa* del
-        // fondo y lo hace al píxel. Lo que no sabe es qué es, y eso ya lo ha
-        // dicho el segmentador: así que se toma el sujeto como imagen y la
-        // prenda detectada como todo lo demás.
-        //
-        // Se mide antes de quedárselo —forma y contaminación, como a los
-        // demás— porque un sujeto que se lleva la percha o la mesa es peor que
-        // el corte por color. Si no pasa, se sigue por el camino de siempre.
-        if let lifted = await subjectCutout(from: image) {
+        // Se mide antes de quedárselo —forma y contaminación— porque un sujeto
+        // que se trae la percha o la mesa es peor que lo de siempre. Si no
+        // pasa, o no hay sujeto, se sigue exactamente como antes.
+        if collapsed.count == 1, let garment = collapsed.first,
+           let lifted = await subjectCutout(from: image) {
             let cutout = lifted.normalized.cgImage
             let report = CutoutQuality.assess(cutout)
             let dirt = CutoutQuality.contamination(of: cutout, backgroundOf: image)
@@ -959,6 +916,24 @@ public actor GarmentPipeline {
                 "RECORTE",
                 String(format: "el sujeto de iOS no basta (%@, contaminación %.2f)", report.summary, dirt)
             )
+        }
+
+        guard SolidBackground.isLikely(in: image) else {
+            DiagnosticsLog.record("RECORTE", "el fondo no es liso: se deja lo del segmentador")
+            return collapsed
+        }
+
+        // **Cuántas prendas hay lo dice el color, no el segmentador.**
+        //
+        // Sobre fondo liso hay una forma barata de contarlas que no depende de
+        // saber de ropa: mirar cuántas manchas separadas hay que no sean del
+        // color del fondo. Dos perneras unidas por el tiro son **una** mancha;
+        // una camiseta y un pantalón tirados aparte son dos. Ver
+        // `ColorSplitter`.
+        let split = ColorSplitter.split(image)
+        let garments = collapsed
+        guard let garment = unified(garments, pieces: split?.pieceCount) else {
+            return garments
         }
 
         // **Atajo para la foto de tienda.**

@@ -183,12 +183,13 @@ private struct ImportGarmentCard: View {
                         .minimumScaleFactor(0.85)
                 }
 
-                if !candidate.tags.isEmpty {
-                    Text(candidate.tags.joined(separator: " · "))
-                        .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.tertiaryText)
-                        .lineLimit(1)
-                }
+                // Sin estilo: se queda comentado.
+                // if !candidate.tags.isEmpty {
+                //     Text(candidate.tags.joined(separator: " · "))
+                //         .font(WK.Font.caption)
+                //         .foregroundStyle(WK.Palette.tertiaryText)
+                //         .lineLimit(1)
+                // }
 
                 if candidate.duplicateOf != nil {
                     Label("Ya tienes una parecida", systemImage: "square.on.square")

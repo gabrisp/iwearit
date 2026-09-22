@@ -164,3 +164,73 @@ struct ColorRow: View {
         }
     }
 }
+
+
+/// El corte de la prenda —manga o largo— como **etiquetas**, no como campo.
+///
+/// Tres opciones a la vista y se toca la que es: abrir una hoja para elegir
+/// entre tres palabras era un paso para nada. Tocar la elegida la quita, y el
+/// "+" deja escribir una propia, que se queda como una etiqueta más.
+struct CutChipsRow: View {
+    let kind: GarmentKind
+    let selection: String?
+    let onChange: (String?) -> Void
+
+    @State private var isAddingCustom = false
+    @State private var custom = ""
+
+    var body: some View {
+        if let title = GarmentVocabulary.cutTitle(for: kind) {
+            VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+                Text(title)
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+
+                ScrollView(.horizontal) {
+                    HStack(spacing: WK.Spacing.xs) {
+                        ForEach(options, id: \.self) { option in
+                            chip(option, isSelected: option == selection) {
+                                onChange(option == selection ? nil : option)
+                            }
+                        }
+                        chip("+", isSelected: false) { isAddingCustom = true }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .scrollClipDisabled()
+            }
+            .padding(.vertical, WK.Spacing.m - 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .alert(title, isPresented: $isAddingCustom) {
+                TextField("Escribe el tuyo", text: $custom)
+                Button("Añadir") {
+                    let value = custom.trimmingCharacters(in: .whitespaces)
+                    custom = ""
+                    if !value.isEmpty { onChange(value.capitalized) }
+                }
+                Button("Cancelar", role: .cancel) { custom = "" }
+            }
+        }
+    }
+
+    /// Las de siempre, más la propia si hay una escrita.
+    private var options: [String] {
+        let base = GarmentVocabulary.cuts(for: kind)
+        guard let selection, !base.contains(selection) else { return base }
+        return base + [selection]
+    }
+
+    private func chip(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(WK.Font.callout)
+                .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.s)
+                .background(isSelected ? WK.Palette.accent : WK.Palette.ink(0.06), in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(WKPressStyle())
+        .animation(WKAnimation.selection, value: isSelected)
+    }
+}

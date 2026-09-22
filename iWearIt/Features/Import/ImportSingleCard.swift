@@ -250,25 +250,23 @@ struct ImportSingleCard: View {
                     ?? GarmentVocabulary.shelfName(for: candidate.kind),
                 label: "Tipo"
             ) { field = .type }
-            if let cutTitle = GarmentVocabulary.cutTitle(for: candidate.kind) {
-                EditRow(
-                    value: candidate.cut ?? "Sin definir",
-                    label: cutTitle
-                ) { field = .cut }
-            }
             EditRow(
                 value: candidate.material?.capitalized ?? "Sin definir",
                 label: "Material"
             ) { field = .material }
             EditRow(
-                value: candidate.tags.isEmpty ? "Sin etiquetas" : candidate.tags.joined(separator: " · "),
-                label: "Etiquetas"
-            ) { field = .tags }
-            EditRow(
                 value: GarmentVocabulary.Warmth.from(candidate.seasons).label,
-                label: "Calidez",
-                showsSeparator: false
+                label: "Calidez"
             ) { field = .warmth }
+            // **Sin estilo.** "Casual · Edgy" se adivinaba y no servía para
+            // nada que se haga en la app. Se queda comentado.
+            // EditRow(
+            //     value: candidate.tags.isEmpty ? "Sin etiquetas" : candidate.tags.joined(separator: " · "),
+            //     label: "Etiquetas"
+            // ) { field = .tags }
+
+            // La manga o el largo, como etiquetas a la vista.
+            CutChipsRow(kind: candidate.kind, selection: candidate.cut) { onChangeCut?($0) }
         }
     }
 
@@ -344,7 +342,9 @@ struct ImportSingleCard: View {
             WKChipSheet(
                 title: "Qué prenda es",
                 subtitle: "Manga larga, corta, vaqueros… lo que la distingue",
-                options: GarmentVocabulary.allTypes.map { .init(id: $0, label: $0) }
+                // Los de su parte, no la lista entera: cincuenta palabras para
+                // elegir una era demasiado.
+                options: GarmentVocabulary.types(for: candidate.kind).map { .init(id: $0, label: $0) }
                     + [.init(id: "", label: "Sin definir")],
                 selection: Binding(
                     get: { Set([candidate.subcategory?.capitalized].compactMap { $0 }) },

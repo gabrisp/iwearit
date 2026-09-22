@@ -194,16 +194,12 @@ struct GarmentEditSheet: View {
                 value: garment.subcategory?.capitalized ?? "Sin definir",
                 label: "Tipo"
             ) { editing = .type }
-            if let cutTitle = GarmentVocabulary.cutTitle(for: garment.kind) {
-                EditRow(
-                    value: garment.cut ?? "Sin definir",
-                    label: cutTitle
-                ) { editing = .cut }
-            }
-            EditRow(
-                value: garment.tags.isEmpty ? "Sin etiquetas" : garment.tags.joined(separator: " · "),
-                label: "Etiquetas"
-            ) { editing = .tags }
+
+            // Sin estilo: se queda comentado.
+            // EditRow(
+            //     value: garment.tags.isEmpty ? "Sin etiquetas" : garment.tags.joined(separator: " · "),
+            //     label: "Etiquetas"
+            // ) { editing = .tags }
             EditRow(
                 value: GarmentVocabulary.Warmth.from(garment.seasons).label,
                 label: "Calidez"
@@ -221,6 +217,9 @@ struct GarmentEditSheet: View {
             // **Notas.** Un enlace a la ficha de la tienda, la talla que
             // compraste, con qué la sueles llevar. Es el campo donde cabe lo
             // que no cabe en ningún otro, y por eso no tiene formato.
+            // La manga o el largo, como etiquetas a la vista.
+            CutChipsRow(kind: garment.kind, selection: garment.cut) { garment.cut = $0 }
+
             NotesRow(notes: notesBinding)
         }
     }

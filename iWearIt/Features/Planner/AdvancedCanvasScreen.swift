@@ -1026,7 +1026,8 @@ private struct CanvasGarmentTray: View {
                         .map { .part($0) }),
                     .init(title: "Baldas", filters: shelves),
                     .init(title: "Color", filters: colors),
-                    .init(title: "Estilo", filters: styles),
+                    // Sin estilo: se queda comentado.
+                    // .init(title: "Estilo", filters: styles),
                 ],
                 swatches: swatches,
                 selection: $filters

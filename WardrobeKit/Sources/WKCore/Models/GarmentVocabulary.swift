@@ -66,10 +66,12 @@ public enum GarmentVocabulary {
     /// uno propio, porque cada armario llama a sus pantalones a su manera.
     public static func cuts(for kind: GarmentKind) -> [String] {
         switch kind {
+        // Tres, no seis: son las que se distinguen de un vistazo. Lo demás
+        // —un "jort", unos tobilleros— se escribe con el "+".
         case .upperBody, .outerLayer:
-            ["Sin manga", "Tirantes", "Manga corta", "Manga 3/4", "Manga larga"]
+            ["Sin manga", "Manga corta", "Manga larga"]
         case .lowerBody:
-            ["Short", "Jort", "Bermuda", "Capri", "Tobillero", "Largo"]
+            ["Corto", "Capri", "Largo"]
         case .wholeBody:
             ["Mini", "Midi", "Largo"]
         default:

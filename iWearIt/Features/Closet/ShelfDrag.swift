@@ -41,6 +41,13 @@ final class ShelfDragModel {
     private(set) var grab: CGSize = .zero
     /// Dónde caería si se soltara ahora.
     private(set) var target: GarmentDrop?
+    /// Bajando a su sitio: la misma animación que al levantarla, al revés.
+    private(set) var isLanding = false
+    /// La que acaba de colgarse. Entra en la balda sin su animación de
+    /// llegada, porque ya ha llegado: la que se ve bajar es ella.
+    private(set) var justLanded: UUID?
+    /// Su marco al descolgarla, para devolverla si se suelta en ningún sitio.
+    @ObservationIgnored private var originFrame: CGRect = .zero
 
     var isDragging: Bool { dragged != nil }
 
@@ -61,6 +68,7 @@ final class ShelfDragModel {
     func begin(_ garment: GarmentRef, from slug: String, at point: CGPoint) {
         guard dragged == nil else { return }
         let frame = itemFrames[garment.id]?.frame ?? CGRect(origin: point, size: .zero)
+        originFrame = frame
         grab = CGSize(width: point.x - frame.midX, height: point.y - frame.midY)
         location = point
         origin = slug
@@ -69,25 +77,84 @@ final class ShelfDragModel {
     }
 
     func move(to point: CGPoint) {
-        guard dragged != nil else { return }
+        guard dragged != nil, !isLanding else { return }
         location = point
         let next = drop(at: point)
         if next != target { target = next }
     }
 
-    /// Se cuelga donde esté el dedo. Devuelve si se movió.
+    /// **Se cuelga, bajando.** Devuelve si se movió.
+    ///
+    /// Primero baja a su hueco con la misma animación con la que se levantó
+    /// —al revés: pierde el tamaño, la inclinación y la sombra— y solo
+    /// entonces se escribe el cambio, con la prenda ya en su sitio. Sin esto
+    /// la levantada desaparecía de golpe y la de la balda aparecía creciendo:
+    /// dos prendas para un solo movimiento.
+    ///
+    /// Soltada en ningún sitio, vuelve a donde estaba igual.
     @discardableResult
-    func end(in context: ModelContext) -> Bool {
-        defer {
-            dragged = nil
-            origin = nil
-            target = nil
+    func land(in context: ModelContext) async -> Bool {
+        guard let dragged, !isLanding else { return false }
+
+        let moves: Bool
+        let point: CGPoint
+        if let target, target != .before(dragged.id) {
+            moves = true
+            point = landingPoint(for: target)
+        } else {
+            moves = false
+            point = CGPoint(x: originFrame.midX, y: originFrame.midY)
         }
-        guard let dragged, let target else { return false }
-        // Soltarla delante de sí misma es dejarla donde estaba.
-        if case let .before(id) = target, id == dragged.id { return false }
-        GarmentMover.move(dragged.id, to: target, in: context)
-        return true
+
+        withAnimation(Self.lift) {
+            isLanding = true
+            location = point
+            grab = .zero
+        }
+        try? await Task.sleep(for: .milliseconds(280))
+
+        withAnimation(WKAnimation.content) {
+            justLanded = dragged.id
+            if moves, let target { GarmentMover.move(dragged.id, to: target, in: context) }
+            self.dragged = nil
+            self.target = nil
+            origin = nil
+            isLanding = false
+        }
+        try? await Task.sleep(for: .milliseconds(500))
+        justLanded = nil
+        return moves
+    }
+
+    /// El muelle de levantar y de posar: el mismo en los dos sentidos.
+    static let lift = Animation.spring(duration: 0.3, bounce: 0.35)
+
+    /// Dónde queda su centro una vez colgada.
+    private func landingPoint(for target: GarmentDrop) -> CGPoint {
+        switch target {
+        case let .before(id):
+            // Ocupa el sitio donde ahora empieza la de delante: su marco ya
+            // incluye el hueco que se le ha abierto.
+            let frame = itemFrames[id]?.frame ?? originFrame
+            return CGPoint(x: frame.minX + WK.Shelf.garmentWidth / 2, y: frame.midY)
+        case let .endOf(slug):
+            let last = itemFrames
+                .filter { $0.value.slug == slug && $0.key != dragged?.id }
+                .max { $0.value.frame.maxX < $1.value.frame.maxX }?
+                .value.frame
+            if let last {
+                return CGPoint(
+                    x: last.maxX + WK.Spacing.m + WK.Shelf.garmentWidth / 2,
+                    y: last.midY
+                )
+            }
+            // Balda vacía: al principio, a la altura de las prendas.
+            let shelf = shelfFrames[slug] ?? originFrame
+            return CGPoint(
+                x: shelf.minX + WK.Spacing.screenInset + WK.Shelf.garmentWidth / 2,
+                y: shelf.maxY - WK.Shelf.height / 2
+            )
+        }
     }
 
     /// Qué balda hay bajo el dedo y delante de qué prenda.
@@ -111,6 +178,9 @@ struct ShelfDragOverlay: View {
     @State private var isLifted = false
 
     var body: some View {
+        // Levantada mientras va en el dedo; al posarse, deshace exactamente
+        // lo mismo con el mismo muelle.
+        let isLifted = isLifted && !model.isLanding
         if let garment = model.dragged {
             HangingGarmentView(garment: garment)
                 .frame(width: WK.Shelf.garmentWidth)
@@ -130,10 +200,11 @@ struct ShelfDragOverlay: View {
                     y: model.location.y - model.grab.height
                 )
                 .allowsHitTesting(false)
+                .animation(ShelfDragModel.lift, value: model.isLanding)
                 .onAppear {
-                    withAnimation(.spring(duration: 0.3, bounce: 0.35)) { isLifted = true }
+                    withAnimation(ShelfDragModel.lift) { self.isLifted = true }
                 }
-                .onDisappear { isLifted = false }
+                .onDisappear { self.isLifted = false }
         }
     }
 }
