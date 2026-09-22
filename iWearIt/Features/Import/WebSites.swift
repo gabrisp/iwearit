@@ -153,7 +153,11 @@ struct WebSiteBar: View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.xs) {
                 ForEach(store.shown) { site in
-                    WebSitePill(site: site, isPinned: store.isPinned(site.host)) {
+                    WebSitePill(
+                        site: site,
+                        isPinned: store.isPinned(site.host),
+                        isCurrent: site.host == currentHost
+                    ) {
                         onOpen(site)
                     } onPinToggle: {
                         if store.isPinned(site.host) {
@@ -163,18 +167,6 @@ struct WebSiteBar: View {
                         }
                     }
                 }
-
-                if canPinCurrent {
-                    Button(action: onPin) {
-                        Image(systemName: "plus")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(WK.Palette.primaryText)
-                            .frame(width: 36, height: 36)
-                            .contentShape(.circle)
-                    }
-                    .buttonStyle(WKPressStyle())
-                    .adaptiveGlassInteractive(in: .circle)
-                }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
         }
@@ -183,10 +175,9 @@ struct WebSiteBar: View {
         .animation(WKAnimation.selection, value: store.shown)
     }
 
-    /// El "+" solo cuando hay algo que fijar y no está ya fijado.
-    private var canPinCurrent: Bool {
-        guard let current, let host = WebSiteStore.host(of: current) else { return false }
-        return !store.isPinned(host)
+    /// El dominio en el que se está: es el único que enseña el "+".
+    private var currentHost: String? {
+        current.flatMap(WebSiteStore.host(of:))
     }
 }
 
@@ -194,36 +185,45 @@ struct WebSiteBar: View {
 private struct WebSitePill: View {
     let site: WebSite
     let isPinned: Bool
+    /// La página en la que se está. Es la única que ofrece el "+".
+    let isCurrent: Bool
     let onOpen: () -> Void
     let onPinToggle: () -> Void
 
     var body: some View {
-        Button(action: onOpen) {
-            HStack(spacing: 6) {
-                icon
-                Text(site.host)
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .lineLimit(1)
-                if isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(WK.Palette.tertiaryText)
+        HStack(spacing: 6) {
+            Button(action: onOpen) {
+                HStack(spacing: 6) {
+                    icon
+                    Text(site.host)
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .lineLimit(1)
                 }
+                .contentShape(.rect)
             }
-            .padding(.horizontal, WK.Spacing.s)
-            .frame(height: 36)
-            .contentShape(.capsule)
+            .buttonStyle(WKPressStyle())
+
+            // **El "+" dentro de la píldora**, no suelto al final de la fila:
+            // así se ve **cuál** se está fijando. Al tocarlo se convierte en la
+            // chincheta, que es la misma información dicha después.
+            if isPinned || isCurrent {
+                Button(action: onPinToggle) {
+                    Image(systemName: isPinned ? "pin.fill" : "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(isPinned ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                        .contentTransition(.symbolEffect(.replace.downUp))
+                        .frame(width: 22, height: 22)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(WKPressStyle())
+                .transition(.scale.combined(with: .opacity))
+            }
         }
-        .buttonStyle(WKPressStyle())
+        .padding(.horizontal, WK.Spacing.s)
+        .frame(height: 36)
         .adaptiveGlassInteractive(in: .capsule)
-        .contextMenu {
-            Button(
-                isPinned ? "No fijar" : "Fijar",
-                systemImage: isPinned ? "pin.slash" : "pin",
-                action: onPinToggle
-            )
-        }
+        .animation(WKAnimation.selection, value: isPinned)
     }
 
     @ViewBuilder
