@@ -44,7 +44,14 @@ struct ShelfSection: View, Equatable {
             )
 
             ScrollView(.horizontal) {
-                LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
+                // **Sin espaciado en la fila: cada prenda lleva el suyo.** Con
+                // el espaciado del `HStack`, la prenda descolgada seguía
+                // cobrando su separación a los dos lados aunque midiera cero, y
+                // compensarlo con un margen negativo no funciona —SwiftUI no
+                // deja que algo mida menos que nada—. El resultado era un
+                // saltito al levantarla y otro al soltarla. Con el espacio
+                // dentro de cada prenda, al descolgarla se va entero.
+                LazyHStack(alignment: .bottom, spacing: 0) {
                     ForEach(data.garments) { garment in
                         HangingGarmentView(garment: garment)
                             // Entra creciendo desde su sitio, no de la nada.
@@ -63,7 +70,7 @@ struct ShelfSection: View, Equatable {
                             // tocaba.
                             .opacity(drag.dragged?.id == garment.id ? 0 : 1)
                             .frame(width: drag.dragged?.id == garment.id ? 0 : nil)
-                            .padding(.trailing, drag.dragged?.id == garment.id ? -WK.Spacing.m : 0)
+                            .padding(.trailing, drag.dragged?.id == garment.id ? 0 : WK.Spacing.m)
                             .animation(ShelfDragModel.lift, value: drag.dragged?.id == garment.id)
                             // El hueco que se abre delante de donde va a caer,
                             // **del ancho de una prenda de verdad**: se ve que

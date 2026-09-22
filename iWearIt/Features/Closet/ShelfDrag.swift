@@ -158,8 +158,9 @@ final class ShelfDragModel {
                 .max { $0.value.frame.maxX < $1.value.frame.maxX }?
                 .value.frame
             if let last {
+                // El marco ya incluye la separación de detrás.
                 return CGPoint(
-                    x: last.maxX + WK.Spacing.m + WK.Shelf.garmentWidth / 2,
+                    x: last.maxX + WK.Shelf.garmentWidth / 2,
                     y: last.midY
                 )
             }
