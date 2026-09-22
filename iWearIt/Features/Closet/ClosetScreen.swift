@@ -31,8 +31,6 @@ struct ClosetScreen: View {
     @State private var isRequestingAdd = false
     /// Editar el armario en bloque. Ver `ClosetBulkEdit`.
     @State private var bulk = ClosetBulkEdit()
-    @State private var bulkSheet: BulkSheet?
-    @State private var isConfirmingBulkDelete = false
     /// El espacio por el que las prendas viajan de su percha a la rejilla.
     @Namespace private var closetGrid
     /// Para desplazar el armario solo mientras se lleva una prenda. Ver
@@ -48,13 +46,6 @@ struct ClosetScreen: View {
     /// Una sola hoja. Ver `ClosetAddMenu`: apilar `.sheet` en la misma vista
     /// deja mudos a todos menos a uno.
     @State private var sheet: Sheet?
-
-    /// Las dos hojas del modo bloque. Una sola presentación: apilar `.sheet`
-    /// en la misma vista deja mudos a todos menos a uno.
-    private enum BulkSheet: String, Identifiable {
-        case move, edit
-        var id: String { rawValue }
-    }
 
     private enum Sheet: Identifiable {
         // `profile` ya no está: Ajustes se empuja como pantalla, no se
@@ -255,36 +246,13 @@ struct ClosetScreen: View {
             // Con el modo bloque encendido la barra de pestañas se va y en su
             // sitio quedan las tres acciones.
             .rootTabBar(.closet, selection: $tab, isHidden: bulk.isActive) { isRequestingAdd = true }
-            .adaptiveSafeAreaBar(edge: .bottom) {
-                if bulk.isActive {
-                    ClosetBulkActionBar(
-                        count: bulk.selection.count,
-                        onMove: { bulkSheet = .move },
-                        onEdit: { bulkSheet = .edit },
-                        onDelete: { isConfirmingBulkDelete = true }
-                    )
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            // Las acciones sobre lo marcado, las mismas que dentro de una
+            // balda. Ver `ClosetBulkActionsModifier`.
+            .closetBulkActions(on: selectedGarments, isActive: bulk.isActive) {
+                bulk.stop()
             }
             .environment(\.closetMatchNamespace, closetGrid)
             .animation(WKAnimation.content, value: bulk.isActive)
-            .sheet(item: $bulkSheet) { which in
-                switch which {
-                case .move:
-                    ClosetBulkShelfSheet(garments: selectedGarments)
-                case .edit:
-                    ClosetBulkEditSheet(garments: selectedGarments)
-                }
-            }
-            .alert(
-                bulk.selection.count == 1
-                    ? "¿Eliminar esta prenda?"
-                    : "¿Eliminar \(bulk.selection.count) prendas?",
-                isPresented: $isConfirmingBulkDelete
-            ) {
-                Button("Eliminar", role: .destructive) { deleteSelected() }
-                Button("Cancelar", role: .cancel) {}
-            }
             // Se enseña cuando hay ropa que mover: con el armario vacío, un
             // aviso sobre arrastrar prendas explica algo que no se puede hacer.
             .wkTip(.dragGarment, in: appEnvironment.tips, when: garments.count >= 2)
@@ -344,13 +312,9 @@ struct ClosetScreen: View {
                         }
                         .tint(WK.Palette.primaryText)
                     }
-                    // Separados en grupos: el corazón y el "+" van a lo suyo, y
-                    // el lápiz cambia de modo. En iOS 26 el hueco además parte
-                    // el cristal en dos píldoras.
-                    AdaptiveToolbarSpacer()
-                    ToolbarItem(placement: .topBarTrailing) {
-                        ClosetAddMenu(openRequest: $isRequestingAdd)
-                    }
+                    // Separados en grupos: el corazón y el lápiz a un lado, y
+                    // el "+" al final del todo, que es la acción principal. En
+                    // iOS 26 el hueco además parte el cristal en dos píldoras.
                     AdaptiveToolbarSpacer()
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -361,6 +325,10 @@ struct ClosetScreen: View {
                                 .contentShape(.rect)
                         }
                         .tint(WK.Palette.primaryText)
+                    }
+                    AdaptiveToolbarSpacer()
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ClosetAddMenu(openRequest: $isRequestingAdd)
                     }
                 }
             }
@@ -404,13 +372,6 @@ struct ClosetScreen: View {
     /// Lo marcado, resuelto a prendas.
     private var selectedGarments: [Garment] {
         garments.filter { bulk.contains($0.persistentModelID) }
-    }
-
-    private func deleteSelected() {
-        withAnimation(WKAnimation.content) {
-            for garment in selectedGarments { garment.markDeleted() }
-            bulk.stop()
-        }
     }
 
     #if DEBUG

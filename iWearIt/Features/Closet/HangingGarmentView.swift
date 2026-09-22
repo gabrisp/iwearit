@@ -64,6 +64,9 @@ struct HangingGarmentView: View {
                     }
                 }
                 .opacity(isSelecting && !isSelected ? 0.55 : 1)
+                // Y un poco más pequeña: lo marcado queda a tamaño natural y
+                // se lee de un vistazo qué entra y qué no, sin mirar vistos.
+                .scaleEffect(isSelecting && !isSelected ? 0.8 : 1)
                 .animation(WKAnimation.selection, value: isSelected)
                 .animation(WKAnimation.selection, value: isSelecting)
 

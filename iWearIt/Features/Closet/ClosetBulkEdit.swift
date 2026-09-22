@@ -144,18 +144,39 @@ struct ClosetBulkGrid: View {
 //     }
 // }
 
-/// Las tres acciones, donde estaba la barra de pestañas.
+/// Las acciones en bloque, donde estaba la barra de pestañas.
+///
+/// **Dos filas.** Abajo lo que cambia la prenda de sitio o la quita, y arriba
+/// lo que se corrige en tanda y es justo lo que se viene a hacer después de
+/// importar: marcar favoritas, poner una etiqueta de uso a todas o decir
+/// cuánto abrigan.
 struct ClosetBulkActionBar: View {
     let count: Int
+    let isAllFavourite: Bool
     let onMove: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+    let onFavourite: () -> Void
+    let onTags: () -> Void
+    let onWarmth: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            action("Mover", symbol: "tray.full", action: onMove)
-            action("Editar", symbol: "slider.horizontal.3", action: onEdit)
-            action("Eliminar", symbol: "trash", tint: .red, action: onDelete)
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                action(
+                    "Favorita",
+                    symbol: isAllFavourite ? "heart.fill" : "heart",
+                    tint: isAllFavourite ? .red : WK.Palette.primaryText,
+                    action: onFavourite
+                )
+                action("Etiquetas", symbol: "tag", action: onTags)
+                action("Calidez", symbol: "thermometer.medium", action: onWarmth)
+            }
+            HStack(spacing: 12) {
+                action("Mover", symbol: "tray.full", action: onMove)
+                action("Editar", symbol: "slider.horizontal.3", action: onEdit)
+                action("Eliminar", symbol: "trash", tint: .red, action: onDelete)
+            }
         }
         .disabled(count == 0)
         .opacity(count == 0 ? 0.5 : 1)
@@ -181,6 +202,75 @@ struct ClosetBulkActionBar: View {
             .contentShape(.capsule)
         }
         .buttonStyle(WKPlainGlassButtonStyle(shape: Capsule(style: .continuous)))
+    }
+}
+
+/// Poner las mismas **etiquetas de uso** a todas las marcadas.
+///
+/// Se ponen, no se mezclan: lo que quede marcado es lo que tendrán todas. Es
+/// lo que se espera al elegir diez prendas y decir "esto es de deporte".
+struct ClosetBulkTagsSheet: View {
+    let garments: [Garment]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var tags: Set<String> = []
+
+    var body: some View {
+        WKChipSheet(
+            title: "Etiquetas",
+            subtitle: garments.count == 1
+                ? "Se pone en 1 prenda"
+                : "Se ponen en \(garments.count) prendas",
+            options: GarmentVocabulary.usageTags.map { .init(id: $0, label: $0) },
+            selection: Binding(
+                get: { tags },
+                set: { newValue in
+                    tags = newValue
+                    for garment in garments { garment.tags = Array(newValue) }
+                }
+            ),
+            allowsCustom: true
+        )
+        .onAppear {
+            // Lo que ya comparten todas: así quitar una etiqueta común se
+            // entiende, en vez de partir de cero siempre.
+            let shared = garments
+                .map { Set(GarmentVocabulary.visibleTags($0.tags)) }
+                .reduce(into: Set<String>?.none) { result, next in
+                    result = result.map { $0.intersection(next) } ?? next
+                }
+            tags = shared ?? []
+        }
+    }
+}
+
+/// Cuánto abrigan, para todas a la vez.
+struct ClosetBulkWarmthSheet: View {
+    let garments: [Garment]
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var picked: Set<String> = []
+
+    var body: some View {
+        WKChipSheet(
+            title: "Calidez",
+            subtitle: garments.count == 1
+                ? "Se pone en 1 prenda"
+                : "Se pone en \(garments.count) prendas",
+            options: GarmentVocabulary.Warmth.allCases.map { .init(id: $0.rawValue, label: $0.label) },
+            selection: Binding(
+                get: { picked },
+                set: { newValue in
+                    picked = newValue
+                    guard
+                        let raw = newValue.first,
+                        let warmth = GarmentVocabulary.Warmth(rawValue: raw)
+                    else { return }
+                    for garment in garments { garment.seasons = warmth.seasons }
+                }
+            ),
+            limit: 1
+        )
     }
 }
 
@@ -284,8 +374,12 @@ struct ClosetBulkEditSheet: View {
     }
 }
 
-/// Una prenda en la lista de edición rápida: la foto, el nombre y lo que se
-/// mira antes de decidir si hay que tocarla.
+/// Una prenda en la lista de edición rápida.
+///
+/// **La misma tarjeta que al importar** —`ImportGarmentCard`— sin la franja de
+/// la casilla: la foto a la izquierda, la muestra de color con el nombre, y
+/// debajo lo que se mira antes de decidir si hay que tocarla. Aquí no se
+/// marca nada: eso ya se hizo en el armario.
 private struct ClosetBulkEditRow: View {
     @Bindable var garment: Garment
 
@@ -299,30 +393,55 @@ private struct ClosetBulkEditRow: View {
                 store: appEnvironment.imageStore,
                 alignment: .center
             )
-            .frame(width: 72, height: 84)
+            .padding(WK.Spacing.xs)
+            .frame(width: 96, height: 112)
+            .background(
+                WK.Palette.ink(0.04),
+                in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
+            )
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(garment.name)
-                    .font(WK.Font.callout)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: WK.Spacing.xs) {
+                    swatch
+                    Text(garment.name)
+                        .font(WK.Font.callout)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
+
                 Text(details)
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .lineLimit(1)
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(WK.Palette.tertiaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(WK.Spacing.m)
-        .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.card, style: .continuous))
+        .padding(WK.Spacing.s)
+        .frame(maxWidth: .infinity)
+        .background(
+            WK.Palette.shelf,
+            in: .rect(cornerRadius: WK.Radius.card, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.card, style: .continuous)
+                .stroke(WK.Palette.ink(0.06), lineWidth: 1)
+        }
         .contentShape(.rect)
     }
 
+    /// El color, sin palabra: la muestra lo dice mejor. Igual que al importar.
+    @ViewBuilder
+    private var swatch: some View {
+        if let color = garment.dominantColor {
+            Circle()
+                .fill(Color(red: color.red, green: color.green, blue: color.blue))
+                .frame(width: 16, height: 16)
+                .overlay(Circle().stroke(WK.Palette.ink(0.12), lineWidth: 1))
+        }
+    }
+
+    /// "Camisetas · Camiseta · Algodón · Zara".
     private var details: String {
         [
             garment.category?.name,
@@ -369,5 +488,89 @@ struct ClosetMatchedGarment: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Las acciones en bloque, listas para colgarlas de cualquier pantalla.
+///
+/// En un modificador y no repetidas: el armario entero y una balda abierta
+/// hacen exactamente lo mismo con lo que hay marcado, y tenerlo dos veces
+/// significa que la segunda se queda atrás en cuanto se añade una acción.
+struct ClosetBulkActionsModifier: ViewModifier {
+    /// Lo marcado, ya resuelto a prendas.
+    let garments: [Garment]
+    let isActive: Bool
+    /// Se llama cuando lo marcado deja de existir —se ha borrado— para que
+    /// quien manda limpie su selección.
+    let onDeleted: () -> Void
+
+    @State private var sheet: BulkSheet?
+    @State private var isConfirmingDelete = false
+
+    private enum BulkSheet: String, Identifiable {
+        case move, edit, tags, warmth
+        var id: String { rawValue }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .adaptiveSafeAreaBar(edge: .bottom) {
+                if isActive {
+                    ClosetBulkActionBar(
+                        count: garments.count,
+                        isAllFavourite: !garments.isEmpty && garments.allSatisfy(\.isFavorite),
+                        onMove: { sheet = .move },
+                        onEdit: { sheet = .edit },
+                        onDelete: { isConfirmingDelete = true },
+                        onFavourite: { toggleFavourite() },
+                        onTags: { sheet = .tags },
+                        onWarmth: { sheet = .warmth }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .sheet(item: $sheet) { which in
+                switch which {
+                case .move: ClosetBulkShelfSheet(garments: garments)
+                case .edit: ClosetBulkEditSheet(garments: garments)
+                case .tags: ClosetBulkTagsSheet(garments: garments)
+                case .warmth: ClosetBulkWarmthSheet(garments: garments)
+                }
+            }
+            .alert(
+                garments.count == 1 ? "¿Eliminar esta prenda?" : "¿Eliminar \(garments.count) prendas?",
+                isPresented: $isConfirmingDelete
+            ) {
+                Button("Eliminar", role: .destructive) { delete() }
+                Button("Cancelar", role: .cancel) {}
+            }
+    }
+
+    /// Marca todas como favoritas, o las desmarca si ya lo eran todas.
+    private func toggleFavourite() {
+        let makeFavourite = !garments.allSatisfy(\.isFavorite)
+        withAnimation(WKAnimation.selection) {
+            for garment in garments { garment.isFavorite = makeFavourite }
+        }
+    }
+
+    private func delete() {
+        withAnimation(WKAnimation.content) {
+            for garment in garments { garment.markDeleted() }
+            onDeleted()
+        }
+    }
+}
+
+extension View {
+    /// Las acciones en bloque sobre lo marcado. Ver `ClosetBulkActionsModifier`.
+    func closetBulkActions(
+        on garments: [Garment],
+        isActive: Bool,
+        onDeleted: @escaping () -> Void
+    ) -> some View {
+        modifier(
+            ClosetBulkActionsModifier(garments: garments, isActive: isActive, onDeleted: onDeleted)
+        )
     }
 }

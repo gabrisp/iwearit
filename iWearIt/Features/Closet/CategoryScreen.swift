@@ -25,7 +25,8 @@ struct CategoryScreen: View {
     /// Lo marcado, por identidad persistente y no por objeto: así la selección
     /// sobrevive a que la consulta se reordene.
     @State private var selection: Set<PersistentIdentifier> = []
-    @State private var isConfirmingDelete = false
+    // Lo borra `closetBulkActions`.
+    // @State private var isConfirmingDelete = false
 
     @Environment(\.modelContext) private var modelContext
 
@@ -104,20 +105,11 @@ struct CategoryScreen: View {
                 .tint(WK.Palette.primaryText)
             }
         }
-        // El borrado, abajo y centrado: es donde llega el pulgar y es donde no
-        // se toca sin querer al ir a por una prenda.
-        .adaptiveSafeAreaBar(edge: .bottom) { deleteBar }
-        // Una alerta, como en el armario: borrar es irreversible y el aviso va
-        // en el centro de la pantalla.
-        // .confirmationDialog(…, titleVisibility: .visible)
-        .alert(
-            selection.count == 1
-                ? "¿Eliminar esta prenda?"
-                : "¿Eliminar \(selection.count) prendas?",
-            isPresented: $isConfirmingDelete
-        ) {
-            Button("Eliminar", role: .destructive) { deleteSelected() }
-            Button("Cancelar", role: .cancel) {}
+        // **Las mismas acciones que en el armario**: mover, editar, etiquetas,
+        // calidez, favorita y eliminar. Antes aquí solo se podía borrar.
+        .closetBulkActions(on: selected, isActive: isSelecting) {
+            selection.removeAll()
+            isSelecting = false
         }
         .overlay {
             if visible.isEmpty {
@@ -137,31 +129,39 @@ struct CategoryScreen: View {
         }
     }
 
-    @ViewBuilder
-    private var deleteBar: some View {
-        if isSelecting {
-            Button {
-                isConfirmingDelete = true
-            } label: {
-                Label(
-                    selection.isEmpty
-                        ? "Selecciona prendas"
-                        : "Eliminar \(selection.count)",
-                    systemImage: "trash"
-                )
-                .font(WK.Font.headline)
-                .foregroundStyle(selection.isEmpty ? WK.Palette.secondaryText : .red)
-                .padding(.horizontal, WK.Spacing.l)
-                .frame(height: 44)
-                .contentShape(.capsule)
-            }
-            .buttonStyle(WKPressStyle())
-            .disabled(selection.isEmpty)
-            .adaptiveGlassInteractive(in: .capsule)
-            .padding(.bottom, WK.Spacing.s)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
+    /// Lo marcado, resuelto a prendas.
+    private var selected: [Garment] {
+        garments.filter { selection.contains($0.persistentModelID) }
     }
+
+    // La barra de solo borrar. Sustituida por `closetBulkActions`, que trae
+    // además mover, editar, etiquetas, calidez y favorita.
+    //
+    // @ViewBuilder
+    // private var deleteBar: some View {
+    //     if isSelecting {
+    //         Button {
+    //             isConfirmingDelete = true
+    //         } label: {
+    //             Label(
+    //                 selection.isEmpty
+    //                     ? "Selecciona prendas"
+    //                     : "Eliminar \(selection.count)",
+    //                 systemImage: "trash"
+    //             )
+    //             .font(WK.Font.headline)
+    //             .foregroundStyle(selection.isEmpty ? WK.Palette.secondaryText : .red)
+    //             .padding(.horizontal, WK.Spacing.l)
+    //             .frame(height: 44)
+    //             .contentShape(.capsule)
+    //         }
+    //         .buttonStyle(WKPressStyle())
+    //         .disabled(selection.isEmpty)
+    //         .adaptiveGlassInteractive(in: .capsule)
+    //         .padding(.bottom, WK.Spacing.s)
+    //         .transition(.move(edge: .bottom).combined(with: .opacity))
+    //     }
+    // }
 
     private func toggle(_ garment: Garment) {
         let id = garment.persistentModelID
@@ -170,12 +170,12 @@ struct CategoryScreen: View {
         }
     }
 
-    private func deleteSelected() {
-        let doomed = garments.filter { selection.contains($0.persistentModelID) }
-        withAnimation(WKAnimation.content) {
-            for garment in doomed { garment.markDeleted() }
-            selection.removeAll()
-            isSelecting = false
-        }
-    }
+    // private func deleteSelected() {
+    //     let doomed = garments.filter { selection.contains($0.persistentModelID) }
+    //     withAnimation(WKAnimation.content) {
+    //         for garment in doomed { garment.markDeleted() }
+    //         selection.removeAll()
+    //         isSelecting = false
+    //     }
+    // }
 }
