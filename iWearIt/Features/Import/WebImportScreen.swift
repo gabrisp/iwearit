@@ -134,8 +134,7 @@ struct WebImportScreen: View {
                     WebSiteBar(
                         store: sites,
                         current: model.currentURL,
-                        onOpen: { site in model.go(to: site.url.absoluteString) },
-                        onPin: { Task { await pinCurrent() } }
+                        onOpen: { site in model.go(to: site.url.absoluteString) }
                     )
                     .padding(.bottom, WK.Spacing.xs)
                 }
@@ -150,11 +149,6 @@ struct WebImportScreen: View {
         // por los arrastres de la web, pero se sale de aquí más veces de las
         // que se recorre una página hasta el borde.
         // .interactiveDismissDisabled()
-    }
-
-    private func pinCurrent() async {
-        guard let url = model.currentURL else { return }
-        await sites.pin(url)
     }
 
     /// Lo capturado y los dos botones: hacer la foto y terminar.

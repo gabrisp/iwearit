@@ -76,13 +76,10 @@ final class WebSiteStore {
         }
     }
 
-    /// Fija la página que se está viendo.
-    func pin(_ url: URL) async {
-        guard let host = Self.host(of: url), !isPinned(host) else { return }
-        var site = WebSite(host: host, url: url, iconData: icon(for: host))
-        if site.iconData == nil {
-            site.iconData = await Self.favicon(for: host)
-        }
+    /// Fija una web de la fila. Ya se sabe todo de ella —icono incluido—,
+    /// así que no hay nada que pedir.
+    func pin(_ site: WebSite) {
+        guard !isPinned(site.host) else { return }
         pinned.append(site)
         Self.save(pinned, to: Self.pinnedKey)
     }
@@ -142,12 +139,18 @@ final class WebSiteStore {
 }
 
 /// La fila de webs, en píldoras de cristal.
+///
+/// **Todas llevan su chincheta**, no solo la que se está viendo: la tienda que
+/// quieres guardar es casi siempre la de la que acabas de volver.
+///
+/// Al dejar de fijar una, la píldora se queda **si sigue siendo reciente**, y
+/// se va si ya no lo era: lo fijado es lo que uno guarda a mano y lo reciente
+/// es por dónde has pasado, y quitar lo primero no debería borrar lo segundo.
 struct WebSiteBar: View {
     let store: WebSiteStore
-    /// Si la que se está viendo se puede fijar. `nil` = no hay página.
+    /// Dónde se está. Solo para marcar cuál es. `nil` = no hay página.
     let current: URL?
     let onOpen: (WebSite) -> Void
-    let onPin: () -> Void
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -160,10 +163,12 @@ struct WebSiteBar: View {
                     ) {
                         onOpen(site)
                     } onPinToggle: {
-                        if store.isPinned(site.host) {
-                            store.unpin(site.host)
-                        } else {
-                            onPin()
+                        withAnimation(WKAnimation.selection) {
+                            if store.isPinned(site.host) {
+                                store.unpin(site.host)
+                            } else {
+                                store.pin(site)
+                            }
                         }
                     }
                 }
@@ -185,7 +190,7 @@ struct WebSiteBar: View {
 private struct WebSitePill: View {
     let site: WebSite
     let isPinned: Bool
-    /// La página en la que se está. Es la única que ofrece el "+".
+    /// La página en la que se está: se marca un poco más.
     let isCurrent: Bool
     let onOpen: () -> Void
     let onPinToggle: () -> Void
@@ -206,24 +211,23 @@ private struct WebSitePill: View {
 
             // **El "+" dentro de la píldora**, no suelto al final de la fila:
             // así se ve **cuál** se está fijando. Al tocarlo se convierte en la
-            // chincheta, que es la misma información dicha después.
-            if isPinned || isCurrent {
-                Button(action: onPinToggle) {
+            // chincheta, que es la misma información dicha después. En todas,
+            // no solo en la actual.
+            Button(action: onPinToggle) {
                     Image(systemName: isPinned ? "pin.fill" : "plus")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(isPinned ? WK.Palette.primaryText : WK.Palette.secondaryText)
                         .contentTransition(.symbolEffect(.replace.downUp))
                         .frame(width: 22, height: 22)
                         .contentShape(.circle)
-                }
-                .buttonStyle(WKPressStyle())
-                .transition(.scale.combined(with: .opacity))
             }
+            .buttonStyle(WKPressStyle())
         }
         .padding(.horizontal, WK.Spacing.s)
         .frame(height: 36)
         .adaptiveGlassInteractive(in: .capsule)
         .animation(WKAnimation.selection, value: isPinned)
+        .opacity(isCurrent ? 1 : 0.85)
     }
 
     @ViewBuilder
