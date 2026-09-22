@@ -278,8 +278,16 @@ private struct ImportGarmentCard: View {
     let onImprove: () async -> Void
     let onOpen: () -> Void
 
+    /// El ancho de la franja de la casilla: el último ~18% de la tarjeta.
+    private static let checkZone: CGFloat = 72
+
     var body: some View {
-        HStack(spacing: WK.Spacing.m) {
+        // **Dos zonas, sin mezclarse.** Casi toda la tarjeta abre la ficha; la
+        // franja de la derecha, a toda altura, marca y desmarca. Antes la
+        // casilla era un círculo de 44 puntos dentro de una tarjeta que abría
+        // la ficha, y tocar un poco al lado la abría en vez de desmarcar.
+        HStack(spacing: 0) {
+            HStack(spacing: WK.Spacing.m) {
             thumbnail
 
             VStack(alignment: .leading, spacing: 6) {
@@ -328,10 +336,13 @@ private struct ImportGarmentCard: View {
             // **Desmarcada, apagada entera.** No solo la casilla: todo lo de
             // su lado, para que de un vistazo se vea qué entra y qué no.
             .opacity(candidate.isKept ? 1 : 0.35)
+            }
+            .padding([.vertical, .leading], WK.Spacing.s)
+            .contentShape(.rect)
+            .onTapGesture(perform: onOpen)
 
             keepCheck
         }
-        .padding(WK.Spacing.s)
         .frame(maxWidth: .infinity)
         .background(
             WK.Palette.shelf,
@@ -346,10 +357,6 @@ private struct ImportGarmentCard: View {
                     lineWidth: candidate.duplicateOf != nil ? 2 : 1
                 )
         }
-        // Toda la tarjeta abre la ficha; los botones de dentro siguen a lo
-        // suyo porque un `Button` se queda el toque antes que el gesto.
-        .contentShape(.rect)
-        .onTapGesture(perform: onOpen)
     }
 
     private var thumbnail: some View {
@@ -434,7 +441,10 @@ private struct ImportGarmentCard: View {
                     candidate.isKept ? WK.Palette.accent : WK.Palette.ink(0.08)
                 )
                 .contentTransition(.symbolEffect(.replace))
-                .frame(width: 44, height: 44)
+                // La franja entera, de arriba abajo: es la zona de la casilla,
+                // no un círculo que haya que acertar.
+                .frame(width: Self.checkZone)
+                .frame(maxHeight: .infinity)
                 .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())
