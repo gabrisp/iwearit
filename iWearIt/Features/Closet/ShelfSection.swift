@@ -91,14 +91,13 @@ struct ShelfSection: View, Equatable {
                             // llevaría la prenda por delante— y luego el
                             // arrastre, en el espacio del armario entero para
                             // poder cruzar de balda.
-                            // **Con prioridad, no a la vez.** A la vez, el
-                            // botón de la prenda también recibía el toque y al
-                            // soltarla se abría su ficha. Con prioridad, si el
-                            // toque largo gana el botón se cancela; si falla
-                            // —un toque corto, o el dedo se mueve para pasar
-                            // la balda— el botón y el scroll siguen como
-                            // siempre.
-                            .highPriorityGesture(
+                            // **A la vez, no con prioridad.** Con prioridad el
+                            // botón de la prenda esperaba a que el toque largo
+                            // fallara y no llegaba a enterarse del toque corto:
+                            // ninguna prenda se abría. A la vez, el toque llega
+                            // siempre, y la prenda ignora el que cae al final
+                            // de un arrastre —ver `ShelfDragModel.ignoresTaps`.
+                            .simultaneousGesture(
                                 LongPressGesture(minimumDuration: 0.35)
                                     .sequenced(before: DragGesture(
                                         minimumDistance: 0,

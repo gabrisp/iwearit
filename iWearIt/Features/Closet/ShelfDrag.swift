@@ -48,6 +48,19 @@ final class ShelfDragModel {
     private(set) var justLanded: UUID?
     /// Su marco al descolgarla, para devolverla si se suelta en ningún sitio.
     @ObservationIgnored private var originFrame: CGRect = .zero
+    /// Cuándo acabó el último arrastre.
+    @ObservationIgnored private var endedAt: Date?
+
+    /// Si una prenda debe ignorar un toque ahora mismo.
+    ///
+    /// Al soltar una prenda el dedo se levanta, y para el botón que hay debajo
+    /// eso es un toque: sin esto, cada arrastre acababa abriendo la ficha de
+    /// la prenda. Mientras se arrastra y un instante después, no se abre nada.
+    var ignoresTaps: Bool {
+        if dragged != nil { return true }
+        guard let endedAt else { return false }
+        return Date.now.timeIntervalSince(endedAt) < 0.6
+    }
 
     var isDragging: Bool { dragged != nil }
 
@@ -136,6 +149,7 @@ final class ShelfDragModel {
             origin = nil
             isLanding = false
         }
+        endedAt = .now
         try? await Task.sleep(for: .milliseconds(500))
         justLanded = nil
         return moves

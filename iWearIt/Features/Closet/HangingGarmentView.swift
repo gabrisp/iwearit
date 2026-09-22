@@ -17,6 +17,9 @@ struct HangingGarmentView: View {
     var onToggleSelection: (() -> Void)?
 
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// El arrastre del armario, si esta prenda está en él. Opcional: la misma
+    /// vista se usa en pantallas donde no se arrastra nada.
+    @Environment(ShelfDragModel.self) private var drag: ShelfDragModel?
     @State private var isPresentingDetail = false
 
     var body: some View {
@@ -24,6 +27,8 @@ struct HangingGarmentView: View {
         let _ = Self._logChanges()
         #endif
         Button {
+            // El toque que cae al soltar un arrastre no abre nada.
+            guard drag?.ignoresTaps != true else { return }
             if isSelecting { onToggleSelection?() } else { isPresentingDetail = true }
         } label: {
             VStack(spacing: 2) {
