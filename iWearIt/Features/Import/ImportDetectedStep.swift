@@ -6,6 +6,11 @@ import WKVision
 
 /// Lo que ha salido de la foto, antes de generar nada.
 ///
+/// **Sin usar.** Este paso intermedio ya no se muestra: de analizar se pasa
+/// directo a la lista de prendas, donde cada tarjeta se abre, se recorta a
+/// mano y se tira igual. Se conserva entero porque el recuadro editable sobre
+/// la foto —`ImportDetectionBoxes`— puede volver a hacer falta.
+///
 /// ## Por qué este paso va antes
 ///
 /// El detector se equivoca **hacia arriba**: parte un pantalón por el cinturón

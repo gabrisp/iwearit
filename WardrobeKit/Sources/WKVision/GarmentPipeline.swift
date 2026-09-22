@@ -718,6 +718,76 @@ public actor GarmentPipeline {
         return survivors
     }
 
+    /// Junta en una las regiones que se pisan.
+    ///
+    /// Solo se llama donde ya se sabe que **no hay nadie puesto** y el fondo es
+    /// liso: ahí dos regiones que se solapan no pueden ser dos prendas, porque
+    /// dos prendas tiradas sobre una mesa se dejan aparte.
+    ///
+    /// Se conserva la de mejor tipo —ver `rank`— y, a igualdad, la mayor: el
+    /// recorte bueno lo va a dar el corte por color de todas formas, y lo que
+    /// importa de la superviviente es su clase, su marca y sus colores.
+    static func collapsedIfOverlapping(_ garments: [DetectedGarment]) -> [DetectedGarment] {
+        guard garments.count > 1 else { return garments }
+
+        var survivors: [DetectedGarment] = []
+        for garment in garments {
+            guard let rect = garment.sourceRect else {
+                survivors.append(garment)
+                continue
+            }
+
+            let twin = survivors.firstIndex { survivor in
+                guard let other = survivor.sourceRect else { return false }
+                return Self.overlapFraction(of: other, and: rect) >= Self.overlapToBeTheSame
+                    || Self.arePieces(of: other, and: rect)
+            }
+
+            guard let twin else {
+                survivors.append(garment)
+                continue
+            }
+
+            let keeps = Self.betterOfTwo(survivors[twin], garment)
+            survivors[twin] = keeps
+        }
+        return survivors
+    }
+
+    /// Cuánto se pisan dos rectángulos, respecto al menor de los dos.
+    private static func overlapFraction(of one: CGRect, and other: CGRect) -> Double {
+        let intersection = one.intersection(other)
+        guard !intersection.isNull, !intersection.isEmpty else { return 0 }
+        let area = intersection.width * intersection.height
+        let smaller = min(one.width * one.height, other.width * other.height)
+        guard smaller > 0 else { return 0 }
+        return area / smaller
+    }
+
+    /// A partir de cuánto pisarse dos regiones son la misma prenda.
+    ///
+    /// Un tercio del menor: dos etiquetas del mapa sobre la misma prenda se
+    /// solapan mucho más que eso, y dos prendas de verdad puestas en una mesa
+    /// no se tocan.
+    static let overlapToBeTheSame = 0.33
+
+    /// Cuál de las dos representa mejor a la prenda.
+    private static func betterOfTwo(
+        _ one: DetectedGarment, _ other: DetectedGarment
+    ) -> DetectedGarment {
+        func score(_ garment: DetectedGarment) -> (Int, Double) {
+            let rank: Int
+            switch garment.kind {
+            case .other: rank = 3
+            case .head, .bag: rank = 2
+            default: rank = 1
+            }
+            let area = garment.sourceRect.map { $0.width * $0.height } ?? 0
+            return (rank, -area)
+        }
+        return score(one) <= score(other) ? one : other
+    }
+
     /// Si dos rectángulos son trozos de la misma prenda.
     ///
     /// Se solapan, o casi se tocan: un pliegue deja una grieta de unos pocos
@@ -758,7 +828,13 @@ public actor GarmentPipeline {
         _ garments: [DetectedGarment],
         from image: CGImage
     ) async -> [DetectedGarment] {
-        guard !garments.isEmpty, SolidBackground.isLikely(in: image) else { return garments }
+        guard !garments.isEmpty else { return garments }
+        guard SolidBackground.isLikely(in: image) else {
+            // Se dice, porque explica de golpe por qué una foto "de tienda" no
+            // recibió ninguno de los arreglos de fondo liso.
+            DiagnosticsLog.record("RECORTE", "el fondo no es liso: se deja lo del segmentador")
+            return garments
+        }
 
         // **Primero contar, y preguntar por la pose solo si hace falta.**
         //
@@ -802,6 +878,27 @@ public actor GarmentPipeline {
                 )
             )
         }
+
+        // **Sin nadie puesto, lo que se toca es una prenda.**
+        //
+        // El mapa de clases no parte solo por pliegues: a una camiseta lisa le
+        // llama "parte de arriba" al pecho y otra cosa al bajo, y entonces son
+        // dos regiones de clases distintas que se solapan. Cada una sale
+        // recortada por su lado, y la de arriba viene con un mordisco enorme
+        // donde empezaba la otra — que es exactamente lo que se veía.
+        //
+        // Con una persona en la foto esto sería un error: la chaqueta y la
+        // camiseta de debajo se solapan y son dos prendas. Sin persona y sobre
+        // fondo liso, no: es una prenda a la que el mapa le ha puesto dos
+        // nombres.
+        let collapsed = Self.collapsedIfOverlapping(garments)
+        if collapsed.count < garments.count {
+            DiagnosticsLog.record(
+                "SEGMENTA",
+                "\(garments.count) regiones solapadas sin nadie puesto: es \(collapsed.count) prenda(s)"
+            )
+        }
+        let garments = collapsed
 
         // **Cuántas prendas hay lo dice el color, no el segmentador.**
         //

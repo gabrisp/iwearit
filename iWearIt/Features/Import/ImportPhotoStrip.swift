@@ -36,45 +36,50 @@ struct ImportPhotoStrip: View {
         VStack(spacing: WK.Spacing.s) {
             counter
 
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: Self.spacing) {
-                    ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
-                        ImportRevealView(
-                            photo: photo,
-                            candidates: candidates.filter { $0.photoIndex == index },
-                            isScanning: index >= analysed,
-                            onFinished: index == photos.count - 1 ? onFinished : {}
-                        )
-                        .containerRelativeFrame(.horizontal) { width, _ in
-                            // Sitio para que asomen las de al lado: es lo que
-                            // dice cuántas fotos hay sin tener que contarlas.
-                            max(width - 2 * (Self.peek + Self.spacing), 160)
-                        }
-                        // La centrada, entera; las demás, un pelín más
-                        // pequeñas y apagadas. Interactivo para que la
-                        // transición ocurra con el dedo, no al soltar.
-                        .scrollTransition(.interactive) { content, phase in
-                            content
-                                .scaleEffect(phase.isIdentity ? 1 : 0.97)
-                                .opacity(phase.isIdentity ? 1 : 0.6)
-                        }
-                        .id(index)
-                    }
-                }
-                .scrollTargetLayout()
-            }
-        .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $focused, anchor: .center)
-            // **El margen se calcula, no se pone a ojo.**
+            // **El margen se mide, no se supone.**
             //
-            // Cada página mide el ancho menos lo que asoma por los dos lados, así
-            // que para que la primera quede **centrada** el contenido tiene que
-            // empezar exactamente a esa distancia del borde. Sin esto, con una
-            // sola foto la imagen se quedaba pegada a la izquierda.
-            .contentMargins(.horizontal, Self.peek + Self.spacing, for: .scrollContent)
-            .scrollIndicators(.hidden)
-            // El recorte cae en el canto de la pantalla, donde no molesta.
-            .scrollClipDisabled()
+            // Para que la primera foto quede centrada, el hueco de la
+            // izquierda tiene que ser exactamente *medio ancho de pantalla
+            // menos medio ancho de foto*, y el de la derecha lo mismo con la
+            // última. Puesto como una constante a ojo, la primera se quedaba
+            // desplazada justo en el caso más común, que es el de una sola
+            // foto. Con el ancho real del contenedor delante, sale solo.
+            GeometryReader { proxy in
+                let width = itemWidth(in: proxy.size.width)
+                let margin = max((proxy.size.width - width) / 2, 0)
+
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: Self.spacing) {
+                        ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+                            ImportRevealView(
+                                photo: photo,
+                                candidates: candidates.filter { $0.photoIndex == index },
+                                isScanning: index >= analysed,
+                                // El brillo, solo en la que se está mirando.
+                                isCurrent: index == analysed,
+                                onFinished: index == photos.count - 1 ? onFinished : {}
+                            )
+                            .frame(width: width)
+                            // La centrada, entera; las demás, un pelín más
+                            // pequeñas y apagadas. Interactivo para que la
+                            // transición vaya con el dedo, no al soltar.
+                            .scrollTransition(.interactive) { content, phase in
+                                content
+                                    .scaleEffect(phase.isIdentity ? 1 : 0.97)
+                                    .opacity(phase.isIdentity ? 1 : 0.6)
+                            }
+                            .id(index)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $focused, anchor: .center)
+                .contentMargins(.horizontal, margin, for: .scrollContent)
+                .scrollIndicators(.hidden)
+                // El recorte cae en el canto de la pantalla, donde no molesta.
+                .scrollClipDisabled()
+            }
             .wkBleedingStrip()
         }
         .onChange(of: analysed) { _, done in
@@ -84,6 +89,19 @@ struct ImportPhotoStrip: View {
                 focused = min(done, photos.count - 1)
             }
         }
+    }
+
+    /// Lo que mide una foto del carrete.
+    ///
+    /// Con una sola no hay vecinas que enseñar, así que ocupa lo que hay; con
+    /// varias se deja sitio a los lados para que asomen, que es lo que dice
+    /// cuántas hay sin tener que contarlas.
+    private func itemWidth(in container: CGFloat) -> CGFloat {
+        guard container > 0 else { return 0 }
+        guard photos.count > 1 else {
+            return max(container - 2 * WK.Spacing.screenInset, 120)
+        }
+        return max(container - 2 * (Self.peek + Self.spacing), 160)
     }
 
     /// "3 de 6 imágenes analizadas".

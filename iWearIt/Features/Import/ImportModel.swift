@@ -264,9 +264,19 @@ final class ImportModel {
 
         await markDuplicates()
 
-        // **Sin generar nada todavía.** Primero se revisa lo detectado: ver
-        // `Phase.detected` y `confirmDetection()`.
-        phase = .detected
+        // **Derecho a la revisión.**
+        //
+        // En medio había un paso para repasar lo detectado sobre la foto —con
+        // sus recuadros y su recorte a mano— y sobra: lo que se detecta ya se
+        // ve en la tarjeta de cada prenda, y ahí mismo se puede abrir, rodear
+        // otra vez o tirar. Un paso más entre la foto y las prendas es un paso
+        // más que dar cada vez que se importa ropa.
+        //
+        // `ImportDetectedStep` se queda en el proyecto, sin llamar: ver la
+        // nota de ese fichero.
+        //
+        // phase = .detected
+        phase = .review
     }
 
     /// Añade fotos a una importación ya empezada.

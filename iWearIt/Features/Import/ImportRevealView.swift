@@ -18,6 +18,12 @@ struct ImportRevealView: View {
     let candidates: [ImportCandidate]
     /// `true` en cuanto el pipeline ha terminado. Hasta entonces solo brilla.
     let isScanning: Bool
+    /// Si es **la que se está analizando ahora**.
+    ///
+    /// El brillo dice "esta la estoy mirando yo", así que solo puede estar en
+    /// una: con seis fotos brillando a la vez no señala nada y además son seis
+    /// animaciones corriendo para decir lo mismo.
+    var isCurrent: Bool = true
     let onFinished: () -> Void
 
     @State private var stage: Stage = .scanning
@@ -43,7 +49,7 @@ struct ImportRevealView: View {
                     .resizable()
                     .scaledToFit()
                     .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
-                    .wkShimmer(isActive: stage == .scanning)
+                    .wkShimmer(isActive: stage == .scanning && isCurrent)
                     .opacity(stage == .scanning ? 1 : 0.12)
                     .blur(radius: stage == .scanning ? 0 : 6)
                     .scaleEffect(stage == .arranged ? 0.96 : 1)

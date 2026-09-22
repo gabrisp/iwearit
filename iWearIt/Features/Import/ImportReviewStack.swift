@@ -35,8 +35,9 @@ struct ImportReviewStack: View {
     /// Las dos salidas de la pantalla, abajo y del tamaño del pulgar.
     ///
     /// Guardar no vive en la barra de navegación porque no es una
-    /// confirmación de trámite: es el final de todo el proceso de importar, y
-    /// va donde está la mano.
+    /// confirmación de trámite: es el final de importar, y va donde está la
+    /// mano. Los dos en cristal **interactivo** —se hunden y se iluminan al
+    /// tocarlos— porque flotan sobre la lista, que sigue pasando por debajo.
     private var actions: some View {
         HStack(spacing: WK.Spacing.s) {
             if let onAddMore {
@@ -46,18 +47,27 @@ struct ImportReviewStack: View {
                         .foregroundStyle(WK.Palette.primaryText)
                         .padding(.horizontal, WK.Spacing.l)
                         .padding(.vertical, WK.Spacing.m)
-                        .background(WK.Palette.canvas, in: .capsule)
-                        .overlay(Capsule().stroke(WK.Palette.ink(0.10), lineWidth: 1))
                         .contentShape(.capsule)
                 }
-                .buttonStyle(WKPressStyle())
+                .buttonStyle(.plain)
+                .adaptiveGlassInteractive(in: .capsule)
             }
 
-            WKPrimaryButton(model.candidates.isEmpty ? "Nada que guardar" : "Guardar") {
+            Button {
                 isSaving = true
                 Task { await onSave() }
+            } label: {
+                Text(model.candidates.isEmpty ? "Nada que guardar" : "Guardar")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(WK.Palette.onAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, WK.Spacing.m)
+                    .contentShape(.capsule)
             }
+            .buttonStyle(.plain)
+            .adaptiveGlass(tint: WK.Palette.accent, in: .capsule)
             .disabled(model.candidates.isEmpty || isSaving)
+            .opacity(model.candidates.isEmpty || isSaving ? 0.5 : 1)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)
@@ -145,23 +155,29 @@ private struct ImportGarmentCard: View {
         HStack(spacing: WK.Spacing.m) {
             thumbnail
 
-            VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                swatch
-                Text(headline)
-                    .font(WK.Font.rowTitle)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: WK.Spacing.xs) {
+                    swatch
+                    // El texto, del tamaño que le toca: es un dato de la
+                    // prenda, no un titular. Con tipografía de título cada
+                    // tarjeta gritaba "PARTE SUPERIOR" y lo que se mira de una
+                    // tarjeta es la prenda.
+                    Text(headline)
+                        .font(WK.Font.callout)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                }
 
                 if !candidate.tags.isEmpty {
                     Text(candidate.tags.joined(separator: " · "))
                         .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.secondaryText)
+                        .foregroundStyle(WK.Palette.tertiaryText)
                         .lineLimit(1)
                 }
 
-                if let duplicateOf = candidate.duplicateOf {
-                    Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
+                if candidate.duplicateOf != nil {
+                    Label("Ya tienes una parecida", systemImage: "square.on.square")
                         .font(WK.Font.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(1)
@@ -172,7 +188,7 @@ private struct ImportGarmentCard: View {
                     Spacer(minLength: 0)
                     discardButton
                 }
-                .padding(.top, WK.Spacing.xs)
+                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -197,7 +213,7 @@ private struct ImportGarmentCard: View {
             .resizable()
             .scaledToFit()
             .padding(WK.Spacing.xs)
-            .frame(width: 104, height: 128)
+            .frame(width: 96, height: 112)
             .background(
                 WK.Palette.ink(0.04),
                 in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
@@ -213,7 +229,7 @@ private struct ImportGarmentCard: View {
         if let color = candidate.colors.first {
             Circle()
                 .fill(Color(red: color.red, green: color.green, blue: color.blue))
-                .frame(width: 26, height: 26)
+                .frame(width: 16, height: 16)
                 .overlay(Circle().stroke(WK.Palette.ink(0.12), lineWidth: 1))
         }
     }
@@ -235,10 +251,10 @@ private struct ImportGarmentCard: View {
                     candidate.isRestyling ? "mejorando…" : "mejorar",
                     systemImage: "wand.and.sparkles"
                 )
-                .font(WK.Font.callout)
+                .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.primaryText)
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.s)
+                .padding(.horizontal, WK.Spacing.s)
+                .padding(.vertical, 7)
                 .background(WK.Palette.ink(0.07), in: .capsule)
                 .contentShape(.capsule)
             }
@@ -246,7 +262,7 @@ private struct ImportGarmentCard: View {
             .disabled(candidate.isRestyling)
         } else {
             Label("mejorada", systemImage: "checkmark")
-                .font(WK.Font.callout)
+                .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
         }
     }
@@ -256,9 +272,9 @@ private struct ImportGarmentCard: View {
     private var discardButton: some View {
         Button(action: onDiscard) {
             Image(systemName: "trash")
-                .font(WK.Font.callout)
+                .font(WK.Font.caption)
                 .foregroundStyle(.red)
-                .frame(width: 38, height: 38)
+                .frame(width: 32, height: 32)
                 .background(Circle().fill(Color.red.opacity(0.12)))
                 .contentShape(.circle)
         }
