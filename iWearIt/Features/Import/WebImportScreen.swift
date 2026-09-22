@@ -95,7 +95,12 @@ struct WebImportScreen: View {
                             .submitLabel(.go)
                             .focused($isTyping)
                             .padding(.horizontal, WK.Spacing.s)
-                            .frame(width: 210, height: 36)
+                            // **Sin alto propio.** Con 36 quedaba más bajo que
+                            // los botones de al lado; estirándose a lo que mide
+                            // la barra, el campo y los botones son la misma
+                            // pieza.
+                            .frame(width: 210)
+                            .frame(maxHeight: .infinity)
                             .adaptiveGlassInteractive(in: .capsule)
                             .onSubmit {
                                 model.go(to: model.address)
