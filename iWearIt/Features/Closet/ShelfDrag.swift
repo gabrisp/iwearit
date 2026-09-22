@@ -83,6 +83,14 @@ final class ShelfDragModel {
         if next != target { target = next }
     }
 
+    /// Vuelve a mirar qué hay bajo el dedo sin que el dedo se haya movido:
+    /// lo que se mueve es el armario por debajo.
+    func refreshTarget() {
+        guard dragged != nil, !isLanding else { return }
+        let next = drop(at: location)
+        if next != target { target = next }
+    }
+
     /// **Se cuelga, bajando.** Devuelve si se movió.
     ///
     /// Primero baja a su hueco con la misma animación con la que se levantó
@@ -113,7 +121,14 @@ final class ShelfDragModel {
         }
         try? await Task.sleep(for: .milliseconds(280))
 
-        withAnimation(WKAnimation.content) {
+        // **Sin animar el cambio.** La levantada ya está encima de su hueco,
+        // y el hueco mide lo mismo que la prenda: cambiar una por otra de
+        // golpe no mueve nada. Animándolo, la prenda de la balda —que es la
+        // misma vista que se descolgó— aparecía un instante en su sitio de
+        // antes y viajaba hasta el nuevo.
+        var instant = Transaction()
+        instant.disablesAnimations = true
+        withTransaction(instant) {
             justLanded = dragged.id
             if moves, let target { GarmentMover.move(dragged.id, to: target, in: context) }
             self.dragged = nil

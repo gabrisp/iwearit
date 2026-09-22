@@ -27,6 +27,11 @@ struct ClosetScreen: View {
     /// El arrastre de prendas entre baldas. Vive aquí porque cruza baldas: es
     /// el único sitio que las ve todas.
     @State private var shelfDrag = ShelfDragModel()
+    /// Para desplazar el armario solo mientras se lleva una prenda. Ver
+    /// `autoScroll()`.
+    @State private var scrollPosition = ScrollPosition(edge: .top)
+    @State private var scrollOffset: CGFloat = 0
+    @State private var viewportHeight: CGFloat = 0
     @State private var debugPath = NavigationPath()
     #endif
 
@@ -82,6 +87,37 @@ struct ClosetScreen: View {
         }
     }
 
+    /// **Llevar una prenda a una balda que no se ve.**
+    ///
+    /// El armario está quieto mientras hay una prenda en el dedo —si no, el
+    /// dedo que la lleva lo desplazaría—, así que se desplaza él: acercar la
+    /// prenda al borde de arriba o de abajo lo mueve, más deprisa cuanto más
+    /// cerca del borde. Es lo que hace el sistema al reordenar una lista.
+    private func autoScroll() async {
+        guard shelfDrag.isDragging else { return }
+        let edge: CGFloat = 110
+        let maximumStep: CGFloat = 12
+
+        while shelfDrag.isDragging, !Task.isCancelled {
+            let y = shelfDrag.location.y
+            let bottom = viewportHeight - WKTabBarMetrics.reservedHeight
+            var step: CGFloat = 0
+            if y < edge {
+                step = -maximumStep * min(1, (edge - y) / edge)
+            } else if y > bottom - edge {
+                step = maximumStep * min(1, (y - (bottom - edge)) / edge)
+            }
+
+            if step != 0, !shelfDrag.isLanding {
+                scrollPosition.scrollTo(y: max(0, scrollOffset + step))
+                // Con el dedo quieto el destino también cambia: lo que hay
+                // debajo es otra balda.
+                shelfDrag.refreshTarget()
+            }
+            try? await Task.sleep(for: .milliseconds(16))
+        }
+    }
+
     var body: some View {
         #if DEBUG
         let _ = Self._logChanges()
@@ -118,6 +154,21 @@ struct ClosetScreen: View {
             // desplazándose por debajo, soltar la prenda donde apuntas es
             // imposible: la balda se ha ido de sitio mientras llegabas.
             .scrollDisabled(shelfDrag.isDragging)
+            .scrollPosition($scrollPosition)
+            // En coordenadas del contenido: el desplazamiento crudo empieza en
+            // negativo —el hueco de la barra de arriba— y `scrollTo` cuenta
+            // desde el principio del contenido. Mezclarlos dejaba el armario
+            // clavado arriba creyendo que ya estaba ahí.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: { _, y in
+                scrollOffset = y
+            }
+            .onScrollGeometryChange(for: CGFloat.self) { $0.containerSize.height } action: { _, height in
+                viewportHeight = height
+            }
+            // Mientras hay una prenda en el dedo, el borde desplaza el armario.
+            .task(id: shelfDrag.isDragging) { await autoScroll() }
             // El espacio donde se miden las baldas y las prendas, y donde se
             // dibuja la que va levantada. Ver `ShelfDragModel`.
             .coordinateSpace(.named(ShelfDragModel.space))

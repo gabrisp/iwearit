@@ -25,6 +25,12 @@ struct ShelfSection: View, Equatable {
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.data == rhs.data }
 
+    /// El hueco delante de una prenda, según por dónde va el arrastre.
+    private func gap(before id: UUID) -> CGFloat {
+        guard drag.target == .before(id) else { return 0 }
+        return drag.isLanding ? WK.Shelf.garmentWidth + WK.Spacing.m : WK.Spacing.xl
+    }
+
     var body: some View {
         #if DEBUG
         let _ = Self._logChanges()
@@ -49,12 +55,24 @@ struct ShelfSection: View, Equatable {
                                     ? .identity
                                     : .scale(scale: 0.7).combined(with: .opacity)
                             )
-                            // **Descolgada, no copiada.** Mientras va en el
-                            // dedo, aquí queda su hueco: la prenda está en un
-                            // sitio, y ese sitio es ahora el dedo.
+                            // **Descolgada del todo.** Mientras va en el dedo
+                            // ya no está en la balda: no se queda su hueco,
+                            // las de al lado se juntan. La vista no se quita
+                            // —el gesto que la lleva vive en ella— sino que se
+                            // estrecha a cero y devuelve el espaciado que le
+                            // tocaba.
                             .opacity(drag.dragged?.id == garment.id ? 0 : 1)
-                            // El hueco que se abre delante de donde va a caer.
-                            .padding(.leading, drag.target == .before(garment.id) ? WK.Spacing.xl : 0)
+                            .frame(width: drag.dragged?.id == garment.id ? 0 : nil)
+                            .padding(.trailing, drag.dragged?.id == garment.id ? -WK.Spacing.m : 0)
+                            .animation(ShelfDragModel.lift, value: drag.dragged?.id == garment.id)
+                            // El hueco que se abre delante de donde va a caer,
+                            // **del ancho de una prenda de verdad**: se ve que
+                            // cabe, y al soltarla no empuja a las demás otra vez.
+                            // Pequeño mientras se mueve —una pista de dónde
+                            // cae, sin empujar media balda con cada paso del
+                            // dedo— y del ancho de la prenda al soltar, para
+                            // que baje a un hueco en el que cabe.
+                            .padding(.leading, gap(before: garment.id))
                             .onGeometryChange(for: CGRect.self) {
                                 $0.frame(in: .named(ShelfDragModel.space))
                             } action: { frame in
@@ -104,7 +122,9 @@ struct ShelfSection: View, Equatable {
                     // caer la última, y sitio para soltar en una balda vacía.
                     Color.clear
                         .frame(
-                            width: drag.target == .endOf(slug: data.id) ? WK.Shelf.garmentWidth : WK.Spacing.xl,
+                            width: drag.target == .endOf(slug: data.id)
+                                ? (drag.isLanding ? WK.Shelf.garmentWidth : WK.Spacing.xl * 2)
+                                : WK.Spacing.xl,
                             height: WK.Shelf.height
                         )
 
@@ -216,5 +236,7 @@ struct ShelfSection: View, Equatable {
             drag.register(shelf: data.id, frame: frame)
         }
         .animation(WKAnimation.selection, value: drag.target)
+        // El hueco crece con el mismo muelle con el que baja la prenda.
+        .animation(ShelfDragModel.lift, value: drag.isLanding)
     }
 }
