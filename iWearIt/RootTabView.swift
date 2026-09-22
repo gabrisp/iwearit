@@ -170,24 +170,25 @@ private struct RootTabBarSlot: ViewModifier {
                         }
                     }
                     .sensoryFeedback(.selection, trigger: selection)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // Centrada y sola: los dos círculos se quedan comentados.
+                    // .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Button(action: onAssistant) {
-                        Text("🙂")
-                            .font(.system(size: 22))
-                            .frame(width: 52, height: 52)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+                    // Button(action: onAssistant) {
+                    //     Text("🙂")
+                    //         .font(.system(size: 22))
+                    //         .frame(width: 52, height: 52)
+                    //         .contentShape(Circle())
+                    // }
+                    // .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
 
-                    Button(action: onPlus) {
-                        Image(systemName: "plus")
-                            .font(.body.weight(.light))
-                            .foregroundStyle(WK.Palette.primaryText)
-                            .frame(width: 52, height: 52)
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+                    // Button(action: onPlus) {
+                    //     Image(systemName: "plus")
+                    //         .font(.body.weight(.light))
+                    //         .foregroundStyle(WK.Palette.primaryText)
+                    //         .frame(width: 52, height: 52)
+                    //         .contentShape(Circle())
+                    // }
+                    // .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
                 }
                 .padding(.horizontal, 20)
             }
