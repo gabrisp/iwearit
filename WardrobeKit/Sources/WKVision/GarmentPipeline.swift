@@ -76,7 +76,7 @@ public actor GarmentPipeline {
     /// esa foto era también la de 1100, una prenda que ocupa media foto se
     /// quedaba en 500 px y se **ampliaba** a 1024 al normalizar: bordes
     /// pixelados. Con esta, sobra resolución y el recorte se reduce.
-    static let detailMaxSide = 2400
+    static let detailMaxSide = 3200
 
     /// La misma foto, más pequeña, si hacía falta.
     static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
@@ -344,7 +344,7 @@ public actor GarmentPipeline {
                 DiagnosticsLog.record("SUJETO", "el sujeto no resuelve la foto: se sigue por el segmentador")
             }
 
-            if let garments = try? await extractWithSegmenter(segmenter, from: image),
+            if let garments = try? await extractWithSegmenter(segmenter, from: image, detail: detail),
                !garments.isEmpty {
                 return await refinedOnSolidBackground(Self.merged(garments), from: image, detail: detail)
             }
@@ -463,7 +463,8 @@ public actor GarmentPipeline {
 
     private func extractWithSegmenter(
         _ segmenter: ClothesSegmenter,
-        from image: CGImage
+        from image: CGImage,
+        detail: CGImage
     ) async throws -> [DetectedGarment] {
         let clock = ContinuousClock.now
         let map = try await segmenter.classMap(for: image)
@@ -516,12 +517,20 @@ public actor GarmentPipeline {
         // píxeles por prenda, y con tres prendas por foto eso es el coste
         // dominante de todo el escaneo. La máscara viene de un mapa de 512, de
         // modo que reducir aquí no pierde un solo detalle real.
-        let working = Self.limited(image, longestSide: Self.workingSide) ?? image
+        // let working = Self.limited(image, longestSide: Self.workingSide) ?? image
+        //
+        // **Sobre la foto con resolución, y con el canto del sujeto.** Recortar
+        // sobre 1280 px con una máscara de 512 estirada daba bordes en
+        // escalera. Ahora el recorte sale de `detail` y su canto exterior lo
+        // marca la máscara de sujeto de iOS, precisa al píxel. Algo más lento,
+        // bastante más limpio.
+        let working = detail
+        let subjectMask = await subjectMask(for: image, appliedTo: detail)
 
         var results: [DetectedGarment] = []
         for region in regions {
             guard
-                let rawCrop = SegmentedGarmentExtractor.crop(region: region, from: working),
+                let rawCrop = SegmentedGarmentExtractor.crop(region: region, from: working, refinedBy: subjectMask),
                 // Sin esto, una prenda que se cae aquí desaparece en silencio y
                 // el recuento final no cuadra con lo que el modelo dijo ver.
                 logCrop(region, rawCrop),
@@ -1335,6 +1344,21 @@ public actor GarmentPipeline {
                 sourceRect: winner.sourceRect
             ),
         ]
+    }
+
+    /// Todos los sujetos de iOS juntos, aplicados sobre `detail` y del mismo
+    /// tamaño. Sirve para afinar el canto de los recortes del segmentador.
+    private func subjectMask(for image: CGImage, appliedTo detail: CGImage) async -> CGImage? {
+        guard
+            let observation = try? await VisionStages.foregroundInstances(in: image),
+            !observation.allInstances.isEmpty,
+            let buffer = try? observation.generateMaskedImage(
+                for: observation.allInstances,
+                imageFrom: ImageRequestHandler(detail),
+                croppedToInstancesExtent: false
+            )
+        else { return nil }
+        return Self.cgImage(from: buffer)
     }
 
     /// La prenda levantada del fondo, sin describirla.

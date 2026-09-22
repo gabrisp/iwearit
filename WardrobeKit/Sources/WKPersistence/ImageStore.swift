@@ -53,15 +53,21 @@ public actor ImageStore {
 
         var maxPixelSize: CGFloat {
             switch self {
-            case .thumb: 256
+            // 512 y no 256: en la balda una prenda mide unos 100 pt, que en un
+            // iPhone son 300 px. Con 256 la miniatura se **ampliaba**, y el
+            // borde transparente salía en escalera.
+            case .thumb: 512
             case .display, .catalog: 1024
             }
         }
 
         var compressionQuality: CGFloat {
             switch self {
-            case .thumb: 0.7
-            case .display, .catalog: 0.85
+            // Más altas que antes (0,7 y 0,85): el recorte lleva canal alfa y la
+            // compresión con pérdida trabaja justo en el borde. Ver
+            // `isLossless`. Pesa algo más y el contorno se ve limpio.
+            case .thumb: 0.9
+            case .display, .catalog: 0.95
             }
         }
 
@@ -78,6 +84,11 @@ public actor ImageStore {
         var isLossless: Bool { self == .catalog }
 
         var fileExtension: String { isLossless ? "png" : "heic" }
+
+        /// Cómo se llama en disco. La miniatura cambió de nombre al pasar a
+        /// 512: así las de 256 que ya había no se reutilizan y se rehacen
+        /// desde `display` la primera vez que se piden.
+        var fileName: String { self == .thumb ? "thumb512" : rawValue }
     }
 
     public enum StoreError: Error, Sendable {
@@ -231,7 +242,7 @@ public actor ImageStore {
         let shard = String(key.prefix(2))
         return root
             .appending(path: shard, directoryHint: .isDirectory)
-            .appending(path: "\(key).\(variant.rawValue).\(variant.fileExtension)")
+            .appending(path: "\(key).\(variant.fileName).\(variant.fileExtension)")
     }
 
     public func exists(key: String, variant: Variant = .thumb) -> Bool {
@@ -250,10 +261,37 @@ public actor ImageStore {
         // todavía porque aquí nadie ha recortado nada. Se materializa al
         // pedirla —una vez— y a partir de ahí es un fichero local como los
         // demás.
+        // La miniatura se saca de la grande que ya está en este iPhone. Es lo
+        // que rehace las de 256 de antes. Ver `Variant.fileName`.
+        if variant == .thumb, let derived = try? deriveThumb(for: key) {
+            return derived
+        }
         if let recovered = try? await materialise(key: key, variant: variant) {
             return recovered
         }
         throw StoreError.notFound(key: key, variant: variant)
+    }
+
+    private func deriveThumb(for key: String) throws -> Data? {
+        let displayURL = url(for: key, variant: .display)
+        guard
+            let display = fileManager.contents(atPath: displayURL.path(percentEncoded: false)),
+            let source = CGImageSourceCreateWithData(display as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+            let resized = Self.resize(image, maxPixelSize: Variant.thumb.maxPixelSize)
+        else { return nil }
+        let data = try Self.encodeHEIC(resized, quality: Variant.thumb.compressionQuality)
+        try writeAtomically(data, to: url(for: key, variant: .thumb))
+        // La de 256 ya no se usa.
+        try? fileManager.removeItem(at: legacyThumbURL(for: key))
+        return data
+    }
+
+    /// Donde estaba la miniatura de 256.
+    private nonisolated func legacyThumbURL(for key: String) -> URL {
+        root
+            .appending(path: String(key.prefix(2)), directoryHint: .isDirectory)
+            .appending(path: "\(key).thumb.heic")
     }
 
     /// Escribe en disco lo que venga de la base, si viene algo.
@@ -302,6 +340,8 @@ public actor ImageStore {
                 try fileManager.removeItem(at: url)
             }
         }
+        // Y la miniatura de 256, si aún quedaba.
+        try? fileManager.removeItem(at: legacyThumbURL(for: key))
     }
 
     /// Cuánto tiene que llevar un fichero sin dueño antes de poder borrarlo.

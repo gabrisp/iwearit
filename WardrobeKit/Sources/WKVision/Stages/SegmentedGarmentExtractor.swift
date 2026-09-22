@@ -491,7 +491,16 @@ enum SegmentedGarmentExtractor {
     /// La máscara que se consulta es la de **esta** prenda, no la de su clase:
     /// si hay dos camisetas, el recorte de la primera no puede arrastrar un
     /// trozo de la segunda por estar dentro de su caja.
-    static func crop(region: Region, from image: CGImage) -> CGImage? {
+    /// Cuánto de la prenda tiene que quedar dentro del sujeto de iOS para
+    /// fiarse de él. Si se come más, el sujeto está mal y se ignora.
+    static let subjectAgreement = 0.9
+
+    /// - Parameter subject: la foto con la máscara de sujeto de iOS aplicada,
+    ///   del **mismo tamaño** que `image`. Su borde es preciso al píxel contra
+    ///   el fondo, y el del mapa de clases —512 px estirados— sale dentado. Se
+    ///   multiplican: lo de dentro lo decide el segmentador (dónde acaba la
+    ///   camiseta y empieza el pantalón) y el canto exterior, el sujeto.
+    static func crop(region: Region, from image: CGImage, refinedBy subject: CGImage? = nil) -> CGImage? {
         let mask = region.mask
         let scaleX = Double(image.width) / Double(mask.width)
         let scaleY = Double(image.height) / Double(mask.height)
@@ -514,6 +523,16 @@ enum SegmentedGarmentExtractor {
         else { return nil }
         context.draw(cropped, in: CGRect(x: 0, y: 0, width: width, height: height))
 
+        // El alfa del sujeto en la misma caja, si lo hay y cuadra de tamaño.
+        var subjectAlpha: PixelBuffer?
+        if let subject, subject.width == image.width, subject.height == image.height,
+           let piece = subject.cropping(to: box),
+           let alphaBuffer = PixelBuffer(width: width, height: height),
+           let alphaContext = alphaBuffer.makeContext() {
+            alphaContext.draw(piece, in: CGRect(x: 0, y: 0, width: width, height: height))
+            subjectAlpha = alphaBuffer
+        }
+
         // La coordenada del mapa para cada columna del recorte, **calculada una
         // vez**. Antes había una división en coma flotante por píxel: en un
         // recorte de un millón de píxeles son un millón de divisiones para
@@ -526,12 +545,40 @@ enum SegmentedGarmentExtractor {
             columns[x] = (Double(x) + box.minX) / scaleX
         }
 
+        // ¿Se puede fiar uno del sujeto? Si deja fuera un trozo apreciable de
+        // la prenda —una manga que iOS no consideró parte de la persona—, no.
+        if let alpha = subjectAlpha {
+            var garment = 0.0, kept = 0.0
+            for y in stride(from: 0, to: height, by: 2) {
+                let mapY = (Double(y) + box.minY) / scaleY
+                for x in stride(from: 0, to: width, by: 2) {
+                    let coverage = mask.coverage(atX: columns[x], y: mapY)
+                    guard coverage > 0.5 else { continue }
+                    garment += 1
+                    if alpha[x, y, 3] > 127 { kept += 1 }
+                }
+            }
+            if garment == 0 || kept / garment < subjectAgreement {
+                DiagnosticsLog.record(
+                    "RECORTE",
+                    String(format: "%@: el sujeto de iOS deja fuera %.0f%%, no se usa para el borde",
+                           "\(region.label)", garment == 0 ? 100 : (1 - kept / garment) * 100)
+                )
+                subjectAlpha = nil
+            }
+        }
+
         for y in 0..<height {
             // El buffer de un CGBitmapContext guarda la primera fila arriba, la
             // misma convención que el mapa de clases. No hay que invertir nada.
             let mapY = (Double(y) + box.minY) / scaleY
             for x in 0..<width {
-                let coverage = mask.coverage(atX: columns[x], y: mapY)
+                var coverage = mask.coverage(atX: columns[x], y: mapY)
+                if let subjectAlpha {
+                    // Un poco más generosa la del segmentador, para que el canto
+                    // lo marque el sujeto y no la escalera del mapa.
+                    coverage = min(1, coverage * 1.35) * Double(subjectAlpha[x, y, 3]) / 255
+                }
                 if coverage >= 0.999 { continue }
                 if coverage <= 0.001 {
                     for component in 0..<4 { buffer[x, y, component] = 0 }
