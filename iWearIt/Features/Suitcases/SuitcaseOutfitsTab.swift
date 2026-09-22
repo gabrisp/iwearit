@@ -161,7 +161,9 @@ struct TripDayBar: View {
                         date: suitcase.date(forDayIndex: index),
                         isSelected: index == selected,
                         hasOutfit: suitcase.outfit(forDayIndex: index) != nil,
-                        height: isCompact ? 36 : 46
+                        // Dentro de la barra, **sin alto puesto a mano**: lo
+                        // da la barra. Fuera, el de siempre.
+                        height: isCompact ? nil : 46
                     )
                     .onTapGesture { selected = index }
                 }
@@ -169,9 +171,22 @@ struct TripDayBar: View {
             .padding(.horizontal, WK.Spacing.s)
         }
         .scrollIndicators(.hidden)
-        .frame(height: isCompact ? 40 : 56)
+        .modifier(TripDayBarHeight(height: isCompact ? nil : 56))
         .clipShape(.capsule)
         .modifier(TripDayBarChrome(isCompact: isCompact))
+    }
+}
+
+/// El alto de la tira, **solo fuera** de la barra: dentro lo pone la barra.
+private struct TripDayBarHeight: ViewModifier {
+    let height: CGFloat?
+
+    func body(content: Content) -> some View {
+        if let height {
+            content.frame(height: height)
+        } else {
+            content
+        }
     }
 }
 
@@ -201,7 +216,8 @@ struct TripDayChip: View {
     let date: Date?
     let isSelected: Bool
     let hasOutfit: Bool
-    var height: CGFloat = 46
+    /// `nil` = el que salga. Ver `TripDayBarHeight`.
+    var height: CGFloat? = 46
 
     private static let dayNumber: DateFormatter = {
         let formatter = DateFormatter()
@@ -248,7 +264,8 @@ struct TripDayChip: View {
             }
         }
         .padding(.horizontal, WK.Spacing.m)
-        .frame(height: height)
+        .padding(.vertical, height == nil ? 4 : 0)
+        .modifier(TripDayBarHeight(height: height))
         .background {
             if isSelected { Capsule().fill(WK.Palette.accent) }
         }
