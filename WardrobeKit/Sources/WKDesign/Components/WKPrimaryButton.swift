@@ -38,26 +38,41 @@ public struct WKPrimaryButton: View {
     }
 
     public var body: some View {
-        Button(action: action) {
-            Label {
-                Text(title).font(.headline)
-            } icon: {
-                if let systemImage { Image(systemName: systemImage) }
-            }
-            .labelStyle(.titleAndIcon)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, WK.Spacing.m)
-            // La etiqueta se decide **junto** al relleno, siempre. Dejársela al
-            // tinte del sistema produce texto blanco sobre blanco en oscuro.
-            .foregroundStyle(role == .destructive ? Color.white : WK.Palette.onAccent)
-            .modifier(SurfaceModifier(surface: surface, tint: fill))
-            // Imprescindible: `background` **dibuja** la superficie pero no
-            // extiende el área de toque. Sin esto solo responden los glifos del
-            // texto, no la cápsula — y un botón que casi nunca responde parece
-            // roto, no pequeño.
-            .contentShape(.rect)
+        switch surface {
+        case .filled:
+            Button(action: action) { label }
+                .buttonStyle(WKPressStyle())
+        case .glass:
+            // **Un botón normal con su cristal.** El cristal va en el propio
+            // botón, por fuera, y sin nuestro estilo de pulsación: ese estilo
+            // agrupa y aclara el contenido para hundirlo, y eso convierte el
+            // cristal en una imagen plana —pierde el brillo al tocar, el
+            // reflejo y la forma de reaccionar—. El cristal interactivo ya se
+            // hunde y se ilumina solo al pulsarlo.
+            Button(action: action) { label }
+                .buttonStyle(.plain)
+                .adaptiveGlassProminent(tint: fill, in: .capsule)
         }
-        .buttonStyle(WKPressStyle())
+    }
+
+    private var label: some View {
+        Label {
+            Text(title).font(.headline)
+        } icon: {
+            if let systemImage { Image(systemName: systemImage) }
+        }
+        .labelStyle(.titleAndIcon)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, WK.Spacing.m)
+        // La etiqueta se decide **junto** al relleno, siempre. Dejársela al
+        // tinte del sistema produce texto blanco sobre blanco en oscuro.
+        .foregroundStyle(role == .destructive ? Color.white : WK.Palette.onAccent)
+        .modifier(SurfaceModifier(surface: surface, tint: fill))
+        // Imprescindible: `background` **dibuja** la superficie pero no
+        // extiende el área de toque. Sin esto solo responden los glifos del
+        // texto, no la cápsula — y un botón que casi nunca responde parece
+        // roto, no pequeño.
+        .contentShape(.capsule)
     }
 
     private var fill: Color {
@@ -76,7 +91,8 @@ private struct SurfaceModifier: ViewModifier {
         case .filled:
             content.background(tint, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
         case .glass:
-            content.adaptiveGlassProminent(tint: tint, in: .capsule)
+            // El cristal lo pone el botón por fuera: ver `body`.
+            content
         }
     }
 }
