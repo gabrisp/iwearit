@@ -69,6 +69,9 @@ private struct OverscrollAction: ViewModifier {
     let label: String
     let bottomInset: CGFloat
     let action: @MainActor () -> Void
+    /// Para dar por aprendido el aviso del tirón en cuanto se usa. Opcional:
+    /// fuera de la app —previsualizaciones— no hay avisos.
+    @Environment(WKTipCenter.self) private var tips: WKTipCenter?
 
     /// Cuánto se ha pasado del final. Negativo = desbordando.
     @State private var offset: CGFloat = 0
@@ -261,6 +264,7 @@ private struct OverscrollAction: ViewModifier {
 
     private func fireIfDue() {
         if !isTouching, isEligible, -offset >= threshold, !hasFired {
+            tips?.complete(.overscrollNewOutfit)
             action()
             hasFired = true
         }

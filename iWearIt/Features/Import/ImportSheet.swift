@@ -78,17 +78,26 @@ struct ImportSheet: View {
                     .background(WK.Palette.canvas)
                 }
             }
-            .navigationTitle("Añadir prendas")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    // Siempre presente, aunque todavía no haya modelo: si el
-                    // item aparece y desaparece, la barra se recoloca y el
-                    // botón de cancelar da un salto a mitad del proceso.
-                    ImportSaveButton(model: model) { if let model { await save(model) } }
+                // **Solo cerrar.** Guardar vive abajo, junto a "Agregar más",
+                // donde está la mano; un "Añadir" arriba repetía ese mismo
+                // botón y un "Cancelar" en texto hacía lo que hace la X.
+                //
+                // ToolbarItem(placement: .cancellationAction) {
+                //     Button("Cancelar") { dismiss() }
+                // }
+                // ToolbarItem(placement: .confirmationAction) {
+                //     ImportSaveButton(model: model) { if let model { await save(model) } }
+                // }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(WK.Font.headline)
+                            .contentShape(.rect)
+                    }
+                    .tint(WK.Palette.primaryText)
                 }
             }
         }
@@ -120,6 +129,13 @@ struct ImportSheet: View {
             model = created
             await created.process(images)
         }
+    }
+
+    /// El título según por dónde va: mientras mira, qué está haciendo; al
+    /// acabar, qué se espera de ti.
+    private var title: String {
+        if case .review = model?.phase { return "Revisar prendas" }
+        return "Analizando"
     }
 
     /// Espera al modelo **solo si le queda poco**.

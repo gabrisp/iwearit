@@ -23,6 +23,7 @@ struct ProfileScreen: View {
                 DevicesSection()
                 WardrobeStatsSection()
                 ModelSection()
+                TipsSection()
                 DiagnosticsSection()
                 #if DEBUG
                 DebugSection()
@@ -292,6 +293,43 @@ private struct ModelSection: View {
 ///
 /// Está fuera de `#if DEBUG` a propósito: el fallo que hay que mirar aparece en
 /// la build que usa el usuario, con su galería y su iPhone, no en la mía.
+/// Los avisos de la app: cuántos se han visto y volver a verlos.
+///
+/// **Un interruptor y no veinte.** Todo lo visto vive en una sola entrada de
+/// ajustes —ver `WKTipCenter`—, así que "empezar de cero" es una fila y no una
+/// lista de casillas que hay que acordarse de mantener cuando se añade un
+/// aviso nuevo.
+private struct TipsSection: View {
+    @Environment(AppEnvironment.self) private var appEnvironment
+
+    var body: some View {
+        let tips = appEnvironment.tips
+        WKSection(
+            "Tutorial",
+            footer: "Los avisos vuelven a salir según entres en cada pantalla."
+        ) {
+            WKRow {
+                Text("Avisos vistos")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Spacer()
+                Text("\(tips.seenCount) de \(WKTip.allCases.count)")
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
+
+            WKRow(action: { tips.resetAll() }) {
+                Text("Volver a enseñarlos")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.accent)
+                Spacer()
+            }
+            .disabled(tips.seenCount == 0)
+            .opacity(tips.seenCount == 0 ? 0.4 : 1)
+        }
+    }
+}
+
 private struct DiagnosticsSection: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     private var log: DiagnosticsLog { .shared }

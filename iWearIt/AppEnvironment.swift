@@ -3,6 +3,7 @@ import Observation
 import SwiftData
 import UIKit
 import WKCore
+import WKDesign
 import WKPersistence
 import WKServices
 import WKVision
@@ -32,6 +33,8 @@ public final class AppEnvironment {
     public let modelStore: ModelStore
     /// Qué puede hacer el usuario. Lo único que sabe de suscripciones.
     public let gate: FeatureGate
+    /// Los avisos que enseñan a usar la app. Ver `WKTipCenter`.
+    public let tips = WKTipCenter()
 
     /// Estado de los modelos, para que Perfil pueda contarlo y la importación
     /// sepa si tiene segmentador.

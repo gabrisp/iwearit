@@ -51,6 +51,14 @@ struct RootTabView: View {
         // Una sola vez en la raíz: `scrollIndicators` se propaga por el árbol,
         // así que la regla vale también para las pantallas que aún no existen.
         .featureGatePaywall(appEnvironment.gate)
+        // **Los avisos, aquí arriba y una sola vez.** Puestos dentro de una
+        // pantalla se irían con ella al empujar la siguiente, y los que salen
+        // sobre una hoja quedarían por debajo. Ver `wkTipLayer`.
+        .wkTipLayer(appEnvironment.tips)
+        // Y el centro en el entorno, para que los propios gestos —el tirón,
+        // el arrastre— den su aviso por aprendido sin que cada pantalla tenga
+        // que acordarse de hacerlo.
+        .environment(appEnvironment.tips)
         .scrollIndicators(.hidden)
     }
 }

@@ -76,6 +76,11 @@ struct ImportPhotoStrip: View {
                 .scrollTargetBehavior(.viewAligned)
                 .scrollPosition(id: $focused, anchor: .center)
                 .contentMargins(.horizontal, margin, for: .scrollContent)
+                // **Quieto mientras analiza.** El carrete avanza solo conforme
+                // acaban las fotos; dejarlo arrastrar es dejar mirar una que
+                // todavía no ha empezado mientras la de verdad trabaja fuera
+                // de la pantalla.
+                .scrollDisabled(true)
                 .scrollIndicators(.hidden)
                 // El recorte cae en el canto de la pantalla, donde no molesta.
                 .scrollClipDisabled()

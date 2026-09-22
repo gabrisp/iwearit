@@ -15,6 +15,9 @@ struct ShelfSection: View, Equatable {
     let data: ShelfData
 
     @Environment(\.modelContext) private var modelContext
+    /// Solo para pasárselo a la vista que acompaña al dedo al arrastrar: ver
+    /// el `draggable` de abajo.
+    @Environment(AppEnvironment.self) private var appEnvironment
     /// Sobre qué prenda está el dedo ahora mismo, para hacerle sitio.
     @State private var hovered: UUID?
 
@@ -44,13 +47,24 @@ struct ShelfSection: View, Equatable {
                             // llevaría la prenda por delante.
                             .draggable(GarmentTransfer(id: garment.id)) {
                                 // Lo que se ve bajo el dedo: la prenda sola.
+                                //
+                                // **Con el entorno puesto a mano.** La vista
+                                // que acompaña al dedo no se dibuja dentro de
+                                // la jerarquía de la pantalla sino en una capa
+                                // aparte del sistema, y ahí no llega nada de lo
+                                // que se inyecta arriba. `HangingGarmentView`
+                                // lee `AppEnvironment` para cargar la imagen, y
+                                // sin él la app se caía en cuanto se levantaba
+                                // la prenda.
                                 HangingGarmentView(garment: garment)
                                     .frame(width: WK.Shelf.garmentWidth)
+                                    .environment(appEnvironment)
                             }
                             // Soltar encima de otra prenda la pone **delante**
                             // de ella, que es donde la estás dejando.
                             .dropDestination(for: GarmentTransfer.self) { items, _ in
                                 guard let dropped = items.first else { return false }
+                                appEnvironment.tips.complete(.dragGarment)
                                 withAnimation(WKAnimation.content) {
                                     GarmentMover.move(
                                         dropped.id, to: .before(garment.id), in: modelContext
@@ -73,6 +87,7 @@ struct ShelfSection: View, Equatable {
                         .frame(width: WK.Spacing.xl, height: WK.Shelf.height)
                         .dropDestination(for: GarmentTransfer.self) { items, _ in
                             guard let dropped = items.first else { return false }
+                                appEnvironment.tips.complete(.dragGarment)
                             withAnimation(WKAnimation.content) {
                                 GarmentMover.move(
                                     dropped.id, to: .endOf(slug: data.id), in: modelContext
@@ -104,6 +119,7 @@ struct ShelfSection: View, Equatable {
             ShelfPlank()
                 .dropDestination(for: GarmentTransfer.self) { items, _ in
                     guard let dropped = items.first else { return false }
+                                appEnvironment.tips.complete(.dragGarment)
                     withAnimation(WKAnimation.content) {
                         GarmentMover.move(dropped.id, to: .endOf(slug: data.id), in: modelContext)
                     }

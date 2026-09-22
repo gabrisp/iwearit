@@ -73,6 +73,8 @@ struct ImportReviewStack: View {
         .padding(.bottom, WK.Spacing.s)
     }
 
+    @Environment(AppEnvironment.self) private var appEnvironment
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: WK.Spacing.m) {
@@ -100,6 +102,10 @@ struct ImportReviewStack: View {
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas)
         .adaptiveSafeAreaBar(edge: .bottom) { actions }
+        // Que la tarjeta se abre no lo dice nada en pantalla: parece una
+        // lista de lo que se va a guardar y es además el sitio donde ajustar
+        // cada prenda.
+        .wkTip(.reviewCard, in: appEnvironment.tips)
         .sheet(item: $opened) { id in
             if let candidate = model.candidates.first(where: { $0.id == id }) {
                 NavigationStack {

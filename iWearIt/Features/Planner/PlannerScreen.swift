@@ -136,6 +136,9 @@ struct PlannerScreen: View {
             // }
             .animation(WKAnimation.arrival, value: layout)
             .rootTabBar(selection: $tab)
+            // El tirón para crear un outfit: es la acción principal de esta
+            // pantalla y no tiene botón, así que sin decirlo no existe.
+            .wkTip(.overscrollNewOutfit, in: appEnvironment.tips)
             .navigationDestination(item: $editingOutfit) { outfit in
                 AdvancedCanvasScreen(
                     outfit: outfit,
