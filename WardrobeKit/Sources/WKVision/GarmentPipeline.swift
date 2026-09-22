@@ -769,7 +769,11 @@ public actor GarmentPipeline {
         let base = kind.map { CropNormalizer.Profile.profile(for: $0) } ?? .square()
         return CropNormalizer.Profile(
             width: base.width, height: base.height,
-            padding: base.padding, anchor: base.anchor, deskews: false
+            padding: base.padding, anchor: base.anchor,
+            deskews: false,
+            // Y **sin quitar motas**: lo que iOS levanta es la prenda entera,
+            // y una mancha aparte suya es parte de ella. Ver `Profile`.
+            despeckles: false
         )
     }
 
@@ -801,10 +805,17 @@ public actor GarmentPipeline {
         }
 
         var subjects: [Subject] = []
-        for instance in instances {
+        // **Una foto, una prenda.** Al añadir a mano, el usuario está
+        // fotografiando **una** cosa: si iOS la parte en dos sujetos —la
+        // chaqueta y su capucha, el zapato y su cordón— quedarse con uno sería
+        // recortarle un trozo a la prenda. Con el escaneo de la galería sí se
+        // separan: ahí puede haber dos camisetas sobre la cama.
+        let merged = splitsInstances ? instances.map { IndexSet(integer: $0) } : [IndexSet(instances)]
+        for group in merged {
+            let instance = group.first ?? 0
             guard
                 let buffer = try? observation.generateMaskedImage(
-                    for: IndexSet(integer: instance),
+                    for: group,
                     imageFrom: handler,
                     croppedToInstancesExtent: false
                 ),
@@ -828,12 +839,12 @@ public actor GarmentPipeline {
             if tally.clothing >= Self.subjectClothingFloor {
                 // Varias prendas en un solo sujeto: el sujeto no sirve.
                 guard tally.dominantShare >= Self.subjectDominantShare else { return nil }
-                subjects.append(Subject(instances: IndexSet(integer: instance), tally: tally, kind: tally.dominantKind))
-            } else if instances.count == 1 {
+                subjects.append(Subject(instances: group, tally: tally, kind: tally.dominantKind))
+            } else if merged.count == 1 {
                 // Una sola cosa en la foto y el segmentador no la reconoce:
                 // lo que sea lo dice el embedder, como con cualquier prenda
                 // suelta.
-                subjects.append(Subject(instances: IndexSet(integer: instance), tally: tally, kind: nil))
+                subjects.append(Subject(instances: group, tally: tally, kind: nil))
             }
         }
         guard !subjects.isEmpty else { return nil }

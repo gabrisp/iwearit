@@ -56,6 +56,14 @@ public enum CropNormalizer {
         public let anchor: Anchor
         /// Si se aplica el enderezado por eje principal.
         public let deskews: Bool
+        /// Si se tiran las manchas sueltas pequeñas.
+        ///
+        /// **No con la máscara de sujeto de iOS.** Ahí lo que hay ya es la
+        /// cosa entera y bien recortada, y una mancha aparte no es suciedad:
+        /// es una correa, un tirante, el segundo zapato o un trozo de prenda
+        /// que la sombra separa. Quitarlo es mutilar la prenda, que es justo
+        /// lo que "copiar sujeto" nunca hace.
+        public let despeckles: Bool
 
         /// Dónde se apoya la prenda cuando le sobra sitio.
         public enum Anchor: Sendable {
@@ -66,12 +74,20 @@ public enum CropNormalizer {
             case top
         }
 
-        public init(width: Int, height: Int, padding: Double, anchor: Anchor, deskews: Bool) {
+        public init(
+            width: Int,
+            height: Int,
+            padding: Double,
+            anchor: Anchor,
+            deskews: Bool,
+            despeckles: Bool = true
+        ) {
             self.width = width
             self.height = height
             self.padding = padding
             self.anchor = anchor
             self.deskews = deskews
+            self.despeckles = despeckles
         }
 
         /// El lienzo cuadrado de siempre. Es lo que se usa cuando no se sabe
@@ -151,7 +167,7 @@ public enum CropNormalizer {
             guard let bounds = opaqueBounds(of: image) else { return nil }
             return render(image, cropping: bounds, into: profile)
         }
-        let cleaned = despeckled(image, using: analysis) ?? image
+        let cleaned = profile.despeckles ? (despeckled(image, using: analysis) ?? image) : image
         let straight = profile.deskews
             ? (deskewed(cleaned, by: analysis.angle) ?? cleaned)
             : cleaned
