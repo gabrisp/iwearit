@@ -35,7 +35,14 @@ struct WebImportScreen: View {
     var body: some View {
         NavigationStack {
             WebCaptureView(model: model)
-                .ignoresSafeArea(edges: .bottom)
+                // **A los cuatro bordes.** Ignorando solo abajo, la web
+                // empezaba justo debajo de la barra y por arriba quedaba una
+                // franja en blanco: la página se veía recortada en vez de
+                // pasar por debajo del cristal. El texto no se esconde porque
+                // la propia `WKWebView` mete el área segura como margen de su
+                // scroll.
+                // .ignoresSafeArea(edges: .bottom)
+                .ignoresSafeArea()
                 // **Todo en la barra, y sin superficie propia.**
                 //
                 // La barra puesta a mano de antes traía su propio cristal
@@ -72,6 +79,9 @@ struct WebImportScreen: View {
                     // encima de una web no añade nada, y saber en qué página
                     // estás sí.
                     ToolbarItem(placement: .principal) {
+                        // En cristal y centrado, como el buscador de una
+                        // balda: sobre una web, un campo sin superficie se
+                        // confunde con el texto de la página.
                         TextField("Buscar o escribir enlace", text: $model.address)
                             .textFieldStyle(.plain)
                             .font(WK.Font.caption)
@@ -82,7 +92,9 @@ struct WebImportScreen: View {
                             .keyboardType(.webSearch)
                             .submitLabel(.go)
                             .focused($isTyping)
-                            .frame(minWidth: 160)
+                            .padding(.horizontal, WK.Spacing.s)
+                            .frame(width: 210, height: 36)
+                            .adaptiveGlassInteractive(in: .capsule)
                             .onSubmit {
                                 model.go(to: model.address)
                                 isTyping = false
