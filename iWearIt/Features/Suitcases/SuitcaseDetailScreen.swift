@@ -84,6 +84,11 @@ private struct SuitcaseContent: View {
                 .id(tab)
                 .animation(WKAnimation.content, value: tab)
         }
+        // **Solo el lienzo.** El papel de puntos llega a los cuatro bordes; la
+        // barra de Outfits · Equipaje se coloca **con** el área segura, encima
+        // del indicador de inicio, y por eso el modificador va aquí y no
+        // envolviendo también a la barra.
+        .ignoresSafeArea(edges: [.top, .bottom])
         // **La barra del sistema, no una fila puesta a mano.**
         //
         // Antes esta pantalla escondía la barra y dibujaba encima su propio
@@ -152,8 +157,6 @@ private struct SuitcaseContent: View {
             }
             .padding(.bottom, WK.Spacing.xs)
         }
-        // Arriba y abajo, como el plan de verdad.
-        .ignoresSafeArea(edges: [.top, .bottom])
         // La barra de pestañas de la app estorba aquí: dentro de una maleta se
         // está montando contenido a pantalla completa, y tener debajo los tres
         // destinos de la app invita a salirse a mitad.
