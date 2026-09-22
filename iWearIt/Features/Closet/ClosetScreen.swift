@@ -187,11 +187,13 @@ struct ClosetScreen: View {
                         // `ShelfEditPill`.
                         ShelfEditPill { sheet = .shelves }
 
-                        // Y debajo, editar las prendas en bloque.
-                        ClosetBulkEditPill {
-                            withAnimation(WKAnimation.content) { bulk.start() }
-                        }
-                        .padding(.bottom, WK.Spacing.xxl)
+                        // Y debajo, editar las prendas en bloque. **Ahora se
+                        // entra por el lápiz de arriba**, así que la píldora
+                        // se queda comentada.
+                        // ClosetBulkEditPill {
+                        //     withAnimation(WKAnimation.content) { bulk.start() }
+                        // }
+                        // .padding(.bottom, WK.Spacing.xxl)
                     }
                     .padding(.top, WK.Spacing.s)
                     .transition(AnyTransition(.blurReplace))
@@ -300,43 +302,66 @@ struct ClosetScreen: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    // **El icono suelto, no un `Button` dentro del enlace.**
-                    // Metido dentro, el botón se comía el toque y el enlace no
-                    // llegaba a dispararse nunca; apagándole el hit testing,
-                    // el enlace se quedaba sin nada que tocar. Un
-                    // `NavigationLink` ya es pulsable: lo que necesita es una
-                    // etiqueta, no otro botón.
-                    NavigationLink(value: ClosetRoute.settings) {
-                        // Ajustes, no "perfil": es lo que hay detrás.
-                        // Image(systemName: "person.crop.circle")
-                        Image(systemName: "gearshape")
-                            .font(WK.Font.headline)
-                            .contentShape(.rect)
-                    }
-                    .tint(WK.Palette.primaryText)
-                }
+                // **Con el modo bloque encendido no queda nada**: solo el
+                // visto para salir. Lo que se está haciendo es marcar prendas,
+                // y ajustes, favoritas o añadir sacan de ahí.
                 if bulk.isActive {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Listo") {
+                        Button {
                             withAnimation(WKAnimation.content) { bulk.stop() }
+                        } label: {
+                            Image(systemName: "checkmark")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
                         }
                         .tint(WK.Palette.primaryText)
                     }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // **El corazón, arriba.** Las favoritas no son una balda
-                    // —la camisa favorita sigue siendo una camisa— pero sí son
-                    // lo que se busca cuando se busca deprisa.
-                    NavigationLink(value: ClosetRoute.favourites) {
-                        Image(systemName: "heart")
-                            .font(WK.Font.headline)
-                            .contentShape(.rect)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) {
+                        // **El icono suelto, no un `Button` dentro del enlace.**
+                        // Metido dentro, el botón se comía el toque y el enlace
+                        // no llegaba a dispararse nunca; apagándole el hit
+                        // testing, el enlace se quedaba sin nada que tocar. Un
+                        // `NavigationLink` ya es pulsable: lo que necesita es
+                        // una etiqueta, no otro botón.
+                        NavigationLink(value: ClosetRoute.settings) {
+                            // Ajustes, no "perfil": es lo que hay detrás.
+                            // Image(systemName: "person.crop.circle")
+                            Image(systemName: "gearshape")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
+                        }
+                        .tint(WK.Palette.primaryText)
                     }
-                    .tint(WK.Palette.primaryText)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    ClosetAddMenu(openRequest: $isRequestingAdd)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        // **El corazón, arriba.** Las favoritas no son una balda
+                        // —la camisa favorita sigue siendo una camisa— pero sí
+                        // son lo que se busca cuando se busca deprisa.
+                        NavigationLink(value: ClosetRoute.favourites) {
+                            Image(systemName: "heart")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
+                        }
+                        .tint(WK.Palette.primaryText)
+                    }
+                    // Separados en grupos: el corazón y el "+" van a lo suyo, y
+                    // el lápiz cambia de modo. En iOS 26 el hueco además parte
+                    // el cristal en dos píldoras.
+                    AdaptiveToolbarSpacer()
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ClosetAddMenu(openRequest: $isRequestingAdd)
+                    }
+                    AdaptiveToolbarSpacer()
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            withAnimation(WKAnimation.content) { bulk.start() }
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
+                        }
+                        .tint(WK.Palette.primaryText)
+                    }
                 }
             }
             .sheet(item: $sheet) { which in

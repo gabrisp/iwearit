@@ -66,20 +66,24 @@ struct ClosetBulkGrid: View {
 
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    private let columns = [GridItem(.adaptive(minimum: 96), spacing: WK.Spacing.m)]
+    private let columns = [GridItem(.adaptive(minimum: 108), spacing: WK.Spacing.m)]
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
+        LazyVGrid(columns: columns, spacing: WK.Spacing.l) {
             ForEach(garments) { garment in
-                ClosetBulkCell(
+                // **La misma percha que dentro de una balda**, marcándose
+                // igual: sin recuadro ni aro, la prenda y su visto. Tenía su
+                // propia celda con fondo y borde y se leía como otra pantalla.
+                HangingGarmentView(
                     garment: GarmentRef(garment),
+                    isSelecting: true,
                     isSelected: bulk.contains(garment.persistentModelID),
-                    namespace: namespace
-                ) {
-                    withAnimation(WKAnimation.selection) {
-                        bulk.toggle(garment.persistentModelID)
+                    onToggleSelection: {
+                        withAnimation(WKAnimation.selection) {
+                            bulk.toggle(garment.persistentModelID)
+                        }
                     }
-                }
+                )
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
@@ -88,55 +92,57 @@ struct ClosetBulkGrid: View {
     }
 }
 
-/// Una prenda en la rejilla de edición.
-private struct ClosetBulkCell: View {
-    let garment: GarmentRef
-    let isSelected: Bool
-    let namespace: Namespace.ID
-    let onTap: () -> Void
+// La celda propia de la rejilla, con su fondo y su aro. Sustituida por
+// `HangingGarmentView`, que es como se marca una prenda en una balda.
+// /// Una prenda en la rejilla de edición.
+// private struct ClosetBulkCell: View {
+//     let garment: GarmentRef
+//     let isSelected: Bool
+//     let namespace: Namespace.ID
+//     let onTap: () -> Void
 
-    @Environment(AppEnvironment.self) private var appEnvironment
+//     @Environment(AppEnvironment.self) private var appEnvironment
 
-    var body: some View {
-        Button(action: onTap) {
-            StoredImage(
-                key: garment.imageKey,
-                variant: .thumb,
-                store: appEnvironment.imageStore,
-                alignment: .center,
-                shadow: .init(opacity: 0.35, radius: 6, y: 4)
-            )
-            .frame(height: 104)
-            .padding(WK.Spacing.xs)
-            .frame(maxWidth: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                    .fill(isSelected ? WK.Palette.accent.opacity(0.12) : WK.Palette.ink(0.04))
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                    .stroke(WK.Palette.accent, lineWidth: isSelected ? 2 : 0)
-            }
-            .overlay(alignment: .topTrailing) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.footnote)
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(
-                        isSelected ? WK.Palette.onAccent : WK.Palette.secondaryText,
-                        isSelected ? WK.Palette.accent : WK.Palette.ink(0.10)
-                    )
-                    .padding(WK.Spacing.xs)
-            }
-            // **Un solo grupo al componer**: la imagen, su sombra y el aro se
-            // mueven como una pieza mientras la prenda viaja desde su percha.
-            .compositingGroup()
-            .matchedGeometryEffect(id: garment.id, in: namespace)
-            .contentShape(.rect)
-        }
-        .buttonStyle(WKPressStyle())
-        .animation(WKAnimation.selection, value: isSelected)
-    }
-}
+//     var body: some View {
+//         Button(action: onTap) {
+//             StoredImage(
+//                 key: garment.imageKey,
+//                 variant: .thumb,
+//                 store: appEnvironment.imageStore,
+//                 alignment: .center,
+//                 shadow: .init(opacity: 0.35, radius: 6, y: 4)
+//             )
+//             .frame(height: 104)
+//             .padding(WK.Spacing.xs)
+//             .frame(maxWidth: .infinity)
+//             .background {
+//                 RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+//                     .fill(isSelected ? WK.Palette.accent.opacity(0.12) : WK.Palette.ink(0.04))
+//             }
+//             .overlay {
+//                 RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+//                     .stroke(WK.Palette.accent, lineWidth: isSelected ? 2 : 0)
+//             }
+//             .overlay(alignment: .topTrailing) {
+//                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+//                     .font(.footnote)
+//                     .symbolRenderingMode(.palette)
+//                     .foregroundStyle(
+//                         isSelected ? WK.Palette.onAccent : WK.Palette.secondaryText,
+//                         isSelected ? WK.Palette.accent : WK.Palette.ink(0.10)
+//                     )
+//                     .padding(WK.Spacing.xs)
+//             }
+//             // **Un solo grupo al componer**: la imagen, su sombra y el aro se
+//             // mueven como una pieza mientras la prenda viaja desde su percha.
+//             .compositingGroup()
+//             .matchedGeometryEffect(id: garment.id, in: namespace)
+//             .contentShape(.rect)
+//         }
+//         .buttonStyle(WKPressStyle())
+//         .animation(WKAnimation.selection, value: isSelected)
+//     }
+// }
 
 /// Las tres acciones, donde estaba la barra de pestañas.
 struct ClosetBulkActionBar: View {
@@ -254,15 +260,25 @@ struct ClosetBulkEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Listo") { dismiss() }
-                        .tint(WK.Palette.primaryText)
+                    // Un símbolo, nunca texto: es la regla de todas las barras
+                    // de la app.
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(WK.Font.headline)
+                            .contentShape(.rect)
+                    }
+                    .tint(WK.Palette.primaryText)
                 }
             }
-            // La ficha completa, empujada: se corrige, se vuelve con el gesto
-            // de siempre y se toca la siguiente. Sin cerrar la hoja entre una
-            // y otra, que es lo que costaba tiempo.
-            .navigationDestination(item: $editing) { garment in
-                GarmentEditSheet(garment: garment, embedsNavigation: false)
+            // **Otra hoja encima, no una pantalla empujada.** La ficha es una
+            // hoja en todo el resto de la app y aquí tiene que llegar igual:
+            // se corrige, se cierra y se toca la siguiente, sin salir de la
+            // lista.
+            // .navigationDestination(item: $editing) { garment in
+            //     GarmentEditSheet(garment: garment, embedsNavigation: false)
+            // }
+            .sheet(item: $editing) { garment in
+                GarmentEditSheet(garment: garment)
             }
         }
     }

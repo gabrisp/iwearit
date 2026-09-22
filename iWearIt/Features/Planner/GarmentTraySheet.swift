@@ -54,7 +54,13 @@ struct GarmentTraySheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { dismiss() }
+                    // Un símbolo, nunca texto. Ver `ClosetBulkEditSheet`.
+                    // Button("Cerrar") { dismiss() }
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(WK.Font.headline)
+                            .contentShape(.rect)
+                    }
                 }
             }
         }

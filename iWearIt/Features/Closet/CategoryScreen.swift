@@ -107,12 +107,14 @@ struct CategoryScreen: View {
         // El borrado, abajo y centrado: es donde llega el pulgar y es donde no
         // se toca sin querer al ir a por una prenda.
         .adaptiveSafeAreaBar(edge: .bottom) { deleteBar }
-        .confirmationDialog(
+        // Una alerta, como en el armario: borrar es irreversible y el aviso va
+        // en el centro de la pantalla.
+        // .confirmationDialog(…, titleVisibility: .visible)
+        .alert(
             selection.count == 1
                 ? "¿Eliminar esta prenda?"
                 : "¿Eliminar \(selection.count) prendas?",
-            isPresented: $isConfirmingDelete,
-            titleVisibility: .visible
+            isPresented: $isConfirmingDelete
         ) {
             Button("Eliminar", role: .destructive) { deleteSelected() }
             Button("Cancelar", role: .cancel) {}
