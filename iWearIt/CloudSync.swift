@@ -82,6 +82,14 @@ final class CloudSync {
     /// pantalla que estés mirando— se pregunta.
     private(set) var canEnableNow = false
 
+    /// Llega algo del otro dispositivo.
+    ///
+    /// Lo escucha `AppEnvironment` para volver a juntar lo duplicado: dos
+    /// iPhone siembran sus baldas por separado y las copias **no aparecen al
+    /// arrancar**, sino cuando la importación termina, minutos después. Sin
+    /// esto había que cerrar y abrir la app para dejar de ver dos "Camisetas".
+    var onRemoteChange: (@MainActor () -> Void)?
+
     init(container: ModelContainer, isEnabled: Bool) {
         self.container = container
         self.isEnabled = isEnabled
@@ -162,6 +170,7 @@ final class CloudSync {
                     guard let self else { return }
                     self.lastSyncedAt = Date()
                     self.reconcileDeletions()
+                    self.onRemoteChange?()
                 }
             }
         )
