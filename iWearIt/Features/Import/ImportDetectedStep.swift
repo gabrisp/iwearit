@@ -25,63 +25,42 @@ struct ImportDetectedStep: View {
     @State private var isCroppingByHand = false
     /// Qué candidato se está recortando otra vez. `nil` = uno nuevo.
     @State private var recropping: UUID?
-    /// Sobre qué foto se va a dibujar el lazo.
-    @State private var croppingPhoto = 0
+    /// Qué foto se está mirando, que es también sobre la que se dibuja el lazo.
+    @State private var focused: Int?
 
-    private let columns = [GridItem(.adaptive(minimum: 104), spacing: WK.Spacing.m)]
-
+    private var current: Int { focused ?? 0 }
     private var keptCount: Int { model.candidates.count(where: \.isKept) }
 
-    var body: some View {
-        VStack(spacing: WK.Spacing.m) {
-            header
+    /// Lo que asoma de las fotos vecinas por cada lado.
+    private static let peek: CGFloat = 44
+    private static let spacing: CGFloat = 12
 
-            ScrollView {
-                // **Cada foto con lo suyo debajo.**
-                //
-                // Con varias fotos, una rejilla única de recortes deja de
-                // poder comprobarse: no se sabe de cuál salió cada cosa, y la
-                // comprobación es justo esa —mirar la foto y ver que a ese
-                // recorte le falta media manga, o que aquello era el sofá.
-                LazyVStack(spacing: WK.Spacing.l) {
-                    ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
-                        PhotoSection(
-                            photo: photo,
-                            number: index + 1,
-                            total: photos.count,
-                            candidates: model.candidates.filter { $0.photoIndex == index },
-                            columns: columns,
-                            onToggle: { model.setKeep(!$0.isKept, forCandidateWithID: $0.id) },
-                            onRecrop: { candidate in
-                                recropping = candidate.id
-                                croppingPhoto = index
-                                isCroppingByHand = true
-                            },
-                            onDiscard: { model.discard(candidateWithID: $0.id) },
-                            onChangeRect: { model.setRect($1, forCandidateWithID: $0.id) },
-                            onAddByHand: {
-                                recropping = nil
-                                croppingPhoto = index
-                                isCroppingByHand = true
-                            }
-                        )
-                    }
-                }
-                .padding(.bottom, WK.Spacing.m)
-            }
-            .scrollIndicators(.hidden)
+    var body: some View {
+        // **La misma pantalla de antes, continuada.**
+        //
+        // Durante el análisis se está mirando un carrete de fotos con un texto
+        // debajo; al acabar, lo que cambia es que la foto se hace grande,
+        // aparecen los recuadros encima y las prendas salen debajo. Poner aquí
+        // un título y una rejilla nueva rompía esa continuidad: parecía que la
+        // app te había mandado a otro sitio en vez de haber terminado.
+        VStack(spacing: WK.Spacing.m) {
+            pager
+            caption
+            tools
+            cutouts
         }
+        .padding(.top, WK.Spacing.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas)
         .adaptiveSafeAreaBar(edge: .bottom) { continueBar }
         .fullScreenCover(isPresented: $isCroppingByHand) {
             ManualCropScreen(
-                image: photos[min(croppingPhoto, photos.count - 1)],
+                image: photos[min(current, photos.count - 1)],
                 onCrop: { cropped in
                     if let recropping {
                         model.setManualCrop(cropped, forCandidateWithID: recropping)
                     } else {
-                        model.addManualCandidate(cropped, photoIndex: croppingPhoto)
+                        model.addManualCandidate(cropped, photoIndex: current)
                     }
                 },
                 // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
@@ -91,23 +70,156 @@ struct ImportDetectedStep: View {
         }
     }
 
-    private var header: some View {
-        VStack(spacing: WK.Spacing.xs) {
-            Text(model.candidates.isEmpty ? "No hemos visto ninguna prenda" : "Esto hemos detectado")
-                .font(WK.Font.title)
-                .foregroundStyle(WK.Palette.primaryText)
+    // MARK: Las fotos
 
+    /// Una foto por página, con lo detectado encima.
+    ///
+    /// Paginado y no apilado: con tres fotos, una debajo de otra y cada una con
+    /// su rejilla de recortes, la pantalla era un rollo de papel por el que
+    /// había que scrollear para saber siquiera cuántas fotos había. Así se ve
+    /// una entera, las vecinas asoman, y lo que sale de la que estás mirando
+    /// está justo debajo.
+    private var pager: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: Self.spacing) {
+                ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
+                    // **Entera, no recortada.** Con `scaledToFill` la foto
+                    // llena la página pero se come los bordes, y ahí es donde
+                    // suele estar la prenda que se quedó fuera —además de que
+                    // los recuadros dejarían de caer donde toca.
+                    Image(decorative: photo, scale: 1)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
+                        // Lo detectado, señalado encima. Ver
+                        // `ImportDetectionBoxes`.
+                        .overlay {
+                            ImportDetectionBoxes(
+                                photo: photo,
+                                candidates: model.candidates.filter { $0.photoIndex == index },
+                                onChange: { model.setRect($1, forCandidateWithID: $0.id) },
+                                onDiscard: { model.discard(candidateWithID: $0.id) }
+                            )
+                        }
+                        .containerRelativeFrame(.horizontal) { width, _ in
+                            max(width - 2 * (Self.peek + Self.spacing), 160)
+                        }
+                        .scrollTransition(.interactive) { content, phase in
+                            content
+                                .scaleEffect(phase.isIdentity ? 1 : 0.97)
+                                .opacity(phase.isIdentity ? 1 : 0.6)
+                        }
+                        .id(index)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $focused, anchor: .center)
+        .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .wkBleedingStrip()
+        .task { if focused == nil { focused = 0 } }
+    }
+
+    // MARK: Lo que ha salido
+
+    /// Los recortes de la foto que se está mirando.
+    ///
+    /// En una tira y no en una rejilla: son tres o cuatro por foto, y una
+    /// rejilla de tres celdas deja media pantalla en blanco debajo de la foto.
+    private var cutouts: some View {
+        VStack(spacing: WK.Spacing.xs) {
+            ScrollView(.horizontal) {
+                HStack(spacing: WK.Spacing.s) {
+                    ForEach(model.candidates.filter { $0.photoIndex == current }) { candidate in
+                        DetectedCell(
+                            candidate: candidate,
+                            onToggle: { model.setKeep(!candidate.isKept, forCandidateWithID: candidate.id) },
+                            onRecrop: {
+                                recropping = candidate.id
+                                isCroppingByHand = true
+                            },
+                            onDiscard: { model.discard(candidateWithID: candidate.id) }
+                        )
+                    }
+
+                }
+                .padding(.horizontal, WK.Spacing.screenInset)
+            }
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .wkBleedingStrip()
+        }
+        .animation(WKAnimation.arrival, value: model.candidates.count)
+        .animation(WKAnimation.content, value: current)
+    }
+
+    /// Las dos salidas cuando lo detectado no vale.
+    ///
+    /// **Reintentar** porque el detector no da siempre lo mismo: depende de
+    /// qué tenga ocupada la ANE y de cuánto le dé tiempo, así que volver a
+    /// mirar la misma foto cambia el resultado más veces de las que parece.
+    /// **Recortar a mano** porque cuando no lo cambia, ya está claro que esa
+    /// foto hay que rodearla con el dedo.
+    private var tools: some View {
+        HStack(spacing: WK.Spacing.s) {
+            Button {
+                recropping = nil
+                isCroppingByHand = true
+            } label: {
+                Label("recortar a mano", systemImage: "lasso")
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .padding(.horizontal, WK.Spacing.m)
+                    .padding(.vertical, WK.Spacing.s)
+                    .background(WK.Palette.ink(0.07), in: .capsule)
+                    .contentShape(.capsule)
+            }
+            .buttonStyle(WKPressStyle())
+
+            Button {
+                Task { await model.reanalyse(photoAt: current) }
+            } label: {
+                Label(
+                    model.reanalysing == current ? "mirando otra vez…" : "reintentar",
+                    systemImage: "arrow.clockwise"
+                )
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.s)
+                .background(WK.Palette.ink(0.07), in: .capsule)
+                .contentShape(.capsule)
+            }
+            .buttonStyle(WKPressStyle())
+            .disabled(model.reanalysing != nil)
+        }
+        .animation(WKAnimation.content, value: model.reanalysing)
+    }
+
+    /// La línea de debajo de la foto, donde antes iba el texto del análisis.
+    private var caption: some View {
+        VStack(spacing: 2) {
             Text(
                 model.candidates.isEmpty
-                    ? "Rodéala con el dedo y la recortamos igual."
-                    : "Mueve o estira un recuadro para decirnos dónde está la prenda, y quita con la X lo que no sea ropa."
+                    ? "No hemos visto ninguna prenda: rodéala con el dedo."
+                    : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
             )
-            .font(WK.Font.caption)
+            .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)
             .multilineTextAlignment(.center)
+
+            if photos.count > 1 {
+                Text("Foto \(current + 1) de \(photos.count)")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                    .contentTransition(.numericText(value: Double(current)))
+                    .animation(WKAnimation.content, value: current)
+            }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.top, WK.Spacing.m)
     }
 
     private var continueBar: some View {
@@ -121,65 +233,6 @@ struct ImportDetectedStep: View {
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)
         .animation(WKAnimation.selection, value: keptCount)
-    }
-}
-
-/// Una foto del lote y las prendas que salieron de ella.
-private struct PhotoSection: View {
-    let photo: CGImage
-    let number: Int
-    let total: Int
-    let candidates: [ImportCandidate]
-    let columns: [GridItem]
-    let onToggle: (ImportCandidate) -> Void
-    let onRecrop: (ImportCandidate) -> Void
-    let onDiscard: (ImportCandidate) -> Void
-    let onChangeRect: (ImportCandidate, CGRect) -> Void
-    let onAddByHand: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            if total > 1 {
-                Text("Foto \(number) de \(total)")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .padding(.horizontal, WK.Spacing.screenInset)
-            }
-
-            Image(decorative: photo, scale: 1)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity)
-                // Más alta que antes porque ahora se toca: sobre 220 puntos
-                // los recuadros de una foto vertical salen del tamaño de una
-                // uña y estirar la esquina es imposible.
-                .frame(height: 300)
-                .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
-                // Lo detectado, señalado encima. Ver `ImportDetectionBoxes`.
-                .overlay {
-                    ImportDetectionBoxes(
-                        photo: photo,
-                        candidates: candidates,
-                        onChange: onChangeRect,
-                        onDiscard: onDiscard
-                    )
-                }
-                .padding(.horizontal, WK.Spacing.screenInset)
-
-            LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
-                ForEach(candidates) { candidate in
-                    DetectedCell(
-                        candidate: candidate,
-                        onToggle: { onToggle(candidate) },
-                        onRecrop: { onRecrop(candidate) },
-                        onDiscard: { onDiscard(candidate) }
-                    )
-                }
-
-                AddByHandCell(action: onAddByHand)
-            }
-            .padding(.horizontal, WK.Spacing.screenInset)
-        }
     }
 }
 
@@ -206,8 +259,7 @@ private struct DetectedCell: View {
                 // rota. Con la celda cuadrada y la imagen ajustada dentro,
                 // todas ocupan lo mismo y lo que cambia es la prenda.
                 .padding(WK.Spacing.xs)
-                .frame(maxWidth: .infinity)
-                .frame(height: 112)
+                .frame(width: 92, height: 92)
                 .background {
                     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
                         .fill(WK.Palette.ink(0.04))
@@ -238,30 +290,34 @@ private struct DetectedCell: View {
     }
 }
 
-/// Añadir una prenda que el detector no vio.
-private struct AddByHandCell: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: WK.Spacing.xs) {
-                Image(systemName: "lasso")
-                    .font(.title2)
-                Text("Rodear a mano")
-                    .font(WK.Font.caption)
-            }
-            .foregroundStyle(WK.Palette.secondaryText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 112)
-            .background {
-                RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                    .strokeBorder(
-                        WK.Palette.ink(0.15),
-                        style: StrokeStyle(lineWidth: 2, dash: [6, 5])
-                    )
-            }
-            .contentShape(.rect)
-        }
-        .buttonStyle(WKPressStyle())
-    }
-}
+// **La celda de rodear a mano, retirada.** Ahora es un botón debajo de la
+// foto, junto a reintentar: un hueco de puntos al final de la tira de
+// recortes se leía como "aquí falta una prenda" en vez de como una acción.
+// Se queda comentada por si vuelve a hacer falta.
+//
+// /// Añadir una prenda que el detector no vio.
+// private struct AddByHandCell: View {
+//     let action: () -> Void
+//
+//     var body: some View {
+//         Button(action: action) {
+//             VStack(spacing: WK.Spacing.xs) {
+//                 Image(systemName: "lasso")
+//                     .font(.title2)
+//                 Text("Rodear a mano")
+//                     .font(WK.Font.caption)
+//             }
+//             .foregroundStyle(WK.Palette.secondaryText)
+//             .frame(width: 92, height: 92)
+//             .background {
+//                 RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+//                     .strokeBorder(
+//                         WK.Palette.ink(0.15),
+//                         style: StrokeStyle(lineWidth: 2, dash: [6, 5])
+//                     )
+//             }
+//             .contentShape(.rect)
+//         }
+//         .buttonStyle(WKPressStyle())
+//     }
+// }

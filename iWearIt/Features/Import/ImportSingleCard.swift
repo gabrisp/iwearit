@@ -6,18 +6,21 @@ import WKVision
 
 /// Una prenda detectada, a tamaño de ficha.
 ///
-/// ## Por qué no una lista dentro de un scroll
+/// ## Es la pantalla de editar
 ///
-/// La versión anterior apilaba paneles —imagen, selector, nombre, botones,
-/// datos, tipo, casilla— dentro de un scroll largo: la prenda quedaba arriba
-/// del todo y lo que había que decidir, abajo, de forma que nunca se veían las
-/// dos cosas a la vez. Y editar algo obligaba a recorrer la pantalla buscando
-/// en qué panel estaba.
+/// Literalmente: la prenda grande arriba, el botón de mejorar debajo y las
+/// mismas filas —nombre, color, tipo, material— con el valor grande y la
+/// etiqueta pequeña, tocando cada una para cambiarla. Ver `GarmentFieldRows`,
+/// que es de donde salen las filas de las dos.
 ///
-/// Aquí no hay scroll. La prenda ocupa **lo que sobre**, debajo van su nombre y
-/// cuatro fichas con lo que se puede corregir —tipo, prenda, color, material—
-/// y las herramientas viven en la barra de abajo. Todo lo que hay que mirar y
-/// todo lo que se puede tocar, en la misma pantalla.
+/// Tenía que ser así: revisar una prenda recién importada y editar una que ya
+/// está en el armario son el mismo trabajo sobre los mismos campos. Que una
+/// tuviera píldoras y la otra chevrones solo significaba que había que
+/// aprenderse dos pantallas para hacer lo mismo.
+///
+/// Lo único que añade esta es lo que solo existe mientras se importa: poder
+/// mirar la foto original al lado del recorte, rodear la prenda a mano y
+/// quitarla del lote.
 struct ImportSingleCard: View {
     let candidate: ImportCandidate
     /// La foto tal cual entró, para poder comparar.
@@ -53,10 +56,6 @@ struct ImportSingleCard: View {
     @State private var source: Source = .cutout
     @State private var isCroppingByHand = false
     @State private var field: Field?
-    @FocusState private var editing: Focus?
-
-    private enum Focus: Hashable { case name, color }
-
     private enum Field: String, Identifiable {
         case kind, type, material
         var id: String { rawValue }
@@ -78,25 +77,25 @@ struct ImportSingleCard: View {
     }
 
     var body: some View {
-        VStack(spacing: WK.Spacing.m) {
-            hero
-            name
-            chips
+        ScrollView {
+            VStack(spacing: WK.Spacing.m) {
+                hero
+                tools
+                rows
 
-            if let duplicateOf = candidate.duplicateOf {
-                Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(.orange)
-                    .multilineTextAlignment(.center)
+                if let duplicateOf = candidate.duplicateOf {
+                    Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
             }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.top, WK.Spacing.m)
+            .padding(.bottom, WK.Spacing.xxl)
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.top, WK.Spacing.s)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollIndicators(.hidden)
         .background(WK.Palette.canvas)
-        // Las herramientas, en la barra. Apartan el contenido lo que miden y
-        // dejan la ficha pasar por debajo, sin reservar hueco a mano.
-        .adaptiveSafeAreaBar(edge: .bottom) { tools }
         .fullScreenCover(isPresented: $isCroppingByHand) {
             // Sobre **la foto entera**, no sobre el recorte: si el recorte se
             // dejó media manga fuera, rodearlo otra vez no la devuelve.
@@ -119,17 +118,14 @@ struct ImportSingleCard: View {
 
     // MARK: La prenda
 
-    /// La prenda, ocupando lo que sobre, con sus dos controles encima.
+    /// La prenda, del mismo alto que en editar, con sus dos controles encima.
     ///
-    /// El de cambiar a la foto va **sobre la imagen** y no en una fila aparte:
-    /// es una forma de mirar lo mismo, no otro dato de la prenda.
+    /// El de cambiar a la foto va **sobre la imagen** y no en una fila: es una
+    /// forma de mirar lo mismo, no otro dato de la prenda.
     private var hero: some View {
         image
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(
-                WK.Palette.shelf,
-                in: .rect(cornerRadius: WK.Radius.card, style: .continuous)
-            )
+            .frame(height: 230)
+            .frame(maxWidth: .infinity)
             .overlay(alignment: .bottom) { sourcePicker }
             .overlay(alignment: .topTrailing) { discardButton }
     }
@@ -141,10 +137,9 @@ struct ImportSingleCard: View {
             candidate.image
                 .resizable()
                 .scaledToFit()
-                .padding(WK.Spacing.m)
-                // La misma sombra de contorno que en la balda: es como se va a
-                // ver a partir de ahora, y verla aquí igual evita la sorpresa.
-                .shadow(color: WK.Palette.ink(0.18), radius: 10, y: 6)
+                // La misma sombra de contorno que en la balda y en editar: es
+                // como se va a ver a partir de ahora.
+                .shadow(color: WK.Palette.ink(0.5), radius: 18, y: 11)
                 .transition(.opacity)
         case .photo:
             Image(decorative: photo, scale: 1)
@@ -182,7 +177,6 @@ struct ImportSingleCard: View {
         }
         .padding(3)
         .background(Capsule().fill(WK.Palette.ink(0.06)))
-        .padding(.bottom, WK.Spacing.s)
     }
 
     /// Quitar esta prenda del lote, o devolverla.
@@ -200,106 +194,51 @@ struct ImportSingleCard: View {
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.primaryText)
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(WK.Palette.canvas.opacity(0.9)))
+                    .background(Circle().fill(WK.Palette.ink(0.07)))
                     .contentShape(.circle)
             }
             .buttonStyle(WKPressStyle())
-            .padding(WK.Spacing.s)
             .opacity(isKept ? 1 : 0.6)
         }
     }
 
-    // MARK: Lo editable
-
-    /// **El nombre, escribible.** Se construye con el color, y el color se
-    /// mide: una zapatilla azul marino se mide como negra más veces de las que
-    /// parece. Enseñarlo sin poder tocarlo obliga a guardar algo que ya sabes
-    /// que está mal y arreglarlo después.
-    private var name: some View {
-        TextField("Nombre", text: nameBinding)
-            .font(WK.Font.title)
-            .foregroundStyle(WK.Palette.primaryText)
-            .multilineTextAlignment(.center)
-            .textInputAutocapitalization(.sentences)
-            .focused($editing, equals: .name)
-            .submitLabel(.done)
-    }
-
-    /// Tipo, prenda, color y material: lo que se corrige antes de guardar.
-    ///
-    /// En fichas y no en filas de formulario porque son cuatro palabras, no
-    /// cuatro párrafos: puestas en fila caben en dos líneas y se leen de un
-    /// vistazo, y cada una abre lo suyo al tocarla.
-    private var chips: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: WK.Spacing.xs) {
-                FieldChip(
-                    title: "Tipo",
-                    value: ImportCandidateLabels.label(for: candidate.kind)
-                ) { field = .kind }
-
-                FieldChip(
-                    title: "Prenda",
-                    value: candidate.subcategory?.capitalized ?? "Sin definir"
-                ) { field = .type }
-
-                colorChip
-
-                FieldChip(
-                    title: "Material",
-                    value: candidate.material?.capitalized ?? "Sin definir"
-                ) { field = .material }
-            }
-            .padding(.horizontal, 2)
-        }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
-    }
-
-    /// El color se escribe en vez de elegirse de una lista: los nombres salen
-    /// de una tabla de ciento y pico y ninguna lista corta acierta con "verde
-    /// oliva" o "teja".
-    private var colorChip: some View {
-        HStack(spacing: WK.Spacing.xs) {
-            if let color = candidate.colors.first {
-                Circle()
-                    .fill(Color(red: color.red, green: color.green, blue: color.blue))
-                    .frame(width: 16, height: 16)
-                    .overlay(Circle().stroke(WK.Palette.ink(0.15), lineWidth: 1))
-            }
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Color")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                TextField("Color", text: colorBinding)
-                    .font(WK.Font.callout)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .focused($editing, equals: .color)
-                    .submitLabel(.done)
-                    .frame(width: 92)
-            }
-        }
-        .padding(.horizontal, WK.Spacing.s)
-        .padding(.vertical, 6)
-        .background(WK.Palette.ink(0.05), in: .capsule)
-    }
-
     // MARK: Herramientas
 
-    /// Lo que se le puede hacer al recorte, abajo y junto.
+    /// Lo que se le puede hacer al recorte, donde en editar está "mejorar".
     private var tools: some View {
         HStack(spacing: WK.Spacing.s) {
             // **Mejorar, en el teléfono.** Donde estaba "redibujar con IA":
             // hace el mismo trabajo —volver a cortar la prenda del fondo— con
             // lo que ya hay aquí. Ver `ImportModel.improve`.
-            ToolButton(title: "Mejorar", symbol: "wand.and.sparkles", action: onImprove)
+            ToolButton(title: "mejorar", symbol: "wand.and.sparkles", action: onImprove)
 
             if onManualCrop != nil {
-                ToolButton(title: "Recortar", symbol: "lasso") { isCroppingByHand = true }
+                ToolButton(title: "recortar", symbol: "lasso") { isCroppingByHand = true }
             }
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.bottom, WK.Spacing.xs)
+    }
+
+    // MARK: Los datos
+
+    /// Las mismas filas que en editar, con lo que aquí se puede corregir.
+    private var rows: some View {
+        VStack(spacing: 0) {
+            NameRow(name: nameBinding)
+            ColorRow(color: candidate.colors.first, name: colorBinding)
+            EditRow(
+                value: ImportCandidateLabels.label(for: candidate.kind),
+                label: "Parte"
+            ) { field = .kind }
+            EditRow(
+                value: candidate.subcategory?.capitalized ?? "Sin definir",
+                label: "Tipo"
+            ) { field = .type }
+            EditRow(
+                value: candidate.material?.capitalized ?? "Sin definir",
+                label: "Material",
+                showsSeparator: false
+            ) { field = .material }
+        }
     }
 
     // MARK: Hojas y enlaces
@@ -309,7 +248,7 @@ struct ImportSingleCard: View {
         switch field {
         case .kind:
             WKChipSheet(
-                title: "Tipo de prenda",
+                title: "Parte del cuerpo",
                 subtitle: "Decide en qué balda acaba",
                 options: GarmentKind.allCases.map {
                     .init(id: $0.rawValue, label: ImportCandidateLabels.label(for: $0))
@@ -363,33 +302,7 @@ struct ImportSingleCard: View {
     }
 }
 
-/// Una ficha de dato: arriba qué es, abajo lo que vale.
-private struct FieldChip: View {
-    let title: String
-    let value: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(title)
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                Text(value)
-                    .font(WK.Font.callout)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, WK.Spacing.s)
-            .padding(.vertical, 6)
-            .background(WK.Palette.ink(0.05), in: .capsule)
-            .contentShape(.capsule)
-        }
-        .buttonStyle(WKPressStyle())
-    }
-}
-
-/// Un botón de la barra de abajo.
+/// Un botón de herramienta, con la misma forma que el "mejorar" de editar.
 private struct ToolButton: View {
     let title: String
     let symbol: String
@@ -400,9 +313,9 @@ private struct ToolButton: View {
             Label(title, systemImage: symbol)
                 .font(WK.Font.callout)
                 .foregroundStyle(WK.Palette.primaryText)
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, WK.Spacing.m)
                 .padding(.vertical, WK.Spacing.s)
-                .background(WK.Palette.ink(0.05), in: .capsule)
+                .background(WK.Palette.ink(0.07), in: .capsule)
                 .contentShape(.capsule)
         }
         .buttonStyle(WKPressStyle())

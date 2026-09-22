@@ -15,6 +15,9 @@ import WKDesign
 /// pasa a la siguiente, que es exactamente lo que estaría haciendo el dedo.
 /// Se puede volver atrás a mirar cualquiera sin que se pierda el sitio —el
 /// avance automático solo ocurre cuando de verdad acaba una.
+///
+/// Las vecinas asoman a los lados, un poco más pequeñas y apagadas: así se ve
+/// de un vistazo cuántas hay y por dónde va, sin necesidad de contarlas.
 struct ImportPhotoStrip: View {
     let photos: [CGImage]
     let candidates: [ImportCandidate]
@@ -25,12 +28,16 @@ struct ImportPhotoStrip: View {
 
     @State private var focused: Int?
 
+    /// Lo que asoma de las vecinas por cada lado.
+    private static let peek: CGFloat = 44
+    private static let spacing: CGFloat = 12
+
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
             counter
 
             ScrollView(.horizontal) {
-                LazyHStack(spacing: WK.Spacing.m) {
+                LazyHStack(spacing: Self.spacing) {
                     ForEach(Array(photos.enumerated()), id: \.offset) { index, photo in
                         ImportRevealView(
                             photo: photo,
@@ -38,9 +45,19 @@ struct ImportPhotoStrip: View {
                             isScanning: index >= analysed,
                             onFinished: index == photos.count - 1 ? onFinished : {}
                         )
-                        // Una foto por pantalla: media foto asomando invita a
-                        // arrastrar justo cuando lo que toca es esperar.
-                        .containerRelativeFrame(.horizontal)
+                        .containerRelativeFrame(.horizontal) { width, _ in
+                            // Sitio para que asomen las de al lado: es lo que
+                            // dice cuántas fotos hay sin tener que contarlas.
+                            max(width - 2 * (Self.peek + Self.spacing), 160)
+                        }
+                        // La centrada, entera; las demás, un pelín más
+                        // pequeñas y apagadas. Interactivo para que la
+                        // transición ocurra con el dedo, no al soltar.
+                        .scrollTransition(.interactive) { content, phase in
+                            content
+                                .scaleEffect(phase.isIdentity ? 1 : 0.97)
+                                .opacity(phase.isIdentity ? 1 : 0.6)
+                        }
                         .id(index)
                     }
                 }
@@ -49,6 +66,9 @@ struct ImportPhotoStrip: View {
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $focused, anchor: .center)
             .scrollIndicators(.hidden)
+            // El recorte cae en el canto de la pantalla, donde no molesta.
+            .scrollClipDisabled()
+            .wkBleedingStrip()
         }
         .onChange(of: analysed) { _, done in
             // Se pasa a la que acaba de empezar, no a la que acaba de

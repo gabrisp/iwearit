@@ -14,8 +14,13 @@ import WKPersistence
 /// abajo, centrado y con el número de lo que se lleva.
 struct CategoryScreen: View {
     private let name: String
+    /// Si esta pantalla **ya es** la de favoritas: entonces el filtro sobra.
+    private let isFavouritesOnly: Bool
     @Query private var garments: [Garment]
     @State private var searchText = ""
+    /// El filtro del corazón. Se apaga al salir: es una forma de mirar, no un
+    /// ajuste que haya que acordarse de quitar.
+    @State private var showsFavouritesOnly = false
     @State private var isSelecting = false
     /// Lo marcado, por identidad persistente y no por objeto: así la selección
     /// sobrevive a que la consulta se reordene.
@@ -26,12 +31,25 @@ struct CategoryScreen: View {
 
     init(slug: String, name: String) {
         self.name = name
+        self.isFavouritesOnly = false
         _garments = Query(FetchDescriptor<Garment>.visibleGarments(inCategoryWithSlug: slug))
     }
 
+    /// Todas las favoritas, de cualquier balda.
+    ///
+    /// La misma pantalla y no una nueva: buscar, seleccionar y borrar
+    /// funcionan igual, y lo único que cambia es de dónde salen las prendas.
+    init(favourites name: String) {
+        self.name = name
+        self.isFavouritesOnly = true
+        _garments = Query(FetchDescriptor<Garment>.favouriteGarments())
+    }
+
     private var visible: [Garment] {
-        guard !searchText.isEmpty else { return garments }
-        return garments.filter { $0.name.localizedStandardContains(searchText) }
+        var result = garments
+        if showsFavouritesOnly { result = result.filter(\.isFavorite) }
+        guard !searchText.isEmpty else { return result }
+        return result.filter { $0.name.localizedStandardContains(searchText) }
     }
 
     var body: some View {
@@ -58,6 +76,22 @@ struct CategoryScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Buscar en \(name)")
         .toolbar {
+            // **El corazón filtra, no marca.** En la balda hay veinte camisas
+            // y las que se ponen de verdad son tres: esto las deja solas sin
+            // salir de la balda ni perder lo que estuvieras buscando.
+            if !isFavouritesOnly {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(WKAnimation.content) { showsFavouritesOnly.toggle() }
+                    } label: {
+                        Image(systemName: showsFavouritesOnly ? "heart.fill" : "heart")
+                            .foregroundStyle(showsFavouritesOnly ? .red : WK.Palette.primaryText)
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                            .contentShape(.rect)
+                    }
+                    .sensoryFeedback(.selection, trigger: showsFavouritesOnly)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     withAnimation(WKAnimation.content) {
@@ -85,10 +119,18 @@ struct CategoryScreen: View {
         }
         .overlay {
             if visible.isEmpty {
-                ContentUnavailableView(
-                    searchText.isEmpty ? "Balda vacía" : "Sin resultados",
-                    systemImage: searchText.isEmpty ? "tray" : "magnifyingglass"
-                )
+                if showsFavouritesOnly || isFavouritesOnly, searchText.isEmpty {
+                    ContentUnavailableView(
+                        "Ninguna favorita",
+                        systemImage: "heart",
+                        description: Text("Marca con el corazón las prendas que más te pones.")
+                    )
+                } else {
+                    ContentUnavailableView(
+                        searchText.isEmpty ? "Balda vacía" : "Sin resultados",
+                        systemImage: searchText.isEmpty ? "tray" : "magnifyingglass"
+                    )
+                }
             }
         }
     }

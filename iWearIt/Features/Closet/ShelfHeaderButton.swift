@@ -74,4 +74,6 @@ enum ClosetRoute: Hashable {
     /// Todas las maletas. La cabecera del altillo prometía abrirse —tenía
     /// chevron— y estaba desactivada.
     case suitcases
+    /// Las prendas marcadas con el corazón, de todas las baldas.
+    case favourites
 }

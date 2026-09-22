@@ -87,6 +87,8 @@ final class ImportModel {
     private(set) var photos: [CGImage] = []
     /// Cuántas llevan analizadas. Es el "3 de 6" de la cabecera.
     private(set) var analysedCount = 0
+    /// Qué foto se está reintentando, si alguna.
+    private(set) var reanalysing: Int?
 
     /// Dónde estaba el registro al empezar esta foto.
     ///
@@ -213,6 +215,29 @@ final class ImportModel {
         // **Sin generar nada todavía.** Primero se revisa lo detectado: ver
         // `Phase.detected` y `confirmDetection()`.
         phase = .detected
+    }
+
+    /// Vuelve a analizar **una** foto, tirando lo que había salido de ella.
+    ///
+    /// El detector no es determinista del todo —depende de qué tenga la ANE
+    /// ocupada y de cuánto le dé tiempo—, así que reintentar de verdad cambia
+    /// el resultado más veces de las que parece. Y cuando no lo cambia, ya se
+    /// sabe que esa foto hay que rodearla a mano.
+    func reanalyse(photoAt index: Int) async {
+        guard photos.indices.contains(index), reanalysing == nil else { return }
+        reanalysing = index
+        defer { reanalysing = nil }
+
+        // Lo de esa foto se va, **menos lo que rodeó el usuario**: volver a
+        // mirar la foto no invalida un recorte hecho a dedo.
+        candidates.removeAll { $0.photoIndex == index && !$0.wasCorrectedByUser }
+        do {
+            let detected = try await detect(photos[index], number: index + 1, of: photos.count)
+            candidates += detected.map { ImportCandidate($0, photoIndex: index) }
+            await markDuplicates()
+        } catch {
+            DiagnosticsLog.record("IMPORT", "el reintento falla: \(error)", isProblem: true)
+        }
     }
 
     /// Lo que sale de **una** foto.
@@ -553,16 +578,9 @@ final class ImportModel {
     func improve(candidateWithID id: UUID) {
         guard
             let index = candidates.firstIndex(where: { $0.id == id }),
-            let rect = candidates[index].rect,
-            // De su propia foto, que con varias ya no hay una sola.
-            let photo = photo(for: candidates[index]),
-            let improved = Self.refinedCrop(of: rect, in: photo)
-        else {
-            DiagnosticsLog.record("RECORTE", "no se pudo mejorar el recorte", isProblem: true)
-            return
-        }
-        candidates[index].manualCrop = ImmutableImage(improved)
-        DiagnosticsLog.record("RECORTE", "recorte mejorado on-device")
+            let rect = candidates[index].rect
+        else { return }
+        recrop(candidateAt: index, with: rect, reason: "recorte mejorado on-device")
     }
 
     /// El usuario ha movido o estirado el recuadro de una prenda sobre la foto.
@@ -571,27 +589,49 @@ final class ImportModel {
     /// cual: lo que se pide señalando es "la prenda está aquí", y devolver un
     /// rectángulo de foto con su trozo de fondo sería contestar otra cosa.
     func setRect(_ rect: CGRect, forCandidateWithID id: UUID) {
-        guard
-            let index = candidates.firstIndex(where: { $0.id == id }),
-            let photo = photo(for: candidates[index])
-        else { return }
-
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].editedRect = rect
         candidates[index].wasCorrectedByUser = true
-        guard let improved = Self.refinedCrop(of: rect, in: photo) else {
-            DiagnosticsLog.record("RECORTE", "el recuadro nuevo no dio recorte", isProblem: true)
-            return
-        }
-        candidates[index].manualCrop = ImmutableImage(improved)
-        candidates[index].catalogImage = nil
-        candidates[index].catalogFailure = nil
-        DiagnosticsLog.record(
-            "RECORTE",
-            String(
+        recrop(
+            candidateAt: index,
+            with: rect,
+            reason: String(
                 format: "recuadro corregido a %.2f,%.2f %.2f×%.2f",
                 rect.minX, rect.minY, rect.width, rect.height
             )
         )
+    }
+
+    /// Rehace el recorte de una prenda **fuera del hilo principal**.
+    ///
+    /// Recorrer una foto de 12 Mpx creciendo desde una semilla son segundos, y
+    /// hechos aquí mismo son segundos con la pantalla congelada: el recuadro se
+    /// queda pegado al dedo y la app parece colgada. Mientras dura, el propio
+    /// recuadro enseña que está trabajando.
+    private func recrop(candidateAt index: Int, with rect: CGRect, reason: String) {
+        guard let photo = photo(for: candidates[index]) else { return }
+        let id = candidates[index].id
+        candidates[index].isRecropping = true
+
+        Task { [weak self] in
+            let improved = await Task.detached(priority: .userInitiated) {
+                ImportModel.refinedCrop(of: rect, in: photo).map(ImmutableImage.init)
+            }.value
+
+            guard
+                let self,
+                let index = self.candidates.firstIndex(where: { $0.id == id })
+            else { return }
+            self.candidates[index].isRecropping = false
+            guard let improved else {
+                DiagnosticsLog.record("RECORTE", "el recuadro no dio recorte", isProblem: true)
+                return
+            }
+            self.candidates[index].manualCrop = improved
+            self.candidates[index].catalogImage = nil
+            self.candidates[index].catalogFailure = nil
+            DiagnosticsLog.record("RECORTE", reason)
+        }
     }
 
     /// El recorte de una zona de la foto, repasado en el propio teléfono.
@@ -599,7 +639,7 @@ final class ImportModel {
     /// La semilla va **metida hacia dentro**: un rectángulo incluye las
     /// esquinas, y las esquinas de un rectángulo alrededor de una prenda son
     /// fondo. Empezando desde dentro, lo que se propaga es tela.
-    private static func refinedCrop(of rect: CGRect, in photo: CGImage) -> CGImage? {
+    nonisolated static func refinedCrop(of rect: CGRect, in photo: CGImage) -> CGImage? {
         // Un 12% hacia dentro por cada lado: lo justo para dejar fuera las
         // esquinas sin quedarse en una mota en el centro.
         let inset = 0.12

@@ -104,6 +104,19 @@ public extension FetchDescriptor where T == Garment {
         )
     }
 
+    /// Las favoritas, de cualquier balda.
+    ///
+    /// Por la marca y no por una balda propia: una prenda favorita sigue
+    /// colgando donde le toca —una camisa favorita es una camisa— y sacarla de
+    /// su balda para meterla en otra dejaría un hueco en el armario cada vez
+    /// que se toca un corazón.
+    static func favouriteGarments() -> FetchDescriptor<Garment> {
+        FetchDescriptor<Garment>(
+            predicate: #Predicate { $0.deletedAt == nil && $0.isFavorite },
+            sortBy: [SortDescriptor(\.dateAdded, order: .reverse)]
+        )
+    }
+
     static func visibleGarments(inCategoryWithSlug slug: String) -> FetchDescriptor<Garment> {
         FetchDescriptor<Garment>(
             predicate: #Predicate { $0.deletedAt == nil && $0.category?.slug == slug },

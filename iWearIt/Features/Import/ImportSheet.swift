@@ -56,10 +56,16 @@ struct ImportSheet: View {
                             .foregroundStyle(WK.Palette.secondaryText)
                             .contentTransition(.opacity)
 
-                        DiagnosticsLogView(
-                            lines: Array(DiagnosticsLog.shared.lines.suffix(40)),
-                            maximumHeight: 140
-                        )
+                        // **El registro, apagado.** Se queda comentado y no
+                        // se borra: sigue escribiéndose en `DiagnosticsLog` y
+                        // se puede leer entero desde Perfil → Diagnóstico. Lo
+                        // que no hace falta es tener cuarenta líneas de traza
+                        // debajo de la foto mientras se importa ropa.
+                        //
+                        // DiagnosticsLogView(
+                        //     lines: Array(DiagnosticsLog.shared.lines.suffix(40)),
+                        //     maximumHeight: 140
+                        // )
                     }
                     .padding(WK.Spacing.screenInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -248,6 +254,8 @@ private extension ImportPhaseContent {
                 Text(message)
             }
 
+            // **Aquí sí.** En el fallo el registro es la única forma de
+            // saber en qué paso se cayó, y es donde se pidió que estuviera.
             DiagnosticsLogView(
                 lines: Array(DiagnosticsLog.shared.lines(since: model.logMarker)),
                 maximumHeight: 200
@@ -283,12 +291,14 @@ private extension ImportPhaseContent {
             // embudo, así que además dice en qué anda.
             ImportStatusTicker(base: status, isRunning: isScanning)
 
-            if isScanning {
-                DiagnosticsLogView(
-                    lines: Array(DiagnosticsLog.shared.lines(since: model.logMarker)),
-                    maximumHeight: 140
-                )
-            }
+            // El registro va comentado, no borrado: ver arriba.
+            //
+            // if isScanning {
+            //     DiagnosticsLogView(
+            //         lines: Array(DiagnosticsLog.shared.lines(since: model.logMarker)),
+            //         maximumHeight: 140
+            //     )
+            // }
         }
         .padding(WK.Spacing.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

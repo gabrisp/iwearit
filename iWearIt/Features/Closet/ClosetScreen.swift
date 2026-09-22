@@ -160,6 +160,17 @@ struct ClosetScreen: View {
                     .tint(WK.Palette.primaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // **El corazón, arriba.** Las favoritas no son una balda
+                    // —la camisa favorita sigue siendo una camisa— pero sí son
+                    // lo que se busca cuando se busca deprisa.
+                    NavigationLink(value: ClosetRoute.favourites) {
+                        Image(systemName: "heart")
+                            .font(WK.Font.headline)
+                            .contentShape(.rect)
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     ClosetAddMenu()
                 }
             }
@@ -234,6 +245,8 @@ private struct ClosetRouteDestination: View {
             ProfileScreen()
         case .suitcases:
             SuitcasesScreen()
+        case .favourites:
+            CategoryScreen(favourites: "Favoritas")
         }
     }
 }
