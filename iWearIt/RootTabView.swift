@@ -127,13 +127,24 @@ extension View {
     /// `adaptiveSafeAreaBar` y no un `overlay`: además de dibujarla, reserva su
     /// hueco, de modo que el scroll no queda cortado por debajo y el accesorio
     /// flotante de la pantalla se apila justo encima sin cuentas a mano.
+    /// - Parameter isHidden: la barra se va y deja el hueco libre. Lo usa el
+    ///   modo de edición en bloque del armario, que pone ahí sus acciones.
     func rootTabBar(
         _ tab: RootTab,
         selection: Binding<RootTab>,
+        isHidden: Bool = false,
         onAssistant: @escaping () -> Void = {},
         onPlus: @escaping () -> Void
     ) -> some View {
-        modifier(RootTabBarSlot(tab: tab, selection: selection, onAssistant: onAssistant, onPlus: onPlus))
+        modifier(
+            RootTabBarSlot(
+                tab: tab,
+                selection: selection,
+                isHidden: isHidden,
+                onAssistant: onAssistant,
+                onPlus: onPlus
+            )
+        )
     }
 }
 
@@ -153,6 +164,7 @@ final class TabBarChrome {
 private struct RootTabBarSlot: ViewModifier {
     let tab: RootTab
     @Binding var selection: RootTab
+    var isHidden = false
     let onAssistant: () -> Void
     let onPlus: () -> Void
 
@@ -161,6 +173,11 @@ private struct RootTabBarSlot: ViewModifier {
     func body(content: Content) -> some View {
         content
             .adaptiveSafeAreaBar(edge: .bottom) {
+                if isHidden {
+                    // Nada, y sin reservar sitio: quien la esconde pone algo
+                    // suyo en su lugar.
+                    Color.clear.frame(height: 0)
+                } else {
                 HStack(alignment: .bottom, spacing: 12) {
                     WKLocktyTabBar(tabs: [RootTab.closet, .planner], home: tab, selection: $selection) { tab in
                         switch tab {
@@ -191,6 +208,8 @@ private struct RootTabBarSlot: ViewModifier {
                     // .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
                 }
                 .padding(.horizontal, 20)
+                .transition(.opacity)
+                }
             }
     }
 }

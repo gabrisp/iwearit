@@ -21,6 +21,8 @@ struct HangingGarmentView: View {
     /// vista se usa en pantallas donde no se arrastra nada.
     @Environment(ShelfDragModel.self) private var drag: ShelfDragModel?
     @State private var isPresentingDetail = false
+    /// Para viajar a la rejilla de edición en bloque. Ver `ClosetBulkEdit`.
+    @Environment(\.closetMatchNamespace) private var matchNamespace
     /// Se pidió borrar desde la ficha: se borra al cerrarse. Ver `GarmentSheet`.
     @State private var deletesOnDismiss = false
     @Environment(\.modelContext) private var modelContext
@@ -83,6 +85,8 @@ struct HangingGarmentView: View {
                 Color.clear.frame(height: WK.Shelf.labelBottomInset)
             }
             .frame(height: WK.Shelf.height, alignment: .bottom)
+            .compositingGroup()
+            .modifier(ClosetMatchedGarment(id: garment.id, namespace: matchNamespace))
             .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())

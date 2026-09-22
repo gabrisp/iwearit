@@ -18,6 +18,10 @@ struct GarmentEditSheet: View {
     /// las hojas. Ver `HangingGarmentView`: borrar con la hoja de la prenda aún
     /// abierta encima la desmontaba de golpe, y se veía borrosa.
     var onDelete: (() -> Void)?
+    /// Si se envuelve en su propia pila de navegación. `false` cuando ya viene
+    /// empujada dentro de una —la edición en bloque—, porque anidar dos deja
+    /// dos barras de título una debajo de otra.
+    var embedsNavigation = true
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -49,8 +53,13 @@ struct GarmentEditSheet: View {
     // solo: colocar el título, dar cristal a los botones en iOS 26 y difuminar
     // el contenido que pasa por debajo. Y quedaba distinta de las otras hojas,
     // que es lo que se nota.
+    @ViewBuilder
     var body: some View {
-        NavigationStack { content }
+        if embedsNavigation {
+            NavigationStack { content }
+        } else {
+            content
+        }
     }
 
     private var content: some View {
