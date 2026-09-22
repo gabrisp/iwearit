@@ -38,22 +38,33 @@ public enum GarmentNaming {
     /// puede mirar y corregir sin que presuma de certeza.
     public static let colorNameThreshold = 0.45
 
+    /// - Parameter material: la textura, que entra **solo cuando no hay
+    ///   marca**: "Polo Golden Goose" ya dice todo lo que hay que saber, y
+    ///   añadirle "algodón azul" detrás lo alarga sin distinguir nada.
     public static func name(
         kind: GarmentKind,
         subcategory: String?,
+        material: String? = nil,
         colors: [NamedColor],
         brand: String?
     ) -> String {
         let noun = subcategory?.capitalized ?? defaultNoun(for: kind)
+
+        // **Con marca, la marca manda.** Es lo más distintivo que se sabe de
+        // la prenda y lo que se usa para referirse a ella: "el polo de Golden
+        // Goose", no "el polo de algodón azul marino".
+        if let brand { return "\(noun) \(brand)" }
+
         let dominant = colors.max(by: { $0.weight < $1.weight })
         let color = (dominant?.weight ?? 0) >= colorNameThreshold ? dominant?.nameKey : nil
-        return [noun, color, brand].compactMap { $0 }.joined(separator: " ")
+        return [noun, material?.capitalized, color].compactMap { $0 }.joined(separator: " ")
     }
 
     public static func name(for draft: GarmentDraft) -> String {
         name(
             kind: draft.kind,
             subcategory: draft.subcategory,
+            material: draft.material,
             colors: draft.colors,
             brand: draft.brand
         )

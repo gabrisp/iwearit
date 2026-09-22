@@ -36,6 +36,8 @@ struct ShelfSection: View, Equatable {
                 LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
                     ForEach(data.garments) { garment in
                         HangingGarmentView(garment: garment)
+                            // Entra creciendo desde su sitio, no de la nada.
+                            .transition(.scale(scale: 0.7).combined(with: .opacity))
                             // **Pulsar y mantener para llevársela.** El propio
                             // `draggable` pide mantener el dedo antes de
                             // arrancar; sin eso, pasar la balda con el dedo se
@@ -81,6 +83,14 @@ struct ShelfSection: View, Equatable {
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .frame(height: WK.Shelf.height, alignment: .bottom)
+                // **Las prendas llegan y se van, no aparecen.**
+                //
+                // Al importar, al arrastrar de una balda a otra y al borrar,
+                // lo que cambia es *qué hay colgado aquí*: sin animar, tres
+                // prendas nuevas se materializan de golpe y la balda parece
+                // otra. Animando sobre la lista de identificadores —y no sobre
+                // el array entero— solo se mueve lo que de verdad entra o sale.
+                .animation(WKAnimation.arrival, value: data.garments.map(\.id))
             }
             .scrollIndicators(.hidden)
             // Sin superficie propia: el hueco de la balda es la misma página.

@@ -946,14 +946,18 @@ struct ImportCandidate: Identifiable {
 
     /// El nombre con el que se va a guardar.
     var displayName: String {
+        // **El nombre se compone con lo demás y no se pide.**
+        //
+        // "Polo Golden Goose" cuando se ha leído la marca, y "Polo algodón
+        // azul" cuando no: sale de los campos que ya están en la ficha, así
+        // que corregir el tipo o el material corrige el nombre. Y no se pinta
+        // en la balda —ahí se mira la prenda— sino en la hoja de la prenda,
+        // que es donde se lee.
         editedName ?? GarmentNaming.name(
             kind: kind,
             subcategory: subcategory,
-            // **Sin color en el nombre.** El color se mide y se equivoca —azul
-            // marino medido como negro—, y una vez escrito en el nombre se
-            // queda ahí y se busca por él. La prenda se llama "Camiseta
-            // Stüssy"; el color está en su muestra, que no miente.
-            colors: [],
+            material: material,
+            colors: colors,
             brand: detected.brand
         )
     }
