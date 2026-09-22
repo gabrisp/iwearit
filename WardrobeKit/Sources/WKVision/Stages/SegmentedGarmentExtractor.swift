@@ -38,6 +38,20 @@ enum SegmentedGarmentExtractor {
     /// recortes de nada que hay que borrar uno a uno.
     static let minimumAreaFraction = 0.02
 
+    /// Lo que se le exige a una prenda **de su tipo**.
+    ///
+    /// Las que son pequeñas por naturaleza —calzado, gorras, bolsos— no pueden
+    /// medirse con el listón de un abrigo: en una foto de cuerpo entero unas
+    /// zapatillas son el 1% de los píxeles y aun así son una prenda entera y
+    /// perfectamente reconocible. El listón general se queda para lo que sí
+    /// debería ocupar: torso, piernas, cuerpo entero.
+    static func minimumArea(for kind: GarmentKind, base: Double = minimumAreaFraction) -> Double {
+        switch kind {
+        case .feet, .head, .bag: base * 0.35
+        default: base
+        }
+    }
+
     /// Lo que se le exige a la **segunda** prenda de una clase para existir.
     ///
     /// Mucho más alto que el mínimo general, y a propósito: decir "aquí hay dos
@@ -285,9 +299,13 @@ enum SegmentedGarmentExtractor {
 
         for group in 0..<groupCount {
             guard
-                Double(counts[group]) / total >= minimumAreaFraction,
                 let label = ClothesSegmenter.Label(rawValue: group),
-                let kind = label.kind
+                let kind = label.kind,
+                // **El listón, según lo que sea.** Un pantalón ocupa un tercio
+                // de la foto y unas zapatillas, en la misma foto de cuerpo
+                // entero, ocupan el 1%: con un único mínimo para todo, o se
+                // cuela ruido o se pierde el calzado. Y el calzado se perdía.
+                Double(counts[group]) / total >= Self.minimumArea(for: kind, base: minimumAreaFraction)
             else { continue }
 
             var mask = [UInt8](repeating: 0, count: width * height)
@@ -338,7 +356,7 @@ enum SegmentedGarmentExtractor {
             var instanceIndex = 0
             for draft in ordered {
                 let fraction = Double(draft.pixelCount) / total
-                guard fraction >= minimumAreaFraction else { continue }
+                guard fraction >= Self.minimumArea(for: kind, base: minimumAreaFraction) else { continue }
                 // Solo la mayor de la clase entra con el mínimo general. Las
                 // demás tienen que justificar que son otra prenda.
                 if draft.pixelCount != largest, fraction < additionalInstanceFraction { continue }

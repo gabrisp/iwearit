@@ -230,7 +230,13 @@ struct ImportSingleCard: View {
     /// Las mismas filas que en editar, con lo que aquí se puede corregir.
     private var rows: some View {
         VStack(spacing: 0) {
-            NameRow(name: nameBinding)
+            // **Sin nombre.** Nombrar una prenda antes de tenerla es un campo
+            // que hay que rellenar para nada: lo que la distingue en la balda
+            // es la foto, y debajo ya se lee qué es y de qué color. El armario
+            // sigue componiendo un nombre con eso —hace falta para buscar—,
+            // pero no se pide aquí.
+            //
+            // NameRow(name: nameBinding)
             ColorRow(color: candidate.colors.first, name: colorBinding)
             // **Solo la prenda.** Antes había encima una fila "Parte: Top",
             // que es la organización interna asomando: nadie tiene un top en

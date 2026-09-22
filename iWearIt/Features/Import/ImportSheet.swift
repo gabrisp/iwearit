@@ -215,10 +215,16 @@ private struct ImportPhaseContent: View {
                             onImprove: { model.improve(candidateWithID: only.id) }
                         )
                     } else {
-                        // **La misma ficha, paginada.** Antes aquí había una
-                        // lista de filas de 64 puntos donde no se podía tocar
-                        // nada; ver `ImportReviewPager`.
-                        ImportReviewPager(model: model, photos: photos)
+                        // **Una tarjeta por prenda, en vertical.**
+                        //
+                        // El pager sigue existiendo y no se borra —ver
+                        // `ImportReviewPager`—, pero ya no se llama: con
+                        // varias prendas eran dos scrolls cruzados, uno
+                        // horizontal de fichas y otro vertical dentro de cada
+                        // una, y no se sabía cuántas había sin pasarlas todas.
+                        //
+                        // ImportReviewPager(model: model, photos: photos)
+                        ImportReviewStack(model: model, photos: photos)
                     }
                 }
                     .transition(AnyTransition(.blurReplace))

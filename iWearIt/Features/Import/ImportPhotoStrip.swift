@@ -63,8 +63,15 @@ struct ImportPhotoStrip: View {
                 }
                 .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.viewAligned)
+        .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $focused, anchor: .center)
+            // **El margen se calcula, no se pone a ojo.**
+            //
+            // Cada página mide el ancho menos lo que asoma por los dos lados, así
+            // que para que la primera quede **centrada** el contenido tiene que
+            // empezar exactamente a esa distancia del borde. Sin esto, con una
+            // sola foto la imagen se quedaba pegada a la izquierda.
+            .contentMargins(.horizontal, Self.peek + Self.spacing, for: .scrollContent)
             .scrollIndicators(.hidden)
             // El recorte cae en el canto de la pantalla, donde no molesta.
             .scrollClipDisabled()

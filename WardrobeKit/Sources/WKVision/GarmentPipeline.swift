@@ -33,6 +33,13 @@ public actor GarmentPipeline {
     /// borrarlos uno a uno y a desconfiar del resto.
     public static let defaultMinimumAreaFraction = 0.03
 
+    /// A partir de cuánta confianza una pose cuenta como persona.
+    ///
+    /// Por debajo, y sin rodillas ni tobillos, lo más probable es que sea una
+    /// prenda con forma de torso: una camiseta doblada, una camisa estirada
+    /// sobre la cama. Ver `refinedOnSolidBackground`.
+    static let convincingPoseConfidence = 0.6
+
     /// Lado máximo con el que se analiza. Ver `extractGarments`.
     static let workingMaxSide = 1400
 
@@ -670,11 +677,41 @@ public actor GarmentPipeline {
         _ garments: [DetectedGarment],
         from image: CGImage
     ) async -> [DetectedGarment] {
-        guard
-            !garments.isEmpty,
-            SolidBackground.isLikely(in: image),
-            (try? await VisionStages.bodyLandmarks(in: image)) == nil
-        else { return garments }
+        guard !garments.isEmpty, SolidBackground.isLikely(in: image) else { return garments }
+
+        // **Una prenda doblada no es una persona.**
+        //
+        // Aquí bastaba con que la pose devolviera *algo* para saltarse toda la
+        // unificación, y una camiseta doblada sobre fondo blanco tiene forma
+        // de torso: Vision le encuentra "hombros" y "caderas" con media
+        // confianza, y con eso la foto pasaba por "hay alguien puesto" y la
+        // doblez acababa siendo una segunda prenda.
+        //
+        // La guarda sigue estando —con una persona vestida, la mancha de color
+        // cubre varias prendas y unificarlas sería meter camiseta y pantalón
+        // en una— pero ahora pide una persona **de verdad**: o rodilla o
+        // tobillo, o una confianza alta. Una prenda tirada en la mesa no tiene
+        // piernas.
+        if let pose = (try? await VisionStages.bodyLandmarks(in: image)) ?? nil {
+            let hasLegs = pose.kneeY != nil || pose.ankleY != nil
+            if hasLegs || pose.confidence >= Self.convincingPoseConfidence {
+                DiagnosticsLog.record(
+                    "RECORTE",
+                    String(
+                        format: "hay alguien en la foto (conf %.2f%@): no se unifica por color",
+                        pose.confidence, hasLegs ? ", con piernas" : ""
+                    )
+                )
+                return garments
+            }
+            DiagnosticsLog.record(
+                "RECORTE",
+                String(
+                    format: "pose floja sin piernas (conf %.2f): se trata como prenda suelta",
+                    pose.confidence
+                )
+            )
+        }
 
         // **Cuántas prendas hay lo dice el color, no el segmentador.**
         //
@@ -926,7 +963,10 @@ public actor GarmentPipeline {
 
         let area = Double(tight.width * tight.height)
             / Double(person.width * person.height)
-        guard area >= minimumAreaFraction else { return nil }
+        guard area >= SegmentedGarmentExtractor.minimumArea(
+            for: region.kind.kind,
+            base: minimumAreaFraction
+        ) else { return nil }
 
         let colors = ColorExtractor.dominantColors(in: normalized)
         // Sin esto, la franja de la cabeza entra como "accesorio" siendo una
