@@ -33,6 +33,32 @@ public actor GarmentPipeline {
     /// borrarlos uno a uno y a desconfiar del resto.
     public static let defaultMinimumAreaFraction = 0.03
 
+    /// Si hay alguien **de verdad** en la foto.
+    ///
+    /// Una prenda con forma de torso —una camiseta sobre la cama— le saca a
+    /// Vision "hombros" con media confianza; una persona tiene rodillas o
+    /// tobillos, o una pose clara. Ver `convincingPoseConfidence`.
+    static func hasConvincingPerson(in image: CGImage) async -> Bool {
+        guard let pose = (try? await VisionStages.bodyLandmarks(in: image)) ?? nil else {
+            return false
+        }
+        let hasLegs = pose.kneeY != nil || pose.ankleY != nil
+        let convincing = hasLegs || pose.confidence >= convincingPoseConfidence
+        DiagnosticsLog.record(
+            "RECORTE",
+            String(
+                format: convincing
+                    ? "hay alguien en la foto (conf %.2f%@): se deja al segmentador"
+                    : "pose floja (conf %.2f%@): se trata como prenda suelta",
+                pose.confidence, hasLegs ? ", con piernas" : ""
+            )
+        )
+        return convincing
+    }
+
+    /// Cuánta mesa se le tolera al sujeto antes de preferir otro recorte.
+    static let acceptableContamination = 0.12
+
     /// A partir de cuánta confianza una pose cuenta como persona.
     ///
     /// Por debajo, y sin rodillas ni tobillos, lo más probable es que sea una
@@ -858,25 +884,11 @@ public actor GarmentPipeline {
         // en una— pero ahora pide una persona **de verdad**: o rodilla o
         // tobillo, o una confianza alta. Una prenda tirada en la mesa no tiene
         // piernas.
-        if garments.count > 1, let pose = (try? await VisionStages.bodyLandmarks(in: image)) ?? nil {
-            let hasLegs = pose.kneeY != nil || pose.ankleY != nil
-            if hasLegs || pose.confidence >= Self.convincingPoseConfidence {
-                DiagnosticsLog.record(
-                    "RECORTE",
-                    String(
-                        format: "hay alguien en la foto (conf %.2f%@): no se unifica por color",
-                        pose.confidence, hasLegs ? ", con piernas" : ""
-                    )
-                )
-                return garments
-            }
-            DiagnosticsLog.record(
-                "RECORTE",
-                String(
-                    format: "pose floja sin piernas (conf %.2f): se trata como prenda suelta",
-                    pose.confidence
-                )
-            )
+        // Una sola vez, y se usa para dos cosas: si se puede unificar y si se
+        // puede tomar el sujeto entero como prenda. Con alguien puesto, ni una
+        // ni otra.
+        if await Self.hasConvincingPerson(in: image) {
+            return garments
         }
 
         // **Sin nadie puesto, lo que se toca es una prenda.**
@@ -914,6 +926,39 @@ public actor GarmentPipeline {
         // `ColorSplitter`.
         guard let garment = unified(garments, pieces: split?.pieceCount) else {
             return garments
+        }
+
+        // **El sujeto de iOS, primero.**
+        //
+        // Sobre fondo liso y sin nadie puesto, "copiar sujeto" —la máscara de
+        // primer plano del sistema, la misma de mantener pulsada una foto— es
+        // el mejor recorte que hay: está entrenada para separar *la cosa* del
+        // fondo y lo hace al píxel. Lo que no sabe es qué es, y eso ya lo ha
+        // dicho el segmentador: así que se toma el sujeto como imagen y la
+        // prenda detectada como todo lo demás.
+        //
+        // Se mide antes de quedárselo —forma y contaminación, como a los
+        // demás— porque un sujeto que se lleva la percha o la mesa es peor que
+        // el corte por color. Si no pasa, se sigue por el camino de siempre.
+        if let lifted = await subjectCutout(from: image) {
+            let cutout = lifted.normalized.cgImage
+            let report = CutoutQuality.assess(cutout)
+            let dirt = CutoutQuality.contamination(of: cutout, backgroundOf: image)
+            if report.isGoodEnough, dirt < Self.acceptableContamination {
+                DiagnosticsLog.record(
+                    "RECORTE",
+                    String(format: "vale el sujeto de iOS (%@, contaminación %.2f)", report.summary, dirt)
+                )
+                return [
+                    garment
+                        .replacingImages(normalized: lifted.normalized, rawCrop: lifted.rawCrop)
+                        .replacingColors(ColorExtractor.dominantColors(in: cutout)),
+                ]
+            }
+            DiagnosticsLog.record(
+                "RECORTE",
+                String(format: "el sujeto de iOS no basta (%@, contaminación %.2f)", report.summary, dirt)
+            )
         }
 
         // **Atajo para la foto de tienda.**

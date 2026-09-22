@@ -231,4 +231,27 @@ public extension DetectedGarment {
             sourceRect: sourceRect
         )
     }
+
+    /// La misma prenda con los colores medidos otra vez.
+    ///
+    /// Al cambiar de recorte hay que volver a medir: los colores del recorte
+    /// anterior llevaban dentro lo que ese recorte se había traído de fondo.
+    func replacingColors(_ colors: [NamedColor]) -> DetectedGarment {
+        DetectedGarment(
+            kind: kind,
+            confidence: confidence,
+            normalized: normalized,
+            rawCrop: rawCrop,
+            colors: colors,
+            featurePrint: featurePrint,
+            subcategory: subcategory,
+            material: material,
+            tags: tags,
+            seasons: seasons,
+            brand: brand,
+            brandEvidence: brandEvidence,
+            instanceIndex: instanceIndex,
+            sourceRect: sourceRect
+        )
+    }
 }
