@@ -57,6 +57,7 @@ struct ImportPhotoStrip: View {
                                 isScanning: index >= analysed,
                                 // El brillo, solo en la que se está mirando.
                                 isCurrent: index == analysed,
+                                isFocused: index == (focused ?? 0),
                                 onFinished: index == photos.count - 1 ? onFinished : {}
                             )
                             .frame(width: width)

@@ -24,6 +24,17 @@ struct ImportRevealView: View {
     /// una: con seis fotos brillando a la vez no señala nada y además son seis
     /// animaciones corriendo para decir lo mismo.
     var isCurrent: Bool = true
+    /// Si esta es la que se está mirando. Fuera del centro la foto se ve
+    /// **igual a un lado que al otro**: entera y sin sus recortes encima.
+    ///
+    /// Antes, la que ya había terminado se quedaba apagada al 12% y
+    /// desenfocada —su revelación— mientras las de la derecha, sin
+    /// terminar, se veían enteras: el carrete parecía tener dos estilos
+    /// según el lado.
+    var isFocused: Bool = true
+
+    /// Lo que se ve: la revelación solo en la centrada.
+    private var shownStage: Stage { isFocused ? stage : .scanning }
     let onFinished: () -> Void
 
     @State private var stage: Stage = .scanning
@@ -50,9 +61,10 @@ struct ImportRevealView: View {
                     .scaledToFit()
                     .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
                     .wkShimmer(isActive: stage == .scanning && isCurrent)
-                    .opacity(stage == .scanning ? 1 : 0.12)
-                    .blur(radius: stage == .scanning ? 0 : 6)
-                    .scaleEffect(stage == .arranged ? 0.96 : 1)
+                    .opacity(shownStage == .scanning ? 1 : 0.12)
+                    .blur(radius: shownStage == .scanning ? 0 : 6)
+                    .scaleEffect(shownStage == .arranged ? 0.96 : 1)
+                    .animation(WKAnimation.content, value: isFocused)
 
                 ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
                     RevealedCrop(
@@ -66,7 +78,7 @@ struct ImportRevealView: View {
                         position: stage == .arranged
                             ? arrangedPosition(index: index, in: proxy.size)
                             : photoPosition(for: candidate, in: frame),
-                        isVisible: stage != .scanning
+                        isVisible: shownStage != .scanning
                     )
                     .animation(
                         WKAnimation.arrival.delay(Double(index) * 0.09),
