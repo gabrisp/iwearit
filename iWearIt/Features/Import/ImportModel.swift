@@ -87,6 +87,8 @@ final class ImportModel {
     private(set) var photos: [CGImage] = []
     /// Cuántas llevan analizadas. Es el "3 de 6" de la cabecera.
     private(set) var analysedCount = 0
+    /// Cuántas fotos añadidas con "Agregar más" quedan por analizar.
+    private(set) var pendingPhotos = 0
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
     /// Cómo se está reintentando, para poder decirlo en el botón.
@@ -287,6 +289,8 @@ final class ImportModel {
         guard !images.isEmpty else { return }
         let first = photos.count
         photos += images
+        pendingPhotos += images.count
+        defer { pendingPhotos = max(0, pendingPhotos - images.count) }
 
         for (offset, image) in images.enumerated() {
             let index = first + offset

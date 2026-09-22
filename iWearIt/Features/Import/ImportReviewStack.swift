@@ -125,6 +125,14 @@ struct ImportReviewStack: View {
                         onOpen: { opened = candidate.id }
                     )
                 }
+
+                // **Las que vienen de "Agregar más".** Sin esto la lista se
+                // quedaba igual veinte segundos y parecía que el botón no
+                // había hecho nada; luego aparecían de golpe.
+                if model.pendingPhotos > 0 {
+                    PendingPhotosCard(count: model.pendingPhotos)
+                        .transition(.opacity)
+                }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.top, WK.Spacing.m)
@@ -374,5 +382,30 @@ extension UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         getRed(&r, green: &g, blue: &b, alpha: &a)
         return (Double(r), Double(g), Double(b))
+    }
+}
+
+
+/// Lo que se está analizando todavía, al final de la lista.
+private struct PendingPhotosCard: View {
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.m) {
+            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+                .fill(WK.Palette.ink(0.06))
+                .frame(width: 96, height: 112)
+                .wkShimmer(isActive: true)
+
+            Text(count == 1 ? "Buscando prendas en 1 foto…" : "Buscando prendas en \(count) fotos…")
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .contentTransition(.numericText(value: Double(count)))
+
+            Spacer(minLength: 0)
+        }
+        .padding(WK.Spacing.s)
+        .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.card, style: .continuous))
+        .animation(WKAnimation.content, value: count)
     }
 }
