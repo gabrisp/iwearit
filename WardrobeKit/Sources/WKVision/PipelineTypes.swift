@@ -62,6 +62,9 @@ public struct DetectedGarment: Sendable {
     /// exactamente del sitio de la foto en el que estaba en vez de aparecer de
     /// la nada. `nil` cuando no se pudo situar, y entonces sale del centro.
     public let sourceRect: CGRect?
+    /// El nombre del producto, leído en la ficha de la tienda cuando la foto
+    /// es una captura de la web o de catálogo. Ver `ProductPageReader`.
+    public let productName: String?
 
     public init(
         kind: GarmentKind,
@@ -77,8 +80,10 @@ public struct DetectedGarment: Sendable {
         brand: String? = nil,
         brandEvidence: [BrandEvidence] = [],
         instanceIndex: Int = 0,
-        sourceRect: CGRect? = nil
+        sourceRect: CGRect? = nil,
+        productName: String? = nil
     ) {
+        self.productName = productName
         self.kind = kind
         self.confidence = confidence
         self.normalized = normalized
@@ -228,7 +233,8 @@ public extension DetectedGarment {
             brand: brand,
             brandEvidence: brandEvidence,
             instanceIndex: instanceIndex,
-            sourceRect: sourceRect
+            sourceRect: sourceRect,
+            productName: productName
         )
     }
 
@@ -251,7 +257,8 @@ public extension DetectedGarment {
             brand: brand,
             brandEvidence: brandEvidence,
             instanceIndex: instanceIndex,
-            sourceRect: sourceRect
+            sourceRect: sourceRect,
+            productName: productName
         )
     }
 }

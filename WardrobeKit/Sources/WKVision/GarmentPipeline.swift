@@ -228,6 +228,37 @@ public actor GarmentPipeline {
     /// como último recurso: para el caso más común de "añadir una prenda" eso
     /// era pagar la ruta cara entera para acabar usando la barata.
     public func extractGarments(from original: CGImage) async throws -> [DetectedGarment] {
+        let garments = try await extractGarmentsFromPixels(original)
+        return await annotatedFromProductPage(garments, in: original)
+    }
+
+    /// Lo que dice la **ficha del producto**, si la foto es de una tienda.
+    ///
+    /// Una captura de la web o una foto de catálogo lleva escrito al lado el
+    /// nombre del producto, y eso dice qué es la prenda mejor que los píxeles.
+    /// Ver `ProductPageReader`. Con una sola prenda se le aplica todo; con
+    /// varias, solo a la que casa con el tipo del título.
+    private func annotatedFromProductPage(
+        _ garments: [DetectedGarment],
+        in original: CGImage
+    ) async -> [DetectedGarment] {
+        guard readsBrands, !garments.isEmpty else { return garments }
+        // A tamaño de pantalla: la letra de una ficha se lee de sobra, y la
+        // foto entera a doce megapíxeles es tiempo de espera.
+        let page = Self.scaledDown(original, maxSide: 2000) ?? original
+        guard let read = await ProductPageReader.read(page) else { return garments }
+
+        if garments.count == 1 {
+            return [garments[0].annotated(with: read, allowsKindChange: true)]
+        }
+        let matching = garments.indices.filter { garments[$0].kind == read.kind }
+        guard matching.count == 1, let index = matching.first else { return garments }
+        var result = garments
+        result[index] = garments[index].annotated(with: read, allowsKindChange: false)
+        return result
+    }
+
+    private func extractGarmentsFromPixels(_ original: CGImage) async throws -> [DetectedGarment] {
         if skipsUtilityImages, (try? await VisionStages.isUtilityImage(original)) == true {
             return []
         }

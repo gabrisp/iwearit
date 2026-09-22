@@ -33,6 +33,9 @@ public final class Garment {
     /// y con nombre libre —se puede escribir uno propio—; ver
     /// `GarmentVocabulary.cuts(for:)`.
     public var cut: String?
+    /// El nombre con el que la vende la tienda, si se leyó en la ficha del
+    /// producto. Mientras esté, es el nombre de la prenda y no se regenera.
+    public var productName: String?
     public var seasonsRaw: Int = SeasonSet.all.rawValue
     public var tags: [String] = []
     public var notes: String?

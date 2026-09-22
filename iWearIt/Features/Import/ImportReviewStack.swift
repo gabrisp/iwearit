@@ -385,18 +385,30 @@ private struct ImportGarmentCard: View {
         }
     }
 
-    /// "Camiseta · Manga corta": qué es y su corte. La parte del cuerpo no
-    /// sale aquí: es un filtro para buscar, no un dato de la prenda.
-    private var headline: String {
-        [
-            candidate.subcategory?.capitalized ?? GarmentVocabulary.shelfName(for: candidate.kind),
-            candidate.cut,
-        ].compactMap { $0 }.joined(separator: " · ")
-    }
+    /// **El nombre de la prenda**: el de la tienda si se leyó en la ficha,
+    /// y si no el generado —"Pantalón rojo", "Polo Golden Goose"—. Es lo que
+    /// se va a guardar, así que es lo que se lee antes de guardar.
+    private var headline: String { candidate.displayName }
 
-    /// "Entretiempo · Algodón · Zara".
+    // Antes: "Camiseta · Manga corta", qué es y su corte.
+    // /// "Camiseta · Manga corta": qué es y su corte. La parte del cuerpo no
+    // /// sale aquí: es un filtro para buscar, no un dato de la prenda.
+    // ///
+    // /// Si se leyó el nombre del producto en la ficha de la tienda, ese: es lo
+    // /// que dice qué prenda es exactamente.
+    // private var headline: String {
+    //     if let productName = candidate.productName { return productName }
+    //     return [
+    //         candidate.subcategory?.capitalized ?? GarmentVocabulary.shelfName(for: candidate.kind),
+    //         candidate.cut,
+    //     ].compactMap { $0 }.joined(separator: " · ")
+    // }
+
+    /// "Manga corta · Entretiempo · Algodón · Zara". El corte vive aquí
+    /// desde que el titular es el nombre.
     private var details: String {
         [
+            candidate.cut,
             GarmentVocabulary.Warmth.from(candidate.seasons).label,
             candidate.material?.capitalized,
             candidate.detected.brand,

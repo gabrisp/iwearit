@@ -80,7 +80,8 @@ struct GarmentEditSheet: View {
         // recortada y las filas apretadas contra el teclado.
         .presentationDetents([.large])
         // Cualquier cambio en lo que forma el nombre lo rehace.
-        .onChange(of: garment.subcategory) { regenerateName() }
+        // Cambiar el tipo es decir que el título de la tienda no la describe.
+        .onChange(of: garment.subcategory) { garment.productName = nil; regenerateName() }
         .onChange(of: garment.material) { regenerateName() }
         .onChange(of: garment.brand) { regenerateName() }
         .onChange(of: garment.kindRaw) { regenerateName() }
@@ -242,6 +243,11 @@ struct GarmentEditSheet: View {
     /// puestos y no dicen nada.
     /// El nombre, compuesto con la misma regla que al importar.
     private func regenerateName() {
+        // El nombre de la tienda manda mientras esté. Ver `Garment.productName`.
+        if let productName = garment.productName {
+            garment.name = productName
+            return
+        }
         garment.name = GarmentNaming.name(
             kind: garment.kind,
             subcategory: GarmentVocabulary.displayType(garment.subcategory),

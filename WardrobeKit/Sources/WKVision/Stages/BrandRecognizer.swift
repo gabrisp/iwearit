@@ -25,6 +25,9 @@ public enum BrandRecognizer {
     /// adivinar que la que pone está mal.
     static let minimumConfidence: Float = 0.45
 
+    /// Las marcas del catálogo como pistas para el OCR. Ver `ProductPageReader`.
+    static var catalogueWords: [String] { Array(catalogue.keys) + RetailGroups.vocabulary }
+
     /// Lo que se lee en la prenda, con lo seguro que se está de cada lectura.
     ///
     /// Una lectura exacta y una lectura con una errata **no valen lo mismo**, y

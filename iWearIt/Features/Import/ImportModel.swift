@@ -911,6 +911,7 @@ final class ImportModel {
                     subcategory: candidate.subcategory,
                     material: candidate.material,
                     cut: candidate.cut,
+                    productName: candidate.productName,
                     categorySlug: candidate.categorySlug,
                     colors: candidate.colors,
                     seasons: candidate.seasons,
@@ -1015,6 +1016,12 @@ struct ImportCandidate: Identifiable {
     var material: String? { editedMaterial ?? detected.material }
 
     /// El nombre con el que se va a guardar.
+    /// El nombre de la tienda, mientras no se haya corregido qué prenda es:
+    /// si el usuario cambia el tipo, el título de la ficha ya no la describe.
+    var productName: String? {
+        editedSubcategory == nil && categorySlug == nil ? detected.productName : nil
+    }
+
     var displayName: String {
         // **El nombre se compone con lo demás y no se pide.**
         //
@@ -1023,7 +1030,7 @@ struct ImportCandidate: Identifiable {
         // que corregir el tipo o el material corrige el nombre. Y no se pinta
         // en la balda —ahí se mira la prenda— sino en la hoja de la prenda,
         // que es donde se lee.
-        editedName ?? GarmentNaming.name(
+        editedName ?? productName ?? GarmentNaming.name(
             kind: kind,
             subcategory: subcategory,
             material: material,
