@@ -801,6 +801,12 @@ final class ImportModel {
         candidates[index].wasCorrectedByUser = true
     }
 
+    func setCategory(_ slug: String?, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].categorySlug = slug
+        candidates[index].wasCorrectedByUser = true
+    }
+
     func setCut(_ cut: String?, forCandidateWithID id: UUID) {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].cut = cut
@@ -869,6 +875,7 @@ final class ImportModel {
                     subcategory: candidate.subcategory,
                     material: candidate.material,
                     cut: candidate.cut,
+                    categorySlug: candidate.categorySlug,
                     colors: candidate.colors,
                     seasons: candidate.seasons,
                     tags: candidate.tags,
@@ -938,6 +945,8 @@ struct ImportCandidate: Identifiable {
     var editedTags: [String]?
     /// La manga o el largo, elegido o escrito a mano.
     var cut: String?
+    /// La balda elegida a mano. `nil` = la que toque sola.
+    var categorySlug: String?
     var editedSeasons: SeasonSet?
     /// El tipo fino —"Camisa", "Vaqueros", "Botines"— corregido a mano.
     ///

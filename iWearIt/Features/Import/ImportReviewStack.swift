@@ -1,4 +1,5 @@
 import CoreGraphics
+import PhotosUI
 import SwiftUI
 import UIKit
 import WKCore
@@ -23,14 +24,37 @@ import WKDesign
 struct ImportReviewStack: View {
     let model: ImportModel
     let photos: [CGImage]
-    /// Añadir más fotos a la misma importación.
-    var onAddMore: (() -> Void)?
+    /// Añadir más fotos a la misma importación: ya leídas y derechas.
+    var onAddMore: (([CGImage]) async -> Void)?
     /// Guardar las prendas de la lista.
     let onSave: () async -> Void
 
     /// Qué prenda se está editando entera. Tocar la tarjeta abre su ficha.
     @State private var opened: UUID?
     @State private var isSaving = false
+    /// La galería de "Agregar más", **colgada del propio botón**. Puesta más
+    /// arriba —en la hoja de importar— no llegaba a abrirse: el botón está
+    /// dentro de otra jerarquía de presentación y el aviso se perdía por el
+    /// camino. Es el mismo arreglo que el "+" del armario.
+    @State private var isPickingMore = false
+    @State private var morePhotos: [PhotosPickerItem] = []
+
+    /// Las fotos añadidas, derechas, a la importación que ya hay.
+    private func loadMore() async {
+        guard !morePhotos.isEmpty, let onAddMore else { return }
+        let picked = morePhotos
+        morePhotos = []
+        var images: [CGImage] = []
+        for item in picked {
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                let image = UprightImage.cgImage(from: data)
+            else { continue }
+            images.append(image)
+        }
+        guard !images.isEmpty else { return }
+        await onAddMore(images)
+    }
 
     /// Las dos salidas de la pantalla, abajo y del tamaño del pulgar.
     ///
@@ -40,8 +64,8 @@ struct ImportReviewStack: View {
     /// tocarlos— porque flotan sobre la lista, que sigue pasando por debajo.
     private var actions: some View {
         HStack(spacing: WK.Spacing.s) {
-            if let onAddMore {
-                Button(action: onAddMore) {
+            if onAddMore != nil {
+                Button { isPickingMore = true } label: {
                     Label("Agregar más", systemImage: "plus")
                         .font(WK.Font.callout)
                         .foregroundStyle(WK.Palette.primaryText)
@@ -51,6 +75,13 @@ struct ImportReviewStack: View {
                 }
                 .buttonStyle(.plain)
                 .adaptiveGlassInteractive(in: .capsule)
+                .photosPicker(
+                    isPresented: $isPickingMore,
+                    selection: $morePhotos,
+                    maxSelectionCount: 10,
+                    matching: .images
+                )
+                .task(id: morePhotos.count) { await loadMore() }
             }
 
             Button {
@@ -125,6 +156,7 @@ struct ImportReviewStack: View {
                         },
                         onChangeTags: { model.setTags($0, forCandidateWithID: candidate.id) },
                         onChangeCut: { model.setCut($0, forCandidateWithID: candidate.id) },
+                        onChangeCategory: { model.setCategory($0, forCandidateWithID: candidate.id) },
                         onChangeSeasons: { model.setSeasons($0, forCandidateWithID: candidate.id) },
                         onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: candidate.id) },
                         onChangeMaterial: { model.setMaterial($0, forCandidateWithID: candidate.id) },

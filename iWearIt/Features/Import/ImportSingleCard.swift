@@ -1,5 +1,7 @@
 import CoreGraphics
+import SwiftData
 import SwiftUI
+import WKPersistence
 import WKCore
 import WKDesign
 import WKVision
@@ -38,6 +40,7 @@ struct ImportSingleCard: View {
     var onPickColor: ((Color) -> Void)?
     var onChangeTags: (([String]) -> Void)?
     var onChangeCut: ((String?) -> Void)?
+    var onChangeCategory: ((String) -> Void)?
     var onChangeSeasons: ((SeasonSet) -> Void)?
     /// El tipo fino: "Camisa", "Vaqueros", "Botines".
     var onChangeSubcategory: ((String?) -> Void)?
@@ -67,8 +70,10 @@ struct ImportSingleCard: View {
     @State private var source: Source = .cutout
     @State private var isCroppingByHand = false
     @State private var field: Field?
+    /// Las baldas del armario, las propias incluidas, para elegir a cuál va.
+    @Query(FetchDescriptor<GarmentCategory>.visibleCategories()) private var categories: [GarmentCategory]
     private enum Field: String, Identifiable {
-        case part, type, cut, tags, warmth, material
+        case part, shelf, type, cut, tags, warmth, material
         var id: String { rawValue }
     }
 
@@ -245,9 +250,13 @@ struct ImportSingleCard: View {
             // **Qué es, no dónde va.** "Parte superior" es un filtro para
             // buscar, no algo que se elija: se elige camiseta o pantalón, y la
             // parte del cuerpo sale de ahí.
+            // **La balda, elegible.** Sale sola —por lo que es, o por la
+            // balda propia que mejor le cuadre— pero se puede cambiar aquí
+            // mismo, y la elegida manda: no se vuelve a mover sola.
+            EditRow(value: shelfName, label: "Balda") { field = .shelf }
+            // Qué es dentro de su balda: chino o vaquero, no "pantalones".
             EditRow(
-                value: candidate.subcategory?.capitalized
-                    ?? GarmentVocabulary.shelfName(for: candidate.kind),
+                value: candidate.subcategory?.capitalized ?? "Sin definir",
                 label: "Tipo"
             ) { field = .type }
             EditRow(
@@ -287,6 +296,27 @@ struct ImportSingleCard: View {
                     set: { set in
                         guard let raw = set.first, let kind = GarmentKind(rawValue: raw) else { return }
                         onChangeKind(kind)
+                    }
+                ),
+                limit: 1
+            )
+        case .shelf:
+            WKChipSheet(
+                title: "Balda",
+                subtitle: "Dónde la vas a colgar",
+                options: categories.map { .init(id: $0.slug, label: $0.name) },
+                selection: Binding(
+                    get: { [shelfSlug] },
+                    set: { set in
+                        guard let slug = set.first else { return }
+                        onChangeCategory?(slug)
+                        // La balda dice qué parte es: "Pantalones" es de abajo,
+                        // y con eso los tipos y el largo que se ofrecen son
+                        // los de un pantalón.
+                        if let kind = categories.first(where: { $0.slug == slug })?.defaultKind,
+                           kind != candidate.kind {
+                            onChangeKind(kind)
+                        }
                     }
                 ),
                 limit: 1
@@ -373,6 +403,17 @@ struct ImportSingleCard: View {
                 limit: 1
             )
         }
+    }
+
+    /// La balda a la que irá: la elegida, o la que le tocaría sola.
+    private var shelfSlug: String {
+        candidate.categorySlug
+            ?? GarmentCategory.seedSlug(forSubcategory: candidate.subcategory, kind: candidate.kind)
+    }
+
+    private var shelfName: String {
+        categories.first { $0.slug == shelfSlug }?.name
+            ?? GarmentVocabulary.shelfName(for: candidate.kind)
     }
 
     /// El nombre con el que se va a guardar, calculado con **la misma regla**

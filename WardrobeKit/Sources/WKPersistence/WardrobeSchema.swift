@@ -182,7 +182,7 @@ public extension GarmentCategory {
     ///
     /// Se compara en minúsculas y sin acentos, y por contención: el modelo
     /// devuelve "camisa de lino" o "polo de manga corta", no la palabra sola.
-    static func seedSlug(forSubcategory subcategory: String?, kind: GarmentKind) -> String {
+    public static func seedSlug(forSubcategory subcategory: String?, kind: GarmentKind) -> String {
         guard let subcategory, !subcategory.isEmpty else { return kind.seedCategorySlug }
 
         let text = subcategory

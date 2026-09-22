@@ -35,7 +35,9 @@ public enum GarmentVocabulary {
         case .outerLayer:
             ["Chaqueta", "Cazadora", "Abrigo", "Gabardina", "Vaquera", "Cuero", "Blazer", "Plumífero"]
         case .lowerBody:
-            ["Vaqueros", "Pantalones", "Chinos", "Shorts", "Shorts vaqueros", "Falda", "Leggings"]
+            // Lo que es el pantalón. El largo —short, capri— va en su propia
+            // etiqueta, y "pantalones" es la balda, no un tipo.
+            ["Vaqueros", "Chinos", "De vestir", "Jogger", "Cargo", "Leggings", "Falda"]
         case .wholeBody:
             ["Vestido", "Vestido largo", "Mono", "Peto"]
         case .feet:

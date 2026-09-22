@@ -12,6 +12,8 @@ public struct GarmentDraft: Sendable, Hashable {
     public var subcategory: String?
     public var material: String?
     public var cut: String?
+    /// La balda elegida a mano al importar. Manda sobre la automática.
+    public var categorySlug: String?
     public var colors: [NamedColor]
     public var seasons: SeasonSet
     public var tags: [String]
@@ -39,6 +41,7 @@ public struct GarmentDraft: Sendable, Hashable {
         subcategory: String? = nil,
         material: String? = nil,
         cut: String? = nil,
+        categorySlug: String? = nil,
         colors: [NamedColor] = [],
         seasons: SeasonSet = .all,
         tags: [String] = [],
@@ -54,6 +57,7 @@ public struct GarmentDraft: Sendable, Hashable {
         self.subcategory = subcategory
         self.material = material
         self.cut = cut
+        self.categorySlug = categorySlug
         self.colors = colors
         self.seasons = seasons
         self.tags = tags

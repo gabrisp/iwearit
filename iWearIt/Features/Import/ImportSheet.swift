@@ -34,7 +34,7 @@ struct ImportSheet: View {
                         model: model,
                         photos: images,
                         hasRevealed: $hasRevealed,
-                        onAddMore: { isAddingMore = true },
+                        onAddMore: { await model.addPhotos($0) },
                         onSave: { await save(model) }
                     )
                 } else {
@@ -101,13 +101,15 @@ struct ImportSheet: View {
                 }
             }
         }
-        .photosPicker(
-            isPresented: $isAddingMore,
-            selection: $extraItems,
-            maxSelectionCount: 10,
-            matching: .images
-        )
-        .task(id: extraItems.count) { await addPicked() }
+        // La galería de "Agregar más" vive ahora en el propio botón: ver
+        // `ImportReviewStack`. Colgada aquí no llegaba a abrirse.
+        // .photosPicker(
+        //     isPresented: $isAddingMore,
+        //     selection: $extraItems,
+        //     maxSelectionCount: 10,
+        //     matching: .images
+        // )
+        // .task(id: extraItems.count) { await addPicked() }
         .task {
             // **Esperar al segmentador antes de analizar.** Construido con
             // `segmenter == nil` —y la descarga tarda decenas de segundos— el
@@ -215,7 +217,7 @@ private struct ImportPhaseContent: View {
     let photos: [CGImage]
     @Binding var hasRevealed: Bool
     /// Añadir más fotos a esta misma importación, y guardarlo todo.
-    let onAddMore: () -> Void
+    let onAddMore: ([CGImage]) async -> Void
     let onSave: () async -> Void
 
     var body: some View {
@@ -257,6 +259,17 @@ private struct ImportPhaseContent: View {
                             onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
                             onChangeName: { model.setName($0, forCandidateWithID: only.id) },
                             onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
+                            onPickColor: { picked in
+                                let rgb = UIColor(picked).rgb
+                                model.setColor(
+                                    red: rgb.red, green: rgb.green, blue: rgb.blue,
+                                    forCandidateWithID: only.id
+                                )
+                            },
+                            onChangeTags: { model.setTags($0, forCandidateWithID: only.id) },
+                            onChangeCut: { model.setCut($0, forCandidateWithID: only.id) },
+                            onChangeCategory: { model.setCategory($0, forCandidateWithID: only.id) },
+                            onChangeSeasons: { model.setSeasons($0, forCandidateWithID: only.id) },
                             onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: only.id) },
                             onChangeMaterial: { model.setMaterial($0, forCandidateWithID: only.id) },
                             onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },

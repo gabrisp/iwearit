@@ -112,6 +112,16 @@ public actor WardrobeActor {
             garment.embedding = draft.embedding
             garment.brand = draft.brand
 
+            // **La elegida a mano, primero.** Si al importar se dijo "esto
+            // va a Deporte", va a Deporte, y no se vuelve a mover sola.
+            if let slug = draft.categorySlug, let chosen = bySlug[slug] {
+                garment.category = chosen
+                garment.categoryLockedByUser = true
+                modelContext.insert(garment)
+                identifiers.append(garment.persistentModelID)
+                continue
+            }
+
             let assignment = Self.assign(draft, among: custom)
             // La balda propia manda; si ninguna, la semilla que le toca **por
             // lo que es**, no solo por la zona del cuerpo: una camisa va a
