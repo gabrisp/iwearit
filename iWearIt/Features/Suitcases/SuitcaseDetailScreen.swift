@@ -129,7 +129,11 @@ private struct SuitcaseContent: View {
         //         .tint(WK.Palette.primaryText)
         //     }
         // }
-        .safeAreaInset(edge: .bottom) {
+        // **Flotando, no recortando.** Como la tira del plan: el lienzo llega
+        // a los dos bordes y la barra pasa por encima. En `safeAreaInset` le
+        // comía su alto al papel de puntos y la maleta dejaba de ser una hoja
+        // entera.
+        .overlay(alignment: .bottom) {
             HStack(spacing: 12) {
                 WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing], selection: $tab) { tab in
                     switch tab {
@@ -148,6 +152,8 @@ private struct SuitcaseContent: View {
             }
             .padding(.bottom, WK.Spacing.xs)
         }
+        // Arriba y abajo, como el plan de verdad.
+        .ignoresSafeArea(edges: [.top, .bottom])
         // La barra de pestañas de la app estorba aquí: dentro de una maleta se
         // está montando contenido a pantalla completa, y tener debajo los tres
         // destinos de la app invita a salirse a mitad.

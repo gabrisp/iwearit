@@ -28,8 +28,8 @@ struct SuitcaseOutfitsTab: View {
     let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
-        if let dayCount = suitcase.tripDayCount, layout == .grid {
-            DatedGrid(suitcase: suitcase, dayCount: dayCount, onOpenDay: onOpenDay, onEdit: onEdit)
+        if suitcase.tripDayCount != nil, layout == .grid {
+            DatedGrid(suitcase: suitcase, dayIndex: dayIndex, onEdit: onEdit)
         } else if let dayCount = suitcase.tripDayCount {
             DatedOutfits(
                 suitcase: suitcase,
@@ -71,73 +71,111 @@ struct DatedOutfits: View {
     }
 }
 
-/// Maleta con fechas, en rejilla: todos los días del viaje de un vistazo.
+/// Lo que hay que dejar libre arriba: el área segura de la ventana más la
+/// barra de navegación.
 ///
-/// La misma celda que la rejilla del plan. Un día sin outfit es la celda de
-/// crear, y lleva a ese día en modo revista.
+/// De la ventana y no medido con `onGeometryChange`: la pantalla entera ignora
+/// el área segura —el papel de puntos llega a los bordes—, así que dentro ya no
+/// queda ninguna vista que la conozca y medirla ahí daba cero.
+@MainActor
+private var suitcaseTopInset: CGFloat {
+    let window = UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap(\.windows)
+        .first { $0.isKeyWindow }
+    return (window?.safeAreaInsets.top ?? 59) + 52
+}
+
+/// El día del viaje **en rejilla**: sus outfits, todos.
+///
+/// Un día de maleta es un día del calendario: puede llevar varios outfits —el
+/// de la cena y el del avión— y la revista solo enseña uno. Es la misma
+/// rejilla que en el plan, con la celda de crear al final.
 private struct DatedGrid: View {
     let suitcase: Suitcase
-    let dayCount: Int
-    let onOpenDay: (Int) -> Void
+    let dayIndex: Int
     let onEdit: (Outfit, Bool) -> Void
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var isPickingForNew = false
 
-    /// Lo que mide la barra de arriba. Ver `body`.
-    @State private var safeTop: CGFloat = 0
-
-    private static let date: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
-        return formatter
-    }()
+    /// Los de **ese** día.
+    private var outfits: [Outfit] {
+        suitcase.visibleOutfits.filter { $0.suitcaseDayIndex == dayIndex }
+    }
 
     var body: some View {
         ZStack {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
-                ForEach(0..<dayCount, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                        Text(label(for: index))
-                            .font(WK.Font.captionMedium)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                        if let outfit = suitcase.outfit(forDayIndex: index) {
-                            Button { onEdit(outfit, false) } label: {
-                                PlannerGridCell(
-                                    outfit: outfit,
-                                    store: appEnvironment.imageStore,
-                                    fallback: SuitcaseTint.backdrop(for: suitcase.colorRaw)
-                                )
-                            }
-                            .buttonStyle(WKPressStyle())
-                        } else {
-                            NewOutfitGridCell { onOpenDay(index) }
+                ForEach(outfits) { outfit in
+                    Button { onEdit(outfit, false) } label: {
+                        PlannerGridCell(
+                            outfit: outfit,
+                            store: appEnvironment.imageStore,
+                            fallback: SuitcaseTint.backdrop(for: suitcase.colorRaw)
+                        )
+                    }
+                    .buttonStyle(WKPressStyle())
+                    .contextMenu {
+                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                            duplicate(outfit)
+                        }
+                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                            withAnimation(WKAnimation.content) { outfit.markDeleted() }
                         }
                     }
                 }
+
+                NewOutfitGridCell { isPickingForNew = true }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             // Como la rejilla del plan: el scroll **ignora el área segura** y
-            // el hueco lo pone el contenido por dentro, más un respiro arriba
-            // y el sitio de la barra de abajo.
-            // `safeAreaPadding` no se entera con el scroll ignorando el área
-            // segura: la barra se mide fuera, como en el plan.
-            .padding(.top, safeTop + WK.Spacing.l)
+            // el hueco lo pone el contenido por dentro.
+            .padding(.top, suitcaseTopInset + WK.Spacing.l)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
         .ignoresSafeArea(edges: [.top, .bottom])
         }
-        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
-            guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
-            safeTop = measured
+        .sheet(isPresented: $isPickingForNew) {
+            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                guard !picked.isEmpty else { return }
+                onEdit(createOutfit(with: picked), true)
+            }
         }
     }
 
-    private func label(for index: Int) -> String {
-        guard let date = suitcase.date(forDayIndex: index) else { return "Día \(index + 1)" }
-        return "Día \(index + 1) · \(Self.date.string(from: date))"
+    /// Un outfit más para ese día, con las prendas elegidas ya colocadas.
+    private func createOutfit(with garments: [Garment]) -> Outfit {
+        let outfit = Outfit(name: "Día \(dayIndex + 1)")
+        outfit.suitcaseDayIndex = dayIndex
+        modelContext.insert(outfit)
+        outfit.suitcase = suitcase
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
+        return outfit
+    }
+
+    private func duplicate(_ outfit: Outfit) {
+        let copy = Outfit(name: outfit.name.map { "\($0) (copia)" })
+        copy.backdropRaw = outfit.backdropRaw
+        copy.suitcaseDayIndex = outfit.suitcaseDayIndex
+        modelContext.insert(copy)
+        copy.suitcase = suitcase
+        for item in outfit.items {
+            let clone = CanvasItem(transform: item.transform, garment: item.garment)
+            if let sticker = item.sticker { clone.apply(sticker) }
+            clone.isFlipped = item.isFlipped
+            clone.outfit = copy
+            modelContext.insert(clone)
+        }
     }
 }
 
@@ -436,8 +474,6 @@ private struct PreparedOutfits: View {
 
     /// El selector, abierto por el "+".
     @State private var isPickingForNew = false
-    /// Lo que mide la barra de arriba. Ver `DatedGrid`.
-    @State private var safeTop: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -479,16 +515,12 @@ private struct PreparedOutfits: View {
             // Igual que la rejilla del plan: ver `DatedGrid`.
             // `safeAreaPadding` no se entera con el scroll ignorando el área
             // segura: la barra se mide fuera, como en el plan.
-            .padding(.top, safeTop + WK.Spacing.l)
+            .padding(.top, suitcaseTopInset + WK.Spacing.l)
             .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
         .ignoresSafeArea(edges: [.top, .bottom])
-        }
-        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
-            guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
-            safeTop = measured
         }
         // Sin sobre-scroll: es una rejilla, y la celda de crear ya se ve. Ver
         // `PlannerGrid`.
