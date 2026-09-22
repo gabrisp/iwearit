@@ -33,6 +33,8 @@ struct ImportReviewStack: View {
     /// Qué prenda se está editando entera. Tocar la tarjeta abre su ficha.
     @State private var opened: UUID?
     @State private var isSaving = false
+    /// Los botones de abajo, que aparecen un instante después de la lista.
+    @State private var showsActions = false
     /// La galería de "Agregar más", **colgada del propio botón**. Puesta más
     /// arriba —en la hoja de importar— no llegaba a abrirse: el botón está
     /// dentro de otra jerarquía de presentación y el aviso se perdía por el
@@ -83,8 +85,9 @@ struct ImportReviewStack: View {
     /// mano. Los dos en cristal **interactivo** —se hunden y se iluminan al
     /// tocarlos— porque flotan sobre la lista, que sigue pasando por debajo.
     private var actions: some View {
+        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
         HStack(spacing: WK.Spacing.s) {
-            if onAddMore != nil {
+            if onAddMore != nil, showsActions {
                 Button { isPickingMore = true } label: {
                     Label("Agregar más", systemImage: "plus")
                         .font(WK.Font.callout)
@@ -102,8 +105,10 @@ struct ImportReviewStack: View {
                     matching: .images
                 )
                 .task(id: morePhotos.count) { await loadMore() }
+                .adaptiveGlassMaterialize()
             }
 
+            if showsActions {
             Button {
                 isSaving = true
                 Task { await onSave() }
@@ -126,9 +131,17 @@ struct ImportReviewStack: View {
             .adaptiveGlassProminent(tint: WK.Palette.accent, in: .capsule)
             .disabled(model.keptCount == 0 || isSaving)
             .opacity(model.keptCount == 0 || isSaving ? 0.5 : 1)
+            .adaptiveGlassMaterialize()
+            }
+        }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)
+        // **Se forman después de la lista**, no con ella: primero se ve qué ha
+        // salido, y luego qué se puede hacer con ello.
+        .onAppear {
+            withAnimation(.smooth(duration: 0.45).delay(0.2)) { showsActions = true }
+        }
     }
 
     @Environment(AppEnvironment.self) private var appEnvironment

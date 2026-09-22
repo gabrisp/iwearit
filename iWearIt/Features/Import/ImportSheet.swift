@@ -88,7 +88,9 @@ struct ImportSheet: View {
                     .background(WK.Palette.canvas)
                 }
             }
-            .navigationTitle(title)
+            // **El título, dibujado aquí** y no con `navigationTitle`: el de
+            // la barra cambia de golpe, y este pasa de nada a "Revisar
+            // prendas" letra a letra, como el resto de números de la app.
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // **Solo cerrar.** Guardar vive abajo, junto a "Agregar más",
@@ -104,12 +106,12 @@ struct ImportSheet: View {
                 // **Mientras analiza, ni X.** No un botón apagado: el hueco
                 // entero fuera. Cerrar a medias tiraba el análisis, y no hay
                 // nada que decidir hasta que acabe.
-                if isAnalyzing {
-                    // El sitio del título, vacío pero ocupado: así la barra no
-                    // se recoloca cuando aparece "Revisar prendas".
-                    ToolbarItem(placement: .principal) {
-                        Color.clear.frame(width: 1, height: 1)
-                    }
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(WK.Font.headline)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .contentTransition(.numericText())
+                        .animation(.smooth(duration: 0.4), value: title)
                 }
                 if !isAnalyzing {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -340,10 +342,13 @@ private struct ImportPhaseContent: View {
                         )
                     }
                 }
-                    .transition(AnyTransition(.blurReplace))
+                    // **Por opacidad.** El carrete se apaga y la lista aparece
+                    // en su sitio; el desenfoque de antes hacía que las dos
+                    // pantallas se mezclaran a medias.
+                    .transition(.opacity)
             } else {
                 reveal(isScanning: false, status: "Recortando")
-                    .transition(AnyTransition(.blurReplace))
+                    .transition(.opacity)
             }
         case let .nothingFound(reason):
             failure(title: reason.title, symbol: reason.symbol, message: reason.message)

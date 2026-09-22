@@ -105,6 +105,20 @@ public extension View {
         }
     }
 
+    /// El cristal **se forma** en su sitio al aparecer.
+    ///
+    /// Para lo que llega sin venir de ningún sitio —unos botones que aparecen
+    /// al terminar algo—. La transición por defecto dentro de un contenedor
+    /// busca de dónde venir, y sin pareja sale volando desde una esquina.
+    @ViewBuilder
+    func adaptiveGlassMaterialize() -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffectTransition(.materialize)
+        } else {
+            self.transition(.opacity)
+        }
+    }
+
     /// El cristal **no** se mueve al aparecer ni al desaparecer.
     ///
     /// Hace falta decirlo explícitamente, y esa es la parte que no es obvia:
