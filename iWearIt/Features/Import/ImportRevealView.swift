@@ -66,23 +66,21 @@ struct ImportRevealView: View {
                     .opacity(shownStage == .scanning ? 1 : 0.3)
                     .animation(WKAnimation.content, value: isFocused)
 
+                // **La prenda, del tamaño que tiene en la foto.** Antes se
+                // pintaba el recorte normalizado —cuadrado y con margen— dentro
+                // de una caja fija encogida hasta caber en su sitio: entre el
+                // margen y el encogido salía bastante más pequeña que la
+                // prenda de verdad. Ahora es el recorte ajustado, ocupando
+                // exactamente el rectángulo donde estaba.
                 ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
                     RevealedCrop(
                         candidate: candidate,
-                        box: Self.box,
-                        // En `emerging` ocupa lo mismo que ocupaba en la foto;
-                        // en `arranged`, su tamaño natural en la fila.
-                        scale: stage == .scanning
-                            ? photoScale(for: candidate, in: frame)
-                            : (stage == .emerging ? photoScale(for: candidate, in: frame) : 1),
-                        position: stage == .arranged
-                            ? arrangedPosition(index: index, in: proxy.size)
-                            : photoPosition(for: candidate, in: frame),
+                        rect: photoRect(for: candidate, in: frame),
                         isVisible: shownStage != .scanning
                     )
                     .animation(
                         WKAnimation.arrival.delay(Double(index) * 0.09),
-                        value: stage
+                        value: shownStage
                     )
                 }
             }
@@ -148,6 +146,19 @@ struct ImportRevealView: View {
         )
     }
 
+    /// Dónde estaba la prenda, en puntos de la vista.
+    private func photoRect(for candidate: ImportCandidate, in frame: CGRect) -> CGRect {
+        guard let rect = candidate.detected.sourceRect else {
+            return frame.insetBy(dx: frame.width * 0.2, dy: frame.height * 0.2)
+        }
+        return CGRect(
+            x: frame.minX + rect.minX * frame.width,
+            y: frame.minY + rect.minY * frame.height,
+            width: rect.width * frame.width,
+            height: rect.height * frame.height
+        )
+    }
+
     /// Cuánto hay que encoger la caja para que ocupe lo que ocupaba en la foto.
     private func photoScale(for candidate: ImportCandidate, in frame: CGRect) -> CGFloat {
         guard let rect = candidate.detected.sourceRect else { return 0.6 }
@@ -174,22 +185,19 @@ struct ImportRevealView: View {
 /// una tiene que poder invalidarse sin arrastrar a las demás.
 private struct RevealedCrop: View {
     let candidate: ImportCandidate
-    let box: CGSize
-    let scale: CGFloat
-    let position: CGPoint
+    /// El rectángulo que ocupaba en la foto.
+    let rect: CGRect
     let isVisible: Bool
 
     var body: some View {
-        candidate.image
+        Image(decorative: candidate.detected.rawCrop.cgImage, scale: 1)
             .resizable()
             .scaledToFit()
-            .frame(width: box.width, height: box.height)
-            // La sombra crece con la prenda: mientras está dentro de la foto
-            // está pegada a ella, y al salir se despega.
+            .frame(width: max(rect.width, 1), height: max(rect.height, 1))
+            // La sombra aparece al separarse: dentro de la foto no la tenía.
             .shadow(color: WK.Palette.ink(0.5), radius: isVisible ? 2 : 0, y: 1)
             .shadow(color: WK.Palette.ink(0.25), radius: isVisible ? 18 : 0, y: 10)
-            .scaleEffect(scale)
             .opacity(isVisible ? 1 : 0)
-            .position(position)
+            .position(x: rect.midX, y: rect.midY)
     }
 }
