@@ -89,6 +89,9 @@ final class ImportModel {
     private(set) var analysedCount = 0
     /// Cuántas fotos añadidas con "Agregar más" quedan por analizar.
     private(set) var pendingPhotos = 0
+    /// El total de la tanda añadida y cuántas van, para la barra de progreso.
+    private(set) var addingTotal = 0
+    private(set) var addingDone = 0
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
     /// Cómo se está reintentando, para poder decirlo en el botón.
@@ -290,7 +293,15 @@ final class ImportModel {
         let first = photos.count
         photos += images
         pendingPhotos += images.count
-        defer { pendingPhotos = max(0, pendingPhotos - images.count) }
+        addingTotal += images.count
+        defer {
+            pendingPhotos = max(0, pendingPhotos - images.count)
+            // Tanda acabada: la barra vuelve a cero para la siguiente.
+            if pendingPhotos == 0 {
+                addingTotal = 0
+                addingDone = 0
+            }
+        }
 
         for (offset, image) in images.enumerated() {
             let index = first + offset
@@ -306,6 +317,7 @@ final class ImportModel {
                 "IMPORT", "foto añadida \(index + 1): ahora hay \(candidates.count) prenda(s) en la lista"
             )
             analysedCount = index + 1
+            addingDone += 1
         }
         await markDuplicates()
     }
