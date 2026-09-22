@@ -38,6 +38,10 @@ struct ClosetAddMenu: View {
         case camera
         case web
         case review(ImportableBatch)
+        /// La importación que se cerró sin guardar. Con el modelo dentro, sacado
+        /// al tocar: sacarlo al dibujar la hoja lo vaciaría en el segundo
+        /// dibujado y la hoja saldría en blanco.
+        case restore(ImportModel)
         case newCategory
         case shelfOrder
 
@@ -47,6 +51,7 @@ struct ClosetAddMenu: View {
             case .camera: "camera"
             case .web: "web"
             case let .review(batch): batch.id.uuidString
+            case let .restore(model): "restore-\(ObjectIdentifier(model).hashValue)"
             case .newCategory: "category"
             case .shelfOrder: "order"
             }
@@ -113,6 +118,8 @@ struct ClosetAddMenu: View {
             }
         case let .review(batch):
             ImportSheet(images: batch.images)
+        case let .restore(model):
+            ImportSheet(restoring: model)
         case .newCategory:
             NewCategorySheet()
         case .shelfOrder:
@@ -154,8 +161,25 @@ struct ClosetAddMenu: View {
         step = .review(ImportableBatch(images: images))
     }
 
+    /// **Seguir donde lo dejaste**, primero y solo si hay algo que seguir.
+    private var restoreItem: [WKMenuItem] {
+        guard let pending = appEnvironment.importSession.pending else { return [] }
+        let count = pending.candidates.count
+        return [
+            WKMenuItem(
+                id: "restore",
+                title: count == 1 ? "Seguir con 1 prenda" : "Seguir con \(count) prendas",
+                systemImage: "arrow.uturn.backward"
+            ) {
+                DispatchQueue.main.async {
+                    if let model = appEnvironment.importSession.take() { step = .restore(model) }
+                }
+            },
+        ]
+    }
+
     private var menuItems: [WKMenuItem] {
-        [
+        restoreItem + [
             // Una sola entrada: la cámara ya lleva dentro el acceso a la
             // galería, así que preguntar antes "¿foto nueva o existente?" es
             // una bifurcación que el usuario no había pedido.

@@ -2,6 +2,7 @@ import CoreGraphics
 import PhotosUI
 import SwiftUI
 import UIKit
+import WKVision
 import WKCore
 import WKDesign
 
@@ -38,6 +39,13 @@ struct ImportReviewStack: View {
     /// camino. Es el mismo arreglo que el "+" del armario.
     @State private var isPickingMore = false
     @State private var morePhotos: [PhotosPickerItem] = []
+
+    private var saveTitle: String {
+        let kept = model.keptCount
+        if kept == 0 { return "Nada que guardar" }
+        if kept == model.candidates.count { return "Guardar todo" }
+        return kept == 1 ? "Guardar 1 prenda" : "Guardar \(kept) prendas"
+    }
 
     /// Las fotos añadidas, derechas, a la importación que ya hay.
     private func loadMore() async {
@@ -98,7 +106,8 @@ struct ImportReviewStack: View {
                 isSaving = true
                 Task { await onSave() }
             } label: {
-                Text(model.keptCount == 0 ? "Nada que guardar" : "Guardar \(model.keptCount)")
+                // "Guardar todo" si entran todas; si no, cuántas.
+                Text(saveTitle)
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.onAccent)
                     .frame(maxWidth: .infinity)
@@ -106,7 +115,9 @@ struct ImportReviewStack: View {
                     .contentShape(.capsule)
             }
             .buttonStyle(.plain)
-            .adaptiveGlass(tint: WK.Palette.accent, in: .capsule)
+            // Cristal **interactivo**, como Agregar más: se hunde y se
+            // ilumina al tocarlo. El que tenía era cristal quieto.
+            .adaptiveGlassProminent(tint: WK.Palette.accent, in: .capsule)
             .disabled(model.keptCount == 0 || isSaving)
             .opacity(model.keptCount == 0 || isSaving ? 0.5 : 1)
         }
@@ -242,8 +253,15 @@ private struct ImportGarmentCard: View {
                 //         .lineLimit(1)
                 // }
 
+                // Cuánto abriga y de qué es: lo que se mira antes de guardar
+                // sin tener que abrir la ficha.
+                Text(details)
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .lineLimit(1)
+
                 if candidate.duplicateOf != nil {
-                    Label("Ya tienes una parecida", systemImage: "square.on.square")
+                    Text("Ya tienes una parecida")
                         .font(WK.Font.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(1)
@@ -310,6 +328,15 @@ private struct ImportGarmentCard: View {
         [
             candidate.subcategory?.capitalized ?? GarmentVocabulary.shelfName(for: candidate.kind),
             candidate.cut,
+        ].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    /// "Entretiempo · Algodón · Zara".
+    private var details: String {
+        [
+            GarmentVocabulary.Warmth.from(candidate.seasons).label,
+            candidate.material?.capitalized,
+            candidate.detected.brand,
         ].compactMap { $0 }.joined(separator: " · ")
     }
 

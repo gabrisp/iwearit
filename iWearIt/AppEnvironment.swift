@@ -35,6 +35,9 @@ public final class AppEnvironment {
     public let gate: FeatureGate
     /// Los avisos que enseñan a usar la app. Ver `WKTipCenter`.
     public let tips = WKTipCenter()
+    /// La importación cerrada sin guardar, para retomarla. Ver
+    /// `ImportSessionStore`.
+    let importSession = ImportSessionStore()
 
     /// Estado de los modelos, para que Perfil pueda contarlo y la importación
     /// sepa si tiene segmentador.

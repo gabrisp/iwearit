@@ -14,6 +14,16 @@ struct ImportSheet: View {
     /// Una sola, que es de donde vienen la cámara y la web.
     init(image: CGImage) { self.images = [image] }
 
+    /// **Retomar** una importación que se cerró sin guardar.
+    init(restoring model: ImportModel) {
+        self.images = model.photos
+        _model = State(initialValue: model)
+        _hasRevealed = State(initialValue: true)
+    }
+
+    /// Si se guardó: entonces no hay nada que retomar al cerrar.
+    @State private var didSave = false
+
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(WKToastCenter.self) private var toasts
@@ -110,7 +120,15 @@ struct ImportSheet: View {
         //     matching: .images
         // )
         // .task(id: extraItems.count) { await addPicked() }
+        // **Cerrar no es tirar.** Lo analizado y lo corregido se queda para
+        // retomarlo desde el "+". Ver `ImportSessionStore`.
+        .onDisappear {
+            guard !didSave, let model else { return }
+            appEnvironment.importSession.stash(model)
+        }
         .task {
+            // Retomada: ya está todo hecho, no hay nada que analizar.
+            guard model == nil else { return }
             // **Esperar al segmentador antes de analizar.** Construido con
             // `segmenter == nil` —y la descarga tarda decenas de segundos— el
             // pipeline cae a la ruta degradada, que necesita una persona en la
@@ -201,6 +219,8 @@ struct ImportSheet: View {
             imageStore: appEnvironment.imageStore,
             wardrobe: appEnvironment.wardrobe
         )) ?? 0
+        didSave = true
+        appEnvironment.importSession.clear()
         dismiss()
 
         // El aviso se pide **después** de cerrar, y lo pinta la raíz: si lo
