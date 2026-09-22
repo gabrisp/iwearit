@@ -27,6 +27,8 @@ struct ClosetScreen: View {
     /// El arrastre de prendas entre baldas. Vive aquí porque cruza baldas: es
     /// el único sitio que las ve todas.
     @State private var shelfDrag = ShelfDragModel()
+    /// El botón del armario vacío abre el menú del "+".
+    @State private var isRequestingAdd = false
     /// Para desplazar el armario solo mientras se lleva una prenda. Ver
     /// `autoScroll()`.
     @State private var scrollPosition = ScrollPosition(edge: .top)
@@ -137,7 +139,13 @@ struct ClosetScreen: View {
             ScrollView {
                 if garments.isEmpty {
                     ClosetEmptyState {
-                        appEnvironment.gate.require(.garments) { sheet = .capture }
+                        // **El mismo menú que el "+"**, no la cámara directa:
+                        // con el armario vacío se puede empezar igual desde la
+                        // galería o desde una tienda, y abrir la cámara sin
+                        // preguntar dejaba esas dos fuera.
+                        //
+                        // appEnvironment.gate.require(.garments) { sheet = .capture }
+                        isRequestingAdd = true
                     }
                         .containerRelativeFrame(.vertical)
                         .transition(AnyTransition(.blurReplace))
@@ -254,7 +262,7 @@ struct ClosetScreen: View {
                     .tint(WK.Palette.primaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    ClosetAddMenu()
+                    ClosetAddMenu(openRequest: $isRequestingAdd)
                 }
             }
             .sheet(item: $sheet) { which in

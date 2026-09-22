@@ -18,6 +18,9 @@ import WKDesign
 /// es cambiar de caso, y el paso anterior se destruye al hacerlo.
 struct ClosetAddMenu: View {
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// Abrir el menú desde fuera: el botón del armario vacío pide lo mismo
+    /// que el "+", y el menú es uno solo.
+    var openRequest: Binding<Bool> = .constant(false)
 
     @State private var step: Step?
     /// La galería del sistema, abierta **desde el menú**.
@@ -70,6 +73,11 @@ struct ClosetAddMenu: View {
                 .contentShape(.rect)
         }
         .tint(WK.Palette.primaryText)
+        .onChange(of: openRequest.wrappedValue) { _, requested in
+            guard requested else { return }
+            openRequest.wrappedValue = false
+            step = .menu
+        }
         .sheet(item: $step) { current in
             content(for: current)
         }
