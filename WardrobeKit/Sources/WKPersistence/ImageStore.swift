@@ -146,7 +146,9 @@ public actor ImageStore {
     /// distintas.
     @discardableResult
     public func store(_ image: CGImage) async throws -> String {
-        guard let canonical = Self.resize(image, maxPixelSize: Variant.display.maxPixelSize) else {
+        // **Sin margen transparente.** Ver `trimmed`.
+        let tight = Self.trimmed(image) ?? image
+        guard let canonical = Self.resize(tight, maxPixelSize: Variant.display.maxPixelSize) else {
             throw StoreError.renderFailed
         }
         let key = Self.contentHash(of: canonical)
@@ -181,7 +183,8 @@ public actor ImageStore {
     /// otra manera, así que borrar la prenda se lleva las dos, y no hay una
     /// segunda clave que pueda quedarse huérfana.
     public func storeCatalog(_ image: CGImage, for key: String) async throws {
-        guard let resized = Self.resize(image, maxPixelSize: Variant.catalog.maxPixelSize) else {
+        let tight = Self.trimmed(image) ?? image
+        guard let resized = Self.resize(tight, maxPixelSize: Variant.catalog.maxPixelSize) else {
             throw StoreError.renderFailed
         }
         let data = try Self.encodePNG(resized)
@@ -427,6 +430,50 @@ public actor ImageStore {
     }
 
     // MARK: - Utilidades
+
+    /// La imagen **recortada a la prenda**: se quita todo el borde
+    /// transparente.
+    ///
+    /// ## Por qué
+    ///
+    /// El recorte se normaliza en un lienzo fijo —1024 cuadrado, o 4:5 para lo
+    /// que va abajo— con su margen, así que dos prendas del mismo tamaño en
+    /// pantalla pueden traer dentro cantidades muy distintas de nada. Guardado
+    /// así, el alto y el ancho del fichero no son los de la prenda, y cualquier
+    /// sitio que la pinte "a lo que mida" la saca más grande o más pequeña de
+    /// lo que es.
+    ///
+    /// Aquí se busca, por cada lado, el primer píxel que no sea transparente
+    /// —la columna más a la izquierda, la más a la derecha, la fila de arriba y
+    /// la de abajo— y se corta por ahí. Lo que queda es la prenda y nada más.
+    static func trimmed(_ image: CGImage, alphaThreshold: UInt8 = 8) -> CGImage? {
+        let width = image.width
+        let height = image.height
+        guard width > 0, height > 0 else { return nil }
+        guard
+            let buffer = PixelBuffer(width: width, height: height),
+            let context = buffer.makeContext()
+        else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        var minX = width, minY = height, maxX = -1, maxY = -1
+        for y in 0..<height {
+            for x in 0..<width where buffer[x, y, buffer.alphaThresholdComponent] > alphaThreshold {
+                if x < minX { minX = x }
+                if x > maxX { maxX = x }
+                if y < minY { minY = y }
+                if y > maxY { maxY = y }
+            }
+        }
+        // Sin un solo píxel opaco no hay nada que recortar; y si ya está
+        // ajustada, se devuelve la misma imagen y no se copia por nada.
+        guard maxX >= minX, maxY >= minY else { return nil }
+        guard minX > 0 || minY > 0 || maxX < width - 1 || maxY < height - 1 else { return image }
+
+        return image.cropping(
+            to: CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)
+        )
+    }
 
     /// Hash de los píxeles en crudo, no del fichero codificado: el HEIC con
     /// pérdida no es determinista entre versiones del SDK, así que hashear el

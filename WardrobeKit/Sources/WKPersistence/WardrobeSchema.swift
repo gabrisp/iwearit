@@ -32,6 +32,7 @@ public enum WardrobeSchemaV1: VersionedSchema {
             BodyProfile.self,
             GarmentImageBlob.self,
             SyncDevice.self,
+            WebShortcut.self,
         ]
     }
 

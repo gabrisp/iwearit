@@ -1,102 +1,72 @@
 import Foundation
 import SwiftUI
 import WKDesign
+import WKPersistence
 
-/// Una web del navegador de importar: su dominio y su icono.
-///
-/// El dominio y no el título de la página: "zara.com" cabe en una píldora y
-/// dice a dónde vas; "Camiseta oversize | ZARA España" no cabe y además cambia
-/// con cada producto.
-struct WebSite: Codable, Identifiable, Hashable {
-    let host: String
-    let url: URL
-    /// El favicon ya descargado. Se guarda con el sitio para que la fila no
-    /// tenga que pedir nada al abrirse.
-    var iconData: Data?
+import SwiftData
 
-    var id: String { host }
-}
-
-/// Las webs recientes y las fijadas.
+/// Las tiendas del navegador, **en la base y sincronizadas**.
 ///
-/// ## Por qué se guardan
+/// Estaban en `UserDefaults`: se quedaban en un aparato y se perdían al
+/// reinstalar. Ahora son `WebShortcut`, que viaja con el armario a iCloud.
 ///
-/// La ropa se importa de las mismas cuatro tiendas una y otra vez, y cada vez
-/// había que volver a escribir el dominio o buscarlo en Google. Las últimas
-/// tres salen solas; lo que se toca a diario se fija con el "+" y se queda.
-///
-/// En `UserDefaults` y no en la base: es una preferencia de este dispositivo
-/// —dónde compras— y no parte del armario.
+/// Lo que se guarda es **el enlace entero**, con su ruta y sus parámetros: el
+/// atajo que sirve es la página en la que estabas, no su dominio. El dominio
+/// solo se escribe en la píldora.
 @MainActor
-@Observable
-final class WebSiteStore {
-    private(set) var pinned: [WebSite] = []
-    private(set) var recents: [WebSite] = []
+struct WebSiteStore {
+    let context: ModelContext
 
-    /// Cuántas recientes se recuerdan.
+    /// Cuántas recientes se recuerdan, además de las fijadas.
     static let recentLimit = 3
-    /// Y cuántas píldoras caben en la fila, fijadas incluidas.
+    /// Y cuántas píldoras caben en la fila.
     static let shownLimit = 4
 
-    private static let pinnedKey = "web.pinned"
-    private static let recentsKey = "web.recents"
-
-    init() {
-        pinned = Self.load(Self.pinnedKey)
-        recents = Self.load(Self.recentsKey)
+    /// Lo que se enseña: primero lo fijado y detrás lo reciente.
+    func shown(from all: [WebShortcut]) -> [WebShortcut] {
+        let pinned = all.filter(\.isPinned)
+        let recents = all.filter { !$0.isPinned }.prefix(Self.recentLimit)
+        return Array((pinned + recents).prefix(Self.shownLimit))
     }
 
-    /// Lo que se enseña: primero lo fijado, y detrás las recientes que no
-    /// estén ya fijadas.
-    var shown: [WebSite] {
-        let pinnedHosts = Set(pinned.map(\.host))
-        return Array((pinned + recents.filter { !pinnedHosts.contains($0.host) }).prefix(Self.shownLimit))
-    }
-
-    func isPinned(_ host: String) -> Bool { pinned.contains { $0.host == host } }
-
-    /// Se ha navegado a una página: su dominio pasa a ser el más reciente.
+    /// Se ha navegado: esa página pasa a ser la más reciente de su dominio.
+    ///
+    /// **A una fijada no se le toca el enlace.** Si fijaste la sección de
+    /// hombre, pasar por la portada no debe cambiarte el atajo; lo que sí se
+    /// actualiza es la fecha y, si faltaba, el icono.
     func visited(_ url: URL) async {
         guard let host = Self.host(of: url) else { return }
-        var site = WebSite(host: host, url: url, iconData: icon(for: host))
-        if site.iconData == nil {
-            site.iconData = await Self.favicon(for: host)
+        let all = (try? context.fetch(FetchDescriptor<WebShortcut>.webShortcuts())) ?? []
+
+        if let existing = all.first(where: { $0.host == host }) {
+            existing.lastVisitedAt = Date()
+            if !existing.isPinned { existing.urlString = url.absoluteString }
+            if existing.iconData == nil { existing.iconData = await Self.favicon(for: host) }
+        } else {
+            let icon = await Self.favicon(for: host)
+            context.insert(WebShortcut(urlString: url.absoluteString, host: host, iconData: icon))
         }
 
-        recents.removeAll { $0.host == host }
-        recents.insert(site, at: 0)
-        if recents.count > Self.recentLimit { recents.removeLast(recents.count - Self.recentLimit) }
-        Self.save(recents, to: Self.recentsKey)
-
-        // Si estaba fijada, se le refresca el enlace y el icono: una tienda que
-        // cambia de dominio no debería quedarse fijada apuntando al viejo.
-        if let index = pinned.firstIndex(where: { $0.host == host }) {
-            pinned[index] = site
-            Self.save(pinned, to: Self.pinnedKey)
-        }
+        // Las recientes de más se caen; las fijadas se quedan siempre.
+        let recents = ((try? context.fetch(FetchDescriptor<WebShortcut>.webShortcuts())) ?? [])
+            .filter { !$0.isPinned }
+        for extra in recents.dropFirst(Self.recentLimit) { context.delete(extra) }
+        try? context.save()
     }
 
-    /// Fija una web de la fila. Ya se sabe todo de ella —icono incluido—,
-    /// así que no hay nada que pedir.
-    func pin(_ site: WebSite) {
-        guard !isPinned(site.host) else { return }
-        pinned.append(site)
-        Self.save(pinned, to: Self.pinnedKey)
+    func pin(_ shortcut: WebShortcut) {
+        shortcut.isPinned = true
+        try? context.save()
     }
 
-    func unpin(_ host: String) {
-        pinned.removeAll { $0.host == host }
-        Self.save(pinned, to: Self.pinnedKey)
-    }
-
-    func forget(_ host: String) {
-        recents.removeAll { $0.host == host }
-        Self.save(recents, to: Self.recentsKey)
-    }
-
-    /// El icono que ya se tenga de ese dominio, venga de donde venga.
-    private func icon(for host: String) -> Data? {
-        (pinned + recents).first { $0.host == host && $0.iconData != nil }?.iconData
+    /// Deja de estar fijada. **Se queda** mientras siga entre las recientes, y
+    /// se va si ya no lo estaba: lo fijado es lo que guardas tú y lo reciente
+    /// es por dónde has pasado.
+    func unpin(_ shortcut: WebShortcut, all: [WebShortcut]) {
+        shortcut.isPinned = false
+        let recents = all.filter { !$0.isPinned && $0.persistentModelID != shortcut.persistentModelID }
+        if recents.count >= Self.recentLimit { context.delete(shortcut) }
+        try? context.save()
     }
 
     /// "www.zara.com/es/…" → "zara.com". El "www" no distingue nada y ocupa.
@@ -123,51 +93,38 @@ final class WebSiteStore {
         else { return nil }
         return data
     }
-
-    private static func load(_ key: String) -> [WebSite] {
-        guard
-            let data = UserDefaults.standard.data(forKey: key),
-            let sites = try? JSONDecoder().decode([WebSite].self, from: data)
-        else { return [] }
-        return sites
-    }
-
-    private static func save(_ sites: [WebSite], to key: String) {
-        guard let data = try? JSONEncoder().encode(sites) else { return }
-        UserDefaults.standard.set(data, forKey: key)
-    }
 }
 
 /// La fila de webs, en píldoras de cristal.
 ///
 /// **Todas llevan su chincheta**, no solo la que se está viendo: la tienda que
 /// quieres guardar es casi siempre la de la que acabas de volver.
-///
-/// Al dejar de fijar una, la píldora se queda **si sigue siendo reciente**, y
-/// se va si ya no lo era: lo fijado es lo que uno guarda a mano y lo reciente
-/// es por dónde has pasado, y quitar lo primero no debería borrar lo segundo.
 struct WebSiteBar: View {
-    let store: WebSiteStore
     /// Dónde se está. Solo para marcar cuál es. `nil` = no hay página.
     let current: URL?
-    let onOpen: (WebSite) -> Void
+    let onOpen: (WebShortcut) -> Void
+
+    @Query(FetchDescriptor<WebShortcut>.webShortcuts())
+    private var shortcuts: [WebShortcut]
+
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
+        let store = WebSiteStore(context: modelContext)
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.xs) {
-                ForEach(store.shown) { site in
+                ForEach(store.shown(from: shortcuts)) { shortcut in
                     WebSitePill(
-                        site: site,
-                        isPinned: store.isPinned(site.host),
-                        isCurrent: site.host == currentHost
+                        shortcut: shortcut,
+                        isCurrent: shortcut.host == currentHost
                     ) {
-                        onOpen(site)
+                        onOpen(shortcut)
                     } onPinToggle: {
                         withAnimation(WKAnimation.selection) {
-                            if store.isPinned(site.host) {
-                                store.unpin(site.host)
+                            if shortcut.isPinned {
+                                store.unpin(shortcut, all: shortcuts)
                             } else {
-                                store.pin(site)
+                                store.pin(shortcut)
                             }
                         }
                     }
@@ -177,10 +134,10 @@ struct WebSiteBar: View {
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .animation(WKAnimation.selection, value: store.shown)
+        .animation(WKAnimation.selection, value: shortcuts.count)
     }
 
-    /// El dominio en el que se está: es el único que enseña el "+".
+    /// El dominio en el que se está: se marca un poco más.
     private var currentHost: String? {
         current.flatMap(WebSiteStore.host(of:))
     }
@@ -188,8 +145,7 @@ struct WebSiteBar: View {
 
 /// Una web: su favicon y su dominio.
 private struct WebSitePill: View {
-    let site: WebSite
-    let isPinned: Bool
+    @Bindable var shortcut: WebShortcut
     /// La página en la que se está: se marca un poco más.
     let isCurrent: Bool
     let onOpen: () -> Void
@@ -200,7 +156,7 @@ private struct WebSitePill: View {
             Button(action: onOpen) {
                 HStack(spacing: 6) {
                     icon
-                    Text(site.host)
+                    Text(shortcut.host)
                         .font(WK.Font.caption)
                         .foregroundStyle(WK.Palette.primaryText)
                         .lineLimit(1)
@@ -214,9 +170,9 @@ private struct WebSitePill: View {
             // chincheta, que es la misma información dicha después. En todas,
             // no solo en la actual.
             Button(action: onPinToggle) {
-                    Image(systemName: isPinned ? "pin.fill" : "plus")
+                    Image(systemName: shortcut.isPinned ? "pin.fill" : "plus")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(isPinned ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                        .foregroundStyle(shortcut.isPinned ? WK.Palette.primaryText : WK.Palette.secondaryText)
                         .contentTransition(.symbolEffect(.replace.downUp))
                         .frame(width: 22, height: 22)
                         .contentShape(.circle)
@@ -226,13 +182,13 @@ private struct WebSitePill: View {
         .padding(.horizontal, WK.Spacing.s)
         .frame(height: 36)
         .adaptiveGlassInteractive(in: .capsule)
-        .animation(WKAnimation.selection, value: isPinned)
+        .animation(WKAnimation.selection, value: shortcut.isPinned)
         .opacity(isCurrent ? 1 : 0.85)
     }
 
     @ViewBuilder
     private var icon: some View {
-        if let data = site.iconData, let image = UIImage(data: data) {
+        if let data = shortcut.iconData, let image = UIImage(data: data) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()

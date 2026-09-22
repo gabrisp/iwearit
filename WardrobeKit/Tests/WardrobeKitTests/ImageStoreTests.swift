@@ -17,6 +17,9 @@ private func makeCutout(size: Int = 512) -> CGImage {
     context.setFillColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 1)
     let inset = size / 4
     context.fill(CGRect(x: inset, y: inset, width: size / 2, height: size / 2))
+    // Un agujero transparente dentro de la prenda: es lo que permite
+    // comprobar que el alfa sobrevive **después** de recortar el margen.
+    context.clear(CGRect(x: size / 2 - 16, y: size / 2 - 16, width: 32, height: 32))
     return context.makeImage()!
 }
 
@@ -77,11 +80,27 @@ struct ImageStoreTests {
         let key = try await store.store(makeCutout())
         let restored = try await store.image(for: key, variant: .display)
 
-        let corner = alpha(of: restored, atX: 2, y: 2)
-        let center = alpha(of: restored, atX: restored.width / 2, y: restored.height / 2)
+        // Ya sin margen —ver `trimmed`—, así que lo transparente que queda es
+        // el agujero del medio.
+        let hole = alpha(of: restored, atX: restored.width / 2, y: restored.height / 2)
+        let fabric = alpha(of: restored, atX: 4, y: restored.height / 2)
 
-        #expect(corner < 16, "la esquina tiene que seguir siendo transparente")
-        #expect(center > 240, "el centro tiene que seguir siendo opaco")
+        #expect(hole < 16, "el hueco tiene que seguir siendo transparente")
+        #expect(fabric > 240, "la tela tiene que seguir siendo opaca")
+    }
+
+    /// Guardadas con su margen, dos prendas del mismo tamaño real venían en
+    /// ficheros de tamaños distintos, y cualquier sitio que las pinte "a lo que
+    /// midan" las sacaba descuadradas.
+    @Test("Al guardar se recorta el margen transparente")
+    func trimsTransparentMargin() async throws {
+        let store = try ImageStore(root: temporaryRoot())
+        let key = try await store.store(makeCutout(size: 512))
+        let restored = try await store.image(for: key, variant: .display)
+
+        // El dibujo ocupa la mitad central: 256 de los 512.
+        #expect(restored.width == 256)
+        #expect(restored.height == 256)
     }
 
     /// Direccionado por contenido: el escaneo encuentra la misma camiseta en

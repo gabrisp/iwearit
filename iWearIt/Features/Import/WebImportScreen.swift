@@ -1,5 +1,7 @@
+import SwiftData
 import SwiftUI
 import WKDesign
+import WKPersistence
 import WebKit
 
 /// Meter una prenda **desde la tienda**.
@@ -27,24 +29,20 @@ struct WebImportScreen: View {
     let onCapture: ([CGImage]) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var model = WebCaptureModel()
     @FocusState private var isTyping: Bool
     /// Lo capturado en esta visita, en orden.
     @State private var captures: [WebCapture] = []
-    /// Las tiendas recientes y las fijadas. Ver `WebSiteStore`.
-    @State private var sites = WebSiteStore()
 
     var body: some View {
         NavigationStack {
             WebCaptureView(model: model)
-                // **A los cuatro bordes.** Ignorando solo abajo, la web
-                // empezaba justo debajo de la barra y por arriba quedaba una
-                // franja en blanco: la página se veía recortada en vez de
-                // pasar por debajo del cristal. El texto no se esconde porque
-                // la propia `WKWebView` mete el área segura como margen de su
-                // scroll.
-                // .ignoresSafeArea(edges: .bottom)
-                .ignoresSafeArea()
+                // **Solo por abajo.** Llevándola también hasta arriba, los
+                // controles que la página pone en su cabecera quedaban debajo
+                // de la barra y no se podían tocar. La franja de arriba es el
+                // sitio de nuestra barra, no de la web.
+                .ignoresSafeArea(edges: .bottom)
                 // **Todo en la barra, y sin superficie propia.**
                 //
                 // La barra puesta a mano de antes traía su propio cristal
@@ -94,14 +92,14 @@ struct WebImportScreen: View {
                             .keyboardType(.webSearch)
                             .submitLabel(.go)
                             .focused($isTyping)
-                            .padding(.horizontal, WK.Spacing.s)
-                            // **Sin alto propio.** Con 36 quedaba más bajo que
-                            // los botones de al lado; estirándose a lo que mide
-                            // la barra, el campo y los botones son la misma
-                            // pieza.
-                            .frame(width: 210)
-                            .frame(maxHeight: .infinity)
-                            .adaptiveGlassInteractive(in: .capsule)
+                            // **Sin cristal ni alto puestos a mano.** Eso lo
+                            // pone la barra: forzarlo daba un campo que no
+                            // casaba con sus vecinos por mucho que se ajustara
+                            // el número.
+                            // .padding(.horizontal, WK.Spacing.s)
+                            // .frame(width: 210, height: 40)
+                            // .adaptiveGlassInteractive(in: .capsule)
+                            .frame(minWidth: 160)
                             .onSubmit {
                                 model.go(to: model.address)
                                 isTyping = false
@@ -131,18 +129,16 @@ struct WebImportScreen: View {
                 // dónde se empieza, no algo que se hace al final. Abajo queda
                 // lo capturado y los botones.
                 .adaptiveSafeAreaBar(edge: .top) {
-                    WebSiteBar(
-                        store: sites,
-                        current: model.currentURL,
-                        onOpen: { site in model.go(to: site.url.absoluteString) }
-                    )
+                    WebSiteBar(current: model.currentURL) { shortcut in
+                        model.go(to: shortcut.urlString)
+                    }
                     .padding(.bottom, WK.Spacing.xs)
                 }
                 .adaptiveSafeAreaBar(edge: .bottom) { captureBar }
                 // Lo visitado se recuerda: las tres últimas salen en la fila.
                 .task(id: model.currentURL) {
                     guard let url = model.currentURL else { return }
-                    await sites.visited(url)
+                    await WebSiteStore(context: modelContext).visited(url)
                 }
         }
         // Se cierra arrastrando, como cualquier otra hoja. Estaba desactivado

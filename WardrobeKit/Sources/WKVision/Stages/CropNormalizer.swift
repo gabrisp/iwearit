@@ -157,7 +157,23 @@ public enum CropNormalizer {
             : cleaned
 
         guard let bounds = opaqueBounds(of: straight) else { return nil }
-        return render(straight, cropping: bounds, into: profile)
+        guard let rendered = render(straight, cropping: bounds, into: profile) else { return nil }
+        // **Y sin margen.** El lienzo del perfil sirve para enderezar y para
+        // dejar todas las prendas a una escala comparable; lo que no tiene
+        // sentido es guardar ese aire. Recortado al primer píxel opaco de cada
+        // lado, el fichero mide lo que mide la prenda y no queda más grande de
+        // lo que es en ningún sitio donde se pinte.
+        return trimmed(rendered) ?? rendered
+    }
+
+    /// La imagen cortada por el píxel opaco más cercano a cada borde.
+    public static func trimmed(_ image: CGImage) -> CGImage? {
+        guard let bounds = opaqueBounds(of: image) else { return nil }
+        guard
+            bounds.minX > 0 || bounds.minY > 0
+                || bounds.maxX < CGFloat(image.width) || bounds.maxY < CGFloat(image.height)
+        else { return image }
+        return image.cropping(to: bounds)
     }
 
     /// Caja mínima que contiene todos los píxeles no transparentes.
