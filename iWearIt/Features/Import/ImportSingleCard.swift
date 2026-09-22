@@ -278,6 +278,8 @@ struct ImportSingleCard: View {
 
             // La manga o el largo, como etiquetas a la vista.
             CutChipsRow(kind: candidate.kind, selection: candidate.cut) { onChangeCut?($0) }
+            // Etiquetas de uso: Deporte, Trabajo… Ver `TagChipsRow`.
+            TagChipsRow(selection: candidate.tags) { onChangeTags?($0) }
         }
     }
 

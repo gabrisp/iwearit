@@ -234,3 +234,69 @@ struct CutChipsRow: View {
         .animation(WKAnimation.selection, value: isSelected)
     }
 }
+
+/// Las etiquetas de uso —Deporte, Trabajo…— como chips, varias a la vez, y un
+/// "+" para escribir una propia.
+struct TagChipsRow: View {
+    let selection: [String]
+    let onChange: ([String]) -> Void
+
+    @State private var isAddingCustom = false
+    @State private var custom = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+            Text("Etiquetas")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.tertiaryText)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: WK.Spacing.xs) {
+                    ForEach(options, id: \.self) { option in
+                        let isSelected = visible.contains(option)
+                        chip(option, isSelected: isSelected) {
+                            onChange(isSelected ? visible.filter { $0 != option } : visible + [option])
+                        }
+                    }
+                    chip("+", isSelected: false) { isAddingCustom = true }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+        }
+        .padding(.vertical, WK.Spacing.m - 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .alert("Nueva etiqueta", isPresented: $isAddingCustom) {
+            TextField("Escribe la tuya", text: $custom)
+            Button("Añadir") {
+                let value = custom.trimmingCharacters(in: .whitespaces).capitalized
+                custom = ""
+                guard !value.isEmpty, !visible.contains(value) else { return }
+                onChange(visible + [value])
+            }
+            Button("Cancelar", role: .cancel) { custom = "" }
+        }
+    }
+
+    private var visible: [String] { GarmentVocabulary.visibleTags(selection) }
+
+    /// Las de siempre, más las propias que ya tenga.
+    private var options: [String] {
+        let base = GarmentVocabulary.usageTags
+        return base + visible.filter { !base.contains($0) }
+    }
+
+    private func chip(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(WK.Font.callout)
+                .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.s)
+                .background(isSelected ? WK.Palette.accent : WK.Palette.ink(0.06), in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(WKPressStyle())
+        .animation(WKAnimation.selection, value: isSelected)
+    }
+}

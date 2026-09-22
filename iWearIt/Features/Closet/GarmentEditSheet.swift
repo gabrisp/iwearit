@@ -228,6 +228,8 @@ struct GarmentEditSheet: View {
             // que no cabe en ningún otro, y por eso no tiene formato.
             // La manga o el largo, como etiquetas a la vista.
             CutChipsRow(kind: garment.kind, selection: garment.cut) { garment.cut = $0 }
+            // Etiquetas de uso: Deporte, Trabajo… Ver `TagChipsRow`.
+            TagChipsRow(selection: garment.tags) { garment.tags = $0 }
 
             NotesRow(notes: notesBinding)
         }

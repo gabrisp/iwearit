@@ -1008,7 +1008,9 @@ struct ImportCandidate: Identifiable {
             kind: kind
         )
     }
-    var tags: [String] { editedTags ?? detected.tags }
+    // var tags: [String] { editedTags ?? detected.tags }
+    /// De uso y no de estilo: ver `GarmentVocabulary.usageTags`.
+    var tags: [String] { editedTags ?? GarmentVocabulary.usageTags(fromDetected: detected.tags) }
     var seasons: SeasonSet { editedSeasons ?? detected.seasons }
     var material: String? { editedMaterial ?? detected.material }
 

@@ -183,6 +183,37 @@ public enum GarmentVocabulary {
     ]
     public static let maximumTags = 3
 
+    /// Etiquetas **de uso**: para qué te pones la prenda.
+    ///
+    /// Las de estilo de arriba ("Casual · Edgy") se adivinaban y no servían
+    /// para nada que se haga en la app. Estas sí: "Deporte" es justo lo que
+    /// se busca al montar la bolsa del gimnasio o una maleta. Se puede
+    /// escribir cualquier otra.
+    public static let usageTags = [
+        "Deporte", "Trabajo", "Diario", "Fiesta", "Formal", "Playa", "Baño", "Viaje", "Casa",
+    ]
+
+    /// Lo que dijo el detector, pasado a etiquetas de uso. Las de estilo que
+    /// no tienen equivalente se descartan.
+    public static func usageTags(fromDetected detected: [String]) -> [String] {
+        var result: [String] = []
+        for tag in detected {
+            let mapped: String? = switch tag {
+            case "Deportivo": "Deporte"
+            case "Oficina": "Trabajo"
+            case "Elegante": "Formal"
+            default: usageTags.contains(tag) ? tag : nil
+            }
+            if let mapped, !result.contains(mapped) { result.append(mapped) }
+        }
+        return result
+    }
+
+    /// Las que se enseñan de una prenda: todas menos las de estilo antiguas.
+    public static func visibleTags(_ tags: [String]) -> [String] {
+        tags.filter { usageTags.contains($0) || !Self.tags.contains($0) }
+    }
+
     /// Calidez. Tres niveles y no cuatro estaciones: lo que decide si una
     /// prenda vale para hoy es cuánto abriga, no el mes del calendario.
     public enum Warmth: String, CaseIterable, Sendable {
