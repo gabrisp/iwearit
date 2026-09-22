@@ -148,13 +148,16 @@ struct WebImportScreen: View {
                     }
                 }
             } label: {
-                Image(systemName: "camera.viewfinder")
+                // Una cámara, sin el recuadro del visor, y del mismo tamaño
+                // que el visto de al lado: son dos botones de la misma fila.
+                Image(systemName: "camera")
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.primaryText)
                     .frame(width: 56, height: 56)
                     .contentShape(.circle)
             }
-            .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+            .buttonStyle(WKPressStyle())
+            .adaptiveGlassInteractive(in: .circle)
             .disabled(!model.hasPage)
 
             Button {
