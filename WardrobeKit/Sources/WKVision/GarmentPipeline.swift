@@ -246,7 +246,10 @@ public actor GarmentPipeline {
         // A tamaño de pantalla: la letra de una ficha se lee de sobra, y la
         // foto entera a doce megapíxeles es tiempo de espera.
         let page = Self.scaledDown(original, maxSide: 2000) ?? original
-        guard let read = await ProductPageReader.read(page) else { return garments }
+        guard let read = await ProductPageReader.read(page) else {
+            DiagnosticsLog.record("FICHA", "sin texto de producto en la foto")
+            return garments
+        }
 
         if garments.count == 1 {
             return [garments[0].annotated(with: read, allowsKindChange: true)]

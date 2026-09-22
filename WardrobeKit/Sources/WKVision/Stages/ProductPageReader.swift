@@ -32,12 +32,16 @@ public enum ProductPageReader {
     static let minimumLines = 3
 
     public static func read(_ image: CGImage) async -> Page? {
-        guard let quick = await lines(in: image, accurate: false),
-              quick.filter({ $0.text.count >= 3 }).count >= minimumLines
-        else { return nil }
+        // **Sin exigir una página.** Antes hacía falta una pasada rápida con
+        // tres líneas o más, y una foto de producto con solo su nombre escrito
+        // —una línea— no se leía nunca. Una sola pasada, la precisa: la
+        // rápida además se perdía la letra fina o sobre la foto.
+        // guard let quick = await lines(in: image, accurate: false),
+        //       quick.filter({ $0.text.count >= 3 }).count >= minimumLines
+        // else { return nil }
 
         guard let lines = await lines(in: image, accurate: true), !lines.isEmpty else { return nil }
-        let page = parse(lines)
+        let page = parse(lines, isProductShot: SolidBackground.isLikely(in: image))
         DiagnosticsLog.record(
             "FICHA",
             "título \(page.title ?? "—") · tipo \(page.type ?? "—")"
@@ -76,7 +80,10 @@ public enum ProductPageReader {
 
     // MARK: - Lo que dice la página
 
-    static func parse(_ lines: [Line]) -> Page {
+    /// - Parameter isProductShot: fondo liso, de catálogo. Ahí cualquier
+    ///   texto destacado es el nombre del producto aunque no diga qué prenda
+    ///   es ("Air Force 1 '07"); en una foto de calle sería un cartel.
+    static func parse(_ lines: [Line], isProductShot: Bool = false) -> Page {
         var page = Page(title: nil, type: nil, kind: nil, material: nil, brandEvidence: [])
 
         // El título: la línea más grande que diga qué prenda es.
@@ -91,6 +98,15 @@ public enum ProductPageReader {
             page.title = cleanTitle(line.text)
             page.type = type
             page.kind = GarmentVocabulary.kind(forType: type)
+            page.material = material(in: line.text)
+        }
+        // Sin tipo en ninguna línea: en una foto de producto, el texto más
+        // grande es su nombre igualmente.
+        if page.title == nil, isProductShot,
+           let line = lines
+            .filter({ isNameLike($0.text) })
+            .max(by: { $0.height * Double($0.confidence) < $1.height * Double($1.confidence) }) {
+            page.title = cleanTitle(line.text)
             page.material = material(in: line.text)
         }
         if page.material == nil {
@@ -188,6 +204,19 @@ public enum ProductPageReader {
         return interfaceWords.contains { contains(words, $0) }
     }
 
+    /// Si una línea puede ser un nombre: con letras, sin ser un botón, un
+    /// precio suelto o la marca sola.
+    static func isNameLike(_ text: String) -> Bool {
+        guard !isInterface(text), let clean = cleanTitle(text) else { return false }
+        let letters = clean.filter(\.isLetter).count
+        guard letters >= 3 else { return false }
+        if let reading = BrandRecognizer.read(clean),
+           tokens(clean).joined(separator: " ") == tokens(reading.brand).joined(separator: " ") {
+            return false
+        }
+        return true
+    }
+
     static func type(in text: String) -> String? {
         let words = tokens(text)
         return typeWords.first { rule in rule.needles.contains { contains(words, $0) } }?.type
@@ -279,7 +308,8 @@ extension DetectedGarment {
             brandEvidence: evidence,
             instanceIndex: instanceIndex,
             sourceRect: sourceRect,
-            productName: newSubcategory == page.type ? page.title : nil
+            // El nombre, salvo que el título diga otra prenda que la que es.
+            productName: page.type == nil || newSubcategory == page.type ? page.title : nil
         )
     }
 }

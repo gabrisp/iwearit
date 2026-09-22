@@ -54,3 +54,33 @@ struct ProductPageReaderTests {
         #expect(ProductPageReader.cleanTitle("€35 Polo piqué") == "Polo piqué")
     }
 }
+
+@Suite("Ficha del producto: solo el nombre")
+struct ProductPageReaderNameOnlyTests {
+    private func line(_ text: String, height: Double = 0.03) -> ProductPageReader.Line {
+        .init(text: text, confidence: 0.95, height: height)
+    }
+
+    @Test func aSingleLineWithTheTypeIsTheName() {
+        let page = ProductPageReader.parse([line("Sudadera capucha básica")])
+        #expect(page.title == "Sudadera capucha básica")
+        #expect(page.type == "Sudadera")
+    }
+
+    @Test func onAProductShotAnUntypedLineIsStillTheName() {
+        let page = ProductPageReader.parse([line("Air Force 1 '07")], isProductShot: true)
+        #expect(page.title == "Air Force 1 '07")
+        #expect(page.type == nil)
+    }
+
+    @Test func onAStreetPhotoAnUntypedSignIsNotAName() {
+        let page = ProductPageReader.parse([line("FARMACIA")], isProductShot: false)
+        #expect(page.title == nil)
+    }
+
+    @Test func theBrandAloneIsNotTheName() {
+        let page = ProductPageReader.parse([line("NIKE")], isProductShot: true)
+        #expect(page.title == nil)
+        #expect(page.brandEvidence.first?.brand == "Nike")
+    }
+}
