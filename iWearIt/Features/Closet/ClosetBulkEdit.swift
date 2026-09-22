@@ -181,6 +181,10 @@ struct ClosetBulkActionBar: View {
         .disabled(count == 0)
         .opacity(count == 0 ? 0.5 : 1)
         .animation(WKAnimation.selection, value: count == 0)
+        // De borde a borde, con el mismo margen que los botones de la barra de
+        // arriba: tres píldoras pequeñas centradas se leían como un accesorio
+        // suelto y no como la barra de la pantalla.
+        .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.xs)
     }
 
@@ -198,7 +202,8 @@ struct ClosetBulkActionBar: View {
                     .font(WK.Font.caption)
             }
             .foregroundStyle(tint)
-            .frame(width: 92, height: WKLocktyTabBarMetrics.height)
+            .frame(maxWidth: .infinity)
+            .frame(height: 58)
             .contentShape(.capsule)
         }
         .buttonStyle(WKPlainGlassButtonStyle(shape: Capsule(style: .continuous)))
