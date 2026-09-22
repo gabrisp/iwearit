@@ -270,17 +270,27 @@ private struct ImportPhaseContent: View {
 
     var body: some View {
         switch model.phase {
-        case .idle, .processing:
-            reveal(isScanning: true, status: "Buscando prendas…")
-        case let .generating(done, total):
-            // El mismo barrido, con el paso nombrado. Lo que no puede pasar es
-            // que se quede la animación sin decir qué está esperando.
-            reveal(
-                isScanning: true,
-                status: total > 1
-                    ? "Redibujando prendas… \(done) de \(total)"
-                    : "Redibujando la prenda…"
-            )
+        // **Análisis y revisión, una sola pieza.** Antes el carrete del
+        // análisis y el de "recortando" eran dos casos distintos del
+        // `switch`, así que al acabar SwiftUI tiraba uno y creaba otro: el
+        // carrete volvía a su principio de golpe —la última foto "se iba
+        // fuera"— y justo después entraba la lista, todo en un destello.
+        //
+        // Aquí el carrete es siempre la misma vista, se queda quieta en la
+        // última foto mientras se revelan sus prendas, y la lista entra
+        // encima con un fundido largo.
+        case .idle, .processing, .generating, .review:
+            ZStack {
+                if !showsReview {
+                    reveal(isScanning: isScanning, status: status)
+                        .transition(.opacity)
+                }
+                if showsReview {
+                    review
+                        .transition(.opacity)
+                }
+            }
+            .animation(.smooth(duration: 0.8), value: showsReview)
         case .detected:
             // **El paso nuevo.** Se enseña lo detectado y se decide ahí qué
             // es una prenda; solo después se reconstruye. Ver
@@ -292,64 +302,6 @@ private struct ImportPhaseContent: View {
                 reveal(isScanning: false, status: "Recortando")
                     .transition(AnyTransition(.blurReplace))
             }
-        case .review:
-            if hasRevealed {
-                // **La misma ficha en los dos casos.** Con una sola, ella
-                // sola; con varias, paginadas y con una tira arriba para saber
-                // en cuál estás y cuáles entran. Tener dos calidades de
-                // revisión según cuántas prendas trajera la foto era lo que
-                // dejaba el caso de varias sin poder editar nada.
-                Group {
-                    if model.candidates.count == 1, let only = model.candidates.first {
-                        ImportSingleCard(
-                            candidate: only,
-                            photo: model.photo(for: only) ?? photos[0],
-                            onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
-                            onChangeName: { model.setName($0, forCandidateWithID: only.id) },
-                            onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
-                            onPickColor: { picked in
-                                let rgb = UIColor(picked).rgb
-                                model.setColor(
-                                    red: rgb.red, green: rgb.green, blue: rgb.blue,
-                                    forCandidateWithID: only.id
-                                )
-                            },
-                            onChangeTags: { model.setTags($0, forCandidateWithID: only.id) },
-                            onChangeCut: { model.setCut($0, forCandidateWithID: only.id) },
-                            onChangeCategory: { model.setCategory($0, forCandidateWithID: only.id) },
-                            onChangeSeasons: { model.setSeasons($0, forCandidateWithID: only.id) },
-                            onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: only.id) },
-                            onChangeMaterial: { model.setMaterial($0, forCandidateWithID: only.id) },
-                            onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
-                            onRestyle: { await model.restyle(candidateWithID: only.id) },
-                            onImprove: { model.improve(candidateWithID: only.id) }
-                        )
-                    } else {
-                        // **Una tarjeta por prenda, en vertical.**
-                        //
-                        // El pager sigue existiendo y no se borra —ver
-                        // `ImportReviewPager`—, pero ya no se llama: con
-                        // varias prendas eran dos scrolls cruzados, uno
-                        // horizontal de fichas y otro vertical dentro de cada
-                        // una, y no se sabía cuántas había sin pasarlas todas.
-                        //
-                        // ImportReviewPager(model: model, photos: photos)
-                        ImportReviewStack(
-                            model: model,
-                            photos: model.photos.isEmpty ? photos : model.photos,
-                            onAddMore: onAddMore,
-                            onSave: onSave
-                        )
-                    }
-                }
-                    // **Por opacidad.** El carrete se apaga y la lista aparece
-                    // en su sitio; el desenfoque de antes hacía que las dos
-                    // pantallas se mezclaran a medias.
-                    .transition(.opacity)
-            } else {
-                reveal(isScanning: false, status: "Recortando")
-                    .transition(.opacity)
-            }
         case let .nothingFound(reason):
             failure(title: reason.title, symbol: reason.symbol, message: reason.message)
         case let .failed(message):
@@ -358,6 +310,79 @@ private struct ImportPhaseContent: View {
                 symbol: "exclamationmark.triangle",
                 message: message
             )
+        }
+    }
+
+    /// La lista ya a la vista: revisión, y su revelación terminada.
+    private var showsReview: Bool {
+        if case .review = model.phase { return hasRevealed }
+        return false
+    }
+
+    private var isScanning: Bool {
+        switch model.phase {
+        case .idle, .processing, .generating: true
+        default: false
+        }
+    }
+
+    private var status: String {
+        switch model.phase {
+        case let .generating(done, total):
+            total > 1 ? "Redibujando prendas… \(done) de \(total)" : "Redibujando la prenda…"
+        case .review:
+            "Recortando"
+        default:
+            "Buscando prendas…"
+        }
+    }
+
+    /// **La misma ficha en los dos casos.** Con una sola, ella sola; con
+    /// varias, una tarjeta por prenda.
+    @ViewBuilder
+    private var review: some View {
+        Group {
+            if model.candidates.count == 1, let only = model.candidates.first {
+                ImportSingleCard(
+                    candidate: only,
+                    photo: model.photo(for: only) ?? photos[0],
+                    onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
+                    onChangeName: { model.setName($0, forCandidateWithID: only.id) },
+                    onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
+                    onPickColor: { picked in
+                        let rgb = UIColor(picked).rgb
+                        model.setColor(
+                            red: rgb.red, green: rgb.green, blue: rgb.blue,
+                            forCandidateWithID: only.id
+                        )
+                    },
+                    onChangeTags: { model.setTags($0, forCandidateWithID: only.id) },
+                    onChangeCut: { model.setCut($0, forCandidateWithID: only.id) },
+                    onChangeCategory: { model.setCategory($0, forCandidateWithID: only.id) },
+                    onChangeSeasons: { model.setSeasons($0, forCandidateWithID: only.id) },
+                    onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: only.id) },
+                    onChangeMaterial: { model.setMaterial($0, forCandidateWithID: only.id) },
+                    onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
+                    onRestyle: { await model.restyle(candidateWithID: only.id) },
+                    onImprove: { model.improve(candidateWithID: only.id) }
+                )
+            } else {
+                // **Una tarjeta por prenda, en vertical.**
+                //
+                // El pager sigue existiendo y no se borra —ver
+                // `ImportReviewPager`—, pero ya no se llama: con
+                // varias prendas eran dos scrolls cruzados, uno
+                // horizontal de fichas y otro vertical dentro de cada
+                // una, y no se sabía cuántas había sin pasarlas todas.
+                //
+                // ImportReviewPager(model: model, photos: photos)
+                ImportReviewStack(
+                    model: model,
+                    photos: model.photos.isEmpty ? photos : model.photos,
+                    onAddMore: onAddMore,
+                    onSave: onSave
+                )
+            }
         }
     }
 }
@@ -406,7 +431,13 @@ private extension ImportPhaseContent {
                 candidates: model.candidates,
                 analysed: isScanning ? model.analysedCount : photos.count
             ) {
-                withAnimation(WKAnimation.content) { hasRevealed = true }
+                // Un respiro con las prendas ya colocadas antes de pasar a la
+                // lista: sin él, el cambio llegaba en el mismo instante en que
+                // terminaban de colocarse y se leía como un destello.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    hasRevealed = true
+                }
             }
 
             // **Que se note que sigue trabajando.** Analizar una foto tarda

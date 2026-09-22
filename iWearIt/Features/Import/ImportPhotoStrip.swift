@@ -92,10 +92,21 @@ struct ImportPhotoStrip: View {
             .wkBleedingStrip()
         }
         .onChange(of: analysed) { _, done in
-            // Se pasa a la que acaba de empezar, no a la que acaba de
-            // terminar: lo interesante es dónde está trabajando ahora.
-            withAnimation(WKAnimation.content) {
-                focused = min(done, photos.count - 1)
+            // **Primero se ve salir la prenda, luego se pasa.** Al terminar
+            // una foto, sus recortes salen de ella —el esqueleto de la prenda
+            // despegándose de la foto— y eso necesita su momento. Pasando a la
+            // siguiente en el acto no se llegaba a ver nunca: el carrete se
+            // iba justo cuando empezaba. El análisis sigue mientras tanto; lo
+            // que espera es solo la cámara.
+            //
+            // Con la última no se pasa a ningún sitio: se queda, y es la
+            // revisión la que entra encima.
+            guard done < photos.count else { return }
+            Task {
+                try? await Task.sleep(for: .milliseconds(1400))
+                withAnimation(.smooth(duration: 0.6)) {
+                    focused = min(done, photos.count - 1)
+                }
             }
         }
     }
