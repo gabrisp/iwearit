@@ -112,7 +112,15 @@ struct ClosetAddMenu: View {
                 // es lo que hace que se entienda qué se está retomando.
                 if let pending = appEnvironment.importSession.pending {
                     PendingImportSection(model: pending) {
-                        if let model = appEnvironment.importSession.take() {
+                        guard let model = appEnvironment.importSession.take() else { return }
+                        // **Cerrar el menú y luego abrir la revisión**, no
+                        // cambiar una por otra: sustituida en la misma hoja,
+                        // la hoja pequeña del menú crecía hasta pantalla
+                        // completa delante de ti. Es lo que hacen las demás
+                        // opciones del menú.
+                        self.step = nil
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(350))
                             self.step = .restore(model)
                         }
                     }
