@@ -55,7 +55,7 @@ struct ImportSheet: View {
                     // desnudo durante esos segundos hacía parecer que la app se
                     // había quedado colgada. Es el mismo sitio de la pantalla y
                     // la misma animación que luego continúa: no hay salto.
-                    VStack(spacing: WK.Spacing.m) {
+                    VStack(spacing: WK.Spacing.xl) {
                         ImportPhotoStrip(
                             photos: images,
                             candidates: [],
@@ -83,7 +83,7 @@ struct ImportSheet: View {
                         //     maximumHeight: 140
                         // )
                     }
-                    .padding(WK.Spacing.screenInset)
+                    .padding(.horizontal, WK.Spacing.screenInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(WK.Palette.canvas)
                 }
@@ -435,7 +435,7 @@ private extension ImportPhaseContent {
 
     /// La foto con su barrido, y las prendas saliendo de ella.
     func reveal(isScanning: Bool, status: String) -> some View {
-        VStack(spacing: WK.Spacing.m) {
+        VStack(spacing: WK.Spacing.xl) {
             // El mismo carrete con una foto o con seis: con una no enseña
             // contador ni deja arrastrar, así que no hay dos pantallas que
             // mantener por lo mismo.
@@ -468,7 +468,8 @@ private extension ImportPhaseContent {
             //     )
             // }
         }
-        .padding(WK.Spacing.screenInset)
+        // Centrado en vertical y sin relleno arriba ni abajo: solo los lados.
+        .padding(.horizontal, WK.Spacing.screenInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas)
     }

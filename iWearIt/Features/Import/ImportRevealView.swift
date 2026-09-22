@@ -61,9 +61,9 @@ struct ImportRevealView: View {
                     .scaledToFit()
                     .clipShape(.rect(cornerRadius: WK.Radius.card, style: .continuous))
                     .wkShimmer(isActive: stage == .scanning && isCurrent)
-                    .opacity(shownStage == .scanning ? 1 : 0.12)
-                    .blur(radius: shownStage == .scanning ? 0 : 6)
-                    .scaleEffect(shownStage == .arranged ? 0.96 : 1)
+                    // La foto se apaga, sin desenfocarse ni encogerse: sigue
+                    // siendo la misma foto, con la prenda encendida encima.
+                    .opacity(shownStage == .scanning ? 1 : 0.3)
                     .animation(WKAnimation.content, value: isFocused)
 
                 ForEach(Array(candidates.enumerated()), id: \.element.id) { index, candidate in
@@ -109,8 +109,13 @@ struct ImportRevealView: View {
         // bienvenida.
         try? await Task.sleep(for: .milliseconds(620))
 
-        withAnimation(WKAnimation.arrival) { stage = .arranged }
-        try? await Task.sleep(for: .milliseconds(780))
+        // **Sin encogerse en fila.** La prenda se queda donde estaba y de su
+        // tamaño, iluminada sobre la foto apagada: se lee como que se separa
+        // de todo lo demás, que es lo que acaba de pasar. Reducirla a una
+        // fila de miniaturas era una segunda animación que no decía nada.
+        //
+        // withAnimation(WKAnimation.arrival) { stage = .arranged }
+        try? await Task.sleep(for: .milliseconds(900))
 
         onFinished()
     }
@@ -182,7 +187,7 @@ private struct RevealedCrop: View {
             // La sombra crece con la prenda: mientras está dentro de la foto
             // está pegada a ella, y al salir se despega.
             .shadow(color: WK.Palette.ink(0.5), radius: isVisible ? 2 : 0, y: 1)
-            .shadow(color: WK.Palette.ink(0.15), radius: isVisible ? 16 : 0, y: 10)
+            .shadow(color: WK.Palette.ink(0.25), radius: isVisible ? 18 : 0, y: 10)
             .scaleEffect(scale)
             .opacity(isVisible ? 1 : 0)
             .position(position)

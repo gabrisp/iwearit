@@ -33,7 +33,8 @@ struct ImportPhotoStrip: View {
     private static let spacing: CGFloat = 12
 
     var body: some View {
-        VStack(spacing: WK.Spacing.s) {
+        // Aire entre el contador y las fotos: pegados parecían una sola pieza.
+        VStack(spacing: WK.Spacing.xl) {
             counter
 
             // **El margen se mide, no se supone.**
@@ -89,6 +90,10 @@ struct ImportPhotoStrip: View {
                 // El recorte cae en el canto de la pantalla, donde no molesta.
                 .scrollClipDisabled()
             }
+            // **Alto propio, no todo lo que haya.** Ocupando todo el hueco,
+            // el contador quedaba pegado arriba y el texto pegado abajo; con
+            // un alto fijo el conjunto tiene tamaño y se centra en la pantalla.
+            .containerRelativeFrame(.vertical) { height, _ in height * 0.52 }
             .wkBleedingStrip()
         }
         .onChange(of: analysed) { _, done in
