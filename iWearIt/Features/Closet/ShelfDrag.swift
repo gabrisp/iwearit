@@ -64,6 +64,23 @@ final class ShelfDragModel {
 
     var isDragging: Bool { dragged != nil }
 
+    /// La prenda cuyo toque largo acaba de completarse, antes de moverse.
+    ///
+    /// Es el momento en que hay que **congelar el scroll**, no cuando el dedo
+    /// empieza a moverse: entre una cosa y otra, la balda todavía se llevaba
+    /// la prenda unos puntos con el dedo y el arrastre arrancaba desplazado.
+    private(set) var armed: UUID?
+
+    /// Si el scroll tiene que estar quieto.
+    var locksScroll: Bool { dragged != nil || armed != nil }
+
+    func arm(_ id: UUID) {
+        guard armed != id else { return }
+        armed = id
+    }
+
+    func disarm() { armed = nil }
+
     /// Los marcos. Fuera de la observación: se escriben en cada fotograma de
     /// scroll y nadie los pinta, solo se consultan al mover y al soltar.
     @ObservationIgnored private var shelfFrames: [String: CGRect] = [:]
@@ -150,6 +167,7 @@ final class ShelfDragModel {
             isLanding = false
         }
         endedAt = .now
+        armed = nil
         try? await Task.sleep(for: .milliseconds(500))
         justLanded = nil
         return moves

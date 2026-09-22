@@ -22,6 +22,11 @@ struct ShelfSection: View, Equatable {
     @State private var hovered: UUID?
     /// El arrastre propio. Ver `ShelfDragModel`.
     @Environment(ShelfDragModel.self) private var drag
+    /// Si hay un dedo sosteniendo una prenda. **Se apaga solo** al acabar el
+    /// gesto, también cuando el sistema lo cancela —que es justo cuando
+    /// `onEnded` no llega—. Sin esto, un gesto cancelado dejaba el arrastre
+    /// a medias y el scroll de las baldas bloqueado hasta reiniciar.
+    @GestureState private var isHolding = false
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.data == rhs.data }
 
@@ -86,41 +91,73 @@ struct ShelfSection: View, Equatable {
                                 drag.register(item: garment.id, in: data.id, frame: frame)
                             }
                             .onDisappear { drag.forget(item: garment.id) }
-                            // **Mantener y llevársela.** Primero el toque
-                            // largo —si no, pasar la balda con el dedo se
-                            // llevaría la prenda por delante— y luego el
-                            // arrastre, en el espacio del armario entero para
-                            // poder cruzar de balda.
-                            // **A la vez, no con prioridad.** Con prioridad el
-                            // botón de la prenda esperaba a que el toque largo
-                            // fallara y no llegaba a enterarse del toque corto:
-                            // ninguna prenda se abría. A la vez, el toque llega
-                            // siempre, y la prenda ignora el que cae al final
-                            // de un arrastre —ver `ShelfDragModel.ignoresTaps`.
-                            .simultaneousGesture(
-                                LongPressGesture(minimumDuration: 0.35)
-                                    .sequenced(before: DragGesture(
-                                        minimumDistance: 0,
-                                        coordinateSpace: .named(ShelfDragModel.space)
-                                    ))
-                                    .onChanged { value in
-                                        guard case let .second(true, dragValue) = value else { return }
-                                        if let dragValue {
-                                            if !drag.isDragging {
-                                                drag.begin(garment, from: data.id, at: dragValue.startLocation)
-                                            }
-                                            drag.move(to: dragValue.location)
+                            // **Mantener y llevársela**, con el reconocedor de
+                            // UIKit: ver `LongPressDrag`. El de SwiftUI de antes
+                            // queda comentado debajo; bloqueaba el scroll en
+                            // cuanto el dedo empezaba encima de una prenda.
+                            .gesture(
+                                LongPressDrag(
+                                    onBegan: { point in
+                                        drag.arm(garment.id)
+                                        drag.begin(garment, from: data.id, at: point)
+                                    },
+                                    onChanged: { point in drag.move(to: point) },
+                                    onEnded: {
+                                        guard drag.isDragging else {
+                                            drag.disarm()
+                                            return
                                         }
-                                    }
-                                    .onEnded { _ in
-                                        guard drag.isDragging else { return }
                                         Task {
                                             if await drag.land(in: modelContext) {
                                                 appEnvironment.tips.complete(.dragGarment)
                                             }
                                         }
                                     }
+                                )
                             )
+//                             // **Mantener y llevársela.** Primero el toque
+//                             // largo —si no, pasar la balda con el dedo se
+//                             // llevaría la prenda por delante— y luego el
+//                             // arrastre, en el espacio del armario entero para
+//                             // poder cruzar de balda.
+//                             // **A la vez, no con prioridad.** Con prioridad el
+//                             // botón de la prenda esperaba a que el toque largo
+//                             // fallara y no llegaba a enterarse del toque corto:
+//                             // ninguna prenda se abría. A la vez, el toque llega
+//                             // siempre, y la prenda ignora el que cae al final
+//                             // de un arrastre —ver `ShelfDragModel.ignoresTaps`.
+//                             .simultaneousGesture(
+//                                 LongPressGesture(minimumDuration: 0.35)
+//                                     .sequenced(before: DragGesture(
+//                                         minimumDistance: 0,
+//                                         coordinateSpace: .named(ShelfDragModel.space)
+//                                     ))
+//                                     .updating($isHolding) { value, state, _ in
+//                                         if case .second(true, _) = value { state = true }
+//                                     }
+//                                     .onChanged { value in
+//                                         guard case let .second(true, dragValue) = value else { return }
+//                                         // Toque largo hecho: el scroll se para ya.
+//                                         drag.arm(garment.id)
+//                                         if let dragValue {
+//                                             if !drag.isDragging {
+//                                                 drag.begin(garment, from: data.id, at: dragValue.startLocation)
+//                                             }
+//                                             drag.move(to: dragValue.location)
+//                                         }
+//                                     }
+//                                     .onEnded { _ in
+//                                         guard drag.isDragging else {
+//                                             drag.disarm()
+//                                             return
+//                                         }
+//                                         Task {
+//                                             if await drag.land(in: modelContext) {
+//                                                 appEnvironment.tips.complete(.dragGarment)
+//                                             }
+//                                         }
+//                                     }
+//                             )
                             .sensoryFeedback(.impact(weight: .medium), trigger: drag.dragged?.id == garment.id)
                     }
 
@@ -212,7 +249,7 @@ struct ShelfSection: View, Equatable {
             .scrollIndicators(.hidden)
             // Quieta mientras hay una prenda en el dedo: si no, arrastrar hacia
             // un lado desplaza la balda en vez de mover la prenda.
-            .scrollDisabled(drag.isDragging)
+            .scrollDisabled(drag.locksScroll)
             // Sin superficie propia: el hueco de la balda es la misma página.
             // Poner aquí un bloque blanco dejaba una plancha enorme en cuanto
             // la balda estaba vacía, y lo que separa una balda de la siguiente
@@ -242,6 +279,20 @@ struct ShelfSection: View, Equatable {
             drag.register(shelf: data.id, frame: frame)
         }
         .animation(WKAnimation.selection, value: drag.target)
+        // El final del gesto lo avisa ahora `LongPressDrag` también al
+        // cancelarse. Este respaldo se queda por si vuelve el gesto de SwiftUI.
+        .onChange(of: isHolding) { _, holding in
+            guard !holding else { return }
+            if drag.isDragging {
+                Task {
+                    if await drag.land(in: modelContext) {
+                        appEnvironment.tips.complete(.dragGarment)
+                    }
+                }
+            } else {
+                drag.disarm()
+            }
+        }
         // El hueco crece con el mismo muelle con el que baja la prenda.
         .animation(ShelfDragModel.lift, value: drag.isLanding)
     }

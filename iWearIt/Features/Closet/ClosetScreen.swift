@@ -172,7 +172,7 @@ struct ClosetScreen: View {
             // **Una prenda en el dedo lo congela todo.** Con el armario
             // desplazándose por debajo, soltar la prenda donde apuntas es
             // imposible: la balda se ha ido de sitio mientras llegabas.
-            .scrollDisabled(shelfDrag.isDragging)
+            .scrollDisabled(shelfDrag.locksScroll)
             .scrollPosition($scrollPosition)
             // En coordenadas del contenido: el desplazamiento crudo empieza en
             // negativo —el hueco de la barra de arriba— y `scrollTo` cuenta
