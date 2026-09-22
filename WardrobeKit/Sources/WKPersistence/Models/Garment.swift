@@ -52,6 +52,16 @@ public final class Garment {
     public var wearCount: Int = 0
     public var lastWornAt: Date?
     public var isFavorite: Bool = false
+    /// Dónde va dentro de su balda, si el usuario la ha colocado.
+    ///
+    /// `Double` y no `Int` a propósito: arrastrar una prenda entre otras dos
+    /// es ponerle el punto medio de sus vecinas, y con enteros habría que
+    /// renumerar la balda entera en cada arrastre —que es la forma clásica de
+    /// perder el orden a la tercera.
+    ///
+    /// Cero para todo lo que nadie ha tocado, y entonces manda la fecha: una
+    /// balda recién llenada sale como siempre, con lo último delante.
+    public var shelfOrder: Double = 0
 
     /// `true` si la categoría viene del modo degradado o de una clasificación dudosa.
     public var needsReview: Bool = false

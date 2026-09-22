@@ -17,11 +17,16 @@ struct GarmentRef: Hashable, Identifiable {
     /// al construir la referencia. Calcularla en el `body` haría temblar la
     /// balda entera en cada reevaluación.
     let swayDegrees: Double
+    /// Su sitio en la balda. Ver `Garment.shelfOrder`.
+    let shelfOrder: Double
+    let dateAdded: Date
 
     init(_ garment: Garment) {
         id = garment.id
         persistentID = garment.persistentModelID
         name = garment.name
+        shelfOrder = garment.shelfOrder
+        dateAdded = garment.dateAdded
         imageKey = garment.normalizedImageKey
         let bucket = Double(abs(garment.id.hashValue % 1000)) / 1000
         swayDegrees = (bucket * 2 - 1) * WK.Shelf.maxSwayDegrees

@@ -68,7 +68,13 @@ struct ClosetScreen: View {
                 id: category.slug,
                 name: category.name,
                 symbol: category.symbolName,
-                garments: bySlug[category.slug] ?? []
+                // Primero lo colocado a mano, y lo demás por fecha. Con el
+                // orden a cero —nadie lo ha tocado— sale como siempre.
+                garments: (bySlug[category.slug] ?? []).sorted {
+                    $0.shelfOrder == $1.shelfOrder
+                        ? $0.dateAdded > $1.dateAdded
+                        : $0.shelfOrder < $1.shelfOrder
+                }
             )
         }
     }

@@ -57,13 +57,22 @@ struct HangingGarmentView: View {
                 .animation(WKAnimation.selection, value: isSelected)
                 .animation(WKAnimation.selection, value: isSelecting)
 
-                Text(garment.name)
-                    .font(WK.Font.garmentName)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(width: WK.Shelf.garmentWidth)
-                    .padding(.bottom, WK.Shelf.labelBottomInset)
+                // **Sin nombre debajo.**
+                //
+                // Una balda de ropa se lee mirando, no leyendo: la foto ya
+                // dice cuál es cada prenda, y treinta nombres compuestos por
+                // la app —"Camiseta Stüssy", "Camiseta en gris"— eran treinta
+                // líneas de texto cortado que no distinguían nada. El nombre
+                // sigue existiendo para buscar; simplemente no se pinta.
+                //
+                // Text(garment.name)
+                //     .font(WK.Font.garmentName)
+                //     .foregroundStyle(WK.Palette.secondaryText)
+                //     .lineLimit(1)
+                //     .truncationMode(.tail)
+                //     .frame(width: WK.Shelf.garmentWidth)
+                //     .padding(.bottom, WK.Shelf.labelBottomInset)
+                Color.clear.frame(height: WK.Shelf.labelBottomInset)
             }
             .frame(height: WK.Shelf.height, alignment: .bottom)
             .contentShape(.rect)
