@@ -103,7 +103,7 @@ struct ClosetAddMenu: View {
             // peleaba con Vision por la ANE: el análisis se quedaba pensando
             // para siempre.
             CameraScreen { captured in
-                self.step = .review(ImportableBatch(images: [captured]))
+                self.step = .review(ImportableBatch(images: captured))
             }
         case .web:
             // A pantalla completa y sin poder arrastrarse para cerrar: ver

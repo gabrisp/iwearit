@@ -962,7 +962,19 @@ struct ImportCandidate: Identifiable {
 
     /// El tipo fino, con la corrección aplicada si la hay.
     var subcategory: String? {
-        editedSubcategory ?? GarmentVocabulary.displayType(detected.subcategory)
+        editedSubcategory
+            ?? GarmentVocabulary.displayType(detected.subcategory)
+            // Sin tipo propio, el que dice su balda: si va a Camisetas, es una
+            // camiseta. Ver `GarmentVocabulary.defaultType(forShelfSlug:)`.
+            ?? GarmentVocabulary.defaultType(forShelfSlug: shelfSlug)
+    }
+
+    /// La balda a la que irá: la elegida, o la que le toca por lo que es.
+    var shelfSlug: String {
+        categorySlug ?? GarmentCategory.seedSlug(
+            forSubcategory: editedSubcategory ?? GarmentVocabulary.displayType(detected.subcategory),
+            kind: kind
+        )
     }
     var tags: [String] { editedTags ?? detected.tags }
     var seasons: SeasonSet { editedSeasons ?? detected.seasons }

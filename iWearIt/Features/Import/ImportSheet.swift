@@ -183,7 +183,7 @@ struct ImportSheet: View {
     private func addPicked() async {
         guard !extraItems.isEmpty, let model else { return }
         let picked = extraItems
-        extraItems = []
+        defer { extraItems = [] }
 
         var images: [CGImage] = []
         for item in picked {

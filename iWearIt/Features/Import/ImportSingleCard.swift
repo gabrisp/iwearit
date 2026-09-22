@@ -406,10 +406,7 @@ struct ImportSingleCard: View {
     }
 
     /// La balda a la que irá: la elegida, o la que le tocaría sola.
-    private var shelfSlug: String {
-        candidate.categorySlug
-            ?? GarmentCategory.seedSlug(forSubcategory: candidate.subcategory, kind: candidate.kind)
-    }
+    private var shelfSlug: String { candidate.shelfSlug }
 
     private var shelfName: String {
         categories.first { $0.slug == shelfSlug }?.name

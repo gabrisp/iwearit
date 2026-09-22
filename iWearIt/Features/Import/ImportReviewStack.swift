@@ -43,7 +43,11 @@ struct ImportReviewStack: View {
     private func loadMore() async {
         guard !morePhotos.isEmpty, let onAddMore else { return }
         let picked = morePhotos
-        morePhotos = []
+        // **Vaciar al final, no al principio.** Esta tarea va atada a cuántas
+        // fotos hay elegidas: vaciar la lista nada más empezar cambiaba ese
+        // número, SwiftUI cancelaba la tarea en marcha y la lectura de las
+        // fotos volvía vacía. Las prendas de "Agregar más" no llegaban nunca.
+        defer { morePhotos = [] }
         var images: [CGImage] = []
         for item in picked {
             guard

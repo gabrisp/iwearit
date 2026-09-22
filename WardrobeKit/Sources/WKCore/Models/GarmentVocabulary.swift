@@ -127,6 +127,26 @@ public enum GarmentVocabulary {
         return nil
     }
 
+    /// El tipo que dice una balda por sí sola.
+    ///
+    /// Si una prenda va a Camisetas, es una camiseta: decir "Balda:
+    /// Camisetas · Tipo: sin definir" es contradecirse. Las baldas que son una
+    /// prenda concreta dan su tipo; las que agrupan varias —pantalones puede
+    /// ser un vaquero o un chino, zapatos unas botas o unas zapatillas— no
+    /// dicen nada, y ahí sí queda sin definir.
+    public static func defaultType(forShelfSlug slug: String) -> String? {
+        switch slug {
+        case "camisetas": "Camiseta"
+        case "polos": "Polo"
+        case "camisas": "Camisa"
+        case "vestidos": "Vestido"
+        case "chaquetas": "Chaqueta"
+        case "banadores": "Bañador"
+        case "bolsos": "Bolso"
+        default: nil
+        }
+    }
+
     /// El tipo tal y como se enseña, o `nil` si no es un tipo de verdad.
     ///
     /// El detector a veces contesta con palabras de parte del cuerpo —"top",

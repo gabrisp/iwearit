@@ -140,8 +140,8 @@ struct OutfitPickerSheet: View {
         .sheet(item: $capture) { step in
             switch step {
             case .camera:
-                CameraScreen { image in
-                    capture = .review(ImportableBatch(images: [image]))
+                CameraScreen { images in
+                    capture = .review(ImportableBatch(images: images))
                 }
             case let .review(batch):
                 ImportSheet(images: batch.images)

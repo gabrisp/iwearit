@@ -10,10 +10,13 @@ import WKServices
 /// mejor funciona con la segmentación por sujeto: sin persona, el recorte es
 /// casi perfecto y el usuario solo tiene que confirmar la categoría.
 struct CameraScreen: View {
-    let onCapture: (CGImage) -> Void
+    /// Lo que sale de aquí: la foto hecha, o las elegidas de la galería.
+    let onCapture: ([CGImage]) -> Void
 
     @State private var camera = CameraController()
-    @State private var pickedItem: PhotosPickerItem?
+    /// Varias, como desde el "+": el carrete de dentro de la cámara es la
+    /// misma galería y tiene que dejar lo mismo.
+    @State private var pickedItems: [PhotosPickerItem] = []
     @State private var isPresentingPicker = false
     @Environment(\.dismiss) private var dismiss
 
@@ -29,11 +32,12 @@ struct CameraScreen: View {
         .onDisappear { camera.stop() }
         .photosPicker(
             isPresented: $isPresentingPicker,
-            selection: $pickedItem,
+            selection: $pickedItems,
+            maxSelectionCount: 10,
             matching: .images,
             photoLibrary: .shared()
         )
-        .task(id: pickedItem) { await loadPickedItem() }
+        .task(id: pickedItems.count) { await loadPickedItems() }
     }
 
     /// Disparador en medio, galería a la izquierda, cambiar cámara a la
@@ -45,44 +49,51 @@ struct CameraScreen: View {
     /// usuario no había pedido.
     private var shutterBar: some View {
         HStack {
+            // **El carrete, siempre.** Con la cámara sin permiso, ocupada o
+            // sin arrancar, es la única forma de añadir algo desde aquí; y
+            // esta pantalla es a la que lleva el botón del armario vacío.
             CameraBarButton(symbol: "photo.on.rectangle") { isPresentingPicker = true }
             Spacer()
-            ShutterButton { await capture() }
-            Spacer()
-            CameraBarButton(symbol: "arrow.triangle.2.circlepath.camera") {
-                camera.switchCamera()
+            Group {
+                ShutterButton { await capture() }
+                Spacer()
+                CameraBarButton(symbol: "arrow.triangle.2.circlepath.camera") {
+                    camera.switchCamera()
+                }
             }
+            .opacity(camera.state == .running ? 1 : 0)
+            .allowsHitTesting(camera.state == .running)
         }
         .padding(.horizontal, WK.Spacing.xl)
         .padding(.bottom, WK.Spacing.xl)
-        .opacity(camera.state == .running || camera.state == .denied ? 1 : 0)
     }
 
     /// `PhotosPickerItem` entrega bytes, no una imagen. Se decodifica aquí para
     /// que el pipeline solo sepa de `CGImage`, venga de donde venga.
-    private func loadPickedItem() async {
-        guard let pickedItem else { return }
-        defer { self.pickedItem = nil }
+    private func loadPickedItems() async {
+        guard !pickedItems.isEmpty else { return }
+        let picked = pickedItems
+        // Al final y no al principio: vaciar la lista cambia el `id` de esta
+        // tarea y SwiftUI la cancelaría a medio leer.
+        defer { pickedItems = [] }
 
-        DiagnosticsLog.record("CÁMARA", "foto elegida de la galería")
-        guard
-            let data = try? await pickedItem.loadTransferable(type: Data.self),
-            // **Derecha antes de que la vea nadie.**
-            //
-            // Aquí se usaba `CGImageSourceCreateImageAtIndex` a secas, que
-            // devuelve los píxeles **en crudo** e ignora la etiqueta de
-            // orientación: una foto vertical de iPhone se guarda apaisada, así
-            // que el segmentador veía a una persona tumbada. Es el mismo fallo
-            // que ya estaba arreglado en la otra puerta de entrada, y esta se
-            // quedó sin arreglar.
-            let image = UprightImage.cgImage(from: data)
-        else {
-            DiagnosticsLog.record("CÁMARA", "no se pudo leer la foto", isProblem: true)
-            return
+        DiagnosticsLog.record("CÁMARA", "\(picked.count) foto(s) elegida(s) de la galería")
+        var images: [CGImage] = []
+        for item in picked {
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                // **Derecha antes de que la vea nadie**: los píxeles de una
+                // foto vertical se guardan apaisados, y el segmentador veía a
+                // una persona tumbada.
+                let image = UprightImage.cgImage(from: data)
+            else {
+                DiagnosticsLog.record("CÁMARA", "no se pudo leer una foto", isProblem: true)
+                continue
+            }
+            images.append(image)
         }
-
-        DiagnosticsLog.record("CÁMARA", "foto lista \(image.width)×\(image.height)")
-        hand(over: image)
+        guard !images.isEmpty else { return }
+        hand(over: images)
     }
 
     private func capture() async {
@@ -91,7 +102,7 @@ struct CameraScreen: View {
             return
         }
         DiagnosticsLog.record("CÁMARA", "capturada \(image.width)×\(image.height)")
-        hand(over: image)
+        hand(over: [image])
     }
 
     /// Entrega la foto y **no cierra la hoja**.
@@ -103,9 +114,9 @@ struct CameraScreen: View {
     ///
     /// Cambiar de paso ya destruye esta vista, que es lo que apaga la sesión de
     /// captura. No hace falta cerrar nada.
-    private func hand(over image: CGImage) {
+    private func hand(over images: [CGImage]) {
         camera.stop()
-        onCapture(image)
+        onCapture(images)
     }
 }
 

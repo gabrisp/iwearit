@@ -41,14 +41,25 @@ struct ClosetScreen: View {
     /// deja mudos a todos menos a uno.
     @State private var sheet: Sheet?
 
-    private enum Sheet: String, Identifiable {
+    private enum Sheet: Identifiable {
         // `profile` ya no está: Ajustes se empuja como pantalla, no se
         // presenta como hoja. Ver `ClosetRoute.settings`.
-        case capture, review, shelves
-        var id: String { rawValue }
-    }
+        case capture
+        /// **Con las fotos dentro.** Antes las fotos iban en un estado aparte
+        /// y la hoja las leía al abrirse; pero la hoja se construía con el
+        /// valor de antes de hacer la foto —vacío— y salía en blanco. Metidas
+        /// en el propio caso no hay nada que pueda llegar tarde.
+        case review(ImportableBatch)
+        case shelves
 
-    @State private var captured: ImportableBatch?
+        var id: String {
+            switch self {
+            case .capture: "capture"
+            case let .review(batch): batch.id.uuidString
+            case .shelves: "shelves"
+            }
+        }
+    }
     /// El atajo del sobre-scroll: seguir tirando al final del armario crea un
     /// outfit para hoy.
     @State private var isCreatingOutfit = false
@@ -249,14 +260,11 @@ struct ClosetScreen: View {
             .sheet(item: $sheet) { which in
                 switch which {
                 case .capture:
-                    CameraScreen { image in
-                        captured = ImportableBatch(images: [image])
-                        sheet = .review
+                    CameraScreen { images in
+                        sheet = .review(ImportableBatch(images: images))
                     }
-                case .review:
-                    if let captured {
-                        ImportSheet(images: captured.images)
-                    }
+                case let .review(batch):
+                    ImportSheet(images: batch.images)
                 case .shelves:
                     NavigationStack { ShelfOrderScreen() }
                 }
