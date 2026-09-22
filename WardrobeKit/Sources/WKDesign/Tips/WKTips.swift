@@ -127,6 +127,12 @@ public final class WKTipCenter {
         if current == tip { current = nil }
     }
 
+    /// Lo quita de la pantalla **sin darlo por visto**: ya no tiene sentido
+    /// ahora, pero lo tendrá más adelante.
+    public func withdraw(_ tip: WKTip) {
+        if current == tip { current = nil }
+    }
+
     /// Si un aviso ya se vio. Para pintar el estado en ajustes.
     public func hasSeen(_ tip: WKTip) -> Bool { seen.contains(tip.rawValue) }
 

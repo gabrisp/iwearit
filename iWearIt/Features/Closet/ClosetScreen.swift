@@ -221,7 +221,7 @@ struct ClosetScreen: View {
             .rootTabBar(selection: $tab)
             // Se enseña cuando hay ropa que mover: con el armario vacío, un
             // aviso sobre arrastrar prendas explica algo que no se puede hacer.
-            .wkTip(.dragGarment, in: appEnvironment.tips)
+            .wkTip(.dragGarment, in: appEnvironment.tips, when: garments.count >= 2)
             .navigationDestination(for: ClosetRoute.self) { route in
                 ClosetRouteDestination(route: route)
             }

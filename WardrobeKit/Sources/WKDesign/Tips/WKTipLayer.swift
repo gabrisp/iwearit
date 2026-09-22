@@ -29,8 +29,22 @@ public extension View {
     /// Con un respiro: soltado en el mismo instante en que aparece la
     /// pantalla, la tarjeta compite con la animación de entrada y con lo que
     /// el usuario venía a hacer. Un segundo después ya está mirando.
-    func wkTip(_ tip: WKTip, in center: WKTipCenter, after delay: Duration = .seconds(1)) -> some View {
-        task {
+    ///
+    /// - Parameter condition: si tiene sentido enseñarlo ahora. "Mueve tu
+    ///   ropa" con el armario vacío explica algo que no se puede hacer; con
+    ///   la condición en falso no sale, y si ya estaba puesto se retira sin
+    ///   darlo por visto, para que salga cuando sí tenga sentido.
+    func wkTip(
+        _ tip: WKTip,
+        in center: WKTipCenter,
+        when condition: Bool = true,
+        after delay: Duration = .seconds(1)
+    ) -> some View {
+        task(id: condition) {
+            guard condition else {
+                center.withdraw(tip)
+                return
+            }
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             center.offer(tip)
