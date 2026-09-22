@@ -339,51 +339,64 @@ private struct ImportPhaseContent: View {
 
     /// **La misma ficha en los dos casos.** Con una sola, ella sola; con
     /// varias, una tarjeta por prenda.
+    /// **La misma pantalla con una prenda que con quince.** Con una sola se
+    /// enseñaba su ficha directamente —otra pantalla, con otras reglas— y
+    /// eso rompía el paso: la lista con su casilla, Agregar más y Guardar es
+    /// lo que se revisa siempre, y la ficha se abre tocando la tarjeta.
+    ///
+    /// La rama de la ficha suelta se queda comentada debajo.
     @ViewBuilder
     private var review: some View {
-        Group {
-            if model.candidates.count == 1, let only = model.candidates.first {
-                ImportSingleCard(
-                    candidate: only,
-                    photo: model.photo(for: only) ?? photos[0],
-                    onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
-                    onChangeName: { model.setName($0, forCandidateWithID: only.id) },
-                    onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
-                    onPickColor: { picked in
-                        let rgb = UIColor(picked).rgb
-                        model.setColor(
-                            red: rgb.red, green: rgb.green, blue: rgb.blue,
-                            forCandidateWithID: only.id
-                        )
-                    },
-                    onChangeTags: { model.setTags($0, forCandidateWithID: only.id) },
-                    onChangeCut: { model.setCut($0, forCandidateWithID: only.id) },
-                    onChangeCategory: { model.setCategory($0, forCandidateWithID: only.id) },
-                    onChangeSeasons: { model.setSeasons($0, forCandidateWithID: only.id) },
-                    onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: only.id) },
-                    onChangeMaterial: { model.setMaterial($0, forCandidateWithID: only.id) },
-                    onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
-                    onRestyle: { await model.restyle(candidateWithID: only.id) },
-                    onImprove: { model.improve(candidateWithID: only.id) }
-                )
-            } else {
-                // **Una tarjeta por prenda, en vertical.**
-                //
-                // El pager sigue existiendo y no se borra —ver
-                // `ImportReviewPager`—, pero ya no se llama: con
-                // varias prendas eran dos scrolls cruzados, uno
-                // horizontal de fichas y otro vertical dentro de cada
-                // una, y no se sabía cuántas había sin pasarlas todas.
-                //
-                // ImportReviewPager(model: model, photos: photos)
-                ImportReviewStack(
-                    model: model,
-                    photos: model.photos.isEmpty ? photos : model.photos,
-                    onAddMore: onAddMore,
-                    onSave: onSave
-                )
-            }
-        }
+        ImportReviewStack(
+            model: model,
+            photos: model.photos.isEmpty ? photos : model.photos,
+            onAddMore: onAddMore,
+            onSave: onSave
+        )
+
+        // Group {
+        // if model.candidates.count == 1, let only = model.candidates.first {
+        // ImportSingleCard(
+        // candidate: only,
+        // photo: model.photo(for: only) ?? photos[0],
+        // onChangeKind: { model.setKind($0, forCandidateWithID: only.id) },
+        // onChangeName: { model.setName($0, forCandidateWithID: only.id) },
+        // onChangeColor: { model.setColorName($0, forCandidateWithID: only.id) },
+        // onPickColor: { picked in
+        // let rgb = UIColor(picked).rgb
+        // model.setColor(
+        // red: rgb.red, green: rgb.green, blue: rgb.blue,
+        // forCandidateWithID: only.id
+        // )
+        // },
+        // onChangeTags: { model.setTags($0, forCandidateWithID: only.id) },
+        // onChangeCut: { model.setCut($0, forCandidateWithID: only.id) },
+        // onChangeCategory: { model.setCategory($0, forCandidateWithID: only.id) },
+        // onChangeSeasons: { model.setSeasons($0, forCandidateWithID: only.id) },
+        // onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: only.id) },
+        // onChangeMaterial: { model.setMaterial($0, forCandidateWithID: only.id) },
+        // onManualCrop: { model.setManualCrop($0, forCandidateWithID: only.id) },
+        // onRestyle: { await model.restyle(candidateWithID: only.id) },
+        // onImprove: { model.improve(candidateWithID: only.id) }
+        // )
+        // } else {
+        // // **Una tarjeta por prenda, en vertical.**
+        // //
+        // // El pager sigue existiendo y no se borra —ver
+        // // `ImportReviewPager`—, pero ya no se llama: con
+        // // varias prendas eran dos scrolls cruzados, uno
+        // // horizontal de fichas y otro vertical dentro de cada
+        // // una, y no se sabía cuántas había sin pasarlas todas.
+        // //
+        // // ImportReviewPager(model: model, photos: photos)
+        // ImportReviewStack(
+        // model: model,
+        // photos: model.photos.isEmpty ? photos : model.photos,
+        // onAddMore: onAddMore,
+        // onSave: onSave
+        // )
+        // }
+        // }
     }
 }
 
