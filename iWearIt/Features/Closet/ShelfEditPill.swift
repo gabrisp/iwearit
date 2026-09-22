@@ -44,7 +44,8 @@ struct ShelfEditPill: View {
         .frame(maxWidth: .infinity)
         // Aire por arriba para que no se lea como parte de la última balda, y
         // por abajo para que el accesorio flotante no se le siente encima.
-        .padding(.top, WK.Spacing.l)
+        // Arriba ya va el recuento de prendas, que lo separa de la balda.
+        .padding(.top, WK.Spacing.s)
         .padding(.bottom, WK.Spacing.xxl)
     }
 }

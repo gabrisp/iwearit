@@ -113,7 +113,7 @@ private struct OutfitCard: View {
 
     private var backdrop: some View {
         let components = OutfitBackdrop(rawValue: outfit?.backdropRaw ?? "")?.components
-        return (components.map { Color(red: $0.red, green: $0.green, blue: $0.blue) }
+        return (components.map { WK.Palette.canvasTint(red: $0.red, green: $0.green, blue: $0.blue) }
             ?? WK.Palette.shelf)
     }
 

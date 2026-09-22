@@ -174,3 +174,80 @@ public struct WKPlainGlassButtonStyle<S: Shape>: ButtonStyle {
             .animation(.smooth(duration: 0.2), value: configuration.isPressed)
     }
 }
+
+/// La misma barra, **con texto** en vez de iconos: una segunda barra dentro de
+/// una pantalla —"Outfits · Equipaje" en una maleta—. El mismo control del
+/// sistema y el mismo cristal que la de pestañas, para que se lea como pieza de
+/// la misma familia.
+public struct WKTextTabBar<Tab: Hashable>: View {
+    private let tabs: [Tab]
+    private let title: (Tab) -> String
+    @Binding private var selection: Tab
+
+    public init(tabs: [Tab], selection: Binding<Tab>, title: @escaping (Tab) -> String) {
+        self.tabs = tabs
+        _selection = selection
+        self.title = title
+    }
+
+    public var body: some View {
+        let height = WKLocktyTabBarMetrics.height
+        let index = Binding {
+            tabs.firstIndex(of: selection) ?? 0
+        } set: { newValue in
+            guard tabs.indices.contains(newValue) else { return }
+            selection = tabs[newValue]
+        }
+        TitleSegmentedControl(titles: tabs.map(title), index: index)
+            .frame(height: 48)
+            .padding(.horizontal, 2)
+            .frame(width: CGFloat(tabs.count) * 104, height: height)
+            .compositingGroup()
+            .clipShape(.rect(cornerRadius: height / 2))
+            .modifier(LocktyBarGlass(cornerRadius: height / 2))
+            .sensoryFeedback(.selection, trigger: selection)
+    }
+}
+
+private struct TitleSegmentedControl: UIViewRepresentable {
+    var titles: [String]
+    @Binding var index: Int
+
+    func makeUIView(context: Context) -> UISegmentedControl {
+        let control = UISegmentedControl(items: titles)
+        control.selectedSegmentIndex = index
+        control.selectedSegmentTintColor = UIColor(Color.gray.opacity(0.15))
+        let font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        control.setTitleTextAttributes([.font: font, .foregroundColor: UIColor.label], for: .normal)
+        control.setTitleTextAttributes([.font: font, .foregroundColor: UIColor.label], for: .selected)
+        control.addTarget(context.coordinator, action: #selector(Coordinator.didSelect(_:)), for: .valueChanged)
+        // Como en Lockty: fuera el fondo y los separadores del control.
+        DispatchQueue.main.async {
+            for view in control.subviews.dropLast() where view is UIImageView {
+                view.alpha = 0
+            }
+        }
+        return control
+    }
+
+    func updateUIView(_ uiView: UISegmentedControl, context: Context) {
+        if uiView.selectedSegmentIndex != index {
+            uiView.selectedSegmentIndex = index
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    final class Coordinator: NSObject {
+        var parent: TitleSegmentedControl
+        init(parent: TitleSegmentedControl) { self.parent = parent }
+
+        @objc func didSelect(_ control: UISegmentedControl) {
+            parent.index = control.selectedSegmentIndex
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UISegmentedControl, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
+    }
+}

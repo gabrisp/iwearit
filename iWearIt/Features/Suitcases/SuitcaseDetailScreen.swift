@@ -34,6 +34,9 @@ private enum SuitcaseTab: Hashable {
 private struct SuitcaseContent: View {
     @Bindable var suitcase: Suitcase
     @State private var tab: SuitcaseTab = .outfits
+    /// Revista (un día por página) o rejilla (todos los días), como en el plan.
+    /// Solo con fechas: sin días no hay nada que pasar como páginas.
+    @State private var layout: PlannerLayout = .book
     @State private var dayIndex = 0
     @State private var isPresentingStyle = false
     /// El outfit que se está editando. Vive **aquí**, que es donde está la
@@ -65,8 +68,13 @@ private struct SuitcaseContent: View {
             SuitcaseTabContent(
                 suitcase: suitcase,
                 tab: tab,
+                layout: layout,
                 dayIndex: $dayIndex,
                 zoom: zoom,
+                onOpenDay: { index in
+                    dayIndex = index
+                    withAnimation(WKAnimation.arrival) { layout = .book }
+                },
                 onEdit: { outfit, isNew in
                     editingIsNew = isNew
                     editingOutfit = outfit
@@ -101,21 +109,44 @@ private struct SuitcaseContent: View {
         // volver, que es lo pedido. Para cambiar de día quedan la tira de
         // arriba y el toque en el margen, que `pageCurl` también atiende.
         .interactivePopEnabled()
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Sección", selection: $tab) {
-                    Text("Outfits").tag(SuitcaseTab.outfits)
-                    Text("Equipaje").tag(SuitcaseTab.packing)
+        // **Outfits · Equipaje y el lápiz, abajo**, en una segunda barra con el
+        // mismo cristal que la de pestañas. Arriba queda sitio para el
+        // calendario del viaje, como en el plan. El selector de arriba se
+        // queda comentado:
+        // .toolbar {
+        //     ToolbarItem(placement: .principal) {
+        //         Picker("Sección", selection: $tab) {
+        //             Text("Outfits").tag(SuitcaseTab.outfits)
+        //             Text("Equipaje").tag(SuitcaseTab.packing)
+        //         }
+        //         .pickerStyle(.segmented)
+        //         .frame(width: 220)
+        //     }
+        //     ToolbarItem(placement: .topBarTrailing) {
+        //         Button { isPresentingStyle = true } label: {
+        //             Image(systemName: "pencil")
+        //         }
+        //         .tint(WK.Palette.primaryText)
+        //     }
+        // }
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 12) {
+                WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing], selection: $tab) { tab in
+                    switch tab {
+                    case .outfits: "Outfits"
+                    case .packing: "Equipaje"
+                    }
                 }
-                .pickerStyle(.segmented)
-                .frame(width: 220)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
                 Button { isPresentingStyle = true } label: {
                     Image(systemName: "pencil")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .frame(width: 52, height: 52)
+                        .contentShape(Circle())
                 }
-                .tint(WK.Palette.primaryText)
+                .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
             }
+            .padding(.bottom, WK.Spacing.xs)
         }
         // La barra de pestañas de la app estorba aquí: dentro de una maleta se
         // está montando contenido a pantalla completa, y tener debajo los tres
@@ -126,9 +157,25 @@ private struct SuitcaseContent: View {
         // que no cambia nada promete una relación que no existe.
         .safeAreaInset(edge: .top) {
             if tab == .outfits, let dayCount = suitcase.tripDayCount {
-                TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex)
-                    .padding(.bottom, WK.Spacing.xs)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                // La tira y, al lado, revista o rejilla. Igual que el plan.
+                HStack(spacing: 0) {
+                    TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex)
+                    Button {
+                        withAnimation(WKAnimation.arrival) { layout = layout.next }
+                    } label: {
+                        Image(systemName: layout.symbol)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .frame(width: 56, height: 56)
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                            .contentShape(.circle)
+                    }
+                    .buttonStyle(WKPressStyle())
+                    .adaptiveGlassInteractive(in: .circle)
+                    .padding(.trailing, WK.Spacing.m)
+                }
+                .padding(.bottom, WK.Spacing.xs)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(WKAnimation.content, value: tab)
@@ -198,8 +245,7 @@ private struct SuitcaseContent: View {
             let raw = suitcase.colorRaw,
             let tint = SuitcaseTint(rawValue: raw)
         else { return WK.Palette.canvas }
-        return Color(red: tint.components.red, green: tint.components.green, blue: tint.components.blue)
-            .opacity(0.35)
+        return WK.Palette.canvasTint(red: tint.components.red, green: tint.components.green, blue: tint.components.blue)
     }
 }
 
@@ -275,15 +321,22 @@ private struct SuitcaseTabButton: View {
 private struct SuitcaseTabContent: View {
     let suitcase: Suitcase
     let tab: SuitcaseTab
+    let layout: PlannerLayout
     @Binding var dayIndex: Int
     let zoom: Namespace.ID
+    let onOpenDay: (Int) -> Void
     let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
         switch tab {
         case .outfits:
             SuitcaseOutfitsTab(
-                suitcase: suitcase, dayIndex: $dayIndex, zoom: zoom, onEdit: onEdit
+                suitcase: suitcase,
+                layout: layout,
+                dayIndex: $dayIndex,
+                zoom: zoom,
+                onOpenDay: onOpenDay,
+                onEdit: onEdit
             )
         case .packing:
             PackingChecklistTab(suitcase: suitcase)

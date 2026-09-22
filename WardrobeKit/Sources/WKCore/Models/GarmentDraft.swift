@@ -16,6 +16,13 @@ public struct GarmentDraft: Sendable, Hashable {
     public var productName: String?
     /// La balda elegida a mano al importar. Manda sobre la automática.
     public var categorySlug: String?
+    /// La balda que se **enseñó** al revisar, aunque nadie la tocara.
+    ///
+    /// Distinta de `categorySlug`: esa la eligió el usuario y bloquea la prenda
+    /// ahí; esta solo dice dónde se la vio. Lo que se ve al revisar es donde
+    /// tiene que acabar —antes una balda propia recién creada se quedaba con
+    /// todo aunque la revisión dijera otra—, pero sin bloquearla.
+    public var shownShelfSlug: String?
     public var colors: [NamedColor]
     public var seasons: SeasonSet
     public var tags: [String]
@@ -45,6 +52,7 @@ public struct GarmentDraft: Sendable, Hashable {
         cut: String? = nil,
         productName: String? = nil,
         categorySlug: String? = nil,
+        shownShelfSlug: String? = nil,
         colors: [NamedColor] = [],
         seasons: SeasonSet = .all,
         tags: [String] = [],
@@ -62,6 +70,7 @@ public struct GarmentDraft: Sendable, Hashable {
         self.cut = cut
         self.productName = productName
         self.categorySlug = categorySlug
+        self.shownShelfSlug = shownShelfSlug
         self.colors = colors
         self.seasons = seasons
         self.tags = tags

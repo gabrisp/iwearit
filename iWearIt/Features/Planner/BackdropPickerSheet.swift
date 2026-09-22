@@ -68,7 +68,8 @@ private struct BackdropSwatch: View {
     var body: some View {
         Button(action: action) {
             RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                .fill(Color(
+                // La muestra, igual de clara que como queda el lienzo.
+                .fill(WK.Palette.canvasTint(
                     red: backdrop.components.red,
                     green: backdrop.components.green,
                     blue: backdrop.components.blue

@@ -1,4 +1,5 @@
 import CoreLocation
+import MapKit
 import Foundation
 import WKCore
 
@@ -14,9 +15,26 @@ import WKCore
 public struct PlaceSearchService: Sendable {
     public init() {}
 
+    /// **Varias opciones, no una.** `CLGeocoder` devuelve casi siempre un
+    /// único resultado, y si era el que no era —Valencia de Venezuela— no había
+    /// forma de ver las demás. `MKLocalSearch` filtrado a direcciones devuelve
+    /// las ciudades que casan, y el geocodificador queda de respaldo.
     public func search(_ query: String) async throws -> [GeoPlace] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= 2 else { return [] }
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = trimmed
+        request.resultTypes = .address
+        var places: [GeoPlace] = []
+        var seen = Set<String>()
+        if let response = try? await MKLocalSearch(request: request).start() {
+            for item in response.mapItems {
+                guard let place = Self.place(for: item), seen.insert(place.name).inserted else { continue }
+                places.append(place)
+            }
+        }
+        if !places.isEmpty { return Array(places.prefix(12)) }
 
         let placemarks = try await CLGeocoder().geocodeAddressString(trimmed)
         return placemarks.compactMap { placemark in
@@ -25,6 +43,22 @@ public struct PlaceSearchService: Sendable {
                 name: Self.name(for: placemark),
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude
+            )
+        }
+    }
+
+    private static func place(for item: MKMapItem) -> GeoPlace? {
+        if #available(iOS 26, *) {
+            let name = item.addressRepresentations?.cityWithContext(.full) ?? item.name
+            guard let name else { return nil }
+            let coordinate = item.location.coordinate
+            return GeoPlace(name: name, latitude: coordinate.latitude, longitude: coordinate.longitude)
+        } else {
+            let placemark = item.placemark
+            return GeoPlace(
+                name: name(for: placemark),
+                latitude: placemark.coordinate.latitude,
+                longitude: placemark.coordinate.longitude
             )
         }
     }

@@ -242,17 +242,16 @@ private struct CanvasEditorScreen: View {
     /// mismo viaje.
     private var backdropColor: Color {
         if let raw = outfit.suitcase?.colorRaw, let tint = SuitcaseTint(rawValue: raw) {
-            return Color(
+            return WK.Palette.canvasTint(
                 red: tint.components.red,
                 green: tint.components.green,
                 blue: tint.components.blue
             )
-            .opacity(0.35)
         }
         guard let components = OutfitBackdrop(rawValue: outfit.backdropRaw ?? "")?.components else {
             return WK.Palette.canvas
         }
-        return Color(red: components.red, green: components.green, blue: components.blue)
+        return WK.Palette.canvasTint(red: components.red, green: components.green, blue: components.blue)
     }
 
     private func undo() {
@@ -952,7 +951,7 @@ private struct CanvasGarmentTray: View {
     /// chip que solo sabe enseñar una rejilla en blanco.
     private var shelves: [TrayFilter] {
         categories
-            .filter { !$0.isHidden && !$0.garments.isEmpty }
+            .filter { !$0.isHidden && !$0.visibleGarments.isEmpty }
             .map { .category(slug: $0.slug, name: $0.name) }
     }
 

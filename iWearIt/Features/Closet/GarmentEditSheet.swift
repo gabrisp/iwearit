@@ -14,6 +14,10 @@ import WKVision
 /// rompe la clasificación y nadie se entera.
 struct GarmentEditSheet: View {
     @Bindable var garment: Garment
+    /// Quién borra de verdad, si alguien lo quiere hacer **después** de cerrar
+    /// las hojas. Ver `HangingGarmentView`: borrar con la hoja de la prenda aún
+    /// abierta encima la desmontaba de golpe, y se veía borrosa.
+    var onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -80,8 +84,10 @@ struct GarmentEditSheet: View {
         // recortada y las filas apretadas contra el teclado.
         .presentationDetents([.large])
         // Cualquier cambio en lo que forma el nombre lo rehace.
-        // Cambiar el tipo es decir que el título de la tienda no la describe.
-        .onChange(of: garment.subcategory) { garment.productName = nil; regenerateName() }
+        // El nombre fijo —de la tienda o escrito a mano— se queda aunque cambie
+        // el tipo: si se quiere el compuesto, se vacía el campo.
+        // .onChange(of: garment.subcategory) { garment.productName = nil; regenerateName() }
+        .onChange(of: garment.subcategory) { regenerateName() }
         .onChange(of: garment.material) { regenerateName() }
         .onChange(of: garment.brand) { regenerateName() }
         .onChange(of: garment.kindRaw) { regenerateName() }
@@ -108,13 +114,20 @@ struct GarmentEditSheet: View {
                 }
             }
         }
-        .confirmationDialog(
-            "¿Eliminar esta prenda?",
-            isPresented: $isConfirmingDelete,
-            titleVisibility: .visible
-        ) {
+        // Una alerta y no un menú desde el botón: borrar es irreversible y
+        // merece el aviso en el centro de la pantalla.
+        // .confirmationDialog(
+        //     "¿Eliminar esta prenda?",
+        //     isPresented: $isConfirmingDelete,
+        //     titleVisibility: .visible
+        // ) {
+        .alert("¿Eliminar esta prenda?", isPresented: $isConfirmingDelete) {
             Button("Eliminar", role: .destructive) {
-                garment.markDeleted()
+                if let onDelete {
+                    onDelete()
+                } else {
+                    garment.markDeleted()
+                }
                 dismiss()
             }
             Button("Cancelar", role: .cancel) {}
@@ -193,6 +206,12 @@ struct GarmentEditSheet: View {
             // marca, material o color, y se rehace solo cuando cambian. Ver
             // `regenerateName()`. La fila editable se queda comentada.
             // NameRow(name: $garment.name)
+            //
+            // **Editable otra vez, siempre.** Se sigue proponiendo solo, pero
+            // lo que escribas manda: queda fijo en `productName` y ya no se
+            // regenera al cambiar el color o el material. Vaciarlo devuelve el
+            // nombre compuesto.
+            NameRow(name: nameBinding)
             ColorRow(color: garment.dominantColor)
             // "Balda" y no "Parte": la balda es camisetas, pantalones… La parte
             // del cuerpo es un filtro para buscar, no un sitio.
@@ -254,6 +273,22 @@ struct GarmentEditSheet: View {
             material: garment.material,
             colors: garment.colors,
             brand: garment.brand
+        )
+    }
+
+    private var nameBinding: Binding<String> {
+        Binding(
+            get: { garment.name },
+            set: { typed in
+                let trimmed = typed.trimmingCharacters(in: .whitespaces)
+                if trimmed.isEmpty {
+                    garment.productName = nil
+                    regenerateName()
+                } else {
+                    garment.name = typed
+                    garment.productName = typed
+                }
+            }
         )
     }
 

@@ -219,6 +219,15 @@ public actor WardrobeActor {
                 continue
             }
 
+            // **La que se vio al revisar**, sin bloquearla. Ver
+            // `GarmentDraft.shownShelfSlug`.
+            if let slug = draft.shownShelfSlug, let shown = bySlug[slug] {
+                garment.category = shown
+                modelContext.insert(garment)
+                identifiers.append(garment.persistentModelID)
+                continue
+            }
+
             let assignment = Self.assign(draft, among: custom)
             // La balda propia manda; si ninguna, la semilla que le toca **por
             // lo que es**, no solo por la zona del cuerpo: una camisa va a

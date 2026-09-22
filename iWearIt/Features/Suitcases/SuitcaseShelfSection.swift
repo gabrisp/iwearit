@@ -45,7 +45,10 @@ struct SuitcaseShelfSection: View {
                     }
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
-                .frame(height: WK.Shelf.height, alignment: .bottom)
+                // **Aire entre las maletas y la balda.** Con el nombre
+                // debajo, la fila llegaba pegada al tablón.
+                .padding(.bottom, WK.Spacing.l)
+                .frame(height: WK.Shelf.height + WK.Spacing.l, alignment: .bottom)
             }
             .scrollIndicators(.hidden)
 

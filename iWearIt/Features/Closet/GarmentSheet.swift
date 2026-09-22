@@ -11,6 +11,9 @@ import WKPersistence
 /// hacer lo que casi siempre se quiere hacer, que es ponérsela en un outfit.
 struct GarmentSheet: View {
     @Bindable var garment: Garment
+    /// Se llama cuando esta hoja **ya se ha ido** tras pedir borrar la prenda.
+    var onDelete: (() -> Void)?
+    @State private var isDeleting = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -33,8 +36,15 @@ struct GarmentSheet: View {
         // botones y una foto obliga a un gesto largo para volver a lo que
         // estabas mirando, y deja media pantalla vacía.
         .wkDynamicSheet()
-        .sheet(isPresented: $isPresentingEditor) {
-            GarmentEditSheet(garment: garment)
+        // Borrar cierra primero el editor, luego esta hoja, y solo entonces
+        // se borra la prenda. Al revés, la prenda desaparecía de la balda con
+        // la hoja todavía abierta y la hoja se desmontaba borrosa.
+        .sheet(isPresented: $isPresentingEditor, onDismiss: {
+            guard isDeleting else { return }
+            if let onDelete { onDelete() } else { garment.markDeleted() }
+            dismiss()
+        }) {
+            GarmentEditSheet(garment: garment, onDelete: { isDeleting = true })
         }
         .outfitCreationFlow(isActive: $isPresentingComposer, startingGarment: garment)
     }

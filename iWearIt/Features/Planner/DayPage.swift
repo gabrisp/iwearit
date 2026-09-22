@@ -360,7 +360,7 @@ private struct DayCanvas: View {
         guard
             let components = OutfitBackdrop(rawValue: current?.backdropRaw ?? "")?.components
         else { return WK.Palette.canvas }
-        return Color(red: components.red, green: components.green, blue: components.blue)
+        return WK.Palette.canvasTint(red: components.red, green: components.green, blue: components.blue)
     }
 
     @discardableResult

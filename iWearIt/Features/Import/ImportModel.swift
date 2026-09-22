@@ -913,6 +913,7 @@ final class ImportModel {
                     cut: candidate.cut,
                     productName: candidate.productName,
                     categorySlug: candidate.categorySlug,
+                    shownShelfSlug: candidate.shelfSlug,
                     colors: candidate.colors,
                     seasons: candidate.seasons,
                     tags: candidate.tags,

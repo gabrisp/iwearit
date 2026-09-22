@@ -248,6 +248,9 @@ struct ImportSingleCard: View {
     /// armario son el mismo trabajo sobre los mismos campos.
     private var rows: some View {
         VStack(spacing: 0) {
+            // El nombre, **siempre editable**: se propone solo, pero lo que
+            // escribas manda y ya no se regenera.
+            NameRow(name: nameBinding)
             ColorRow(color: candidate.colors.first, picked: colorBinding)
             // **Qué es, no dónde va.** "Parte superior" es un filtro para
             // buscar, no algo que se elija: se elige camiseta o pantalón, y la

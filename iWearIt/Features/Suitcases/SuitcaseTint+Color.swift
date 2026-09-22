@@ -14,11 +14,12 @@ extension SuitcaseTint {
     /// retícula de puntos desaparece y el lienzo deja de parecer papel.
     static func backdrop(for raw: String?) -> Color {
         guard let raw, let tint = SuitcaseTint(rawValue: raw) else { return WK.Palette.canvas }
-        return Color(
+        // Al 50% y ya mezclado, como todos los lienzos. Ver
+        // `WK.Palette.canvasTint`.
+        return WK.Palette.canvasTint(
             red: tint.components.red,
             green: tint.components.green,
             blue: tint.components.blue
         )
-        .opacity(0.35)
     }
 }

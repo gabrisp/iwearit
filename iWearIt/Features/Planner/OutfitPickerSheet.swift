@@ -261,7 +261,7 @@ private struct PickerShelf: View {
     @Binding var flying: PersistentIdentifier?
 
     var body: some View {
-        if !category.garments.isEmpty {
+        if !category.visibleGarments.isEmpty {
             // **La balda del armario, no una parecida.**
             //
             // Misma cabecera, mismo alto, mismas perchas y el mismo canto de
@@ -271,13 +271,13 @@ private struct PickerShelf: View {
             // entraras, y la de aquí era la mala.
             VStack(alignment: .leading, spacing: 0) {
                 NavigationLink(value: category.persistentModelID) {
-                    ShelfHeaderLabel(name: category.name, count: category.garments.count)
+                    ShelfHeaderLabel(name: category.name, count: category.visibleGarments.count)
                 }
                 .buttonStyle(WKPressStyle())
 
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .bottom, spacing: WK.Spacing.m) {
-                        ForEach(category.garments) { garment in
+                        ForEach(category.visibleGarments) { garment in
                             PickerCell(
                                 garment: garment,
                                 store: store,
@@ -312,7 +312,7 @@ private struct PickerShelf: View {
         // el siguiente frame recupera su sitio, que es lo que dibuja el vuelo.
         flying = id
         if mode == .outfit {
-            let siblings = Set(category.garments.map(\.persistentModelID))
+            let siblings = Set(category.visibleGarments.map(\.persistentModelID))
             picked.removeAll { siblings.contains($0) }
         }
         picked.append(id)

@@ -21,6 +21,9 @@ struct HangingGarmentView: View {
     /// vista se usa en pantallas donde no se arrastra nada.
     @Environment(ShelfDragModel.self) private var drag: ShelfDragModel?
     @State private var isPresentingDetail = false
+    /// Se pidió borrar desde la ficha: se borra al cerrarse. Ver `GarmentSheet`.
+    @State private var deletesOnDismiss = false
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         #if DEBUG
@@ -83,8 +86,14 @@ struct HangingGarmentView: View {
             .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())
-        .sheet(isPresented: $isPresentingDetail) {
-            GarmentDetailLoader(persistentID: garment.persistentID)
+        .sheet(isPresented: $isPresentingDetail, onDismiss: {
+            guard deletesOnDismiss else { return }
+            deletesOnDismiss = false
+            if let model = modelContext.model(for: garment.persistentID) as? Garment {
+                withAnimation(WKAnimation.content) { model.markDeleted() }
+            }
+        }) {
+            GarmentDetailLoader(persistentID: garment.persistentID) { deletesOnDismiss = true }
         }
     }
 }
@@ -95,11 +104,12 @@ struct HangingGarmentView: View {
 /// celdas de todas las baldas suscritas al objeto entero.
 private struct GarmentDetailLoader: View {
     let persistentID: PersistentIdentifier
+    var onDelete: (() -> Void)?
     @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         if let garment = modelContext.model(for: persistentID) as? Garment {
-            GarmentSheet(garment: garment)
+            GarmentSheet(garment: garment, onDelete: onDelete)
         } else {
             ContentUnavailableView("Prenda no encontrada", systemImage: "questionmark.circle")
         }

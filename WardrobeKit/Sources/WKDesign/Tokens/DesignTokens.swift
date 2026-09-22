@@ -32,6 +32,27 @@ public enum WK {
             dark: .secondarySystemBackground
         )
 
+        /// Un color de fondo de lienzo, **más claro**: el color al 50% sobre la
+        /// página, ya mezclado.
+        ///
+        /// Mezclado y no con `.opacity(0.5)`: el paso de página del plan no
+        /// sabe enrollar una hoja transparente, y así el color sale opaco sin
+        /// que cada sitio tenga que acordarse de poner la página debajo.
+        public static func canvasTint(red: Double, green: Double, blue: Double) -> Color {
+            Color(uiColor: UIColor { traits in
+                let page = UIColor.secondarySystemBackground.resolvedColor(with: traits)
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+                page.getRed(&r, green: &g, blue: &b, alpha: &a)
+                let amount = 0.5
+                return UIColor(
+                    red: r * (1 - amount) + red * amount,
+                    green: g * (1 - amount) + green * amount,
+                    blue: b * (1 - amount) + blue * amount,
+                    alpha: 1
+                )
+            })
+        }
+
         /// Superficie que descansa sobre la página: una tarjeta, una celda.
         ///
         /// Más clara que la página en los dos esquemas. En oscuro no se usa

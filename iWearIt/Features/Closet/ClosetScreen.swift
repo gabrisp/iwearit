@@ -157,6 +157,15 @@ struct ClosetScreen: View {
                         }
                         SuitcaseShelfSection()
 
+                        // Cuánta ropa hay en total, justo encima de editar.
+                        Text("\(garments.count.formatted()) \(garments.count == 1 ? "prenda" : "prendas")")
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.tertiaryText)
+                            .monospacedDigit()
+                            .contentTransition(.numericText(value: Double(garments.count)))
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, WK.Spacing.l)
+
                         // Al final del todo, donde se te ocurre. Ver
                         // `ShelfEditPill`.
                         ShelfEditPill { sheet = .shelves }
@@ -244,7 +253,9 @@ struct ClosetScreen: View {
                     // `NavigationLink` ya es pulsable: lo que necesita es una
                     // etiqueta, no otro botón.
                     NavigationLink(value: ClosetRoute.settings) {
-                        Image(systemName: "person.crop.circle")
+                        // Ajustes, no "perfil": es lo que hay detrás.
+                        // Image(systemName: "person.crop.circle")
+                        Image(systemName: "gearshape")
                             .font(WK.Font.headline)
                             .contentShape(.rect)
                     }

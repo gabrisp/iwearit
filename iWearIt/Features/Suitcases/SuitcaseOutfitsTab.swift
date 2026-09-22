@@ -13,6 +13,8 @@ import WKPersistence
 /// te vas a poner cada día.
 struct SuitcaseOutfitsTab: View {
     let suitcase: Suitcase
+    /// Con fechas: revista (un día por página) o rejilla (todos los días).
+    var layout: PlannerLayout = .book
     @Binding var dayIndex: Int
     /// Para que el editor crezca desde la celda tocada en la rejilla.
     let zoom: Namespace.ID
@@ -21,10 +23,14 @@ struct SuitcaseOutfitsTab: View {
     /// La página no puede navegar por su cuenta: vive en su propio
     /// `UIHostingController` dentro del pager, fuera de la pila. Por eso lo
     /// pide hacia arriba en vez de presentarlo a pantalla completa.
+    /// Desde la rejilla: ir a ese día en modo revista.
+    var onOpenDay: (Int) -> Void = { _ in }
     let onEdit: (Outfit, Bool) -> Void
 
     var body: some View {
-        if let dayCount = suitcase.tripDayCount {
+        if let dayCount = suitcase.tripDayCount, layout == .grid {
+            DatedGrid(suitcase: suitcase, dayCount: dayCount, onOpenDay: onOpenDay, onEdit: onEdit)
+        } else if let dayCount = suitcase.tripDayCount {
             DatedOutfits(
                 suitcase: suitcase,
                 dayCount: dayCount,
@@ -62,6 +68,60 @@ struct DatedOutfits: View {
             )
         }
         .ignoresSafeArea()
+    }
+}
+
+/// Maleta con fechas, en rejilla: todos los días del viaje de un vistazo.
+///
+/// La misma celda que la rejilla del plan. Un día sin outfit es la celda de
+/// crear, y lleva a ese día en modo revista.
+private struct DatedGrid: View {
+    let suitcase: Suitcase
+    let dayCount: Int
+    let onOpenDay: (Int) -> Void
+    let onEdit: (Outfit, Bool) -> Void
+
+    @Environment(AppEnvironment.self) private var appEnvironment
+
+    private static let date: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return formatter
+    }()
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
+                ForEach(0..<dayCount, id: \.self) { index in
+                    VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+                        Text(label(for: index))
+                            .font(WK.Font.captionMedium)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                        if let outfit = suitcase.outfit(forDayIndex: index) {
+                            Button { onEdit(outfit, false) } label: {
+                                PlannerGridCell(
+                                    outfit: outfit,
+                                    store: appEnvironment.imageStore,
+                                    fallback: SuitcaseTint.backdrop(for: suitcase.colorRaw)
+                                )
+                            }
+                            .buttonStyle(WKPressStyle())
+                        } else {
+                            NewOutfitGridCell { onOpenDay(index) }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .safeAreaPadding(.vertical)
+            .padding(.bottom, WK.Spacing.xl)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func label(for index: Int) -> String {
+        guard let date = suitcase.date(forDayIndex: index) else { return "Día \(index + 1)" }
+        return "Día \(index + 1) · \(Self.date.string(from: date))"
     }
 }
 
@@ -122,6 +182,7 @@ struct TripDayChip: View {
         // Número pequeño arriba y mes grande debajo. En un viaje de cinco días
         // todos los números son consecutivos y no distinguen nada; lo que sitúa
         // el día es el mes, y más aún cuando el viaje cruza de un mes a otro.
+        HStack(spacing: 6) {
         VStack(spacing: -1) {
             Text(date.map { Self.dayNumber.string(from: $0) } ?? "\(index + 1)")
                 .font(.system(size: 11, weight: .medium))
@@ -133,13 +194,21 @@ struct TripDayChip: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
 
-            // Un punto si ese día ya tiene outfit. Es lo que deja ver de un
-            // vistazo cuánto queda por preparar sin abrir día por día.
-            Circle()
-                .fill(isSelected ? WK.Palette.onAccent : WK.Palette.accent)
-                .frame(width: 5, height: 5)
-                .opacity(hasOutfit ? 1 : 0)
-                .padding(.top, 2)
+            // Un punto si ese día ya tiene outfit. Ahora es una píldora a la
+            // derecha: ver abajo.
+            // Circle()
+            //     .fill(isSelected ? WK.Palette.onAccent : WK.Palette.accent)
+            //     .frame(width: 5, height: 5)
+            //     .opacity(hasOutfit ? 1 : 0)
+            //     .padding(.top, 2)
+        }
+            // **Una píldora a la derecha**, no un punto debajo: se ve de un
+            // vistazo qué días ya tienen outfit sin abrirlos.
+            if hasOutfit {
+                Capsule()
+                    .fill(isSelected ? WK.Palette.onAccent : WK.Palette.accent)
+                    .frame(width: 4, height: 18)
+            }
         }
         .padding(.horizontal, WK.Spacing.m)
         .frame(height: 46)
@@ -199,7 +268,10 @@ struct TripDayPage: View {
         .overlay(alignment: .bottomTrailing) {
             DayActionButton(symbol: "pencil") { onEdit(ensureOutfit(), outfit == nil) }
             .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.bottom, WK.Spacing.xl)
+            // Por encima de la barra de Outfits · Equipaje: el pager ignora el
+            // área segura, así que aquí se cuenta a mano.
+            // .padding(.bottom, WK.Spacing.xl)
+            .padding(.bottom, WK.Spacing.xl + WKLocktyTabBarMetrics.height + WK.Spacing.l)
         }
         .sheet(isPresented: $isPickingGarments) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in

@@ -72,6 +72,14 @@ struct PlaceSearchSheet: View {
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()
+        // También mientras escribes, con una pausa: así las opciones aparecen
+        // solas y no hace falta pulsar buscar para ver si la tuya está.
+        .task(id: query) {
+            guard query.trimmingCharacters(in: .whitespaces).count >= 2 else { return }
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            await search()
+        }
     }
 
     private func search() async {
