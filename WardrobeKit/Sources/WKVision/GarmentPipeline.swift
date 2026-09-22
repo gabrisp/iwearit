@@ -78,6 +78,14 @@ public actor GarmentPipeline {
     /// pixelados. Con esta, sobra resolución y el recorte se reduce.
     static let detailMaxSide = 3200 // Sin uso: ver `extractGarmentsFromPixels`.
 
+    /// Lado máximo del recorte que se **conserva**.
+    ///
+    /// La máscara se calcula y se aplica sobre la foto original —es lo que da
+    /// el canto limpio—, pero guardar ese recorte a doce megapíxeles por prenda
+    /// es lo que hace que importar diez fotos se quede sin memoria. Reducido
+    /// aquí, con interpolación buena, el borde sigue siendo el de iOS.
+    static let keptCropMaxSide = 2048
+
     /// La misma foto, más pequeña, si hacía falta.
     static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
         let side = max(image.width, image.height)
@@ -879,7 +887,9 @@ public actor GarmentPipeline {
                 ),
                 let masked = Self.cgImage(from: buffer),
                 let tight = CropNormalizer.opaqueBounds(of: masked),
-                let rawCrop = masked.cropping(to: tight),
+                let full = masked.cropping(to: tight),
+                // A tamaño manejable, ya recortado: ver `keptCropMaxSide`.
+                let rawCrop = Self.scaledDown(full, maxSide: Self.keptCropMaxSide) ?? full as CGImage?,
                 let normalized = CropNormalizer.normalize(rawCrop, profile: Self.subjectProfile(for: subject.kind))
             else { continue }
 
@@ -1398,7 +1408,8 @@ public actor GarmentPipeline {
             ),
             let subject = Self.cgImage(from: buffer),
             let tight = CropNormalizer.opaqueBounds(of: subject),
-            let rawCrop = subject.cropping(to: tight),
+            let full = subject.cropping(to: tight),
+            let rawCrop = Self.scaledDown(full, maxSide: Self.keptCropMaxSide) ?? full as CGImage?,
             // Sin enderezar: ver `subjectProfile(for:)`.
             // let normalized = CropNormalizer.normalize(rawCrop)
             let normalized = CropNormalizer.normalize(rawCrop, profile: Self.subjectProfile(for: nil))
@@ -1416,7 +1427,8 @@ public actor GarmentPipeline {
             ),
             let subject = Self.cgImage(from: buffer),
             let tight = CropNormalizer.opaqueBounds(of: subject),
-            let rawCrop = subject.cropping(to: tight),
+            let full = subject.cropping(to: tight),
+            let rawCrop = Self.scaledDown(full, maxSide: Self.keptCropMaxSide) ?? full as CGImage?,
             // Cuadrado: aquí todavía no se sabe qué prenda es —eso lo dice
             // `describe` **después**— y elegir el perfil de pantalón para algo
             // que resulte ser una gorra encaja peor que no elegir ninguno.

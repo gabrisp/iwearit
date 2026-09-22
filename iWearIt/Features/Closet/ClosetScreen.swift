@@ -73,8 +73,12 @@ struct ClosetScreen: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.modelContext) private var modelContext
 
+    // **Y sin las borradas.** Faltaba el filtro: una balda que la
+    // reconciliación había juntado seguía saliendo en el armario como una
+    // balda más, así que después de sincronizar se veía la copia vacía al
+    // lado de la buena.
     @Query(
-        filter: #Predicate<GarmentCategory> { !$0.isHidden },
+        filter: #Predicate<GarmentCategory> { !$0.isHidden && $0.deletedAt == nil },
         sort: [SortDescriptor(\GarmentCategory.sortOrder)]
     )
     private var categories: [GarmentCategory]
@@ -88,7 +92,14 @@ struct ClosetScreen: View {
             guard let slug = garment.category?.slug else { continue }
             bySlug[slug, default: []].append(GarmentRef(garment))
         }
-        return categories.map { category in
+        // **Sin slugs repetidos.** Dos baldas con el mismo `slug` —lo que deja
+        // una sincronización antes de juntarlas— daban dos filas con el mismo
+        // identificador, y un `ForEach` con identificadores repetidos hace
+        // exactamente lo que se veía: filas que aparecen y desaparecen al
+        // desplazarse. Se queda la primera de cada slug; la otra la junta
+        // `reconcileDuplicates`.
+        var seen = Set<String>()
+        return categories.filter { seen.insert($0.slug).inserted }.map { category in
             ShelfData(
                 id: category.slug,
                 name: category.name,

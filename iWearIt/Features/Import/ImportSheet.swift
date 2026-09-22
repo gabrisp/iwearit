@@ -242,19 +242,28 @@ struct ImportSheet: View {
         await model.addPhotos(images)
     }
 
+    /// **Cerrar primero, guardar después.**
+    ///
+    /// Lo que queda por hacer al pulsar Guardar —codificar las imágenes,
+    /// escribirlas y dar de alta las prendas— no necesita la hoja abierta, y
+    /// esperarlo con ella puesta es lo que se veía como "se queda pillado unos
+    /// segundos". Se cierra, el trabajo sigue en segundo plano y el aviso llega
+    /// cuando acaba: lo pinta la raíz, así que no se va con la hoja.
     private func save(_ model: ImportModel) async {
-        let saved = (try? await model.save(
-            imageStore: appEnvironment.imageStore,
-            wardrobe: appEnvironment.wardrobe
-        )) ?? 0
         didSave = true
         appEnvironment.importSession.clear()
         dismiss()
 
-        // El aviso se pide **después** de cerrar, y lo pinta la raíz: si lo
-        // enseñara esta hoja, se iría con ella antes de poder leerse.
-        guard saved > 0 else { return }
-        toasts.show(WKToast(saved == 1 ? "Prenda guardada" : "\(saved) prendas guardadas"))
+        let imageStore = appEnvironment.imageStore
+        let wardrobe = appEnvironment.wardrobe
+        let toasts = toasts
+        Task.detached(priority: .userInitiated) {
+            let saved = (try? await model.save(imageStore: imageStore, wardrobe: wardrobe)) ?? 0
+            guard saved > 0 else { return }
+            await MainActor.run {
+                toasts.show(WKToast(saved == 1 ? "Prenda guardada" : "\(saved) prendas guardadas"))
+            }
+        }
     }
 }
 
