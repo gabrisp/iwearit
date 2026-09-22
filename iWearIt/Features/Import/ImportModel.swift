@@ -302,6 +302,9 @@ final class ImportModel {
                     "IMPORT", "falla la foto añadida \(index + 1): \(error)", isProblem: true
                 )
             }
+            DiagnosticsLog.record(
+                "IMPORT", "foto añadida \(index + 1): ahora hay \(candidates.count) prenda(s) en la lista"
+            )
             analysedCount = index + 1
         }
         await markDuplicates()

@@ -57,7 +57,13 @@ struct ImportReviewStack: View {
             images.append(image)
         }
         guard !images.isEmpty else { return }
-        await onAddMore(images)
+        // **El análisis, suelto.** Leer las fotos es un momento; analizarlas
+        // son veinte segundos por foto, y hacerlo dentro de la tarea del
+        // botón lo ataba a la vida del botón: cualquier cosa que la cancelara
+        // —la hoja de la galería al cerrarse, un redibujado— cortaba el
+        // análisis a medias y la prenda no llegaba nunca a la lista. Por
+        // separado, como cuando se importa de cero, no le pasa.
+        Task { await onAddMore(images) }
     }
 
     /// Las dos salidas de la pantalla, abajo y del tamaño del pulgar.
