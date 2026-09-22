@@ -427,7 +427,7 @@ private struct DebugSection: View {
             Button("Borrar todo", role: .destructive) { eraseEverything() }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("Se borran el armario, los outfits, las maletas, las fotos y lo sincronizado en iCloud, también en tus otros dispositivos. No se puede deshacer.")
+            Text("Se borran el armario, los outfits, las maletas, las fotos y lo sincronizado en iCloud, también en tus otros dispositivos. La app se cerrará y empezará de cero. No se puede deshacer.")
         }
     }
 
@@ -445,6 +445,16 @@ private struct DebugSection: View {
                 }
                 appEnvironment.tips.resetAll()
                 lastResult = "Borrado: \(removed) registros"
+                // **Y se cierra la app.** Con todo borrado, lo que hay en
+                // memoria —consultas, cachés de imágenes, la pantalla en la
+                // que estás— sigue siendo lo de antes. Salir y volver a abrir
+                // es la única forma de empezar de cero de verdad: onboarding
+                // incluido, porque sus ajustes también se han ido.
+                //
+                // Solo existe en depuración: una app publicada no puede
+                // cerrarse sola.
+                try? await Task.sleep(for: .milliseconds(400))
+                exit(0)
             } catch {
                 lastResult = "Falló: \(error)"
             }
