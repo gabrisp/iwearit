@@ -73,10 +73,19 @@ struct CategoryScreen: View {
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas.ignoresSafeArea())
         .adaptiveScrollEdge(.top)
-        .navigationTitle(name)
+        // **Sin título y sin `searchable`.** El buscador del sistema se pone
+        // en una fila propia debajo de la barra y empuja la balda hacia abajo;
+        // aquí lo que hace falta es buscar dentro de lo que ya se está
+        // mirando. El campo va en el centro de la barra, en cristal, y el
+        // nombre de la balda vive dentro como marcador.
+        // .navigationTitle(name)
+        // .searchable(text: $searchText, prompt: "Buscar en \(name)")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchText, prompt: "Buscar en \(name)")
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                CategorySearchField(text: $searchText, shelf: name)
+            }
             // **El corazón filtra, no marca.** En la balda hay veinte camisas
             // y las que se ponen de verdad son tres: esto las deja solas sin
             // salir de la balda ni perder lo que estuvieras buscando.
@@ -178,4 +187,52 @@ struct CategoryScreen: View {
     //         isSelecting = false
     //     }
     // }
+}
+
+/// El buscador de la balda, en el centro de la barra.
+///
+/// Un campo y nada más: la lupa a la izquierda dice qué es, y la X aparece solo
+/// cuando hay algo escrito. En cristal, como el resto de la barra.
+private struct CategorySearchField: View {
+    @Binding var text: String
+    /// El nombre de la balda: es el marcador cuando no hay nada escrito, así
+    /// que no hace falta además un título encima.
+    let shelf: String
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(WK.Palette.secondaryText)
+
+            TextField(shelf, text: $text)
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.primaryText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($isFocused)
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.footnote)
+                        .foregroundStyle(WK.Palette.tertiaryText)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(WKPressStyle())
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, WK.Spacing.s)
+        .frame(width: 190, height: 36)
+        .adaptiveGlassInteractive(in: .capsule)
+        .animation(WKAnimation.selection, value: text.isEmpty)
+        .contentShape(.capsule)
+        .onTapGesture { isFocused = true }
+    }
 }

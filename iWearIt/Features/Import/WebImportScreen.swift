@@ -22,11 +22,15 @@ import WebKit
 /// mirar una web y raspar una web, y también la que evita traerse una imagen
 /// protegida sin saberlo.
 struct WebImportScreen: View {
-    let onCapture: (CGImage) -> Void
+    /// **Varias**, no una: en una tienda se mira un producto detrás de otro y
+    /// cerrar el navegador por cada uno obliga a repetir la búsqueda entera.
+    let onCapture: ([CGImage]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var model = WebCaptureModel()
     @FocusState private var isTyping: Bool
+    /// Lo capturado en esta visita, en orden.
+    @State private var captures: [WebCapture] = []
 
     var body: some View {
         NavigationStack {
@@ -96,27 +100,15 @@ struct WebImportScreen: View {
                             .tint(WK.Palette.primaryText)
                     }
 
-                    // La foto, abajo y con su nombre: es **la** acción de esta
-                    // pantalla, y arriba habría quedado como un icono más
-                    // entre los de navegar.
-                    ToolbarItem(placement: .bottomBar) {
-                        Button {
-                            Task {
-                                guard let image = await model.capture() else { return }
-                                // **Sin `dismiss()`.** Quien presenta esta hoja
-                                // la cambia por la de revisar en cuanto llega
-                                // la imagen; cerrarla aquí cancelaba ese
-                                // cambio, y por eso desaparecía sin volver
-                                // nada.
-                                onCapture(image)
-                            }
-                        } label: {
-                            Label("Usar esta foto", systemImage: "camera.viewfinder")
-                        }
-                        .tint(WK.Palette.primaryText)
-                        .disabled(!model.hasPage)
-                    }
+                    // La foto va abajo, con lo capturado al lado. Ver
+                    // `captureBar`.
+                    // ToolbarItem(placement: .bottomBar) { … }
                 }
+                // **Abajo, como en el selector de crear outfit**: a la
+                // izquierda lo que llevas capturado y a la derecha los
+                // botones. Así se recorren cinco productos seguidos y se
+                // importan de una vez.
+                .adaptiveSafeAreaBar(edge: .bottom) { captureBar }
         }
         // **No se cierra arrastrando.** Una web se recorre con el dedo de
         // arriba abajo, y con el gesto de descartar puesto la mitad de los
@@ -124,6 +116,99 @@ struct WebImportScreen: View {
         // por la X.
         .interactiveDismissDisabled()
     }
+
+    /// Lo capturado y los dos botones: hacer la foto y terminar.
+    private var captureBar: some View {
+        HStack(spacing: WK.Spacing.m) {
+            WebCaptureStrip(captures: captures) { capture in
+                withAnimation(WKAnimation.selection) {
+                    captures.removeAll { $0.id == capture.id }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button {
+                Task {
+                    guard let image = await model.capture() else { return }
+                    withAnimation(WKAnimation.content) {
+                        captures.append(WebCapture(image: image))
+                    }
+                }
+            } label: {
+                Image(systemName: "camera.viewfinder")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 56, height: 56)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+            .disabled(!model.hasPage)
+
+            Button {
+                // **Sin `dismiss()`.** Quien presenta esta hoja la cambia por
+                // la de revisar en cuanto llegan las imágenes; cerrarla aquí
+                // cancelaba ese cambio, y por eso desaparecía sin volver nada.
+                onCapture(captures.map(\.image))
+            } label: {
+                Image(systemName: "checkmark")
+                    .font(WK.Font.headline)
+                    .frame(width: 56, height: 56)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(WKPressStyle())
+            .adaptiveGlassProminent(tint: WK.Palette.accent, in: .circle)
+            .disabled(captures.isEmpty)
+            .opacity(captures.isEmpty ? 0.4 : 1)
+            .animation(WKAnimation.selection, value: captures.isEmpty)
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.bottom, WK.Spacing.s)
+    }
+}
+
+/// El montón de capturas de esta visita, a la izquierda de los botones.
+///
+/// Se solapan como fotos apiladas: con cinco productos en fila ocuparían media
+/// pantalla, y lo que hace falta saber es **cuántas** llevas y que la última es
+/// la que acabas de hacer. Tocar una la quita.
+private struct WebCaptureStrip: View {
+    let captures: [WebCapture]
+    let onRemove: (WebCapture) -> Void
+
+    var body: some View {
+        HStack(spacing: -18) {
+            ForEach(captures.suffix(4)) { capture in
+                Button { onRemove(capture) } label: {
+                    Image(decorative: capture.image, scale: 1)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 52)
+                        .clipShape(.rect(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(.white.opacity(0.9), lineWidth: 2)
+                        }
+                        .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                }
+                .buttonStyle(WKPressStyle())
+                .transition(.scale.combined(with: .opacity))
+            }
+
+            if captures.count > 4 {
+                Text("+\(captures.count - 4)")
+                    .font(WK.Font.captionMedium)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .padding(.leading, 24)
+            }
+        }
+    }
+}
+
+/// Una captura de esta visita.
+struct WebCapture: Identifiable {
+    let id = UUID()
+    let image: CGImage
 }
 
 /// El navegador y la foto que se le hace.

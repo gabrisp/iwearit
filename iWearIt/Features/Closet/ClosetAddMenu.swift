@@ -141,7 +141,8 @@ struct ClosetAddMenu: View {
             // A pantalla completa y sin poder arrastrarse para cerrar: ver
             // `WebImportScreen`.
             WebImportScreen { captured in
-                self.step = .review(ImportableBatch(images: [captured]))
+                guard !captured.isEmpty else { return }
+                self.step = .review(ImportableBatch(images: captured))
             }
         case let .review(batch):
             ImportSheet(images: batch.images)
