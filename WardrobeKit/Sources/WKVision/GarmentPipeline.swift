@@ -310,6 +310,29 @@ public actor GarmentPipeline {
         // mejor: sin modelo descargado, cortar por articulaciones es lo único
         // que queda.
         if let segmenter {
+            // ## Sujeto primero
+            //
+            // Lo lógico, y lo que hace el propio iPhone: mirar **qué objetos
+            // hay** antes de preguntar de qué clase es cada píxel. Si nadie
+            // lleva la ropa puesta, cada sujeto que separa iOS es una cosa —un
+            // zapato, una camiseta doblada— y su máscara es el mejor recorte
+            // que existe. El segmentador solo dice **qué** es, mirando dentro
+            // de esa máscara. Antes era al revés: el segmentador recortaba y
+            // el sujeto solo se probaba en casos contados, y una cosa tan
+            // básica como un zapato salía mordida.
+            //
+            // Con alguien puesto, el sujeto es la persona entera: ahí manda el
+            // segmentador, que separa camiseta de pantalón. Y si el sujeto no
+            // resuelve la foto —varias prendas pegadas en uno solo, nada que
+            // parezca ropa— se sigue por el camino de siempre.
+            if !(await Self.hasConvincingPerson(in: image)) {
+                if let fromSubjects = await extractFromSubjects(segmenter, image: image),
+                   !fromSubjects.isEmpty {
+                    return fromSubjects
+                }
+                DiagnosticsLog.record("SUJETO", "el sujeto no resuelve la foto: se sigue por el segmentador")
+            }
+
             if let garments = try? await extractWithSegmenter(segmenter, from: image),
                !garments.isEmpty {
                 return await refinedOnSolidBackground(Self.merged(garments), from: image)
@@ -582,7 +605,9 @@ public actor GarmentPipeline {
     ///   de sujeto — ahí el tipo de prenda lo decide el embedder sin pistas.
     private func describe(
         _ image: CGImage,
-        region: SegmentedGarmentExtractor.Region?
+        region: SegmentedGarmentExtractor.Region?,
+        candidates override: Set<GarmentKindName>? = nil,
+        fallbackKind: GarmentKind? = nil
     ) async -> (
         kind: GarmentKind, embedding: Data?, subcategory: String?,
         material: String?, tags: [String], seasons: SeasonSet
@@ -593,7 +618,7 @@ public actor GarmentPipeline {
             let vector = try? await embedder.embedding(for: image)
         else {
             return (
-                region?.kind ?? .other,
+                region?.kind ?? fallbackKind ?? .other,
                 try? await VisionStages.featurePrint(of: image),
                 nil, nil, [], .all
             )
@@ -606,7 +631,9 @@ public actor GarmentPipeline {
         // ninguna pista de qué es, y restringir a una clase que no conocemos
         // sería inventarla.
         let candidates: Set<GarmentKindName>
-        if let region {
+        if let override {
+            candidates = override
+        } else if let region {
             candidates = region.label == .upperClothes
                 ? [.upperBody, .outerLayer]
                 : [GarmentKindName(rawValue: region.kind.rawValue)]
@@ -619,6 +646,7 @@ public actor GarmentPipeline {
         let match = promptBank.bestSubcategory(for: vector, constrainedTo: candidates)
         let resolvedKind = match.flatMap { GarmentKind(rawValue: $0.kind.rawValue) }
             ?? region?.kind
+            ?? fallbackKind
             ?? .other
 
         let material = promptBank.best(group: "material", for: vector).first
@@ -645,6 +673,236 @@ public actor GarmentPipeline {
             tags: tags,
             seasons: seasons
         )
+    }
+
+    // MARK: - Sujeto primero
+
+    /// Lo que el segmentador ve dentro de la máscara de un sujeto.
+    struct SubjectTally {
+        /// Fracción de la foto que ocupa el sujeto.
+        var area: Double
+        /// Fracción del sujeto que el segmentador llama ropa.
+        var clothing: Double
+        /// Fracción del sujeto que es cara, pelo, brazos o piernas.
+        var person: Double
+        var byKind: [GarmentKind: Int]
+        var byLabel: [ClothesSegmenter.Label: Int]
+
+        var dominantKind: GarmentKind? { byKind.max { $0.value < $1.value }?.key }
+        var dominantLabel: ClothesSegmenter.Label? { byLabel.max { $0.value < $1.value }?.key }
+        /// Cuánto de la ropa es de la clase dominante.
+        var dominantShare: Double {
+            let total = byKind.values.reduce(0, +)
+            guard total > 0, let top = byKind.values.max() else { return 0 }
+            return Double(top) / Double(total)
+        }
+    }
+
+    /// Por debajo de esto, lo que hay en el sujeto no se considera ropa.
+    static let subjectClothingFloor = 0.2
+    /// Por encima de esto de cara, pelo o piel, el sujeto es una persona.
+    static let subjectPersonCeiling = 0.08
+    /// Si la clase dominante no llega a esto, el sujeto son varias prendas
+    /// pegadas —una camiseta tocando un pantalón— y las separa el segmentador.
+    /// No es 1: el segmentador llama "pantalón" al bajo de muchas camisetas.
+    static let subjectDominantShare = 0.6
+
+    static func tally(of masked: CGImage, in map: ClassMap) -> SubjectTally? {
+        guard
+            let buffer = PixelBuffer(width: map.width, height: map.height),
+            let context = buffer.makeContext()
+        else { return nil }
+        context.draw(masked, in: CGRect(x: 0, y: 0, width: map.width, height: map.height))
+
+        var inside = 0, clothing = 0, person = 0
+        var byKind: [GarmentKind: Int] = [:]
+        var byLabel: [ClothesSegmenter.Label: Int] = [:]
+        for y in 0..<map.height {
+            for x in 0..<map.width where buffer[x, y, 3] > 127 {
+                inside += 1
+                guard let label = map[x, y] else { continue }
+                if let kind = label.kind {
+                    clothing += 1
+                    byKind[kind, default: 0] += 1
+                    byLabel[label, default: 0] += 1
+                } else if label != .background {
+                    person += 1
+                }
+            }
+        }
+        guard inside > 0 else { return nil }
+        return SubjectTally(
+            area: Double(inside) / Double(map.width * map.height),
+            clothing: Double(clothing) / Double(inside),
+            person: Double(person) / Double(inside),
+            byKind: byKind,
+            byLabel: byLabel
+        )
+    }
+
+    /// El encaje de un recorte por sujeto: el de su tipo, **sin enderezar**.
+    ///
+    /// La máscara de iOS ya deja la cosa como está en la foto, y enderezar por
+    /// el eje principal tumbaba lo que es diagonal por naturaleza —un zapato,
+    /// una gorra de lado—. Eso era la "distorsión".
+    static func subjectProfile(for kind: GarmentKind?) -> CropNormalizer.Profile {
+        let base = kind.map { CropNormalizer.Profile.profile(for: $0) } ?? .square()
+        return CropNormalizer.Profile(
+            width: base.width, height: base.height,
+            padding: base.padding, anchor: base.anchor, deskews: false
+        )
+    }
+
+    /// Una prenda por sujeto de iOS, clasificada por lo que el segmentador ve
+    /// dentro de su máscara.
+    ///
+    /// `nil` cuando el sujeto no resuelve la foto y hay que seguir por el
+    /// segmentador: no hay sujeto, alguno es una persona, o alguno son varias
+    /// prendas pegadas.
+    private func extractFromSubjects(
+        _ segmenter: ClothesSegmenter,
+        image: CGImage
+    ) async -> [DetectedGarment]? {
+        guard
+            let observation = try? await VisionStages.foregroundInstances(in: image),
+            !observation.allInstances.isEmpty,
+            let map = try? await segmenter.classMap(for: image)
+        else { return nil }
+        let handler = ImageRequestHandler(image)
+        let instances = Array(observation.allInstances)
+
+        struct Subject {
+            var instances: IndexSet
+            var tally: SubjectTally
+            var kind: GarmentKind?
+        }
+
+        var subjects: [Subject] = []
+        for instance in instances {
+            guard
+                let buffer = try? observation.generateMaskedImage(
+                    for: IndexSet(integer: instance),
+                    imageFrom: handler,
+                    croppedToInstancesExtent: false
+                ),
+                let masked = Self.cgImage(from: buffer),
+                let tally = Self.tally(of: masked, in: map)
+            else { continue }
+
+            let summary = String(
+                format: "sujeto %d: %.0f%% de la foto · ropa %.0f%% · persona %.0f%% · %@ (%.0f%%)",
+                instance, tally.area * 100, tally.clothing * 100, tally.person * 100,
+                tally.dominantKind?.rawValue ?? "—", tally.dominantShare * 100
+            )
+            DiagnosticsLog.record("SUJETO", summary)
+
+            guard tally.area >= minimumAreaFraction else { continue }
+            // Alguien, aunque la pose no convenciera: que lo separe el
+            // segmentador. Devolver a la persona como prenda es el fallo que
+            // más caro nos ha salido.
+            if tally.person > Self.subjectPersonCeiling { return nil }
+
+            if tally.clothing >= Self.subjectClothingFloor {
+                // Varias prendas en un solo sujeto: el sujeto no sirve.
+                guard tally.dominantShare >= Self.subjectDominantShare else { return nil }
+                subjects.append(Subject(instances: IndexSet(integer: instance), tally: tally, kind: tally.dominantKind))
+            } else if instances.count == 1 {
+                // Una sola cosa en la foto y el segmentador no la reconoce:
+                // lo que sea lo dice el embedder, como con cualquier prenda
+                // suelta.
+                subjects.append(Subject(instances: IndexSet(integer: instance), tally: tally, kind: nil))
+            }
+        }
+        guard !subjects.isEmpty else { return nil }
+
+        // Un par de zapatos es **una** prenda, aunque iOS los separe en dos.
+        let feet = subjects.filter { $0.kind == .feet }
+        if feet.count > 1 {
+            let pair = Subject(
+                instances: feet.reduce(into: IndexSet()) { $0.formUnion($1.instances) },
+                tally: feet[0].tally,
+                kind: .feet
+            )
+            subjects = subjects.filter { $0.kind != .feet } + [pair]
+        }
+
+        var results: [DetectedGarment] = []
+        var seenByKind: [GarmentKind: Int] = [:]
+        for subject in subjects {
+            guard
+                let buffer = try? observation.generateMaskedImage(
+                    for: subject.instances,
+                    imageFrom: handler,
+                    croppedToInstancesExtent: false
+                ),
+                let masked = Self.cgImage(from: buffer),
+                let tight = CropNormalizer.opaqueBounds(of: masked),
+                let rawCrop = masked.cropping(to: tight),
+                let normalized = CropNormalizer.normalize(rawCrop, profile: Self.subjectProfile(for: subject.kind))
+            else { continue }
+
+            var colors = ColorExtractor.dominantColors(in: normalized)
+            guard !Self.looksLikeSkin(colors) else { continue }
+
+            // Camiseta o chaqueta lo decide el embedder, como siempre: el
+            // segmentador las llama igual.
+            let candidates: Set<GarmentKindName>?
+            if subject.tally.dominantLabel == .upperClothes {
+                candidates = [.upperBody, .outerLayer]
+            } else if let kind = subject.kind, let name = GarmentKindName(rawValue: kind.rawValue) {
+                candidates = [name]
+            } else {
+                candidates = nil
+            }
+            let described = await describe(
+                normalized, region: nil, candidates: candidates, fallbackKind: subject.kind
+            )
+            let evidence = await readBrandEvidence(in: rawCrop)
+            let refined = await refineIfNeeded(
+                normalized: normalized,
+                kind: described.kind,
+                subcategory: described.subcategory,
+                material: described.material,
+                confidence: subject.kind == nil
+                    ? (embedder == nil ? Self.degradedConfidenceCeiling : 0.7)
+                    : 0.85,
+                colorName: colors.first?.nameKey,
+                evidence: evidence
+            )
+            colors = Self.renamed(colors, to: refined.colorName)
+
+            let index = seenByKind[refined.kind, default: 0]
+            seenByKind[refined.kind] = index + 1
+            DiagnosticsLog.record(
+                "SUJETO",
+                "→ \(refined.kind.rawValue) \(refined.subcategory ?? "—") · recorte del sujeto de iOS"
+            )
+
+            results.append(
+                DetectedGarment(
+                    kind: refined.kind,
+                    confidence: refined.confidence,
+                    normalized: ImmutableImage(normalized),
+                    rawCrop: ImmutableImage(rawCrop),
+                    colors: colors,
+                    featurePrint: described.embedding,
+                    subcategory: refined.subcategory,
+                    material: refined.material,
+                    tags: described.tags,
+                    seasons: described.seasons,
+                    brand: refined.brand,
+                    brandEvidence: refined.evidence,
+                    instanceIndex: index,
+                    sourceRect: CGRect(
+                        x: tight.minX / Double(masked.width),
+                        y: tight.minY / Double(masked.height),
+                        width: tight.width / Double(masked.width),
+                        height: tight.height / Double(masked.height)
+                    )
+                )
+            )
+        }
+        return results.isEmpty ? nil : results
     }
 
     // MARK: - Una prenda sola
@@ -1081,7 +1339,9 @@ public actor GarmentPipeline {
             let subject = Self.cgImage(from: buffer),
             let tight = CropNormalizer.opaqueBounds(of: subject),
             let rawCrop = subject.cropping(to: tight),
-            let normalized = CropNormalizer.normalize(rawCrop)
+            // Sin enderezar: ver `subjectProfile(for:)`.
+            // let normalized = CropNormalizer.normalize(rawCrop)
+            let normalized = CropNormalizer.normalize(rawCrop, profile: Self.subjectProfile(for: nil))
         else { return nil }
         return (ImmutableImage(normalized), ImmutableImage(rawCrop))
     }
@@ -1100,7 +1360,9 @@ public actor GarmentPipeline {
             // Cuadrado: aquí todavía no se sabe qué prenda es —eso lo dice
             // `describe` **después**— y elegir el perfil de pantalón para algo
             // que resulte ser una gorra encaja peor que no elegir ninguno.
-            let normalized = CropNormalizer.normalize(rawCrop)
+            // Y sin enderezar: ver `subjectProfile(for:)`.
+            // let normalized = CropNormalizer.normalize(rawCrop)
+            let normalized = CropNormalizer.normalize(rawCrop, profile: Self.subjectProfile(for: nil))
         else { return [] }
 
         let area = Double(tight.width * tight.height) / Double(subject.width * subject.height)
