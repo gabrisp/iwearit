@@ -354,9 +354,10 @@ private struct PendingImportSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Sin terminar")
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.tertiaryText)
+            // Sin rótulo: las prendas y el botón ya dicen lo que es.
+            // Text("Sin terminar")
+            //     .font(WK.Font.caption)
+            //     .foregroundStyle(WK.Palette.tertiaryText)
 
             ScrollView(.horizontal) {
                 HStack(spacing: WK.Spacing.s) {
