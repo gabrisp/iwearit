@@ -69,6 +69,15 @@ public actor GarmentPipeline {
     /// Lado máximo con el que se analiza. Ver `extractGarments`.
     static let workingMaxSide = 1100
 
+    /// Lado máximo de la foto **sobre la que se aplica** la máscara de sujeto.
+    ///
+    /// La máscara se calcula en pequeño (`workingMaxSide`), que es lo caro,
+    /// pero Vision la escala a la foto que se le dé al generar el recorte. Si
+    /// esa foto era también la de 1100, una prenda que ocupa media foto se
+    /// quedaba en 500 px y se **ampliaba** a 1024 al normalizar: bordes
+    /// pixelados. Con esta, sobra resolución y el recorte se reduce.
+    static let detailMaxSide = 2400
+
     /// La misma foto, más pequeña, si hacía falta.
     static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
         let side = max(image.width, image.height)
@@ -280,6 +289,8 @@ public actor GarmentPipeline {
         // sobrevivir —y a 1400 eran un 60% más de píxeles en cada una de esas
         // media docena de pasadas, que es tiempo de espera puro.
         let image = Self.scaledDown(original, maxSide: Self.workingMaxSide) ?? original
+        // Donde se aplican las máscaras de sujeto. Ver `detailMaxSide`.
+        let detail = Self.scaledDown(original, maxSide: Self.detailMaxSide) ?? original
         if image !== original {
             DiagnosticsLog.record(
                 "PIPELINE",
@@ -326,7 +337,7 @@ public actor GarmentPipeline {
             // resuelve la foto —varias prendas pegadas en uno solo, nada que
             // parezca ropa— se sigue por el camino de siempre.
             if !(await Self.hasConvincingPerson(in: image)) {
-                if let fromSubjects = await extractFromSubjects(segmenter, image: image),
+                if let fromSubjects = await extractFromSubjects(segmenter, image: image, detail: detail),
                    !fromSubjects.isEmpty {
                     return fromSubjects
                 }
@@ -335,7 +346,7 @@ public actor GarmentPipeline {
 
             if let garments = try? await extractWithSegmenter(segmenter, from: image),
                !garments.isEmpty {
-                return await refinedOnSolidBackground(Self.merged(garments), from: image)
+                return await refinedOnSolidBackground(Self.merged(garments), from: image, detail: detail)
             }
             DiagnosticsLog.record(
                 "PIPELINE",
@@ -354,7 +365,7 @@ public actor GarmentPipeline {
             // una camiseta de un pantalón— y si no la hay, entonces sí: la
             // foto es de una prenda suelta y el sujeto es la prenda.
             if (try? await VisionStages.bodyLandmarks(in: image)) == nil {
-                let single = await extractSingleSubject(from: image)
+                let single = await extractSingleSubject(from: image, detail: detail)
                 if !single.isEmpty {
                     DiagnosticsLog.record("PIPELINE", "recortada por máscara de sujeto")
                     return single
@@ -389,7 +400,7 @@ public actor GarmentPipeline {
         )
 
         if landmarks == nil {
-            let single = await extractSingleSubject(from: image)
+            let single = await extractSingleSubject(from: image, detail: detail)
             if !single.isEmpty {
                 DiagnosticsLog.record("PIPELINE", "recortada por máscara de sujeto")
                 return single
@@ -761,7 +772,8 @@ public actor GarmentPipeline {
     /// prendas pegadas.
     private func extractFromSubjects(
         _ segmenter: ClothesSegmenter,
-        image: CGImage
+        image: CGImage,
+        detail: CGImage
     ) async -> [DetectedGarment]? {
         guard
             let observation = try? await VisionStages.foregroundInstances(in: image),
@@ -769,6 +781,8 @@ public actor GarmentPipeline {
             let map = try? await segmenter.classMap(for: image)
         else { return nil }
         let handler = ImageRequestHandler(image)
+        // El recorte, sobre la foto con resolución. Ver `detailMaxSide`.
+        let detailHandler = ImageRequestHandler(detail)
         let instances = Array(observation.allInstances)
 
         struct Subject {
@@ -832,7 +846,7 @@ public actor GarmentPipeline {
             guard
                 let buffer = try? observation.generateMaskedImage(
                     for: subject.instances,
-                    imageFrom: handler,
+                    imageFrom: detailHandler,
                     croppedToInstancesExtent: false
                 ),
                 let masked = Self.cgImage(from: buffer),
@@ -1144,7 +1158,8 @@ public actor GarmentPipeline {
 
     private func refinedOnSolidBackground(
         _ garments: [DetectedGarment],
-        from image: CGImage
+        from image: CGImage,
+        detail: CGImage
     ) async -> [DetectedGarment] {
         guard !garments.isEmpty else { return garments }
 
@@ -1189,7 +1204,7 @@ public actor GarmentPipeline {
         // que se trae la percha o la mesa es peor que lo de siempre. Si no
         // pasa, o no hay sujeto, se sigue exactamente como antes.
         if collapsed.count == 1, let garment = collapsed.first,
-           let lifted = await subjectCutout(from: image) {
+           let lifted = await subjectCutout(from: image, detail: detail) {
             let cutout = lifted.normalized.cgImage
             let report = CutoutQuality.assess(cutout)
             let dirt = CutoutQuality.contamination(of: cutout, backgroundOf: image)
@@ -1265,7 +1280,7 @@ public actor GarmentPipeline {
             ("segmentador", garment),
         ]
 
-        if let lifted = await subjectCutout(from: image) {
+        if let lifted = await subjectCutout(from: image, detail: detail) {
             candidates.append(("sujeto", garment.replacingImages(
                 normalized: lifted.normalized,
                 rawCrop: lifted.rawCrop
@@ -1327,13 +1342,14 @@ public actor GarmentPipeline {
     /// Comparte trabajo con `extractSingleSubject`, que hace lo mismo y además
     /// la clasifica: aquí la clase ya la sabemos.
     private func subjectCutout(
-        from image: CGImage
+        from image: CGImage,
+        detail: CGImage
     ) async -> (normalized: ImmutableImage, rawCrop: ImmutableImage)? {
         guard
             let observation = try? await VisionStages.foregroundInstances(in: image),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
-                imageFrom: ImageRequestHandler(image),
+                imageFrom: ImageRequestHandler(detail),
                 croppedToInstancesExtent: true
             ),
             let subject = Self.cgImage(from: buffer),
@@ -1346,12 +1362,12 @@ public actor GarmentPipeline {
         return (ImmutableImage(normalized), ImmutableImage(rawCrop))
     }
 
-    private func extractSingleSubject(from image: CGImage) async -> [DetectedGarment] {
+    private func extractSingleSubject(from image: CGImage, detail: CGImage) async -> [DetectedGarment] {
         guard
             let observation = try? await VisionStages.foregroundInstances(in: image),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
-                imageFrom: ImageRequestHandler(image),
+                imageFrom: ImageRequestHandler(detail),
                 croppedToInstancesExtent: true
             ),
             let subject = Self.cgImage(from: buffer),
