@@ -35,6 +35,11 @@ struct WebImportScreen: View {
     /// Lo capturado en esta visita, en orden.
     @State private var captures: [WebCapture] = []
 
+    /// Tope por visita. Es el mismo que el de la galería, y por lo mismo: diez
+    /// prendas ya son un rato de análisis, y más de una tanda así se revisa
+    /// peor de lo que se importa.
+    private static let maximumCaptures = 10
+
     var body: some View {
         NavigationStack {
             WebCaptureView(model: model)
@@ -160,7 +165,8 @@ struct WebImportScreen: View {
 
             Button {
                 Task {
-                    guard let image = await model.capture() else { return }
+                    guard captures.count < Self.maximumCaptures,
+                          let image = await model.capture() else { return }
                     withAnimation(WKAnimation.content) {
                         captures.append(WebCapture(image: image))
                     }
@@ -176,7 +182,8 @@ struct WebImportScreen: View {
             }
             .buttonStyle(WKPressStyle())
             .adaptiveGlassInteractive(in: .circle)
-            .disabled(!model.hasPage)
+            .disabled(!model.hasPage || captures.count >= Self.maximumCaptures)
+            .opacity(captures.count >= Self.maximumCaptures ? 0.4 : 1)
 
             Button {
                 // **Sin `dismiss()`.** Quien presenta esta hoja la cambia por
