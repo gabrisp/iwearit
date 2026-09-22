@@ -328,55 +328,84 @@ struct TripDayPage: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var isPickingGarments = false
-    @State private var selection = CanvasSelection()
+    /// El selector abierto por el tirón del final.
+    @State private var isPickingForNew = false
 
-    private var outfit: Outfit? { suitcase.outfit(forDayIndex: dayIndex) }
+    /// **Todos los del día**, no uno. Ver `DatedGrid`: un día de maleta es un
+    /// día del calendario y admite varios looks.
+    private var outfits: [Outfit] {
+        suitcase.visibleOutfits.filter { $0.suitcaseDayIndex == dayIndex }
+    }
 
     var body: some View {
-        ZStack {
-            DotGridBackground().allowsHitTesting(false)
+        // **Lo mismo que un día del plan**: los lienzos del día, en vertical y
+        // paginados, y seguir tirando al final crea otro. Ver `DayPage`.
+        ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                ForEach(outfits) { outfit in
+                    TripDayCanvas(suitcase: suitcase, outfit: outfit, onEdit: onEdit)
+                        .containerRelativeFrame(.vertical)
+                        .id(outfit.persistentModelID)
+                }
 
-            if let outfit, !outfit.visibleItems.isEmpty {
-                FreeformCanvas(outfit: outfit, store: appEnvironment.imageStore, selection: selection)
-                    .allowsHitTesting(false)
-                    // **Al editor desde el propio lienzo**, igual que en el
-                    // plan: doble toque y mantener pulsado. Un toque simple no
-                    // puede ser —compite con el paso de página—, y cuál de las
-                    // dos espera cada uno depende de si vienes de una app de
-                    // fotos o de una de notas.
-                    .onTapGesture(count: 2) { onEdit(ensureOutfit(), outfit == nil) }
-                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(ensureOutfit(), outfit == nil) }
-                    // En todo el lienzo: sin esto el gesto solo existe donde
-                    // hay una prenda pintada, y el hueco entre ellas —que es
-                    // casi todo— no respondería.
-                    .contentShape(.rect)
-            } else if let date = suitcase.date(forDayIndex: dayIndex) {
-                EmptyDayPrompt(date: date) { isPickingGarments = true }
+                // El hueco **solo con el día vacío**: teniendo ya algo, el
+                // siguiente se crea tirando.
+                if outfits.isEmpty {
+                    TripDayCanvas(suitcase: suitcase, outfit: nil, onEdit: onEdit) {
+                        isPickingGarments = true
+                    }
+                    .containerRelativeFrame(.vertical)
+                }
             }
+            .scrollTargetLayout()
         }
-        // **El lápiz, también aquí.** Faltaba: dentro de una maleta no había
-        // forma de abrir el editor, así que un outfit de viaje se podía montar
-        // pero no retocar.
-        .overlay(alignment: .bottomTrailing) {
-            DayActionButton(symbol: "pencil") { onEdit(ensureOutfit(), outfit == nil) }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            // Por encima de la barra de Outfits · Equipaje: el pager ignora el
-            // área segura, así que aquí se cuenta a mano.
-            // .padding(.bottom, WK.Spacing.xl)
-            .padding(.bottom, WK.Spacing.xl + WKLocktyTabBarMetrics.height + WK.Spacing.l)
+        .scrollTargetBehavior(.paging)
+        // Rebota aunque no haya nada que desplazar: si no, el gesto no existe
+        // justo el día que aún no tiene nada.
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .overscrollAction(
+            threshold: 84,
+            symbol: "plus",
+            label: "Crear nuevo outfit",
+            // Por encima de la barra de Outfits · Equipaje, que flota.
+            bottomInset: WKLocktyTabBarMetrics.height + WK.Spacing.l
+        ) {
+            isPickingForNew = true
+        }
+        .sheet(isPresented: $isPickingForNew) {
+            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                guard !picked.isEmpty else { return }
+                onEdit(createOutfit(with: picked), true)
+            }
         }
         .sheet(isPresented: $isPickingGarments) {
             OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
-                fill(with: picked)
-                onEdit(ensureOutfit(), outfit == nil)
+                guard !picked.isEmpty else { return }
+                onEdit(createOutfit(with: picked), true)
             }
         }
-        // Lo que se meta en el outfit del viaje entra solo en el checklist:
-        // preparar el look y hacer la maleta son la misma tarea.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backdropColor)
-        .onChange(of: outfit?.items.count ?? 0) { syncPacking() }
+        // Lo que se meta en un outfit del viaje entra solo en el checklist:
+        // preparar el look y hacer la maleta son la misma tarea.
+        .onChange(of: outfits.reduce(0) { $0 + $1.items.count }) { syncPacking() }
         .task(id: dayIndex) { await addWeatherIfPossible() }
+    }
+
+    /// Un outfit más para este día, con las prendas elegidas colocadas.
+    private func createOutfit(with garments: [Garment]) -> Outfit {
+        let outfit = createOutfit()
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            if let existing = outfit.item(in: slot) {
+                existing.garment = garment
+                continue
+            }
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
+        return outfit
     }
 
     /// El color de la maleta, **siempre**.
@@ -389,24 +418,28 @@ struct TripDayPage: View {
         SuitcaseTint.backdrop(for: suitcase.colorRaw)
     }
 
-    @discardableResult
-    private func ensureOutfit() -> Outfit {
-        outfit ?? createOutfit()
-    }
+    // Lo que había cuando un día tenía **un** outfit: asegurarlo y
+    // rellenarlo. Ahora cada lienzo es un outfit y se crean con
+    // `createOutfit(with:)`.
+    //
+    // @discardableResult
+    // private func ensureOutfit() -> Outfit {
+    //     outfit ?? createOutfit()
+    // }
 
-    private func fill(with garments: [Garment]) {
-        let target = ensureOutfit()
-        for garment in garments {
-            let slot = OutfitSlot.slot(for: garment.kind)
-            if let existing = target.item(in: slot) {
-                existing.garment = garment
-                continue
-            }
-            let item = CanvasItem(transform: slot.transform, garment: garment)
-            item.outfit = target
-            modelContext.insert(item)
-        }
-    }
+    // private func fill(with garments: [Garment]) {
+    //     let target = ensureOutfit()
+    //     for garment in garments {
+    //         let slot = OutfitSlot.slot(for: garment.kind)
+    //         if let existing = target.item(in: slot) {
+    //             existing.garment = garment
+    //             continue
+    //         }
+    //         let item = CanvasItem(transform: slot.transform, garment: garment)
+    //         item.outfit = target
+    //         modelContext.insert(item)
+    //     }
+    // }
 
     /// Pega el tiempo del día, si se puede saber.
     ///
@@ -420,7 +453,7 @@ struct TripDayPage: View {
         guard
             let destination = suitcase.destination,
             let date = suitcase.date(forDayIndex: dayIndex),
-            let outfit,
+            let outfit = outfits.first,
             !outfit.items.contains(where: { $0.sticker?.kind == .weather }),
             let snapshot = await appEnvironment.weather.snapshot(for: date, at: destination)
         else { return }
@@ -442,11 +475,55 @@ struct TripDayPage: View {
     }
 
     private func syncPacking() {
-        guard let outfit else { return }
-        for item in outfit.items {
+        for item in outfits.flatMap(\.items) {
             guard let garment = item.garment else { continue }
             SuitcasePacking.ensureEntry(for: garment, in: suitcase, context: modelContext)
         }
+    }
+}
+
+/// Un lienzo del día: el outfit, o la invitación a empezar.
+///
+/// Los gestos, **los mismos que en el plan**: doble toque y mantener pulsado
+/// abren el editor. Un toque simple no puede ser, porque compite con el paso
+/// de página.
+private struct TripDayCanvas: View {
+    let suitcase: Suitcase
+    let outfit: Outfit?
+    let onEdit: (Outfit, Bool) -> Void
+    var onEmptyTap: (() -> Void)?
+
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var selection = CanvasSelection()
+
+    var body: some View {
+        ZStack {
+            DotGridBackground().allowsHitTesting(false)
+
+            if let outfit, !outfit.visibleItems.isEmpty {
+                FreeformCanvas(outfit: outfit, store: appEnvironment.imageStore, selection: selection)
+                    .allowsHitTesting(false)
+                    .onTapGesture(count: 2) { onEdit(outfit, false) }
+                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(outfit, false) }
+                    // En todo el lienzo: sin esto el gesto solo existe donde
+                    // hay una prenda pintada, y el hueco entre ellas —que es
+                    // casi todo— no respondería.
+                    .contentShape(.rect)
+            } else if let date = suitcase.date(forDayIndex: outfit?.suitcaseDayIndex ?? 0) {
+                EmptyDayPrompt(date: date) { onEmptyTap?() }
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if let outfit {
+                DayActionButton(symbol: "pencil") { onEdit(outfit, false) }
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                    // Por encima de la barra de Outfits · Equipaje, que flota
+                    // sobre el lienzo: el pager ignora el área segura, así que
+                    // aquí se cuenta a mano.
+                    .padding(.bottom, WK.Spacing.xl + WKLocktyTabBarMetrics.height + WK.Spacing.l)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
