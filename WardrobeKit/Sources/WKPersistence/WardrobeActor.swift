@@ -435,16 +435,39 @@ public actor WardrobeActor {
             FetchDescriptor<GarmentCategory>(sortBy: [SortDescriptor(\.slug)])
         )
         for (_, group) in Dictionary(grouping: categories, by: \.slug) where group.count > 1 {
-            // La de más prendas manda; a igualdad, la de menor `sortOrder`.
-            let winner = group.max { left, right in
-                (left.garments.count, -left.sortOrder) < (right.garments.count, -right.sortOrder)
-            }
+            // **La misma en todos los dispositivos.** Antes mandaba la de más
+            // prendas, y eso depende de cuánto haya bajado cada uno: mientras
+            // sincronizaban, cada iPhone elegía una distinta y marcaba la del
+            // otro. El resultado es lo que se veía: las dos copias
+            // desapareciendo y volviendo. El identificador no depende de nadie,
+            // así que los dos llegan a la misma conclusión.
+            let winner = group.min { $0.id.uuidString < $1.id.uuidString }
             guard let winner else { continue }
+            // Y la que se queda **se queda**: si llegó marcada de otro
+            // dispositivo, se revive antes de mover nada dentro.
+            if winner.deletedAt != nil { winner.restore() }
             for duplicate in group where duplicate !== winner {
                 for garment in duplicate.garments { garment.category = winner }
-                if duplicate.garments.isEmpty { duplicate.markDeleted() }
+                // Solo se marca la que queda **vacía**, y solo cuando la que
+                // se queda ya es visible: una balda con ropa dentro no se toca
+                // jamás, y ninguna desaparece sin que su gemela esté puesta.
+                if duplicate.garments.isEmpty, duplicate.deletedAt == nil {
+                    duplicate.markDeleted()
+                }
                 merged += 1
             }
+        }
+
+        // **Ninguna balda puede quedarse sin copia a la vista.** Si de un slug
+        // acabaron todas marcadas —dos dispositivos marcando la del otro antes
+        // de este arreglo— se revive la que manda. Una balda que existió no
+        // desaparece por sincronizar.
+        for (_, group) in Dictionary(grouping: categories, by: \.slug)
+        where group.allSatisfy({ $0.deletedAt != nil }) {
+            guard let winner = group.min(by: { $0.id.uuidString < $1.id.uuidString }) else { continue }
+            winner.restore()
+            merged += 1
+            DiagnosticsLog.record("SINCRONIZA", "balda \(winner.slug) revivida: no quedaba ninguna")
         }
 
         // --- Días repetidos en el calendario ---
@@ -452,8 +475,9 @@ public actor WardrobeActor {
             FetchDescriptor<PlannedDay>(sortBy: [SortDescriptor(\.dayStart)])
         )
         for (_, group) in Dictionary(grouping: days, by: \.dayStart) where group.count > 1 {
-            guard let winner = group.first else { continue }
-            for duplicate in group.dropFirst() {
+            // Igual que con las baldas: el mismo día ganador en los dos.
+            guard let winner = group.min(by: { $0.persistentModelID.hashValue < $1.persistentModelID.hashValue }) else { continue }
+            for duplicate in group where duplicate !== winner {
                 for outfit in duplicate.outfits { outfit.plannedDay = winner }
                 merged += 1
             }
