@@ -29,16 +29,27 @@ private enum SuitcaseTab: Hashable {
     case outfits, packing
 }
 
+/// Qué se está viendo: la pestaña y, dentro de Outfits, el modo.
+private struct SuitcaseView: Hashable {
+    let tab: SuitcaseTab
+    let layout: PlannerLayout
+}
+
 /// El contenido real. Separado para poder usar `@Bindable` sobre una maleta que
 /// ya sabemos que existe, sin desenvolver opcionales en el `@ViewBuilder`.
 private struct SuitcaseContent: View {
     @Bindable var suitcase: Suitcase
     @State private var tab: SuitcaseTab = .outfits
+    /// Lo que tarda en pasar de revista a rejilla.
+    static let layoutChange = Animation.smooth(duration: 0.6)
+
     /// Revista (un día por página) o rejilla (todos los días), como en el plan.
     /// Solo con fechas: sin días no hay nada que pasar como páginas.
     @State private var layout: PlannerLayout = .book
     @State private var dayIndex = 0
     @State private var isPresentingStyle = false
+    /// El "+" de la barra: un outfit más para el día que se está viendo.
+    @State private var isPickingForNew = false
     /// El outfit que se está editando. Vive **aquí**, que es donde está la
     /// pila de navegación: las páginas del pager viven en sus propios
     /// controladores y desde ahí no se puede empujar nada.
@@ -51,6 +62,7 @@ private struct SuitcaseContent: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         ZStack {
@@ -73,7 +85,7 @@ private struct SuitcaseContent: View {
                 zoom: zoom,
                 onOpenDay: { index in
                     dayIndex = index
-                    withAnimation(WKAnimation.arrival) { layout = .book }
+                    withAnimation(Self.layoutChange) { layout = .book }
                 },
                 onEdit: { outfit, isNew in
                     editingIsNew = isNew
@@ -81,8 +93,15 @@ private struct SuitcaseContent: View {
                 }
             )
                 .transition(.wkContent)
-                .id(tab)
+                // El cambio de modo también cambia la vista, así que entra en
+                // la identidad: sin esto, pasar de revista a rejilla no
+                // animaba nada, solo se sustituía.
+                .id(SuitcaseView(tab: tab, layout: layout))
                 .animation(WKAnimation.content, value: tab)
+                // **Más despacio que un cambio de pestaña.** Pasar de revista
+                // a rejilla es cambiar cómo se mira el viaje entero, y a la
+                // velocidad de siempre se leía como un parpadeo.
+                .animation(Self.layoutChange, value: layout)
         }
         // **Solo el lienzo.** El papel de puntos llega a los cuatro bordes; la
         // barra de Outfits · Equipaje se coloca **con** el área segura, encima
@@ -194,20 +213,35 @@ private struct SuitcaseContent: View {
             if tab == .outfits, let dayCount = suitcase.tripDayCount {
                 ToolbarItem(placement: .principal) {
                     TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex, isCompact: true)
-                        .frame(width: 236)
+                        // Lo justo para tres días: más ancha se metía por
+                        // debajo de los botones de la derecha.
+                        .frame(width: 186)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        withAnimation(WKAnimation.arrival) { layout = layout.next }
+                        withAnimation(Self.layoutChange) { layout = layout.next }
                     } label: {
                         Image(systemName: layout.symbol)
                             .contentTransition(.symbolEffect(.replace.downUp))
                     }
                     .tint(WK.Palette.primaryText)
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { isPickingForNew = true } label: {
+                        Image(systemName: "plus")
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
             }
         }
         .animation(WKAnimation.content, value: tab)
+        .sheet(isPresented: $isPickingForNew) {
+            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                guard !picked.isEmpty else { return }
+                editingIsNew = true
+                editingOutfit = makeOutfit(with: picked)
+            }
+        }
         .sheet(isPresented: $isPresentingStyle) {
             SuitcaseStyleSheet(suitcase: suitcase)
         }
@@ -268,6 +302,22 @@ private struct SuitcaseContent: View {
     // .padding(.vertical, WK.Spacing.xs)
     // .animation(WKAnimation.content, value: tab)
     // }
+
+    /// Un outfit nuevo **para el día que se está viendo**, con las prendas
+    /// elegidas ya colocadas. Sin fechas, simplemente uno más de la maleta.
+    private func makeOutfit(with garments: [Garment]) -> Outfit {
+        let outfit = Outfit(name: suitcase.tripDayCount == nil ? nil : "Día \(dayIndex + 1)")
+        if suitcase.tripDayCount != nil { outfit.suitcaseDayIndex = dayIndex }
+        modelContext.insert(outfit)
+        outfit.suitcase = suitcase
+        for garment in garments {
+            let slot = OutfitSlot.slot(for: garment.kind)
+            let item = CanvasItem(transform: slot.transform, garment: garment)
+            item.outfit = outfit
+            modelContext.insert(item)
+        }
+        return outfit
+    }
 
     private var tintColor: Color {
         guard

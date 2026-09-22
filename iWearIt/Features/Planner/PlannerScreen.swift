@@ -467,7 +467,7 @@ private struct TrailingIconLabelStyle: LabelStyle {
 /// Dos y no tres. Un tercer nivel "todos los outfits de todos los días" suena
 /// bien y en la mano es otra pantalla distinta a la que llegar pulsando dos
 /// veces un botón que no dice a dónde va.
-enum PlannerLayout {
+enum PlannerLayout: Hashable {
     /// Revista: un día por página, con sus lienzos en vertical.
     case book
     /// Todos los outfits de ese día, juntos.

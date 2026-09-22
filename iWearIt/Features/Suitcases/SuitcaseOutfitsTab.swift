@@ -86,6 +86,17 @@ private var suitcaseTopInset: CGFloat {
     return (window?.safeAreaInsets.top ?? 59) + 52
 }
 
+/// Y lo que hay que dejar libre abajo: el área segura, la barra de Outfits ·
+/// Equipaje y un respiro. Ver `suitcaseTopInset`.
+@MainActor
+private var suitcaseBottomInset: CGFloat {
+    let window = UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap(\.windows)
+        .first { $0.isKeyWindow }
+    return (window?.safeAreaInsets.bottom ?? 34) + WKLocktyTabBarMetrics.height + WK.Spacing.xl
+}
+
 /// El día del viaje **en rejilla**: sus outfits, todos.
 ///
 /// Un día de maleta es un día del calendario: puede llevar varios outfits —el
@@ -199,9 +210,7 @@ struct TripDayBar: View {
                         date: suitcase.date(forDayIndex: index),
                         isSelected: index == selected,
                         hasOutfit: suitcase.outfit(forDayIndex: index) != nil,
-                        // Dentro de la barra, **sin alto puesto a mano**: lo
-                        // da la barra. Fuera, el de siempre.
-                        height: isCompact ? nil : 46
+                        isCompact: isCompact
                     )
                     .onTapGesture { selected = index }
                 }
@@ -254,8 +263,8 @@ struct TripDayChip: View {
     let date: Date?
     let isSelected: Bool
     let hasOutfit: Bool
-    /// `nil` = el que salga. Ver `TripDayBarHeight`.
-    var height: CGFloat? = 46
+    /// Dentro de la barra: una sola línea y del alto de un botón.
+    var isCompact = false
 
     private static let dayNumber: DateFormatter = {
         let formatter = DateFormatter()
@@ -274,15 +283,17 @@ struct TripDayChip: View {
         // todos los números son consecutivos y no distinguen nada; lo que sitúa
         // el día es el mes, y más aún cuando el viaje cruza de un mes a otro.
         HStack(spacing: 6) {
-        VStack(spacing: -1) {
+        // En la barra, **en una línea**: dos pisos de texto hacen la tira más
+        // alta que un botón y la barra crece con ella.
+        AnyLayout(isCompact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: -1))) {
             Text(date.map { Self.dayNumber.string(from: $0) } ?? "\(index + 1)")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: isCompact ? 13 : 11, weight: isCompact ? .semibold : .medium))
                 .foregroundStyle(
                     isSelected ? WK.Palette.onAccent.opacity(0.75) : WK.Palette.secondaryText
                 )
 
             Text(date.map { Self.month.string(from: $0).uppercased() } ?? "DÍA")
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: isCompact ? 12 : 15, weight: .bold))
                 .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
 
             // Un punto si ese día ya tiene outfit. Ahora es una píldora a la
@@ -298,12 +309,12 @@ struct TripDayChip: View {
             if hasOutfit {
                 Capsule()
                     .fill(isSelected ? WK.Palette.onAccent : WK.Palette.accent)
-                    .frame(width: 4, height: 18)
+                    .frame(width: 4, height: isCompact ? 12 : 18)
             }
         }
-        .padding(.horizontal, WK.Spacing.m)
-        .padding(.vertical, height == nil ? 4 : 0)
-        .modifier(TripDayBarHeight(height: height))
+        .padding(.horizontal, isCompact ? WK.Spacing.s : WK.Spacing.m)
+        .padding(.vertical, isCompact ? 4 : 0)
+        .modifier(TripDayBarHeight(height: isCompact ? nil : 46))
         .background {
             if isSelected { Capsule().fill(WK.Palette.accent) }
         }
@@ -367,8 +378,10 @@ struct TripDayPage: View {
             threshold: 84,
             symbol: "plus",
             label: "Crear nuevo outfit",
-            // Por encima de la barra de Outfits · Equipaje, que flota.
-            bottomInset: WKLocktyTabBarMetrics.height + WK.Spacing.l
+            // **Más alto que en el plan.** Aquí debajo hay dos cosas: la barra
+            // de Outfits · Equipaje y el lápiz del lienzo, y pegado al borde
+            // el botón caía justo encima de los dos.
+            bottomInset: suitcaseBottomInset
         ) {
             isPickingForNew = true
         }
@@ -513,16 +526,17 @@ private struct TripDayCanvas: View {
                 EmptyDayPrompt(date: date) { onEmptyTap?() }
             }
         }
-        .overlay(alignment: .bottomTrailing) {
-            if let outfit {
-                DayActionButton(symbol: "pencil") { onEdit(outfit, false) }
-                    .padding(.horizontal, WK.Spacing.screenInset)
-                    // Por encima de la barra de Outfits · Equipaje, que flota
-                    // sobre el lienzo: el pager ignora el área segura, así que
-                    // aquí se cuenta a mano.
-                    .padding(.bottom, WK.Spacing.xl + WKLocktyTabBarMetrics.height + WK.Spacing.l)
-            }
-        }
+        // **Sin botón suelto sobre el lienzo.** Estorbaba al lado de la barra
+        // de Outfits · Equipaje y decía lo que ya dicen el doble toque y el
+        // mantener pulsado. Añadir un outfit está en el "+" de la barra.
+        //
+        // .overlay(alignment: .bottomTrailing) {
+        //     if let outfit {
+        //         DayActionButton(symbol: "pencil") { onEdit(outfit, false) }
+        //             .padding(.horizontal, WK.Spacing.screenInset)
+        //             .padding(.bottom, WK.Spacing.xl + WKLocktyTabBarMetrics.height + WK.Spacing.l)
+        //     }
+        // }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
