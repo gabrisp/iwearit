@@ -101,16 +101,30 @@ struct ImportSheet: View {
                 // ToolbarItem(placement: .confirmationAction) {
                 //     ImportSaveButton(model: model) { if let model { await save(model) } }
                 // }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(WK.Font.headline)
-                            .contentShape(.rect)
+                // **Mientras analiza, ni X.** No un botón apagado: el hueco
+                // entero fuera. Cerrar a medias tiraba el análisis, y no hay
+                // nada que decidir hasta que acabe.
+                if isAnalyzing {
+                    // El sitio del título, vacío pero ocupado: así la barra no
+                    // se recoloca cuando aparece "Revisar prendas".
+                    ToolbarItem(placement: .principal) {
+                        Color.clear.frame(width: 1, height: 1)
                     }
-                    .tint(WK.Palette.primaryText)
+                }
+                if !isAnalyzing {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
+                        }
+                        .tint(WK.Palette.primaryText)
+                    }
                 }
             }
         }
+        // Y tampoco arrastrando hacia abajo.
+        .interactiveDismissDisabled(isAnalyzing)
         // La galería de "Agregar más" vive ahora en el propio botón: ver
         // `ImportReviewStack`. Colgada aquí no llegaba a abrirse.
         // .photosPicker(
@@ -147,7 +161,7 @@ struct ImportSheet: View {
                 wardrobe: appEnvironment.wardrobe
             )
             model = created
-            await created.process(images)
+            await created.start(images)
         }
     }
 
@@ -155,7 +169,19 @@ struct ImportSheet: View {
     /// acabar, qué se espera de ti.
     private var title: String {
         if case .review = model?.phase { return "Revisar prendas" }
-        return "Analizando"
+        // Sin título mientras analiza. Con un espacio como título, la barra
+        // lo pintaba entre comillas —“ ”—, así que el hueco lo ocupa una
+        // vista transparente: ver la barra de arriba.
+        return ""
+    }
+
+    /// Si se está analizando: sin modelo todavía, o con él trabajando.
+    private var isAnalyzing: Bool {
+        guard let model else { return true }
+        switch model.phase {
+        case .idle, .processing, .generating: return true
+        default: return false
+        }
     }
 
     /// Espera al modelo **solo si le queda poco**.

@@ -217,6 +217,23 @@ final class ImportModel {
         )
     }
 
+    /// El análisis en marcha, suelto de cualquier vista.
+    private var analysis: Task<Void, Never>?
+
+    /// **Arranca el análisis y lo deja correr solo.**
+    ///
+    /// Hecho dentro de la tarea de la hoja, cualquier cosa que la cancelara
+    /// —que la hoja se reconstruya, que se cierre— cortaba el análisis a los
+    /// tres segundos con un `CancellationError`, y a partir de ahí cada paso
+    /// de Vision se cancelaba nada más empezar. El análisis es del modelo, no
+    /// de la vista que lo enseña.
+    func start(_ images: [CGImage]) async {
+        if analysis == nil {
+            analysis = Task { await process(images) }
+        }
+        await analysis?.value
+    }
+
     /// Una sola foto: el caso de la cámara y el de la web.
     func process(_ image: CGImage) async {
         await process([image])
