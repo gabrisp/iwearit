@@ -125,6 +125,22 @@ public enum ColorExtractor {
         return (0..<k).map { Cluster(center: centers[$0], count: counts[$0]) }
     }
 
+    /// El color con nombre de un RGB cualquiera.
+    ///
+    /// Para cuando el color **lo elige el usuario** en el selector del
+    /// sistema: lo que se enseña es la muestra, pero por debajo sigue
+    /// haciendo falta un nombre para buscar por color en el armario, y ese
+    /// nombre sale de la misma tabla que usa la medición.
+    public static func named(red: Double, green: Double, blue: Double) -> NamedColor {
+        NamedColor(
+            nameKey: NamedColorTable.closestName(toLab: rgbToLab(red, green, blue)),
+            red: red,
+            green: green,
+            blue: blue,
+            weight: 1
+        )
+    }
+
     // MARK: - Espacios de color
 
     static func rgbToLab(_ r: Double, _ g: Double, _ b: Double) -> SIMD3<Double> {

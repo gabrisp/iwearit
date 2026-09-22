@@ -34,6 +34,10 @@ struct ImportSingleCard: View {
     let onChangeKind: (GarmentKind) -> Void
     let onChangeName: (String) -> Void
     let onChangeColor: (String) -> Void
+    /// El color elegido en el selector del sistema.
+    var onPickColor: ((Color) -> Void)?
+    var onChangeTags: (([String]) -> Void)?
+    var onChangeSeasons: ((SeasonSet) -> Void)?
     /// El tipo fino: "Camisa", "Vaqueros", "Botines".
     var onChangeSubcategory: ((String?) -> Void)?
     var onChangeMaterial: ((String?) -> Void)?
@@ -63,7 +67,7 @@ struct ImportSingleCard: View {
     @State private var isCroppingByHand = false
     @State private var field: Field?
     private enum Field: String, Identifiable {
-        case type, material
+        case part, type, tags, warmth, material
         var id: String { rawValue }
     }
 
@@ -227,25 +231,29 @@ struct ImportSingleCard: View {
 
     // MARK: Los datos
 
-    /// Las mismas filas que en editar, con lo que aquí se puede corregir.
+    /// Las mismas filas que en editar: color, parte, tipo, etiquetas y
+    /// calidez. Literalmente las mismas —ver `GarmentFieldRows`—, porque
+    /// revisar una prenda recién importada y editar una que ya está en el
+    /// armario son el mismo trabajo sobre los mismos campos.
     private var rows: some View {
         VStack(spacing: 0) {
-            // **Sin nombre.** Nombrar una prenda antes de tenerla es un campo
-            // que hay que rellenar para nada: lo que la distingue en la balda
-            // es la foto, y debajo ya se lee qué es y de qué color. El armario
-            // sigue componiendo un nombre con eso —hace falta para buscar—,
-            // pero no se pide aquí.
-            //
-            // NameRow(name: nameBinding)
-            ColorRow(color: candidate.colors.first, name: colorBinding)
-            // **Solo la prenda.** Antes había encima una fila "Parte: Top",
-            // que es la organización interna asomando: nadie tiene un top en
-            // el armario, tiene una camisa. Se elige la prenda y la parte del
-            // cuerpo —la que decide la balda— se deduce de ella.
+            ColorRow(color: candidate.colors.first, picked: colorBinding)
+            EditRow(
+                value: ImportCandidateLabels.label(for: candidate.kind),
+                label: "Parte"
+            ) { field = .part }
             EditRow(
                 value: candidate.subcategory?.capitalized ?? "Sin definir",
-                label: "Tipo de prenda"
+                label: "Tipo"
             ) { field = .type }
+            EditRow(
+                value: candidate.tags.isEmpty ? "Sin etiquetas" : candidate.tags.joined(separator: " · "),
+                label: "Etiquetas"
+            ) { field = .tags }
+            EditRow(
+                value: GarmentVocabulary.Warmth.from(candidate.seasons).label,
+                label: "Calidez"
+            ) { field = .warmth }
             EditRow(
                 value: candidate.material?.capitalized ?? "Sin definir",
                 label: "Material",
@@ -259,6 +267,52 @@ struct ImportSingleCard: View {
     @ViewBuilder
     private func sheet(for field: Field) -> some View {
         switch field {
+        case .part:
+            WKChipSheet(
+                title: "Parte del cuerpo",
+                subtitle: "Decide en qué balda acaba",
+                options: GarmentKind.allCases.map {
+                    .init(id: $0.rawValue, label: ImportCandidateLabels.label(for: $0))
+                },
+                selection: Binding(
+                    get: { [candidate.kind.rawValue] },
+                    set: { set in
+                        guard let raw = set.first, let kind = GarmentKind(rawValue: raw) else { return }
+                        onChangeKind(kind)
+                    }
+                ),
+                limit: 1
+            )
+        case .tags:
+            WKChipSheet(
+                title: "Seleccionar etiquetas",
+                subtitle: "Selecciona hasta \(GarmentVocabulary.maximumTags) etiquetas",
+                options: GarmentVocabulary.tags.map { .init(id: $0, label: $0) },
+                selection: Binding(
+                    get: { Set(candidate.tags) },
+                    set: { onChangeTags?(Array($0)) }
+                ),
+                limit: GarmentVocabulary.maximumTags
+            )
+        case .warmth:
+            WKChipSheet(
+                title: "Cambiar calidez",
+                subtitle: "Selecciona qué tan abrigada es la prenda",
+                options: GarmentVocabulary.Warmth.allCases.map {
+                    .init(id: $0.rawValue, label: $0.label)
+                },
+                selection: Binding(
+                    get: { [GarmentVocabulary.Warmth.from(candidate.seasons).rawValue] },
+                    set: { set in
+                        guard
+                            let raw = set.first,
+                            let warmth = GarmentVocabulary.Warmth(rawValue: raw)
+                        else { return }
+                        onChangeSeasons?(warmth.seasons)
+                    }
+                ),
+                limit: 1
+            )
         case .type:
             // **Todas las prendas, no solo las de su parte.** Si el detector
             // se equivocó de parte —una chaqueta leída como camiseta—, con la
@@ -306,8 +360,15 @@ struct ImportSingleCard: View {
         Binding(get: { candidate.displayName }, set: { onChangeName($0) })
     }
 
-    private var colorBinding: Binding<String> {
-        Binding(get: { candidate.colors.first?.nameKey ?? "" }, set: { onChangeColor($0) })
+    /// El color como color, no como palabra.
+    private var colorBinding: Binding<Color> {
+        Binding(
+            get: {
+                guard let color = candidate.colors.first else { return WK.Palette.ink(0.3) }
+                return Color(red: color.red, green: color.green, blue: color.blue)
+            },
+            set: { onPickColor?($0) }
+        )
     }
 }
 

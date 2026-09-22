@@ -269,6 +269,30 @@ final class ImportModel {
         phase = .detected
     }
 
+    /// Añade fotos a una importación ya empezada.
+    ///
+    /// Lo que ya hay **no se toca**: las prendas revisadas siguen ahí y las
+    /// nuevas se suman al final. Es "he olvidado dos", no "empiezo otra vez".
+    func addPhotos(_ images: [CGImage]) async {
+        guard !images.isEmpty else { return }
+        let first = photos.count
+        photos += images
+
+        for (offset, image) in images.enumerated() {
+            let index = first + offset
+            do {
+                let detected = try await detect(image, number: index + 1, of: photos.count)
+                candidates += detected.map { ImportCandidate($0, photoIndex: index) }
+            } catch {
+                DiagnosticsLog.record(
+                    "IMPORT", "falla la foto añadida \(index + 1): \(error)", isProblem: true
+                )
+            }
+            analysedCount = index + 1
+        }
+        await markDuplicates()
+    }
+
     /// Vuelve a analizar **una** foto, tirando lo que había salido de ella.
     ///
     /// El detector no es determinista del todo —depende de qué tenga la ANE
@@ -767,6 +791,25 @@ final class ImportModel {
         candidates[index].wasCorrectedByUser = true
     }
 
+    func setTags(_ tags: [String], forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].editedTags = tags
+        candidates[index].wasCorrectedByUser = true
+    }
+
+    func setSeasons(_ seasons: SeasonSet, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].editedSeasons = seasons
+        candidates[index].wasCorrectedByUser = true
+    }
+
+    /// El color, elegido a dedo en el selector del sistema.
+    func setColor(red: Double, green: Double, blue: Double, forCandidateWithID id: UUID) {
+        guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
+        candidates[index].editedColor = ColorExtractor.named(red: red, green: green, blue: blue)
+        candidates[index].wasCorrectedByUser = true
+    }
+
     func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
         candidates[index].manualCrop = ImmutableImage(image)
@@ -810,8 +853,8 @@ final class ImportModel {
                     subcategory: candidate.subcategory,
                     material: candidate.material,
                     colors: candidate.colors,
-                    seasons: candidate.detected.seasons,
-                    tags: candidate.detected.tags,
+                    seasons: candidate.seasons,
+                    tags: candidate.tags,
                     normalizedImageKey: key,
                     rawCropImageKey: rawKey,
                     embedding: candidate.detected.featurePrint,
@@ -873,6 +916,10 @@ struct ImportCandidate: Identifiable {
     /// lo detectado— deja ver las dos cosas y permite volver atrás.
     var editedName: String?
     var editedColorName: String?
+    /// El color elegido a mano en el selector del sistema.
+    var editedColor: NamedColor?
+    var editedTags: [String]?
+    var editedSeasons: SeasonSet?
     /// El tipo fino —"Camisa", "Vaqueros", "Botines"— corregido a mano.
     ///
     /// Es lo que de verdad se mira al guardar: el detector acierta la parte del
@@ -883,6 +930,8 @@ struct ImportCandidate: Identifiable {
 
     /// El tipo fino, con la corrección aplicada si la hay.
     var subcategory: String? { editedSubcategory ?? detected.subcategory }
+    var tags: [String] { editedTags ?? detected.tags }
+    var seasons: SeasonSet { editedSeasons ?? detected.seasons }
     var material: String? { editedMaterial ?? detected.material }
 
     /// El nombre con el que se va a guardar.
@@ -890,13 +939,21 @@ struct ImportCandidate: Identifiable {
         editedName ?? GarmentNaming.name(
             kind: kind,
             subcategory: subcategory,
-            colors: colors,
+            // **Sin color en el nombre.** El color se mide y se equivoca —azul
+            // marino medido como negro—, y una vez escrito en el nombre se
+            // queda ahí y se busca por él. La prenda se llama "Camiseta
+            // Stüssy"; el color está en su muestra, que no miente.
+            colors: [],
             brand: detected.brand
         )
     }
 
     /// Los colores, con la corrección aplicada si la hay.
     var colors: [NamedColor] {
+        // El elegido a mano manda sobre todo: es el único que alguien ha
+        // mirado de verdad.
+        if let editedColor { return [editedColor] + detected.colors.dropFirst() }
+
         guard let editedColorName, var first = detected.colors.first else {
             return detected.colors
         }

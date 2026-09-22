@@ -121,34 +121,41 @@ struct NameRow: View {
 /// corregirlo ahí evita guardar un nombre que ya sabes que está mal.
 struct ColorRow: View {
     let color: NamedColor?
-    /// Si se pasa, el nombre del color se puede escribir.
-    var name: Binding<String>?
+    /// Si se pasa, el color se puede cambiar con el selector del sistema.
+    var picked: Binding<Color>?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                if let name {
-                    VStack(alignment: .leading, spacing: 1) {
-                        TextField("Color", text: name)
-                            .font(WK.Font.rowTitle)
-                            .foregroundStyle(WK.Palette.primaryText)
-                            .autocorrectionDisabled()
-                            .submitLabel(.done)
-                        Text("Color")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.tertiaryText)
+                if let picked {
+                    // **El selector de iOS, tal cual.**
+                    //
+                    // Nada de escribir el nombre del color ni de elegir de una
+                    // lista: los nombres los pone la tabla y se equivocan
+                    // —azul marino medido como negro—, y una lista corta nunca
+                    // tiene el tono que es. El color se señala, que es como se
+                    // mira una prenda.
+                    ColorPicker(selection: picked, supportsOpacity: false) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Color")
+                                .font(WK.Font.rowTitle)
+                                .foregroundStyle(WK.Palette.primaryText)
+                            Text("Toca la muestra para ajustarlo")
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                        }
                     }
                 } else {
                     Text("Color")
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(WK.Palette.primaryText)
-                }
-                Spacer()
-                if let color {
-                    Circle()
-                        .fill(Color(red: color.red, green: color.green, blue: color.blue))
-                        .frame(width: 26, height: 26)
-                        .overlay(Circle().stroke(WK.Palette.ink(0.15), lineWidth: 1))
+                    Spacer()
+                    if let color {
+                        Circle()
+                            .fill(Color(red: color.red, green: color.green, blue: color.blue))
+                            .frame(width: 26, height: 26)
+                            .overlay(Circle().stroke(WK.Palette.ink(0.15), lineWidth: 1))
+                    }
                 }
             }
             .padding(.vertical, WK.Spacing.m - 2)

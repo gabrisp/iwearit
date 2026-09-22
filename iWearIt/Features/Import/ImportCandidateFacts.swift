@@ -10,15 +10,17 @@ import WKVision
 /// el día que cambiara un nombre, cambiaría en una pantalla y no en la otra.
 enum ImportCandidateLabels {
     static func label(for kind: GarmentKind) -> String {
+        // En cristiano y no en jerga de base de datos: "Parte superior", no
+        // "Top". Es lo que se lee en la tarjeta de la prenda.
         switch kind {
-        case .upperBody: "Top"
-        case .outerLayer: "Chaqueta"
-        case .lowerBody: "Bottom"
+        case .upperBody: "Parte superior"
+        case .outerLayer: "Chaquetas"
+        case .lowerBody: "Parte inferior"
         case .wholeBody: "Cuerpo entero"
         case .feet: "Zapatos"
-        case .head: "Accesorio"
-        case .bag: "Bolso"
-        case .other: "Otro"
+        case .head: "Accesorios"
+        case .bag: "Bolsos"
+        case .other: "Otros"
         }
     }
 }

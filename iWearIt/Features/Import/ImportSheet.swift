@@ -1,4 +1,5 @@
 import CoreGraphics
+import PhotosUI
 import SwiftUI
 import WKCore
 import WKDesign
@@ -21,6 +22,9 @@ struct ImportSheet: View {
     /// presentación, y meterlo en el modelo obligaría a reejecutarla si el
     /// modelo se reconstruyera.
     @State private var hasRevealed = false
+    /// "Agregar más": la galería otra vez, sobre la misma importación.
+    @State private var isAddingMore = false
+    @State private var extraItems: [PhotosPickerItem] = []
 
     var body: some View {
         NavigationStack {
@@ -29,7 +33,9 @@ struct ImportSheet: View {
                     ImportPhaseContent(
                         model: model,
                         photos: images,
-                        hasRevealed: $hasRevealed
+                        hasRevealed: $hasRevealed,
+                        onAddMore: { isAddingMore = true },
+                        onSave: { await save(model) }
                     )
                 } else {
                     // La foto con su barrido, no una ruedecita.
@@ -86,6 +92,13 @@ struct ImportSheet: View {
                 }
             }
         }
+        .photosPicker(
+            isPresented: $isAddingMore,
+            selection: $extraItems,
+            maxSelectionCount: 10,
+            matching: .images
+        )
+        .task(id: extraItems.count) { await addPicked() }
         .task {
             // **Esperar al segmentador antes de analizar.** Construido con
             // `segmenter == nil` —y la descarga tarda decenas de segundos— el
@@ -148,6 +161,23 @@ struct ImportSheet: View {
         )
     }
 
+    /// Las fotos añadidas, derechas y analizadas sin tirar lo que ya había.
+    private func addPicked() async {
+        guard !extraItems.isEmpty, let model else { return }
+        let picked = extraItems
+        extraItems = []
+
+        var images: [CGImage] = []
+        for item in picked {
+            guard
+                let data = try? await item.loadTransferable(type: Data.self),
+                let image = UprightImage.cgImage(from: data)
+            else { continue }
+            images.append(image)
+        }
+        await model.addPhotos(images)
+    }
+
     private func save(_ model: ImportModel) async {
         let saved = (try? await model.save(
             imageStore: appEnvironment.imageStore,
@@ -168,6 +198,9 @@ private struct ImportPhaseContent: View {
     let model: ImportModel
     let photos: [CGImage]
     @Binding var hasRevealed: Bool
+    /// Añadir más fotos a esta misma importación, y guardarlo todo.
+    let onAddMore: () -> Void
+    let onSave: () async -> Void
 
     var body: some View {
         switch model.phase {
@@ -224,7 +257,12 @@ private struct ImportPhaseContent: View {
                         // una, y no se sabía cuántas había sin pasarlas todas.
                         //
                         // ImportReviewPager(model: model, photos: photos)
-                        ImportReviewStack(model: model, photos: photos)
+                        ImportReviewStack(
+                            model: model,
+                            photos: model.photos.isEmpty ? photos : model.photos,
+                            onAddMore: onAddMore,
+                            onSave: onSave
+                        )
                     }
                 }
                     .transition(AnyTransition(.blurReplace))

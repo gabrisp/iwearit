@@ -1,5 +1,6 @@
 import CoreGraphics
 import SwiftUI
+import UIKit
 import WKCore
 import WKDesign
 
@@ -22,17 +23,45 @@ import WKDesign
 struct ImportReviewStack: View {
     let model: ImportModel
     let photos: [CGImage]
+    /// Añadir más fotos a la misma importación.
+    var onAddMore: (() -> Void)?
+    /// Guardar las prendas de la lista.
+    let onSave: () async -> Void
 
-    @State private var editing: Target?
+    /// Qué prenda se está editando entera. Tocar la tarjeta abre su ficha.
+    @State private var opened: UUID?
+    @State private var isSaving = false
 
-    /// Qué campo de qué prenda se está cambiando.
-    struct Target: Identifiable {
-        let candidate: UUID
-        let field: Field
-        var id: String { "\(candidate)-\(field.rawValue)" }
+    /// Las dos salidas de la pantalla, abajo y del tamaño del pulgar.
+    ///
+    /// Guardar no vive en la barra de navegación porque no es una
+    /// confirmación de trámite: es el final de todo el proceso de importar, y
+    /// va donde está la mano.
+    private var actions: some View {
+        HStack(spacing: WK.Spacing.s) {
+            if let onAddMore {
+                Button(action: onAddMore) {
+                    Label("Agregar más", systemImage: "plus")
+                        .font(WK.Font.callout)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .padding(.horizontal, WK.Spacing.l)
+                        .padding(.vertical, WK.Spacing.m)
+                        .background(WK.Palette.canvas, in: .capsule)
+                        .overlay(Capsule().stroke(WK.Palette.ink(0.10), lineWidth: 1))
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(WKPressStyle())
+            }
+
+            WKPrimaryButton(model.candidates.isEmpty ? "Nada que guardar" : "Guardar") {
+                isSaving = true
+                Task { await onSave() }
+            }
+            .disabled(model.candidates.isEmpty || isSaving)
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.bottom, WK.Spacing.s)
     }
-
-    enum Field: String { case type, material }
 
     var body: some View {
         ScrollView {
@@ -40,10 +69,17 @@ struct ImportReviewStack: View {
                 ForEach(model.candidates) { candidate in
                     ImportGarmentCard(
                         candidate: candidate,
-                        onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
-                        onEditType: { editing = Target(candidate: candidate.id, field: .type) },
-                        onEditMaterial: { editing = Target(candidate: candidate.id, field: .material) },
-                        onImprove: { await model.restyle(candidateWithID: candidate.id) }
+                        onDiscard: {
+                            withAnimation(WKAnimation.content) {
+                                model.discard(candidateWithID: candidate.id)
+                            }
+                        },
+                        onImprove: { await model.restyle(candidateWithID: candidate.id) },
+                        // La tarjeta entera abre la ficha: aquí caben cuatro
+                        // datos, y a veces hace falta el resto —rodearla otra
+                        // vez, mirarla contra la foto— sin salir de la
+                        // importación.
+                        onOpen: { opened = candidate.id }
                     )
                 }
             }
@@ -53,141 +89,141 @@ struct ImportReviewStack: View {
         }
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas)
-        .sheet(item: $editing) { target in
-            if let candidate = model.candidates.first(where: { $0.id == target.candidate }) {
-                sheet(for: target.field, of: candidate)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func sheet(for field: Field, of candidate: ImportCandidate) -> some View {
-        switch field {
-        case .type:
-            // Todas las prendas, no solo las de su parte del cuerpo: eligiendo
-            // la prenda se corrige también dónde va, que es lo que solía estar
-            // mal cuando estaba mal.
-            WKChipSheet(
-                title: "Qué prenda es",
-                subtitle: "Manga larga, corta, vaqueros… lo que la distingue",
-                options: GarmentVocabulary.allTypes.map { .init(id: $0, label: $0) }
-                    + [.init(id: "", label: "Sin definir")],
-                selection: Binding(
-                    get: { Set([candidate.subcategory?.capitalized].compactMap { $0 }) },
-                    set: { chosen in
-                        let type = chosen.first?.isEmpty == false ? chosen.first : nil
-                        model.setSubcategory(type, forCandidateWithID: candidate.id)
-                        if let type, let kind = GarmentVocabulary.kind(forType: type) {
-                            model.setKind(kind, forCandidateWithID: candidate.id)
+        .adaptiveSafeAreaBar(edge: .bottom) { actions }
+        .sheet(item: $opened) { id in
+            if let candidate = model.candidates.first(where: { $0.id == id }) {
+                NavigationStack {
+                    ImportSingleCard(
+                        candidate: candidate,
+                        photo: model.photo(for: candidate) ?? photos[0],
+                        isKept: candidate.isKept,
+                        onChangeKind: { model.setKind($0, forCandidateWithID: candidate.id) },
+                        onChangeName: { model.setName($0, forCandidateWithID: candidate.id) },
+                        onChangeColor: { model.setColorName($0, forCandidateWithID: candidate.id) },
+                        onPickColor: { picked in
+                            let rgb = UIColor(picked).rgb
+                            model.setColor(
+                                red: rgb.red, green: rgb.green, blue: rgb.blue,
+                                forCandidateWithID: candidate.id
+                            )
+                        },
+                        onChangeTags: { model.setTags($0, forCandidateWithID: candidate.id) },
+                        onChangeSeasons: { model.setSeasons($0, forCandidateWithID: candidate.id) },
+                        onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: candidate.id) },
+                        onChangeMaterial: { model.setMaterial($0, forCandidateWithID: candidate.id) },
+                        onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
+                        onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
+                        onRestyle: { await model.restyle(candidateWithID: candidate.id) }
+                    )
+                    .navigationTitle("Prenda")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Listo") { opened = nil }
+                                .tint(WK.Palette.primaryText)
                         }
                     }
-                ),
-                limit: 1
-            )
-        case .material:
-            WKChipSheet(
-                title: "Material",
-                subtitle: "De qué está hecha, tal y como la llevas",
-                options: GarmentVocabulary.materials.map { .init(id: $0, label: $0) }
-                    + [.init(id: "", label: "Sin definir")],
-                selection: Binding(
-                    get: { Set([candidate.material?.capitalized].compactMap { $0 }) },
-                    set: { model.setMaterial($0.first?.isEmpty == false ? $0.first : nil, forCandidateWithID: candidate.id) }
-                ),
-                limit: 1
-            )
+                }
+            }
         }
     }
 }
 
 /// Una prenda a punto de entrar al armario.
+///
+/// La prenda a la izquierda y lo que se sabe de ella a la derecha: en qué
+/// parte va, cuánto abriga y con qué pega. Nada de nombre —ver
+/// `ImportModel.displayName`— y nada de nombre de color: la muestra lo dice
+/// mejor. Tocar la tarjeta abre la ficha entera.
 private struct ImportGarmentCard: View {
     let candidate: ImportCandidate
-    let onToggleKeep: (Bool) -> Void
-    let onEditType: () -> Void
-    let onEditMaterial: () -> Void
+    let onDiscard: () -> Void
     let onImprove: () async -> Void
+    let onOpen: () -> Void
 
     var body: some View {
-        VStack(spacing: WK.Spacing.s) {
-            candidate.previewImage
-                .resizable()
-                .scaledToFit()
-                .frame(height: 180)
-                .frame(maxWidth: .infinity)
-                .shadow(color: WK.Palette.ink(0.4), radius: 14, y: 8)
-                .wkShimmer(isActive: candidate.isRestyling)
-                .overlay(alignment: .topTrailing) { keepButton }
-                .padding(.top, WK.Spacing.s)
+        HStack(spacing: WK.Spacing.m) {
+            thumbnail
 
-            chips
+            VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+                swatch
+                Text(headline)
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
-            if let duplicateOf = candidate.duplicateOf {
-                Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(.orange)
+                if !candidate.tags.isEmpty {
+                    Text(candidate.tags.joined(separator: " · "))
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .lineLimit(1)
+                }
+
+                if let duplicateOf = candidate.duplicateOf {
+                    Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                }
+
+                HStack(spacing: WK.Spacing.s) {
+                    improveButton
+                    Spacer(minLength: 0)
+                    discardButton
+                }
+                .padding(.top, WK.Spacing.xs)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, WK.Spacing.m)
-        .padding(.bottom, WK.Spacing.m)
+        .padding(WK.Spacing.s)
         .frame(maxWidth: .infinity)
         .background(
             WK.Palette.shelf,
             in: .rect(cornerRadius: WK.Radius.card, style: .continuous)
         )
-        .opacity(candidate.isKept ? 1 : 0.5)
-        .animation(WKAnimation.selection, value: candidate.isKept)
-    }
-
-    /// Quitarla del lote, o devolverla. Sin etiqueta que diga "se va a
-    /// guardar": lo que está en la lista se guarda, y lo que no quieres se
-    /// quita con la X.
-    private var keepButton: some View {
-        Button {
-            withAnimation(WKAnimation.selection) { onToggleKeep(!candidate.isKept) }
-        } label: {
-            Image(systemName: candidate.isKept ? "xmark" : "arrow.uturn.backward")
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.primaryText)
-                .frame(width: 32, height: 32)
-                .background(Circle().fill(WK.Palette.ink(0.07)))
-                .contentShape(.circle)
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.card, style: .continuous)
+                .stroke(WK.Palette.ink(0.06), lineWidth: 1)
         }
-        .buttonStyle(WKPressStyle())
+        // Toda la tarjeta abre la ficha; los botones de dentro siguen a lo
+        // suyo porque un `Button` se queda el toque antes que el gesto.
+        .contentShape(.rect)
+        .onTapGesture(perform: onOpen)
     }
 
-    /// Qué es, de qué color y de qué está hecha. El color no se toca aquí: se
-    /// mide y se corrige en la ficha de la prenda, con la prenda delante.
-    private var chips: some View {
-        HStack(spacing: WK.Spacing.xs) {
-            Chip(label: "Tipo", value: candidate.subcategory?.capitalized ?? "Sin definir", action: onEditType)
-
-            if let color = candidate.colors.first {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color(red: color.red, green: color.green, blue: color.blue))
-                        .frame(width: 14, height: 14)
-                        .overlay(Circle().stroke(WK.Palette.ink(0.15), lineWidth: 1))
-                    Text(color.nameKey.capitalized)
-                        .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, WK.Spacing.s)
-                .padding(.vertical, 6)
-                .background(WK.Palette.ink(0.05), in: .capsule)
-            }
-
-            Chip(
-                label: "Material",
-                value: candidate.material?.capitalized ?? "—",
-                action: onEditMaterial
+    private var thumbnail: some View {
+        candidate.previewImage
+            .resizable()
+            .scaledToFit()
+            .padding(WK.Spacing.xs)
+            .frame(width: 104, height: 128)
+            .background(
+                WK.Palette.ink(0.04),
+                in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
             )
+            .wkShimmer(isActive: candidate.isRestyling)
+    }
 
-            Spacer(minLength: 0)
-
-            improveButton
+    /// El color, sin palabra: sale de un k-means y ponerle nombre es donde se
+    /// equivoca —un azul marino medido como negro—, y ese nombre se queda
+    /// escrito y se busca por él.
+    @ViewBuilder
+    private var swatch: some View {
+        if let color = candidate.colors.first {
+            Circle()
+                .fill(Color(red: color.red, green: color.green, blue: color.blue))
+                .frame(width: 26, height: 26)
+                .overlay(Circle().stroke(WK.Palette.ink(0.12), lineWidth: 1))
         }
+    }
+
+    /// "Chaquetas · Entretiempo": dónde va y cuánto abriga.
+    private var headline: String {
+        [
+            ImportCandidateLabels.label(for: candidate.kind),
+            GarmentVocabulary.Warmth.from(candidate.seasons).label,
+        ].joined(separator: " · ")
     }
 
     /// Redibujar la prenda fuera. A mano y de una en una: cada una se paga.
@@ -195,16 +231,38 @@ private struct ImportGarmentCard: View {
     private var improveButton: some View {
         if candidate.catalogImage == nil {
             Button { Task { await onImprove() } } label: {
-                Image(systemName: "wand.and.sparkles")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(WK.Palette.ink(0.07)))
-                    .contentShape(.circle)
+                Label(
+                    candidate.isRestyling ? "mejorando…" : "mejorar",
+                    systemImage: "wand.and.sparkles"
+                )
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.primaryText)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.s)
+                .background(WK.Palette.ink(0.07), in: .capsule)
+                .contentShape(.capsule)
             }
             .buttonStyle(WKPressStyle())
             .disabled(candidate.isRestyling)
+        } else {
+            Label("mejorada", systemImage: "checkmark")
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.secondaryText)
         }
+    }
+
+    /// **Tirarla, no desmarcarla.** Aquí ya no hay "se va a guardar": lo que
+    /// está en la lista entra, y lo que no es ropa se va con la papelera.
+    private var discardButton: some View {
+        Button(action: onDiscard) {
+            Image(systemName: "trash")
+                .font(WK.Font.callout)
+                .foregroundStyle(.red)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Color.red.opacity(0.12)))
+                .contentShape(.circle)
+        }
+        .buttonStyle(WKPressStyle())
     }
 }
 
@@ -231,5 +289,26 @@ private struct Chip: View {
             .contentShape(.capsule)
         }
         .buttonStyle(WKPressStyle())
+    }
+}
+
+
+// `sheet(item:)` pide identidad, y un `UUID` **es** una identidad: envolverlo
+// en un tipo nuevo solo para decirlo otra vez no aporta nada.
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
+}
+
+
+// El color del selector, en números.
+//
+// `Color` no da sus componentes: son un espacio de color y un entorno, no tres
+// números. `UIColor` sí, y aquí hacen falta tres números porque es lo que se
+// guarda y lo que se compara contra la tabla de colores con nombre.
+extension UIColor {
+    var rgb: (red: Double, green: Double, blue: Double) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (Double(r), Double(g), Double(b))
     }
 }

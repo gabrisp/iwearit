@@ -41,7 +41,7 @@ public actor GarmentPipeline {
     static let convincingPoseConfidence = 0.6
 
     /// Lado máximo con el que se analiza. Ver `extractGarments`.
-    static let workingMaxSide = 1400
+    static let workingMaxSide = 1100
 
     /// La misma foto, más pequeña, si hacía falta.
     static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
@@ -216,8 +216,9 @@ public actor GarmentPipeline {
         //
         // Y no se pierde nada, porque **el recorte acaba en 768 píxeles de
         // todos modos**: `CropNormalizer` lo escala ahí antes de guardarlo.
-        // Analizar a 1400 de lado es analizar con más detalle del que va a
-        // sobrevivir.
+        // Analizar a 1100 de lado es analizar con más detalle del que va a
+        // sobrevivir —y a 1400 eran un 60% más de píxeles en cada una de esas
+        // media docena de pasadas, que es tiempo de espera puro.
         let image = Self.scaledDown(original, maxSide: Self.workingMaxSide) ?? original
         if image !== original {
             DiagnosticsLog.record(
@@ -251,7 +252,7 @@ public actor GarmentPipeline {
         if let segmenter {
             if let garments = try? await extractWithSegmenter(segmenter, from: image),
                !garments.isEmpty {
-                return await refinedOnSolidBackground(garments, from: image)
+                return await refinedOnSolidBackground(Self.merged(garments), from: image)
             }
             DiagnosticsLog.record(
                 "PIPELINE",
@@ -664,6 +665,86 @@ public actor GarmentPipeline {
         return best
     }
 
+    /// Junta lo que es **una prenda partida en dos**.
+    ///
+    /// El mapa de clases no ve prendas, ve píxeles de una clase. Una camiseta
+    /// doblada, una camisa con una sombra fuerte en el pliegue o un pantalón
+    /// con el cinturón cruzado rompen la mancha en dos trozos, y cada trozo
+    /// sale como una prenda: dos fichas, dos recortes a medias y un armario
+    /// con la misma camiseta dos veces.
+    ///
+    /// La pista de que son una sola es geométrica y no hace falta saber de
+    /// ropa para leerla: **misma clase y pegados**. Dos prendas de verdad del
+    /// mismo tipo en una foto están separadas —se dejan aparte, justo para que
+    /// se vean las dos—; dos trozos de la misma se tocan o se solapan.
+    ///
+    /// Lo que **no** se junta nunca es lo de clases distintas: una chaqueta
+    /// encima de una camiseta se solapa entera y son dos prendas, y ahí la
+    /// clase es la que lo dice.
+    static func merged(_ garments: [DetectedGarment]) -> [DetectedGarment] {
+        guard garments.count > 1 else { return garments }
+
+        var survivors: [DetectedGarment] = []
+        for garment in garments {
+            guard let rect = garment.sourceRect else {
+                survivors.append(garment)
+                continue
+            }
+
+            // ¿Es un trozo de algo que ya está?
+            let twin = survivors.firstIndex { survivor in
+                guard survivor.kind == garment.kind, let other = survivor.sourceRect else {
+                    return false
+                }
+                return Self.arePieces(of: other, and: rect)
+            }
+
+            guard let twin else {
+                survivors.append(garment)
+                continue
+            }
+
+            // Se queda el trozo mayor: es el que trae más prenda, y el recorte
+            // del pequeño no aporta nada que el grande no tenga peor.
+            let existing = survivors[twin].sourceRect.map { $0.width * $0.height } ?? 0
+            let candidate = rect.width * rect.height
+            if candidate > existing { survivors[twin] = garment }
+
+            DiagnosticsLog.record(
+                "SEGMENTA",
+                "dos trozos pegados de \(garment.kind.rawValue): es una prenda, no dos"
+            )
+        }
+        return survivors
+    }
+
+    /// Si dos rectángulos son trozos de la misma prenda.
+    ///
+    /// Se solapan, o casi se tocan: un pliegue deja una grieta de unos pocos
+    /// píxeles, no un palmo de fondo.
+    private static func arePieces(of one: CGRect, and other: CGRect) -> Bool {
+        if one.intersects(other) { return true }
+
+        // Pegados: el hueco entre los dos es pequeño y además se llevan por
+        // el otro eje, que es como caen los trozos de una prenda doblada.
+        let gapX = max(0, max(one.minX, other.minX) - min(one.maxX, other.maxX))
+        let gapY = max(0, max(one.minY, other.minY) - min(one.maxY, other.maxY))
+        let overlapX = min(one.maxX, other.maxX) - max(one.minX, other.minX)
+        let overlapY = min(one.maxY, other.maxY) - max(one.minY, other.minY)
+
+        let touchingVertically = gapY <= Self.pieceGap
+            && overlapX >= 0.4 * min(one.width, other.width)
+        let touchingHorizontally = gapX <= Self.pieceGap
+            && overlapY >= 0.4 * min(one.height, other.height)
+        return touchingVertically || touchingHorizontally
+    }
+
+    /// Cuánto fondo puede haber entre dos trozos de la misma prenda.
+    ///
+    /// Un 3% del lado de la foto: lo que deja un pliegue o una sombra, no lo
+    /// que hay entre dos prendas puestas una al lado de la otra.
+    static let pieceGap = 0.03
+
     /// Cuánto pesa cada tipo al elegir con cuál quedarse. Menos es mejor.
     private func rank(_ kind: GarmentKind) -> Int {
         switch kind {
@@ -679,6 +760,15 @@ public actor GarmentPipeline {
     ) async -> [DetectedGarment] {
         guard !garments.isEmpty, SolidBackground.isLikely(in: image) else { return garments }
 
+        // **Primero contar, y preguntar por la pose solo si hace falta.**
+        //
+        // Contar manchas de color es CPU y son milisegundos; la pose es una
+        // petición neuronal con ocho segundos de tope. Preguntarla siempre
+        // —como se hacía— era pagar el paso caro para, la mitad de las veces,
+        // no usar la respuesta: con una sola prenda detectada no hay nada que
+        // unificar, y la pose daba igual.
+        let split = ColorSplitter.split(image)
+
         // **Una prenda doblada no es una persona.**
         //
         // Aquí bastaba con que la pose devolviera *algo* para saltarse toda la
@@ -692,7 +782,7 @@ public actor GarmentPipeline {
         // en una— pero ahora pide una persona **de verdad**: o rodilla o
         // tobillo, o una confianza alta. Una prenda tirada en la mesa no tiene
         // piernas.
-        if let pose = (try? await VisionStages.bodyLandmarks(in: image)) ?? nil {
+        if garments.count > 1, let pose = (try? await VisionStages.bodyLandmarks(in: image)) ?? nil {
             let hasLegs = pose.kneeY != nil || pose.ankleY != nil
             if hasLegs || pose.confidence >= Self.convincingPoseConfidence {
                 DiagnosticsLog.record(
@@ -725,7 +815,6 @@ public actor GarmentPipeline {
         // color del fondo. Dos perneras unidas por el tiro son **una** mancha;
         // una camiseta y un pantalón tirados aparte son dos. Ver
         // `ColorSplitter`.
-        let split = ColorSplitter.split(image)
         guard let garment = unified(garments, pieces: split?.pieceCount) else {
             return garments
         }

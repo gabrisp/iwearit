@@ -132,7 +132,10 @@ public enum ManualCrop {
             // quita el temblor del trazo.
             Morphology.close(&seed, width: width, height: height, radius: 3)
             Morphology.fillHoles(&seed, width: width, height: height)
-            Morphology.smooth(&seed, width: width, height: height, radius: 3)
+            // Radio 2 y no 3: alisar de más redondea lo que sí es la prenda
+            // —el pico de un cuello, la muesca de una manga— y el recorte sale
+            // con forma de pastilla. Lo justo para quitar el temblor del dedo.
+            Morphology.smooth(&seed, width: width, height: height, radius: 2)
             for index in 0..<(width * height) {
                 mask[index] = seed[index] == 1 ? 255 : 0
             }
