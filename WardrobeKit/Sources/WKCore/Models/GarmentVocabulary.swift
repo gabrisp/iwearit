@@ -139,6 +139,8 @@ public enum GarmentVocabulary {
         case "camisetas": "Camiseta"
         case "polos": "Polo"
         case "camisas": "Camisa"
+        case "sudaderas": "Sudadera"
+        case "jerseys": "Jersey"
         case "vestidos": "Vestido"
         case "chaquetas": "Chaqueta"
         case "banadores": "Bañador"

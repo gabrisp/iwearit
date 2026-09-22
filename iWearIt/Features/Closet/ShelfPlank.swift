@@ -17,11 +17,12 @@ struct ShelfPlank: View {
             // fondo en claro y desaparecía del todo en oscuro. Esto dice "un
             // poco del color de primer plano", que es lo que de verdad se quiere.
             LinearGradient(
-                colors: [WK.Palette.ink(0.10), .clear],
+                colors: [WK.Palette.ink(0.13), .clear],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 10)
+            // Algo más larga que antes (10): se leía poco la balda.
+            .frame(height: 20)
             .offset(y: WK.Shelf.plankThickness)
             .allowsHitTesting(false)
         }

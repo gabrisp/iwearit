@@ -161,6 +161,10 @@ public extension GarmentCategory {
             ("camisetas",   "Camisetas",   "tshirt",            .upperBody),
             ("polos",       "Polos",       "tshirt",            .upperBody),
             ("camisas",     "Camisas",     "tshirt",            .upperBody),
+            // Una sudadera o un jersey no son camisetas: caían en esa balda
+            // porque es la de respaldo de todo lo de arriba.
+            ("sudaderas",   "Sudaderas",   "tshirt",            .upperBody),
+            ("jerseys",     "Jerseys",     "tshirt",            .upperBody),
             ("vestidos",    "Vestidos",    "figure.dress.line.vertical.figure", .wholeBody),
             ("chaquetas",   "Chaquetas",   "jacket",            .outerLayer),
             ("bermudas",    "Bermudas",    "rectangle.portrait", .lowerBody),
@@ -194,11 +198,14 @@ public extension GarmentCategory {
             (["camiseta", "tshirt", "t-shirt"], "camisetas"),
             (["polo"], "polos"),
             (["camisa", "blusa", "shirt"], "camisas"),
+            // Antes que "chaquetas": una sudadera con capucha es una sudadera.
+            (["sudadera", "hoodie", "sweatshirt"], "sudaderas"),
+            (["jersey", "sueter", "sweater", "cardigan", "rebeca", "punto"], "jerseys"),
             (["vestido", "mono", "peto", "jumpsuit", "dress"], "vestidos"),
             (["banador", "bikini", "swim"], "banadores"),
             (["bermuda", "short", "pantalon corto"], "bermudas"),
             (["pantalon", "vaquero", "jean", "chino", "legging"], "pantalones"),
-            (["chaqueta", "abrigo", "cazadora", "parka", "blazer", "sudadera con capucha"], "chaquetas"),
+            (["chaqueta", "abrigo", "cazadora", "parka", "blazer"], "chaquetas"),
             (["zapat", "zapatilla", "bota", "sandalia", "deportiva", "sneaker"], "zapatos"),
             (["bolso", "mochila", "bandolera", "rinonera", "bag"], "bolsos"),
         ]

@@ -129,7 +129,9 @@ public final class AppEnvironment {
         self.container = container
         self.imageStore = imageStore
         self.modelStore = modelStore
-        self.wardrobe = WardrobeActor(modelContainer: container)
+        // Fuera del hilo principal: ver `makeOffMainThread`.
+        // self.wardrobe = WardrobeActor(modelContainer: container)
+        self.wardrobe = WardrobeActor.makeOffMainThread(modelContainer: container)
         // Con memoria: cada consulta cuesta dinero y segundo y medio, y la
         // misma prenda reimportada produce el mismo recorte byte a byte.
         if modelSource == .appwrite, let cache = try? ResolutionCache() {

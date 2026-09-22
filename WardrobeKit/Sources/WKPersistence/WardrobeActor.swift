@@ -17,6 +17,30 @@ public actor WardrobeActor {
     /// que se atasca cada vez que encuentra una camiseta.
     public static let batchSize = 25
 
+    /// El actor, creado **fuera del hilo principal**.
+    ///
+    /// Un `@ModelActor` hereda la cola del hilo en el que se crea su
+    /// `ModelContext`: creado desde el `init` de `AppEnvironment`, que es
+    /// `@MainActor`, todo lo que hacía —insertar, guardar, la exportación a
+    /// iCloud que dispara el guardado— corría en el hilo de la interfaz. Eso
+    /// era el bloqueo de unos segundos al pulsar "Guardar" en la importación.
+    /// Creado en un hilo propio, su contexto tiene su propia cola.
+    public nonisolated static func makeOffMainThread(modelContainer: ModelContainer) -> WardrobeActor {
+        guard Thread.isMainThread else { return WardrobeActor(modelContainer: modelContainer) }
+
+        final class Box: @unchecked Sendable { var actor: WardrobeActor? }
+        let box = Box()
+        let done = DispatchSemaphore(value: 0)
+        let thread = Thread {
+            box.actor = WardrobeActor(modelContainer: modelContainer)
+            done.signal()
+        }
+        thread.qualityOfService = .userInitiated
+        thread.start()
+        done.wait()
+        return box.actor!
+    }
+
     // MARK: - Categorías semilla
 
     /// Crea las ocho baldas si no existen. Idempotente: se puede llamar en cada
@@ -51,7 +75,10 @@ public actor WardrobeActor {
 
     public func seedCategoriesIfNeeded() throws {
         let existing = try modelContext.fetch(FetchDescriptor<GarmentCategory>())
-        guard existing.isEmpty else { return }
+        guard existing.isEmpty else {
+            try addMissingSeeds(to: existing)
+            return
+        }
 
         for (index, definition) in GarmentCategory.seedDefinitions().enumerated() {
             modelContext.insert(
@@ -64,6 +91,47 @@ public actor WardrobeActor {
                     defaultKind: definition.kind
                 )
             )
+        }
+        try modelContext.save()
+    }
+
+    /// Las baldas semilla que se han añadido después de que el armario ya
+    /// existiera —Sudaderas, Jerseys—, y las prendas que les tocan.
+    ///
+    /// Cada una entra justo detrás de la semilla que la precede en la lista,
+    /// respetando el orden que el usuario haya dado al resto. Y se llevan las
+    /// prendas que se colocaron **solas** en otra balda y que por lo que son
+    /// van aquí; las que el usuario puso a mano no se tocan.
+    private func addMissingSeeds(to existing: [GarmentCategory]) throws {
+        var bySlug = Dictionary(existing.map { ($0.slug, $0) }, uniquingKeysWith: { first, _ in first })
+        let definitions = GarmentCategory.seedDefinitions()
+        var added: [GarmentCategory] = []
+
+        for (index, definition) in definitions.enumerated() where bySlug[definition.slug] == nil {
+            let previous = definitions[..<index].reversed().lazy.compactMap { bySlug[$0.slug] }.first
+            let position = (previous?.sortOrder ?? -1) + 1
+            for category in bySlug.values where category.sortOrder >= position {
+                category.sortOrder += 1
+            }
+            let category = GarmentCategory(
+                slug: definition.slug,
+                name: definition.name,
+                isBuiltIn: true,
+                sortOrder: position,
+                symbolName: definition.symbol,
+                defaultKind: definition.kind
+            )
+            modelContext.insert(category)
+            bySlug[definition.slug] = category
+            added.append(category)
+        }
+        guard !added.isEmpty else { return }
+
+        let addedSlugs = Set(added.map(\.slug))
+        for garment in try modelContext.fetch(FetchDescriptor<Garment>()) where !garment.categoryLockedByUser {
+            let slug = GarmentCategory.seedSlug(forSubcategory: garment.subcategory, kind: garment.kind)
+            guard addedSlugs.contains(slug), let target = bySlug[slug] else { continue }
+            garment.category = target
         }
         try modelContext.save()
     }

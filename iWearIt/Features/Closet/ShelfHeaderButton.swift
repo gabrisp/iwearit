@@ -43,17 +43,26 @@ struct ShelfHeaderLabel: View {
 
     var body: some View {
         HStack(spacing: WK.Spacing.xs) {
-            Text(name)
-                .font(WK.Font.shelfTitle)
-                .foregroundStyle(WK.Palette.primaryText)
+            // El número, pequeño y **arriba**, entre el nombre y el chevron:
+            // un superíndice. Antes iba suelto al otro lado de la fila.
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(name)
+                    .font(WK.Font.shelfTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Text(count.formatted())
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .monospacedDigit()
+                    .baselineOffset(9)
+            }
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(WK.Palette.secondaryText)
             Spacer()
-            Text(count.formatted())
-                .font(.footnote)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .monospacedDigit()
+            // Text(count.formatted())
+            //     .font(.footnote)
+            //     .foregroundStyle(WK.Palette.secondaryText)
+            //     .monospacedDigit()
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.s)

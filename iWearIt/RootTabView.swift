@@ -17,7 +17,7 @@ struct RootTabView: View {
     /// Selección de pestaña.
     @State private var selection: RootTab = .initialFromLaunchArguments
     /// Qué raíces de pestaña están en pantalla, para saber si la barra se ve.
-    @State private var chrome = TabBarChrome()
+    // @State private var chrome = TabBarChrome()
 
     var body: some View {
         // La barra nativa se esconde y se pone la propia: iconos sin texto,
@@ -63,21 +63,25 @@ struct RootTabView: View {
         // Cada pantalla sigue reservando el hueco —ver `rootTabBar`— y avisa
         // de cuándo está en la raíz: al empujar una pantalla encima, la barra
         // se va, igual que antes se iba tapada.
-        .overlay(alignment: .bottom) {
-            if chrome.visibleRoots.contains(selection) {
-                WKIconTabBar(tabs: [RootTab.closet, .planner], selection: $selection) { tab in
-                    switch tab {
-                    case .closet: "cabinet"
-                    case .planner: "calendar"
-                    case .profile: "person.crop.circle"
-                    }
-                }
-                .transition(.opacity)
-            }
-        }
-        .animation(.smooth(duration: 0.25), value: chrome.visibleRoots.contains(selection))
+        // **Vuelve a ir una por pantalla raíz**, y ahora es la de Lockty tal
+        // cual (`WKLocktyTabBar`). Con la barra dentro de la pila de cada
+        // pestaña, una pantalla empujada la tapa: no se funde ni desaparece.
+        // La barra única de encima se queda comentada:
+        // .overlay(alignment: .bottom) {
+        //     if chrome.visibleRoots.contains(selection) {
+        //         WKIconTabBar(tabs: [RootTab.closet, .planner], selection: $selection) { tab in
+        //             switch tab {
+        //             case .closet: "cabinet"
+        //             case .planner: "calendar"
+        //             case .profile: "person.crop.circle"
+        //             }
+        //         }
+        //         .transition(.opacity)
+        //     }
+        // }
+        // .animation(.smooth(duration: 0.25), value: chrome.visibleRoots.contains(selection))
         .ignoresSafeArea(.keyboard)
-        .environment(chrome)
+        // .environment(chrome)
         .featureGatePaywall(appEnvironment.gate)
         // **Los avisos, aquí arriba y una sola vez.** Puestos dentro de una
         // pantalla se irían con ella al empujar la siguiente, y los que salen
@@ -123,8 +127,13 @@ extension View {
     /// `adaptiveSafeAreaBar` y no un `overlay`: además de dibujarla, reserva su
     /// hueco, de modo que el scroll no queda cortado por debajo y el accesorio
     /// flotante de la pantalla se apila justo encima sin cuentas a mano.
-    func rootTabBar(_ tab: RootTab, selection: Binding<RootTab>) -> some View {
-        modifier(RootTabBarSlot(tab: tab))
+    func rootTabBar(
+        _ tab: RootTab,
+        selection: Binding<RootTab>,
+        onAssistant: @escaping () -> Void = {},
+        onPlus: @escaping () -> Void
+    ) -> some View {
+        modifier(RootTabBarSlot(tab: tab, selection: selection, onAssistant: onAssistant, onPlus: onPlus))
     }
 }
 
@@ -143,19 +152,65 @@ final class TabBarChrome {
 /// tamaño.
 private struct RootTabBarSlot: ViewModifier {
     let tab: RootTab
-    @Environment(TabBarChrome.self) private var chrome
+    @Binding var selection: RootTab
+    let onAssistant: () -> Void
+    let onPlus: () -> Void
 
+    /// `morphingBottomBar` de Lockty: la barra a la izquierda y los dos
+    /// círculos —la carita y el "+"— a la derecha.
     func body(content: Content) -> some View {
         content
             .adaptiveSafeAreaBar(edge: .bottom) {
-                Color.clear
-                    .frame(height: WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs)
-                    .allowsHitTesting(false)
+                HStack(alignment: .bottom, spacing: 12) {
+                    WKLocktyTabBar(tabs: [RootTab.closet, .planner], home: tab, selection: $selection) { tab in
+                        switch tab {
+                        case .closet: "cabinet"
+                        case .planner: "calendar"
+                        case .profile: "person.crop.circle"
+                        }
+                    }
+                    .sensoryFeedback(.selection, trigger: selection)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button(action: onAssistant) {
+                        Text("🙂")
+                            .font(.system(size: 22))
+                            .frame(width: 52, height: 52)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+
+                    Button(action: onPlus) {
+                        Image(systemName: "plus")
+                            .font(.body.weight(.light))
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .frame(width: 52, height: 52)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+                }
+                .padding(.horizontal, 20)
             }
-            .onAppear { chrome.visibleRoots.insert(tab) }
-            .onDisappear { chrome.visibleRoots.remove(tab) }
     }
 }
+
+// El hueco transparente de cuando la barra era una sola encima del `TabView`.
+//
+// private struct RootTabBarSlot: ViewModifier {
+//     let tab: RootTab
+//     @Environment(TabBarChrome.self) private var chrome
+//
+//     func body(content: Content) -> some View {
+//         content
+//             .adaptiveSafeAreaBar(edge: .bottom) {
+//                 Color.clear
+//                     .frame(height: WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs)
+//                     .allowsHitTesting(false)
+//             }
+//             .onAppear { chrome.visibleRoots.insert(tab) }
+//             .onDisappear { chrome.visibleRoots.remove(tab) }
+//     }
+// }
 
 #Preview {
     RootTabView()

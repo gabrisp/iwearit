@@ -135,7 +135,7 @@ struct PlannerScreen: View {
             //     }
             // }
             .animation(WKAnimation.arrival, value: layout)
-            .rootTabBar(.planner, selection: $tab)
+            .rootTabBar(.planner, selection: $tab) { sheet = .newOutfit }
             // El tirón para crear un outfit: es la acción principal de esta
             // pantalla y no tiene botón, así que sin decirlo no existe.
             .wkTip(.overscrollNewOutfit, in: appEnvironment.tips)
