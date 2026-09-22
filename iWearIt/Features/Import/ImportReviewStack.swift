@@ -110,6 +110,10 @@ struct ImportReviewStack: View {
                 Text(saveTitle)
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.onAccent)
+                    // El número gira en su sitio al marcar o desmarcar, en vez
+                    // de cambiar la etiqueta de golpe.
+                    .contentTransition(.numericText(value: Double(model.keptCount)))
+                    .animation(WKAnimation.content, value: model.keptCount)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, WK.Spacing.m)
                     .contentShape(.capsule)
