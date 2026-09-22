@@ -78,7 +78,7 @@ struct DatedOutfits: View {
 /// el área segura —el papel de puntos llega a los bordes—, así que dentro ya no
 /// queda ninguna vista que la conozca y medirla ahí daba cero.
 @MainActor
-private var suitcaseTopInset: CGFloat {
+var suitcaseTopInset: CGFloat {
     let window = UIApplication.shared.connectedScenes
         .compactMap { $0 as? UIWindowScene }
         .flatMap(\.windows)
@@ -313,7 +313,11 @@ struct TripDayChip: View {
             }
         }
         .padding(.horizontal, isCompact ? WK.Spacing.s : WK.Spacing.m)
-        .padding(.vertical, isCompact ? 4 : 0)
+        // **El alto sale del relleno, no de un número.** En la barra,
+        // `maxHeight: .infinity` no estira nada —cada pieza recibe su alto
+        // ideal—, así que lo que iguala la tira con los botones es darle a
+        // cada día el mismo aire que lleva la etiqueta de un botón.
+        .padding(.vertical, isCompact ? 12 : 0)
         .modifier(TripDayBarHeight(height: isCompact ? nil : 46))
         .background {
             if isSelected { Capsule().fill(WK.Palette.accent) }

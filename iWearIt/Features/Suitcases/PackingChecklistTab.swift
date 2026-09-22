@@ -10,10 +10,11 @@ import WKPersistence
 /// obligar a apuntar cada prenda dos veces sería trabajo inventado.
 struct PackingChecklistTab: View {
     let suitcase: Suitcase
+    /// Lo abre el "+" de la barra. Ver `SuitcaseDetailScreen`.
+    @Binding var isPresentingTray: Bool
 
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
-    @State private var isPresentingTray = false
 
     /// Agrupado por balda: hacer la maleta va por montones, no por orden de alta.
     private var groups: [(name: String, entries: [PackingEntry])] {
@@ -48,18 +49,25 @@ struct PackingChecklistTab: View {
                         }
                     }
                     .padding(.horizontal, WK.Spacing.screenInset)
-                    .padding(.bottom, WK.Spacing.xxl)
+                    // El mismo hueco de arriba que la rejilla: la lista también
+                    // pasa por debajo de la barra. Ver `suitcaseTopInset`.
+                    .padding(.top, suitcaseTopInset + WK.Spacing.l)
+                    .padding(.bottom, 120)
                 }
                 .scrollIndicators(.hidden)
+                .ignoresSafeArea(edges: [.top, .bottom])
             }
         }
-        .adaptiveSafeAreaBar(edge: .bottom) {
-            WKPrimaryButton("Añadir suelta", systemImage: "plus") {
-                isPresentingTray = true
-            }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.bottom, WK.Spacing.m)
-        }
+        // **"Añadir suelta" ya no es un botón flotante**: es el "+" de la
+        // barra, que además no se pelea con la barra de Outfits · Equipaje.
+        //
+        // .adaptiveSafeAreaBar(edge: .bottom) {
+        //     WKPrimaryButton("Añadir suelta", systemImage: "plus") {
+        //         isPresentingTray = true
+        //     }
+        //     .padding(.horizontal, WK.Spacing.screenInset)
+        //     .padding(.bottom, WK.Spacing.m)
+        // }
         .sheet(isPresented: $isPresentingTray) {
             // **El mismo selector que para crear un outfit**, en modo múltiple.
             // Tener dos formas distintas de elegir ropa —una rejilla aquí y las

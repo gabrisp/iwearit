@@ -48,7 +48,8 @@ private struct SuitcaseContent: View {
     @State private var layout: PlannerLayout = .book
     @State private var dayIndex = 0
     @State private var isPresentingStyle = false
-    /// El "+" de la barra: un outfit más para el día que se está viendo.
+    /// El "+" de la barra, **solo en Equipaje**: añadir prendas sueltas a la
+    /// maleta. Lo atiende `PackingChecklistTab`.
     @State private var isPickingForNew = false
     /// El outfit que se está editando. Vive **aquí**, que es donde está la
     /// pila de navegación: las páginas del pager viven en sus propios
@@ -82,6 +83,7 @@ private struct SuitcaseContent: View {
                 tab: tab,
                 layout: layout,
                 dayIndex: $dayIndex,
+                isPickingForPacking: $isPickingForNew,
                 zoom: zoom,
                 onOpenDay: { index in
                     dayIndex = index
@@ -210,12 +212,25 @@ private struct SuitcaseContent: View {
         //     }
         // }
         .toolbar {
+            // **Solo en Equipaje.** En Outfits el outfit se crea tirando del
+            // final o desde la celda de la rejilla, y un "+" ahí ofrecía una
+            // tercera forma de hacer lo mismo.
+            if tab == .packing {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { isPickingForNew = true } label: {
+                        Image(systemName: "plus")
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
+            }
             if tab == .outfits, let dayCount = suitcase.tripDayCount {
                 ToolbarItem(placement: .principal) {
                     TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex, isCompact: true)
                         // Lo justo para tres días: más ancha se metía por
-                        // debajo de los botones de la derecha.
+                        // debajo de los botones de la derecha. Y de alto, lo
+                        // que mida la barra, como cualquier botón suyo.
                         .frame(width: 186)
+                        .frame(maxHeight: .infinity)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -226,22 +241,11 @@ private struct SuitcaseContent: View {
                     }
                     .tint(WK.Palette.primaryText)
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { isPickingForNew = true } label: {
-                        Image(systemName: "plus")
-                    }
-                    .tint(WK.Palette.primaryText)
-                }
+
             }
         }
         .animation(WKAnimation.content, value: tab)
-        .sheet(isPresented: $isPickingForNew) {
-            OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
-                guard !picked.isEmpty else { return }
-                editingIsNew = true
-                editingOutfit = makeOutfit(with: picked)
-            }
-        }
+
         .sheet(isPresented: $isPresentingStyle) {
             SuitcaseStyleSheet(suitcase: suitcase)
         }
@@ -303,21 +307,24 @@ private struct SuitcaseContent: View {
     // .animation(WKAnimation.content, value: tab)
     // }
 
-    /// Un outfit nuevo **para el día que se está viendo**, con las prendas
-    /// elegidas ya colocadas. Sin fechas, simplemente uno más de la maleta.
-    private func makeOutfit(with garments: [Garment]) -> Outfit {
-        let outfit = Outfit(name: suitcase.tripDayCount == nil ? nil : "Día \(dayIndex + 1)")
-        if suitcase.tripDayCount != nil { outfit.suitcaseDayIndex = dayIndex }
-        modelContext.insert(outfit)
-        outfit.suitcase = suitcase
-        for garment in garments {
-            let slot = OutfitSlot.slot(for: garment.kind)
-            let item = CanvasItem(transform: slot.transform, garment: garment)
-            item.outfit = outfit
-            modelContext.insert(item)
-        }
-        return outfit
-    }
+    // El outfit que creaba el "+" de la barra, cuando lo había en Outfits.
+    // Se queda comentado: ahí se crea tirando del final o desde la rejilla.
+    //
+    // /// Un outfit nuevo **para el día que se está viendo**, con las prendas
+    // /// elegidas ya colocadas. Sin fechas, simplemente uno más de la maleta.
+    // private func makeOutfit(with garments: [Garment]) -> Outfit {
+    //     let outfit = Outfit(name: suitcase.tripDayCount == nil ? nil : "Día \(dayIndex + 1)")
+    //     if suitcase.tripDayCount != nil { outfit.suitcaseDayIndex = dayIndex }
+    //     modelContext.insert(outfit)
+    //     outfit.suitcase = suitcase
+    //     for garment in garments {
+    //         let slot = OutfitSlot.slot(for: garment.kind)
+    //         let item = CanvasItem(transform: slot.transform, garment: garment)
+    //         item.outfit = outfit
+    //         modelContext.insert(item)
+    //     }
+    //     return outfit
+    // }
 
     private var tintColor: Color {
         guard
@@ -402,6 +409,7 @@ private struct SuitcaseTabContent: View {
     let tab: SuitcaseTab
     let layout: PlannerLayout
     @Binding var dayIndex: Int
+    @Binding var isPickingForPacking: Bool
     let zoom: Namespace.ID
     let onOpenDay: (Int) -> Void
     let onEdit: (Outfit, Bool) -> Void
@@ -418,7 +426,7 @@ private struct SuitcaseTabContent: View {
                 onEdit: onEdit
             )
         case .packing:
-            PackingChecklistTab(suitcase: suitcase)
+            PackingChecklistTab(suitcase: suitcase, isPresentingTray: $isPickingForPacking)
         }
     }
 }
