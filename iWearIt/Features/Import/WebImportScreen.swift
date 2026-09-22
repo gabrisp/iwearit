@@ -31,6 +31,8 @@ struct WebImportScreen: View {
     @FocusState private var isTyping: Bool
     /// Lo capturado en esta visita, en orden.
     @State private var captures: [WebCapture] = []
+    /// Las tiendas recientes y las fijadas. Ver `WebSiteStore`.
+    @State private var sites = WebSiteStore()
 
     var body: some View {
         NavigationStack {
@@ -120,13 +122,33 @@ struct WebImportScreen: View {
                 // izquierda lo que llevas capturado y a la derecha los
                 // botones. Así se recorren cinco productos seguidos y se
                 // importan de una vez.
-                .adaptiveSafeAreaBar(edge: .bottom) { captureBar }
+                .adaptiveSafeAreaBar(edge: .bottom) {
+                    VStack(spacing: WK.Spacing.s) {
+                        // Las tiendas de siempre, a un toque.
+                        WebSiteBar(
+                            store: sites,
+                            current: model.currentURL,
+                            onOpen: { site in model.go(to: site.url.absoluteString) },
+                            onPin: { Task { await pinCurrent() } }
+                        )
+                        captureBar
+                    }
+                }
+                // Lo visitado se recuerda: las tres últimas salen en la fila.
+                .task(id: model.currentURL) {
+                    guard let url = model.currentURL else { return }
+                    await sites.visited(url)
+                }
         }
-        // **No se cierra arrastrando.** Una web se recorre con el dedo de
-        // arriba abajo, y con el gesto de descartar puesto la mitad de los
-        // arrastres cerraban la pantalla en vez de mover la página. Se sale
-        // por la X.
-        .interactiveDismissDisabled()
+        // Se cierra arrastrando, como cualquier otra hoja. Estaba desactivado
+        // por los arrastres de la web, pero se sale de aquí más veces de las
+        // que se recorre una página hasta el borde.
+        // .interactiveDismissDisabled()
+    }
+
+    private func pinCurrent() async {
+        guard let url = model.currentURL else { return }
+        await sites.pin(url)
     }
 
     /// Lo capturado y los dos botones: hacer la foto y terminar.
@@ -237,6 +259,8 @@ final class WebCaptureModel {
     var isEditing = false
     /// Hay algo cargado que fotografiar.
     private(set) var hasPage = false
+    /// Dónde se está. Para recordar la tienda y para poder fijarla.
+    private(set) var currentURL: URL?
     private(set) var canGoBack = false
     private(set) var canGoForward = false
 
@@ -280,6 +304,7 @@ final class WebCaptureModel {
     /// La página ha cambiado: la barra sigue a la navegación.
     func pageChanged(to url: URL?) {
         hasPage = url != nil
+        currentURL = url
         canGoBack = webView?.canGoBack ?? false
         canGoForward = webView?.canGoForward ?? false
         guard !isEditing, let url else { return }
