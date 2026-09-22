@@ -957,7 +957,9 @@ struct ImportCandidate: Identifiable {
     var editedMaterial: String?
 
     /// El tipo fino, con la corrección aplicada si la hay.
-    var subcategory: String? { editedSubcategory ?? detected.subcategory }
+    var subcategory: String? {
+        editedSubcategory ?? GarmentVocabulary.displayType(detected.subcategory)
+    }
     var tags: [String] { editedTags ?? detected.tags }
     var seasons: SeasonSet { editedSeasons ?? detected.seasons }
     var material: String? { editedMaterial ?? detected.material }

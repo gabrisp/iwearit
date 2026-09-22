@@ -382,6 +382,7 @@ private struct DiagnosticsSection: View {
 private struct DebugSection: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var isSeeding = false
+    @State private var isConfirmingErase = false
     @State private var lastResult: String?
 
     var body: some View {
@@ -412,11 +413,43 @@ private struct DebugSection: View {
             WKRow(action: { seed(count: 30) }) {
                 Text("Sembrar 30 prendas").font(WK.Font.rowTitle)
             }
-            WKRow(showsSeparator: false, action: { seed(count: 300) }) {
+            WKRow(action: { seed(count: 300) }) {
                 Text("Sembrar 300 prendas").font(WK.Font.rowTitle)
+            }
+            WKRow(showsSeparator: false, action: { isConfirmingErase = true }) {
+                Text("Restablecer de fábrica")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(.red)
             }
         }
         .disabled(isSeeding)
+        .alert("¿Borrar todo?", isPresented: $isConfirmingErase) {
+            Button("Borrar todo", role: .destructive) { eraseEverything() }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se borran el armario, los outfits, las maletas, las fotos y lo sincronizado en iCloud, también en tus otros dispositivos. No se puede deshacer.")
+        }
+    }
+
+    /// Deja la app como recién instalada: datos, imágenes, iCloud y ajustes.
+    private func eraseEverything() {
+        isSeeding = true
+        Task {
+            do {
+                let removed = try await appEnvironment.wardrobe.eraseEverything()
+                // Las imágenes, todas y sin margen: no queda nada que las use.
+                try? await appEnvironment.imageStore.garbageCollect(keeping: [], grace: 0)
+                // Y los ajustes: avisos vistos, preferencias, todo.
+                if let domain = Bundle.main.bundleIdentifier {
+                    UserDefaults.standard.removePersistentDomain(forName: domain)
+                }
+                appEnvironment.tips.resetAll()
+                lastResult = "Borrado: \(removed) registros"
+            } catch {
+                lastResult = "Falló: \(error)"
+            }
+            isSeeding = false
+        }
     }
 
     private func seed(count: Int) {

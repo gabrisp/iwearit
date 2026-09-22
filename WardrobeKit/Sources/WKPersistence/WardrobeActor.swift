@@ -21,6 +21,34 @@ public actor WardrobeActor {
 
     /// Crea las ocho baldas si no existen. Idempotente: se puede llamar en cada
     /// arranque sin duplicar nada, porque `slug` es único.
+    /// **Restablecer de fábrica.** Borra todo lo del usuario y vuelve a
+    /// sembrar las baldas.
+    ///
+    /// Objeto a objeto y no con un borrado por lotes: el borrado por lotes va
+    /// directo a la base de datos y la sincronización con iCloud no se entera,
+    /// así que el armario volvía a bajar de la nube en el siguiente arranque.
+    /// Borrando uno a uno, cada borrado viaja a iCloud como cualquier otro
+    /// cambio y el resto de dispositivos se vacían también.
+    ///
+    /// Los modelos de Core ML descargados se quedan: son de la app, no del
+    /// usuario, y volver a bajar 50 MB no deshace nada que importe.
+    @discardableResult
+    public func eraseEverything() throws -> Int {
+        var removed = 0
+        for type in WardrobeSchemaV1.synced + [ScanSession.self] {
+            removed += try deleteAll(type)
+        }
+        try modelContext.save()
+        try seedCategoriesIfNeeded()
+        return removed
+    }
+
+    private func deleteAll<T: PersistentModel>(_ type: T.Type) throws -> Int {
+        let all = try modelContext.fetch(FetchDescriptor<T>())
+        for item in all { modelContext.delete(item) }
+        return all.count
+    }
+
     public func seedCategoriesIfNeeded() throws {
         let existing = try modelContext.fetch(FetchDescriptor<GarmentCategory>())
         guard existing.isEmpty else { return }

@@ -191,7 +191,7 @@ struct GarmentEditSheet: View {
                 label: "Balda"
             ) { editing = .shelf }
             EditRow(
-                value: garment.subcategory?.capitalized ?? "Sin definir",
+                value: GarmentVocabulary.displayType(garment.subcategory) ?? "Sin definir",
                 label: "Tipo"
             ) { editing = .type }
 

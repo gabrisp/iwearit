@@ -31,7 +31,10 @@ public enum GarmentVocabulary {
             // manga larga hay medio armario de diferencia, y es lo primero que
             // se corrige al revisar una prenda recién importada.
             // La manga ya no va aquí: es su propio campo. Ver `cuts(for:)`.
-            ["Camiseta", "Camisa", "Blusa", "Polo", "Top", "Jersey", "Sudadera", "Chaleco"]
+            // Sin "Top": no es una prenda, es una manera de decir "lo de
+            // arriba", y eso es un filtro. Lo que se tiene en el armario es
+            // una camiseta, una camisa o un polo.
+            ["Camiseta", "Camisa", "Polo", "Blusa", "Jersey", "Sudadera", "Chaleco"]
         case .outerLayer:
             ["Chaqueta", "Cazadora", "Abrigo", "Gabardina", "Vaquera", "Cuero", "Blazer", "Plumífero"]
         case .lowerBody:
@@ -122,6 +125,18 @@ public enum GarmentVocabulary {
             if match { return kind }
         }
         return nil
+    }
+
+    /// El tipo tal y como se enseña, o `nil` si no es un tipo de verdad.
+    ///
+    /// El detector a veces contesta con palabras de parte del cuerpo —"top",
+    /// "bottom"— que no son prendas. Esas se tratan como "sin definir" en vez
+    /// de enseñarse como si lo fueran.
+    public static func displayType(_ raw: String?) -> String? {
+        guard let raw, !raw.isEmpty else { return nil }
+        let folded = raw.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+        let notTypes: Set<String> = ["top", "tops", "bottom", "bottoms", "upper", "lower"]
+        return notTypes.contains(folded) ? nil : raw.capitalized
     }
 
     /// Estilo. Hasta tres por prenda: con más, dejan de significar nada.
