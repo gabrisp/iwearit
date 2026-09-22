@@ -566,16 +566,20 @@ private struct GarmentImageStrip: View {
                     action: onUseCrop
                 )
 
-                if hasRaw, let raw = garment.rawCropImageKey {
-                    ImageChoice(
-                        title: "Sin encajar",
-                        isCurrent: false,
-                        key: raw,
-                        prefersCatalog: false,
-                        store: store,
-                        action: onUseRaw
-                    )
-                }
+                // "Sin encajar" —el recorte crudo, antes de centrarlo— fuera:
+                // pegado a los bordes se veía enorme y el nombre no decía nada.
+                // Se queda comentado.
+                //
+                // if hasRaw, let raw = garment.rawCropImageKey {
+                //     ImageChoice(
+                //         title: "Sin encajar",
+                //         isCurrent: false,
+                //         key: raw,
+                //         prefersCatalog: false,
+                //         store: store,
+                //         action: onUseRaw
+                //     )
+                // }
             }
             .padding(.horizontal, WK.Spacing.cardInset)
             // Aire por dentro: el aro de la elegida se sale del cuadrado, y sin

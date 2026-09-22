@@ -49,6 +49,10 @@ public extension View {
             guard !Task.isCancelled else { return }
             center.offer(tip)
         }
+        // Al irse de la pantalla, su aviso se va con ella —sin darse por
+        // visto—: "Tira para crear" encima del armario explica un gesto que
+        // ahí no existe.
+        .onDisappear { center.withdraw(tip) }
     }
 }
 

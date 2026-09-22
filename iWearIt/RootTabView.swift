@@ -14,8 +14,10 @@ import WKDesign
 struct RootTabView: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    /// Selección de pestaña. Es el único estado de esta vista.
+    /// Selección de pestaña.
     @State private var selection: RootTab = .initialFromLaunchArguments
+    /// Qué raíces de pestaña están en pantalla, para saber si la barra se ve.
+    @State private var chrome = TabBarChrome()
 
     var body: some View {
         // La barra nativa se esconde y se pone la propia: iconos sin texto,
@@ -50,6 +52,32 @@ struct RootTabView: View {
         .toolbarVisibility(.hidden, for: .tabBar)
         // Una sola vez en la raíz: `scrollIndicators` se propaga por el árbol,
         // así que la regla vale también para las pantallas que aún no existen.
+        // **Una sola barra, por encima de las dos pestañas.**
+        //
+        // Antes cada pantalla dibujaba la suya: al cambiar de pestaña
+        // aparecía **la otra copia**, que durante un instante enseñaba todavía
+        // la pestaña de antes y luego saltaba a la nueva. Ese era el parpadeo
+        // de los iconos. Con una sola, la píldora viaja de un icono al otro y
+        // no hay nada que saltar.
+        //
+        // Cada pantalla sigue reservando el hueco —ver `rootTabBar`— y avisa
+        // de cuándo está en la raíz: al empujar una pantalla encima, la barra
+        // se va, igual que antes se iba tapada.
+        .overlay(alignment: .bottom) {
+            if chrome.visibleRoots.contains(selection) {
+                WKIconTabBar(tabs: [RootTab.closet, .planner], selection: $selection) { tab in
+                    switch tab {
+                    case .closet: "cabinet"
+                    case .planner: "calendar"
+                    case .profile: "person.crop.circle"
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.25), value: chrome.visibleRoots.contains(selection))
+        .ignoresSafeArea(.keyboard)
+        .environment(chrome)
         .featureGatePaywall(appEnvironment.gate)
         // **Los avisos, aquí arriba y una sola vez.** Puestos dentro de una
         // pantalla se irían con ella al empujar la siguiente, y los que salen
@@ -95,19 +123,37 @@ extension View {
     /// `adaptiveSafeAreaBar` y no un `overlay`: además de dibujarla, reserva su
     /// hueco, de modo que el scroll no queda cortado por debajo y el accesorio
     /// flotante de la pantalla se apila justo encima sin cuentas a mano.
-    func rootTabBar(selection: Binding<RootTab>) -> some View {
-        adaptiveSafeAreaBar(edge: .bottom) {
-            WKIconTabBar(
-                tabs: [RootTab.closet, .planner],
-                selection: selection
-            ) { tab in
-                switch tab {
-                case .closet: "cabinet"
-                case .planner: "calendar"
-                case .profile: "person.crop.circle"
-                }
+    func rootTabBar(_ tab: RootTab, selection: Binding<RootTab>) -> some View {
+        modifier(RootTabBarSlot(tab: tab))
+    }
+}
+
+/// Qué raíces de pestaña están en pantalla ahora mismo.
+@MainActor
+@Observable
+final class TabBarChrome {
+    var visibleRoots: Set<RootTab> = []
+}
+
+/// El hueco de la barra en una pantalla raíz, y el aviso de que está a la vista.
+///
+/// La barra de verdad la dibuja `RootTabView`, una sola para todas. Aquí se
+/// reserva su sitio —para que el scroll no quede debajo y los accesorios se
+/// apilen encima sin cuentas a mano— con una vista transparente del mismo
+/// tamaño.
+private struct RootTabBarSlot: ViewModifier {
+    let tab: RootTab
+    @Environment(TabBarChrome.self) private var chrome
+
+    func body(content: Content) -> some View {
+        content
+            .adaptiveSafeAreaBar(edge: .bottom) {
+                Color.clear
+                    .frame(height: WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs)
+                    .allowsHitTesting(false)
             }
-        }
+            .onAppear { chrome.visibleRoots.insert(tab) }
+            .onDisappear { chrome.visibleRoots.remove(tab) }
     }
 }
 

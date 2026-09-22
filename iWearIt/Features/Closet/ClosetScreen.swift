@@ -218,7 +218,7 @@ struct ClosetScreen: View {
             // que el armario no es ahora mismo el sitio desde el que se monta
             // un outfit.
             // .adaptiveFloatingAccessory { MakeOutfitsAccessory() }
-            .rootTabBar(selection: $tab)
+            .rootTabBar(.closet, selection: $tab)
             // Se enseña cuando hay ropa que mover: con el armario vacío, un
             // aviso sobre arrastrar prendas explica algo que no se puede hacer.
             .wkTip(.dragGarment, in: appEnvironment.tips, when: garments.count >= 2)
