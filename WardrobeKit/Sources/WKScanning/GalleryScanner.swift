@@ -177,16 +177,32 @@ public actor GalleryScanner {
             return .skippedInCloud
         }
 
-        guard let detected = try? await pipeline.extractGarments(from: full), !detected.isEmpty else {
+        guard let found = try? await pipeline.extractGarments(from: full), !found.isEmpty else {
             return .nothing
         }
 
+        // **Solo lo que se ve bien.** El escaneo es lo primero que el usuario
+        // ve de la app: una prenda mordida, borrosa o diminuta resta más de lo
+        // que suma. Mejor diez prendas buenas que treinta regulares.
+        let detected = found.filter(Self.isShowcaseQuality)
+        if detected.count < found.count {
+            DiagnosticsLog.record(
+                "ESCANEO", "\(found.count - detected.count) de \(found.count) descartadas por calidad"
+            )
+        }
+        guard !detected.isEmpty else { return .nothing }
+
         var drafts: [GarmentDraft] = []
+        var pieces: [ScanDiscovery.Piece] = []
         for garment in detected {
             guard let key = try? await imageStore.store(garment.normalized.cgImage) else { continue }
-            await onDiscovery(
-                ScanDiscovery(image: garment.normalized, categorySlug: garment.kind.seedCategorySlug)
-            )
+            if let small = Self.downscaled(garment.rawCrop.cgImage, maxSide: 360) {
+                pieces.append(ScanDiscovery.Piece(
+                    image: ImmutableImage(small),
+                    sourceRect: garment.sourceRect,
+                    kind: garment.kind
+                ))
+            }
             drafts.append(
                 GarmentDraft(
                     kind: garment.kind,
@@ -203,7 +219,37 @@ public actor GalleryScanner {
                 )
             )
         }
+        if !pieces.isEmpty, let photo = Self.downscaled(full, maxSide: 520) {
+            await onDiscovery(ScanDiscovery(photo: ImmutableImage(photo), pieces: pieces))
+        }
         return .found(drafts)
+    }
+
+    /// Si una prenda es digna de enseñarse en el escaneo.
+    static func isShowcaseQuality(_ garment: DetectedGarment) -> Bool {
+        // Por encima del techo del modo degradado: lo que sale de ahí es una
+        // conjetura por la forma.
+        guard garment.confidence > GarmentPipeline.degradedConfidenceCeiling else { return false }
+        // Diminuta en la foto: al ampliarla para el armario se ve fatal.
+        guard min(garment.rawCrop.width, garment.rawCrop.height) >= 140 else { return false }
+        return CutoutQuality.assess(garment.normalized.cgImage).isGoodEnough
+    }
+
+    static func downscaled(_ image: CGImage, maxSide: Int) -> CGImage? {
+        let longest = max(image.width, image.height)
+        guard longest > maxSide else { return image }
+        let scale = Double(maxSide) / Double(longest)
+        let width = max(1, Int(Double(image.width) * scale))
+        let height = max(1, Int(Double(image.height) * scale))
+        guard let context = CGContext(
+            data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
     }
 
     // MARK: - PhotoKit

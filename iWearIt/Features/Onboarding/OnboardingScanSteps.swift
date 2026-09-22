@@ -88,12 +88,14 @@ struct ScanningStep: View {
 
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var progress = ScanProgress()
-    @State private var discoveries: [ScanDiscovery] = []
+    // @State private var discoveries: [ScanDiscovery] = []
+    /// El montón de fotos y la colección. Ver `ScanStageModel`.
+    @State private var stage = ScanStageModel()
     @State private var scanner: GalleryScanner?
     @State private var isPreparing = false
 
     var body: some View {
-        VStack(spacing: WK.Spacing.l) {
+        VStack(spacing: WK.Spacing.m) {
             HStack {
                 Spacer()
                 Button("Saltar") { finish() }
@@ -101,8 +103,8 @@ struct ScanningStep: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
 
-            VStack(spacing: WK.Spacing.s) {
-                Text(isPreparing ? "Preparando el reconocimiento" : "Mirando tus fotos")
+            VStack(spacing: WK.Spacing.xs) {
+                Text(isPreparing ? "Preparando el reconocimiento" : "Buscando tu ropa")
                     .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
                     .contentTransition(.opacity)
@@ -114,10 +116,11 @@ struct ScanningStep: View {
             }
             .animation(WKAnimation.content, value: isPreparing)
 
-            OnboardingProgressBar(step: progress.photosProcessed, total: max(1, progress.totalPhotos))
-
-            DiscoveryWall(discoveries: discoveries)
+            // Tus fotos, en un montón, soltando las prendas.
+            ScanPhotoStack(model: stage)
                 .frame(maxHeight: .infinity)
+
+            ScanCollection(model: stage)
 
             if let reason = progress.pauseReason {
                 Label(reason, systemImage: "thermometer.medium")
@@ -125,24 +128,67 @@ struct ScanningStep: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
 
-            VStack(spacing: WK.Spacing.xs) {
-                Label("Nada sale de tu iPhone", systemImage: "lock.fill")
-                    .font(WK.Font.captionMedium)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                Text("Tus fotos se analizan aquí mismo. No se suben a ningún servidor, ni las fotos ni los recortes.")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.tertiaryText)
-                    .multilineTextAlignment(.center)
-                Text("Mantén la app abierta mientras miramos")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.tertiaryText)
-                    .padding(.top, WK.Spacing.xs)
-            }
+            Label("Todo pasa en tu iPhone · mantén la app abierta", systemImage: "lock.fill")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.tertiaryText)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.m)
         .task { await run() }
     }
+
+    // La pantalla de antes: barra de progreso y recortes sueltos cayendo.
+    // var body: some View {
+    //     VStack(spacing: WK.Spacing.l) {
+    //         HStack {
+    //             Spacer()
+    //             Button("Saltar") { finish() }
+    //                 .font(.subheadline)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //         }
+
+    //         VStack(spacing: WK.Spacing.s) {
+    //             Text(isPreparing ? "Preparando el reconocimiento" : "Mirando tus fotos")
+    //                 .font(.system(.title, weight: .bold))
+    //                 .multilineTextAlignment(.center)
+    //                 .contentTransition(.opacity)
+    //             Text(statusLine)
+    //                 .font(.subheadline)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //                 .monospacedDigit()
+    //                 .contentTransition(.numericText())
+    //         }
+    //         .animation(WKAnimation.content, value: isPreparing)
+
+    //         OnboardingProgressBar(step: progress.photosProcessed, total: max(1, progress.totalPhotos))
+
+    //         DiscoveryWall(discoveries: discoveries)
+    //             .frame(maxHeight: .infinity)
+
+    //         if let reason = progress.pauseReason {
+    //             Label(reason, systemImage: "thermometer.medium")
+    //                 .font(.caption)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //         }
+
+    //         VStack(spacing: WK.Spacing.xs) {
+    //             Label("Nada sale de tu iPhone", systemImage: "lock.fill")
+    //                 .font(WK.Font.captionMedium)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //             Text("Tus fotos se analizan aquí mismo. No se suben a ningún servidor, ni las fotos ni los recortes.")
+    //                 .font(WK.Font.caption)
+    //                 .foregroundStyle(WK.Palette.tertiaryText)
+    //                 .multilineTextAlignment(.center)
+    //             Text("Mantén la app abierta mientras miramos")
+    //                 .font(WK.Font.caption)
+    //                 .foregroundStyle(WK.Palette.tertiaryText)
+    //                 .padding(.top, WK.Spacing.xs)
+    //         }
+    //     }
+    //     .padding(.horizontal, WK.Spacing.screenInset)
+    //     .padding(.bottom, WK.Spacing.m)
+    //     .task { await run() }
+    // }
 
     private func run() async {
         // **Esperar al modelo antes de mirar una sola foto.**
@@ -154,6 +200,9 @@ struct ScanningStep: View {
         // no eran prendas: eran trozos de foto. Y una vez guardados, el armario
         // queda lleno de basura que hay que borrar a mano.
         await waitForSegmenter()
+
+        // La coreografía corre a su ritmo mientras el escáner busca.
+        async let showing: Void = stage.run()
 
         let scanner = GalleryScanner(
             pipeline: GarmentPipeline(
@@ -183,15 +232,14 @@ struct ScanningStep: View {
                 Task { @MainActor in progress = updated }
             },
             onDiscovery: { discovery in
-                Task { @MainActor in
-                    // Solo las últimas: el muro es decorado, y guardar cientos
-                    // de CGImage vivas para una animación es cómo se acaba la
-                    // memoria a mitad del escaneo.
-                    discoveries.append(discovery)
-                    if discoveries.count > 12 { discoveries.removeFirst() }
-                }
+                Task { @MainActor in stage.enqueue(discovery) }
             }
         )
+        // Se deja terminar lo que está en pantalla: la última foto soltando
+        // sus prendas es el final de la función, no algo que cortar.
+        stage.scanFinished()
+        await showing
+        try? await Task.sleep(for: .seconds(0.8))
         finish()
     }
 
@@ -203,7 +251,7 @@ struct ScanningStep: View {
     /// Qué se está haciendo ahora mismo, en una línea.
     private var statusLine: String {
         guard isPreparing else {
-            return "\(progress.photosProcessed) de \(progress.totalPhotos) · \(progress.garmentsFound) prendas"
+            return "\(progress.photosProcessed.formatted()) de \(progress.totalPhotos.formatted()) fotos"
         }
         return switch appEnvironment.modelState {
         case let .downloading(fraction): "Descargando · \(Int(fraction * 100))%"
@@ -240,28 +288,29 @@ struct ScanningStep: View {
     }
 }
 
-/// Los recortes apareciendo. Decorado, no inventario.
-private struct DiscoveryWall: View {
-    let discoveries: [ScanDiscovery]
+// Sustituido por `ScanPhotoStack` y `ScanCollection`.
+// /// Los recortes apareciendo. Decorado, no inventario.
+// private struct DiscoveryWall: View {
+//     let discoveries: [ScanDiscovery]
 
-    var body: some View {
-        ZStack {
-            ForEach(Array(discoveries.enumerated()), id: \.offset) { index, discovery in
-                Image(decorative: discovery.image.cgImage, scale: 1)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 90, height: 100)
-                    .rotationEffect(.degrees(Double((index * 37) % 24) - 12))
-                    .offset(
-                        x: CGFloat((index * 61) % 200) - 100,
-                        y: CGFloat((index * 43) % 220) - 110
-                    )
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .animation(.spring(duration: 0.45, bounce: 0.3), value: discoveries.count)
-    }
-}
+//     var body: some View {
+//         ZStack {
+//             ForEach(Array(discoveries.enumerated()), id: \.offset) { index, discovery in
+//                 Image(decorative: discovery.image.cgImage, scale: 1)
+//                     .resizable()
+//                     .scaledToFit()
+//                     .frame(width: 90, height: 100)
+//                     .rotationEffect(.degrees(Double((index * 37) % 24) - 12))
+//                     .offset(
+//                         x: CGFloat((index * 61) % 200) - 100,
+//                         y: CGFloat((index * 43) % 220) - 110
+//                     )
+//                     .transition(.scale.combined(with: .opacity))
+//             }
+//         }
+//         .animation(.spring(duration: 0.45, bounce: 0.3), value: discoveries.count)
+//     }
+// }
 
 /// El resumen: lo que hemos encontrado, en números.
 struct ScanSummaryStep: View {
@@ -277,7 +326,9 @@ struct ScanSummaryStep: View {
         ) {
             VStack(spacing: WK.Spacing.xl) {
                 StatReveal(
-                    value: "\(model.outfitIdeas(garmentCount: garments.count))+",
+                    // El número de verdad, sin tope: es lo que impresiona.
+                    // value: "\(model.outfitIdeas(garmentCount: garments.count))+",
+                    value: outfitCount.formatted(),
                     caption: "combinaciones posibles",
                     detail: "Todas con ropa que ya tienes."
                 )
@@ -289,6 +340,16 @@ struct ScanSummaryStep: View {
                 }
             }
         }
+    }
+
+    /// Arriba × abajo × calzado, más vestidos × calzado, con lo que hay.
+    private var outfitCount: Int {
+        func count(_ kinds: Set<GarmentKind>) -> Int { garments.filter { kinds.contains($0.kind) }.count }
+        let tops = count([.upperBody, .outerLayer])
+        let bottoms = count([.lowerBody])
+        let dresses = count([.wholeBody])
+        let shoes = max(1, count([.feet]))
+        return max(1, tops * bottoms * shoes + dresses * shoes)
     }
 
     /// El color más repetido del armario.

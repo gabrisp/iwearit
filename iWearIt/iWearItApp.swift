@@ -127,7 +127,9 @@ private struct RootView: View {
 
     var body: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("onboarding") {
+        if ProcessInfo.processInfo.arguments.contains("scan-demo") {
+            ScanStageDemo()
+        } else if ProcessInfo.processInfo.arguments.contains("onboarding") {
             // Fuerza el onboarding aunque ya esté hecho, para poder revisarlo
             // sin borrar la app.
             OnboardingFlow { hasCompletedOnboarding = true }

@@ -1,4 +1,6 @@
+import CoreGraphics
 import Foundation
+import WKCore
 import WKVision
 
 /// Lo que la pantalla de escaneo necesita saber.
@@ -22,13 +24,35 @@ public struct ScanProgress: Sendable, Equatable {
     public init() {}
 }
 
-/// Un recorte recién encontrado, para la animación de la pantalla de escaneo.
-public struct ScanDiscovery: Sendable {
-    public let image: ImmutableImage
-    public let categorySlug: String
+/// Una foto de la galería con prendas, para la animación del escaneo.
+///
+/// **Una por foto, no por prenda**: lo que se enseña es la foto de verdad, en
+/// pequeño, y las prendas saliendo de ella desde el sitio exacto en el que
+/// estaban. Las fotos sin prendas —o con recortes que no valen— no llegan aquí.
+public struct ScanDiscovery: Sendable, Identifiable {
+    public struct Piece: Sendable, Identifiable {
+        public let id = UUID()
+        /// El recorte tal cual sale de la foto, reducido para la pantalla.
+        public let image: ImmutableImage
+        /// Dónde estaba dentro de la foto, 0-1 con el origen arriba a la
+        /// izquierda. `nil` = no se pudo situar; sale del centro.
+        public let sourceRect: CGRect?
+        public let kind: GarmentKind
 
-    public init(image: ImmutableImage, categorySlug: String) {
-        self.image = image
-        self.categorySlug = categorySlug
+        public init(image: ImmutableImage, sourceRect: CGRect?, kind: GarmentKind) {
+            self.image = image
+            self.sourceRect = sourceRect
+            self.kind = kind
+        }
+    }
+
+    public let id = UUID()
+    /// La foto, pequeña.
+    public let photo: ImmutableImage
+    public let pieces: [Piece]
+
+    public init(photo: ImmutableImage, pieces: [Piece]) {
+        self.photo = photo
+        self.pieces = pieces
     }
 }
