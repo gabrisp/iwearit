@@ -83,6 +83,9 @@ private struct DatedGrid: View {
 
     @Environment(AppEnvironment.self) private var appEnvironment
 
+    /// Lo que mide la barra de arriba. Ver `body`.
+    @State private var safeTop: CGFloat = 0
+
     private static let date: DateFormatter = {
         let formatter = DateFormatter()
         formatter.setLocalizedDateFormatFromTemplate("EEE d MMM")
@@ -90,6 +93,7 @@ private struct DatedGrid: View {
     }()
 
     var body: some View {
+        ZStack {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
                 ForEach(0..<dayCount, id: \.self) { index in
@@ -113,10 +117,22 @@ private struct DatedGrid: View {
                 }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
-            .safeAreaPadding(.vertical)
-            .padding(.bottom, WK.Spacing.xl)
+            // Como la rejilla del plan: el scroll **ignora el área segura** y
+            // el hueco lo pone el contenido por dentro, más un respiro arriba
+            // y el sitio de la barra de abajo.
+            // `safeAreaPadding` no se entera con el scroll ignorando el área
+            // segura: la barra se mide fuera, como en el plan.
+            .padding(.top, safeTop + WK.Spacing.l)
+            .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
+            guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
+            safeTop = measured
+        }
     }
 
     private func label(for index: Int) -> String {
@@ -132,6 +148,9 @@ struct TripDayBar: View {
     let suitcase: Suitcase
     let dayCount: Int
     @Binding var selected: Int
+    /// Dentro de la barra de navegación: más baja y sin su propio cristal,
+    /// que ya lo pone la barra.
+    var isCompact = false
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -141,7 +160,8 @@ struct TripDayBar: View {
                         index: index,
                         date: suitcase.date(forDayIndex: index),
                         isSelected: index == selected,
-                        hasOutfit: suitcase.outfit(forDayIndex: index) != nil
+                        hasOutfit: suitcase.outfit(forDayIndex: index) != nil,
+                        height: isCompact ? 36 : 46
                     )
                     .onTapGesture { selected = index }
                 }
@@ -149,10 +169,26 @@ struct TripDayBar: View {
             .padding(.horizontal, WK.Spacing.s)
         }
         .scrollIndicators(.hidden)
-        .frame(height: 56)
+        .frame(height: isCompact ? 40 : 56)
         .clipShape(.capsule)
-        .adaptiveGlassInteractive(in: .capsule)
-        .padding(.horizontal, WK.Spacing.m)
+        .modifier(TripDayBarChrome(isCompact: isCompact))
+    }
+}
+
+/// El cristal de la tira, y el margen solo fuera de la barra de navegación.
+private struct TripDayBarChrome: ViewModifier {
+    let isCompact: Bool
+
+    func body(content: Content) -> some View {
+        if isCompact {
+            // En el centro de la barra el sistema **no** pone cristal a una
+            // vista propia: sin el suyo, los días flotaban sobre los puntos.
+            content.adaptiveGlassInteractive(in: .capsule)
+        } else {
+            content
+                .adaptiveGlassInteractive(in: .capsule)
+                .padding(.horizontal, WK.Spacing.m)
+        }
     }
 }
 
@@ -165,6 +201,7 @@ struct TripDayChip: View {
     let date: Date?
     let isSelected: Bool
     let hasOutfit: Bool
+    var height: CGFloat = 46
 
     private static let dayNumber: DateFormatter = {
         let formatter = DateFormatter()
@@ -211,7 +248,7 @@ struct TripDayChip: View {
             }
         }
         .padding(.horizontal, WK.Spacing.m)
-        .frame(height: 46)
+        .frame(height: height)
         .background {
             if isSelected { Capsule().fill(WK.Palette.accent) }
         }
@@ -382,8 +419,11 @@ private struct PreparedOutfits: View {
 
     /// El selector, abierto por el "+".
     @State private var isPickingForNew = false
+    /// Lo que mide la barra de arriba. Ver `DatedGrid`.
+    @State private var safeTop: CGFloat = 0
 
     var body: some View {
+        ZStack {
         ScrollView {
             LazyVGrid(columns: outfitGridColumns, spacing: WK.Spacing.m) {
                 ForEach(suitcase.visibleOutfits) { outfit in
@@ -419,10 +459,20 @@ private struct PreparedOutfits: View {
                 NewOutfitGridCell { isPickingForNew = true }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
-            .safeAreaPadding(.vertical)
-            .padding(.bottom, WK.Spacing.xl)
+            // Igual que la rejilla del plan: ver `DatedGrid`.
+            // `safeAreaPadding` no se entera con el scroll ignorando el área
+            // segura: la barra se mide fuera, como en el plan.
+            .padding(.top, safeTop + WK.Spacing.l)
+            .padding(.bottom, 120)
         }
         .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .ignoresSafeArea(edges: [.top, .bottom])
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { measured in
+            guard measured > 0, abs(measured - safeTop) > 0.5 else { return }
+            safeTop = measured
+        }
         // Sin sobre-scroll: es una rejilla, y la celda de crear ya se ve. Ver
         // `PlannerGrid`.
         .sheet(isPresented: $isPickingForNew) {

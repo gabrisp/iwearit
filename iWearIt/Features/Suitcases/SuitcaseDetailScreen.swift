@@ -155,27 +155,47 @@ private struct SuitcaseContent: View {
         // Debajo de la barra, la tira de días: **solo** en Outfits. En Equipaje
         // no hay días —es una lista de lo que va dentro— y enseñar un selector
         // que no cambia nada promete una relación que no existe.
-        .safeAreaInset(edge: .top) {
+        // **En la barra de navegación**, no debajo: la tira del viaje en el
+        // centro y revista/rejilla a la derecha. Debajo quedaba otra franja
+        // más comiéndose el lienzo. Lo de antes, comentado:
+        // .safeAreaInset(edge: .top) {
+        //     if tab == .outfits, let dayCount = suitcase.tripDayCount {
+        //         // La tira y, al lado, revista o rejilla. Igual que el plan.
+        //         HStack(spacing: 0) {
+        //             TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex)
+        //             Button {
+        //                 withAnimation(WKAnimation.arrival) { layout = layout.next }
+        //             } label: {
+        //                 Image(systemName: layout.symbol)
+        //                     .font(.system(size: 16, weight: .medium))
+        //                     .foregroundStyle(WK.Palette.primaryText)
+        //                     .frame(width: 56, height: 56)
+        //                     .contentTransition(.symbolEffect(.replace.downUp))
+        //                     .contentShape(.circle)
+        //             }
+        //             .buttonStyle(WKPressStyle())
+        //             .adaptiveGlassInteractive(in: .circle)
+        //             .padding(.trailing, WK.Spacing.m)
+        //         }
+        //         .padding(.bottom, WK.Spacing.xs)
+        //         .transition(.move(edge: .top).combined(with: .opacity))
+        //     }
+        // }
+        .toolbar {
             if tab == .outfits, let dayCount = suitcase.tripDayCount {
-                // La tira y, al lado, revista o rejilla. Igual que el plan.
-                HStack(spacing: 0) {
-                    TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex)
+                ToolbarItem(placement: .principal) {
+                    TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex, isCompact: true)
+                        .frame(width: 236)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         withAnimation(WKAnimation.arrival) { layout = layout.next }
                     } label: {
                         Image(systemName: layout.symbol)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(WK.Palette.primaryText)
-                            .frame(width: 56, height: 56)
                             .contentTransition(.symbolEffect(.replace.downUp))
-                            .contentShape(.circle)
                     }
-                    .buttonStyle(WKPressStyle())
-                    .adaptiveGlassInteractive(in: .circle)
-                    .padding(.trailing, WK.Spacing.m)
+                    .tint(WK.Palette.primaryText)
                 }
-                .padding(.bottom, WK.Spacing.xs)
-                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(WKAnimation.content, value: tab)

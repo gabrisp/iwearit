@@ -77,6 +77,7 @@ public actor WardrobeActor {
         let existing = try modelContext.fetch(FetchDescriptor<GarmentCategory>())
         guard existing.isEmpty else {
             try addMissingSeeds(to: existing)
+            try returnAutoAssignedToSeedShelves(existing)
             return
         }
 
@@ -134,6 +135,29 @@ public actor WardrobeActor {
             garment.category = target
         }
         try modelContext.save()
+    }
+
+    /// Devuelve a su balda las prendas que la asignación automática metió en
+    /// una balda propia. Ver la nota de `insert`.
+    ///
+    /// Se reconocen porque **no están bloqueadas**: todo lo que el usuario
+    /// coloca a mano —arrastrar, elegir balda, marcarla como ejemplo al crear
+    /// la balda— queda bloqueado. Lo que está en una balda propia sin estarlo
+    /// llegó ahí solo.
+    private func returnAutoAssignedToSeedShelves(_ categories: [GarmentCategory]) throws {
+        let bySlug = Dictionary(categories.map { ($0.slug, $0) }, uniquingKeysWith: { first, _ in first })
+        var moved = 0
+        for category in categories where !category.isBuiltIn {
+            for garment in category.garments where !garment.categoryLockedByUser && garment.deletedAt == nil {
+                let slug = GarmentCategory.seedSlug(forSubcategory: garment.subcategory, kind: garment.kind)
+                guard let target = bySlug[slug], target !== category else { continue }
+                garment.category = target
+                moved += 1
+            }
+        }
+        guard moved > 0 else { return }
+        try modelContext.save()
+        DiagnosticsLog.record("BALDAS", "\(moved) prenda(s) devueltas a su balda desde baldas propias")
     }
 
     // MARK: - Alta de prendas
@@ -228,7 +252,16 @@ public actor WardrobeActor {
                 continue
             }
 
-            let assignment = Self.assign(draft, among: custom)
+            // **Sin asignación automática a baldas propias, por ahora.**
+            //
+            // El listón (0,28) es para comparar un texto con una imagen; entre
+            // dos fotos de ropa casi cualquier par lo pasa, así que la primera
+            // balda propia con ejemplos se quedaba con **todo** lo que entraba
+            // después. Hasta afinarlo con datos de verdad, una prenda va a la
+            // balda de lo que es, o a la que elija el usuario.
+            // let assignment = Self.assign(draft, among: custom)
+            _ = custom
+            let assignment: (category: GarmentCategory?, isAmbiguous: Bool) = (nil, false)
             // La balda propia manda; si ninguna, la semilla que le toca **por
             // lo que es**, no solo por la zona del cuerpo: una camisa va a
             // Camisas y no al cajón de todo lo de arriba. Ver
