@@ -40,13 +40,17 @@ private struct OutfitCreationFlow: ViewModifier {
                     create(with: picked)
                 }
             }
-            .fullScreenCover(item: $outfit) { outfit in
+            // Hoja, como todo lo que se abre encima en esta app: la cubierta
+            // a pantalla completa dejaba negra la de debajo al cerrarse. Sin
+            // cierre por arrastre, que aquí hay un outfit a medio montar.
+            .sheet(item: $outfit) { outfit in
                 // Siempre nuevo: este flujo **es** el de crear.
                 AdvancedCanvasScreen(
                     outfit: outfit,
                     store: appEnvironment.imageStore,
                     isNew: true
                 )
+                .interactiveDismissDisabled()
             }
     }
 

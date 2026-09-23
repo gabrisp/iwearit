@@ -123,11 +123,17 @@ struct GarmentEditSheet: View {
             let key = garment.rawCropImageKey ?? garment.normalizedImageKey
             cropSource = try? await appEnvironment.imageStore.image(for: key, variant: .display)
         }
-        .fullScreenCover(isPresented: $isCroppingByHand) {
+        // **Hoja, no `fullScreenCover`.** La cubierta a pantalla completa
+        // presentada desde dentro de otra hoja dejaba la de debajo en negro al
+        // cerrarse, y encima es un elemento que aquí no se usa. Con la hoja, el
+        // cierre por arrastre se desactiva: a mitad de un recorte, un desliz
+        // sin querer tira el trabajo.
+        .sheet(isPresented: $isCroppingByHand) {
             if let cropSource {
                 ManualCropScreen(image: cropSource) { cropped in
                     Task { await applyManualCrop(cropped) }
                 }
+                .interactiveDismissDisabled()
             }
         }
         // Una alerta y no un menú desde el botón: borrar es irreversible y

@@ -536,11 +536,13 @@ private struct CanvasEditorScreen: View {
         .onChange(of: trayKind) { _, kind in
             drawing.isActive = kind == .drawing
         }
-        .fullScreenCover(item: $editingText) { sticker in
+        // Hoja y no cubierta a pantalla completa, como en el resto de la app.
+        .sheet(item: $editingText) { sticker in
             TextStickerEditor(sticker: sticker) { edited in
                 commit(edited)
             }
             .presentationBackground(.clear)
+            .interactiveDismissDisabled()
             // Vuelve a su sitio al cerrarse, venga de "Listo" o de cerrar sin
             // guardar: el elemento tiene que reaparecer en los dos casos.
             .onDisappear { editingTextItemID = nil }

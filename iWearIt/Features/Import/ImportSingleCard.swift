@@ -74,11 +74,6 @@ struct ImportSingleCard: View {
     /// moviendo el recuadro sobre la foto, que es donde se ve qué se dejó
     /// fuera. Se queda por si hace falta volver a sacarlo.
     var onImprove: (() -> Void)?
-    /// Mirar otra vez dentro del mismo recorte. Ver
-    /// `ImportModel.retrySearch`.
-    var onRetrySearch: (() async -> Void)?
-    /// Si se está mirando dentro de lo rodeado ahora mismo.
-    var isSearching = false
 
     /// Qué imagen se está mirando. Vive aquí porque es estado de presentación:
     /// cambiarla no toca la prenda.
@@ -127,12 +122,18 @@ struct ImportSingleCard: View {
         }
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas)
-        .fullScreenCover(isPresented: $isCroppingByHand) {
+        // **Hoja, no `fullScreenCover`.** La cubierta a pantalla completa
+        // presentada desde dentro de otra hoja dejaba la de debajo en negro al
+        // cerrarse, y encima es un elemento que aquí no se usa. Con la hoja, el
+        // cierre por arrastre se desactiva: a mitad de un recorte, un desliz
+        // sin querer tira el trabajo.
+        .sheet(isPresented: $isCroppingByHand) {
             // Sobre **la foto entera**, no sobre el recorte: si el recorte se
             // dejó media manga fuera, rodearlo otra vez no la devuelve.
             ManualCropScreen(image: photo) { cropped in
                 onManualCrop?(cropped)
             }
+            .interactiveDismissDisabled()
         }
         .sheet(item: $field) { sheet(for: $0) }
     }
@@ -248,29 +249,14 @@ struct ImportSingleCard: View {
                 }
             }
 
-            // **Y las dos salidas cuando el recorte no vale.**
-            //
-            // Reintentar, porque el detector no da siempre lo mismo. Y rodear
-            // a mano, que aquí no es "quédate este trozo": es señalar dónde
-            // está la prenda para que la busque **ahí**. Ver
-            // `ImportModel.addManualCandidate`.
-            if let onRetrySearch {
-                WKProgressPill(
-                    isSearching ? "mirando…" : "reintentar",
-                    symbol: "arrow.clockwise",
-                    isWorking: isSearching
-                ) {
-                    Task { await onRetrySearch() }
-                }
-            }
-
+            // **Y rodear a mano**, que es lo que queda cuando el recorte se
+            // dejó media manga fuera: tu trazo manda sobre lo detectado y
+            // entra al momento. Ver `ImportModel.addManualCandidate`.
             if onManualCrop != nil {
                 ToolButton(title: "rodear", symbol: "lasso") { isCroppingByHand = true }
-                    .disabled(isSearching)
             }
         }
         .animation(WKAnimation.content, value: candidate.isRestyling)
-        .animation(WKAnimation.content, value: isSearching)
     }
 
     // MARK: Los datos

@@ -58,26 +58,28 @@ struct ImportDetectedStep: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas)
         .adaptiveSafeAreaBar(edge: .bottom) { continueBar }
-        .fullScreenCover(isPresented: $isCroppingByHand) {
+        // **Hoja, no `fullScreenCover`.** La cubierta a pantalla completa
+        // presentada desde dentro de otra hoja dejaba la de debajo en negro al
+        // cerrarse, y encima es un elemento que aquí no se usa. Con la hoja, el
+        // cierre por arrastre se desactiva: a mitad de un recorte, un desliz
+        // sin querer tira el trabajo.
+        .sheet(isPresented: $isCroppingByHand) {
             ManualCropScreen(
                 image: photos[min(current, photos.count - 1)],
-                // **Lo rodeado se mira, no se recorta y ya.** Ver
+                // Lo que rodeas es el recorte, y entra al momento. Ver
                 // `ImportModel.addManualCandidate`.
                 onCrop: { cropped in
-                    let photo = current
-                    let target = recropping
-                    Task {
-                        if let target {
-                            await model.setManualCrop(cropped, forCandidateWithID: target)
-                        } else {
-                            await model.addManualCandidate(cropped, photoIndex: photo)
-                        }
+                    if let recropping {
+                        model.setManualCrop(cropped, forCandidateWithID: recropping)
+                    } else {
+                        model.addManualCandidate(cropped, photoIndex: current)
                     }
                 },
                 // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
                 // una que ya está, se vuelve al acabar.
                 keepsGoing: recropping == nil
             )
+            .interactiveDismissDisabled()
         }
     }
 
@@ -226,14 +228,9 @@ struct ImportDetectedStep: View {
     private var caption: some View {
         VStack(spacing: 2) {
             Text(
-                model.searchingInRegion
-                    // Rodear no recorta: se busca la prenda ahí dentro, y eso
-                    // tarda lo que tarda analizar. Decirlo evita que parezca
-                    // que el lazo no ha hecho nada.
-                    ? "Buscando la prenda donde has rodeado…"
-                    : model.candidates.isEmpty
-                        ? "No hemos visto ninguna prenda: rodéala con el dedo."
-                        : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
+                model.candidates.isEmpty
+                    ? "No hemos visto ninguna prenda: rodéala con el dedo."
+                    : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
             )
             .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)
