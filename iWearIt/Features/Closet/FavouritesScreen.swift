@@ -14,6 +14,11 @@ import WKPersistence
 /// Aquí están todos y el filtro de abajo enseña solo prendas o solo conjuntos
 /// cuando hace falta.
 struct FavouritesScreen: View {
+    /// Presentada como hoja —el archivo del estilista— necesita su equis: una
+    /// pantalla empujada se cierra con el gesto de volver, una hoja no siempre.
+    var isModal = false
+
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
 
     @Query(FetchDescriptor<Garment>.favouriteGarments())
@@ -94,6 +99,14 @@ struct FavouritesScreen: View {
         .adaptiveScrollEdge(.top)
         .navigationTitle("Favoritos")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isModal {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(WK.Palette.primaryText)
+                }
+            }
+        }
         .overlay {
             if visibleOutfits.isEmpty, garments.isEmpty {
                 ContentUnavailableView {

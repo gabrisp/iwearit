@@ -42,9 +42,26 @@ struct StylistChatSheet: View {
     /// es de la app y la hoja solo lo enseña. Ver `StylistChat`.
     @Bindable var chat: StylistChat
 
-    @State private var datingLook: StylistLook?
-    @State private var isPickingGarments = false
-    @State private var isShowingArchive = false
+    /// **Una sola hoja encima de esta**, con un enum: tres `.sheet` en la
+    /// misma vista dejan mudos a dos. Ver `AppRouter`.
+    @State private var sheet: Sheet?
+
+    private enum Sheet: Identifiable {
+        /// Qué prendas se adjuntan.
+        case picker
+        /// Qué día te pones este conjunto.
+        case day(StylistLook)
+        /// Lo guardado: el archivo.
+        case archive
+
+        var id: String {
+            switch self {
+            case .picker: "picker"
+            case let .day(look): "day-\(look.id)"
+            case .archive: "archive"
+            }
+        }
+    }
     @FocusState private var isWriting: Bool
 
     /// Lo adjuntado, resuelto a prendas y en un orden estable.
@@ -70,31 +87,35 @@ struct StylistChatSheet: View {
                     // guardado no se queda en el hilo —se va a favoritos— y
                     // desde aquí se llega sin salir de la conversación.
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button { isShowingArchive = true } label: {
+                        Button { sheet = .archive } label: {
                             Image(systemName: "archivebox")
                         }
                         .tint(WK.Palette.primaryText)
                     }
                 }
-                .navigationDestination(isPresented: $isShowingArchive) {
-                    FavouritesScreen()
-                }
                 .adaptiveSafeAreaBar(edge: .bottom) { bottom }
-                .sheet(isPresented: $isPickingGarments) {
-                    GarmentPickerSheet(
-                        title: "Añadir prendas",
-                        // Cuatro: con cinco ya está el conjunto puesto y no
-                        // queda nada que proponer.
-                        limit: 4,
-                        initial: chat.attached
-                    ) { picked in
-                        withAnimation(WKAnimation.content) { chat.attached = picked }
-                    }
-                }
-                .sheet(item: $datingLook) { look in
-                    StylistDayPicker { date in
-                        plan(look, on: date)
-                        datingLook = nil
+                .sheet(item: $sheet) { which in
+                    switch which {
+                    case .picker:
+                        GarmentPickerSheet(
+                            title: "Añadir prendas",
+                            // Cuatro: con cinco ya está el conjunto puesto y no
+                            // queda nada que proponer.
+                            limit: 4,
+                            initial: chat.attached
+                        ) { picked in
+                            withAnimation(WKAnimation.content) { chat.attached = picked }
+                        }
+                    case let .day(look):
+                        StylistDayPicker { date in
+                            plan(look, on: date)
+                            sheet = nil
+                        }
+                    case .archive:
+                        // **El archivo es lo guardado**, que es donde acaban
+                        // los conjuntos que te gustan: no hace falta un sitio
+                        // nuevo para ellos, hace falta llegar desde aquí.
+                        NavigationStack { FavouritesScreen(isModal: true) }
                     }
                 }
         }
@@ -146,7 +167,7 @@ struct StylistChatSheet: View {
                         reason: look.reason,
                         isSaved: chat.saved.contains(look.id),
                         onSave: { save(look) },
-                        onPlan: { datingLook = look },
+                        onPlan: { sheet = .day(look) },
                         onEdit: { edit(look) },
                         onDislike: { dislike(look) }
                     )
@@ -213,7 +234,7 @@ struct StylistChatSheet: View {
         HStack(spacing: WK.Spacing.s) {
             // El "+" primero, como en cualquier chat: lo que se adjunta va
             // antes de lo que se escribe.
-            Button { isPickingGarments = true } label: {
+            Button { sheet = .picker } label: {
                 Image(systemName: chat.attached.isEmpty ? "plus" : "plus.circle.fill")
                     .font(WK.Font.headline)
                     .foregroundStyle(
