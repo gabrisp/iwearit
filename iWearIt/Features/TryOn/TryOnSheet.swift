@@ -24,7 +24,11 @@ struct TryOnSheet: View {
     private var profiles: [BodyProfile]
 
     @State private var model: TryOnModel?
-    @State private var picked: PhotosPickerItem?
+    /// Qué perfil se está editando, o `nil` para uno nuevo. El `Bool` de al
+    /// lado es el que abre la hoja: con `item:` haría falta un identificable
+    /// para el caso "nuevo", que no tiene identidad todavía.
+    @State private var editing: BodyProfile?
+    @State private var isEditingProfile = false
     /// Cuál de tus perfiles está puesto.
     ///
     /// Por identificador y no por el objeto: el objeto puede irse —lo borras—
@@ -63,7 +67,9 @@ struct TryOnSheet: View {
                 }
                 .adaptiveSafeAreaBar(edge: .bottom) { bottom }
                 .task { prepare() }
-                .task(id: picked) { await store(picked) }
+                .sheet(isPresented: $isEditingProfile) {
+                    TryOnProfileSheet(profile: editing)
+                }
         }
     }
 
@@ -101,7 +107,7 @@ struct TryOnSheet: View {
                     // lo que es.
                     .background(scene == .none ? WK.Palette.canvas : .clear)
                     .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
-            } else if let profile {
+            } else if let profile, profile.hasPhoto {
                 StoredImage(
                     key: profile.imageKey,
                     variant: .display,
@@ -113,11 +119,19 @@ struct TryOnSheet: View {
                 RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
                     .fill(WK.Palette.ink(0.04))
                     .overlay {
-                        Label("Elige una foto tuya de cuerpo entero", systemImage: "person")
-                            .font(WK.Font.callout)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                            .multilineTextAlignment(.center)
-                            .padding(WK.Spacing.l)
+                        // Sin foto, lo que se enseña es **a quién se va a
+                        // dibujar**, con las mismas palabras que se le van a
+                        // decir al modelo.
+                        VStack(spacing: WK.Spacing.s) {
+                            Image(systemName: "person")
+                                .font(.title)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                            Text(profile?.described ?? "Crea un perfil para probarte la ropa")
+                                .font(WK.Font.callout)
+                                .foregroundStyle(WK.Palette.secondaryText)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(WK.Spacing.l)
                     }
             }
 
@@ -139,42 +153,35 @@ struct TryOnSheet: View {
             HStack(spacing: WK.Spacing.m) {
                 ForEach(profiles) { item in
                     Button { selectedID = item.id } label: {
-                        StoredImage(
-                            key: item.imageKey,
-                            variant: .thumb,
+                        ProfileChip(
+                            profile: item,
+                            isSelected: item.id == profile?.id,
                             store: appEnvironment.imageStore
                         )
-                        .frame(width: 56, height: 72)
-                        .clipShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                                .stroke(
-                                    item.id == profile?.id ? WK.Palette.accent : WK.Palette.ink(0.1),
-                                    lineWidth: item.id == profile?.id ? 2 : 1
-                                )
-                        }
-                        .opacity(item.id == profile?.id ? 1 : 0.6)
                     }
                     .buttonStyle(WKPressStyle())
                     .contextMenu {
+                        Button { edit(item) } label: {
+                            Label("Editar", systemImage: "pencil")
+                        }
                         Button(role: .destructive) { remove(item) } label: {
-                            Label("Quitar esta foto", systemImage: "trash")
+                            Label("Quitar este perfil", systemImage: "trash")
                         }
                     }
                 }
 
                 if canAddMore {
-                    PhotosPicker(selection: $picked, matching: .images) {
-                        RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                            .stroke(
-                                WK.Palette.ink(0.18),
-                                style: StrokeStyle(lineWidth: 1, dash: [6, 4])
-                            )
-                            .frame(width: 56, height: 72)
+                    Button { edit(nil) } label: {
+                        Label("Nuevo", systemImage: "plus")
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                            .padding(.horizontal, WK.Spacing.m)
+                            .padding(.vertical, WK.Spacing.s)
                             .overlay {
-                                Image(systemName: "plus")
-                                    .font(.body)
-                                    .foregroundStyle(WK.Palette.secondaryText)
+                                Capsule().stroke(
+                                    WK.Palette.ink(0.18),
+                                    style: StrokeStyle(lineWidth: 1, dash: [6, 4])
+                                )
                             }
                     }
                     .buttonStyle(WKPressStyle())
@@ -224,16 +231,8 @@ struct TryOnSheet: View {
     private var bottom: some View {
         VStack(spacing: WK.Spacing.s) {
             if profile == nil {
-                PhotosPicker(selection: $picked, matching: .images) {
-                    Text("Elegir mi foto")
-                        .font(WK.Font.headline)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                }
-                .buttonStyle(WKPressStyle())
-                .adaptiveGlassInteractive(in: .capsule)
-                .tint(WK.Palette.primaryText)
-            } else if profile?.canLeaveDevice != true {
+                WKPrimaryButton("Crear un perfil") { edit(nil) }
+            } else if profile?.hasPhoto == true, profile?.canLeaveDevice != true {
                 WKPrimaryButton("Aceptar y probarme") { accept() }
                 // Lo justo y en letra pequeña: el cartel de antes ocupaba media
                 // pantalla para decir esto mismo.
@@ -247,12 +246,10 @@ struct TryOnSheet: View {
                 }
                 .disabled(model?.state == .working)
 
-                if canAddMore {
-                    PhotosPicker(selection: $picked, matching: .images) {
-                        Text("Añadir otra foto")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                    }
+                if let profile {
+                    Button("Editar \(profile.label)") { edit(profile) }
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
                 }
             }
         }
@@ -271,21 +268,9 @@ struct TryOnSheet: View {
         )
     }
 
-    /// Guarda la foto elegida como tu perfil. **Sin consentimiento todavía**:
-    /// tenerla aquí no es mandarla a ningún sitio.
-    private func store(_ item: PhotosPickerItem?) async {
-        guard let item, let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data)?.cgImage
-        else { return }
-        guard let key = try? await appEnvironment.imageStore.store(image) else { return }
-        // Tres y no más: son fotos de personas, y guardar sin tope una carpeta
-        // de fotos de cuerpo entero no es un favor que le hagamos a nadie.
-        guard profiles.count < BodyProfile.maximumProfiles else { picked = nil; return }
-        let profile = BodyProfile(label: Self.name(for: profiles.count), imageKey: key)
-        modelContext.insert(profile)
-        try? modelContext.save()
-        selectedID = profile.id
-        picked = nil
+    private func edit(_ profile: BodyProfile?) {
+        editing = profile
+        isEditingProfile = true
     }
 
     private func accept() {
@@ -314,10 +299,6 @@ struct TryOnSheet: View {
         }
     }
 
-    private static func name(for index: Int) -> String {
-        index == 0 ? "Yo" : "Perfil \(index + 1)"
-    }
-
     /// Quitar la foto **es revocar el permiso**: se va la imagen y se va la
     /// fecha con ella.
     private func remove(_ profile: BodyProfile) {
@@ -327,5 +308,36 @@ struct TryOnSheet: View {
         try? modelContext.save()
         Task { try? await appEnvironment.imageStore.delete(key: key) }
         DiagnosticsLog.record("PROBADOR", "perfil quitado: se revoca el permiso")
+    }
+}
+
+
+/// Un perfil en la tira: su nombre, y su foto si la hay.
+private struct ProfileChip: View {
+    let profile: BodyProfile
+    let isSelected: Bool
+    let store: ImageStore
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.xs) {
+            if profile.hasPhoto {
+                StoredImage(key: profile.imageKey, variant: .thumb, store: store)
+                    .frame(width: 22, height: 28)
+                    .clipShape(.rect(cornerRadius: 5, style: .continuous))
+            } else {
+                Image(systemName: "person")
+                    .font(.caption)
+            }
+            Text(profile.label)
+                .font(WK.Font.caption.weight(isSelected ? .semibold : .regular))
+                .lineLimit(1)
+        }
+        .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
+        .fixedSize()
+        .padding(.horizontal, WK.Spacing.m)
+        .padding(.vertical, WK.Spacing.s)
+        .background {
+            Capsule().fill(isSelected ? WK.Palette.accent : WK.Palette.ink(0.06))
+        }
     }
 }

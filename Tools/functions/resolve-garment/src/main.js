@@ -122,6 +122,33 @@ const SCENES = {
 };
 
 /**
+ * Lo que se pide cuando **no hay foto**: dibujar a alguien con esa descripción
+ * llevando esa ropa.
+ *
+ * Es el caso normal, no el de repuesto: casi nadie tiene a mano una foto suya
+ * de cuerpo entero con buena luz, y pedirla antes de poder probar nada cierra
+ * la puerta en el primer paso. Con la estatura, la complexión y cómo vistes ya
+ * se ve lo que se quiere ver — cómo cae la ropa— sin que nadie tenga que subir
+ * una foto suya a ningún sitio.
+ */
+const TRYON_DESCRIBED_PROMPT = (who) => `Dibuja a ${who} llevando puestas estas prendas.
+
+LA PERSONA — OBLIGATORIO:
+- Exactamente la descripción dada: esa estatura, esa complexión, ese tono de piel. Ni más delgada, ni más alta, ni más joven.
+- Cuerpo entero, de frente, de pie y natural. Postura relajada, no de desfile.
+- Una sola persona. Cara natural y neutra; no una modelo de catálogo.
+
+LA ROPA — OBLIGATORIO:
+- EXACTAMENTE las prendas de las imágenes: mismo color, mismo estampado, mismo corte, mismo largo, mismas mangas.
+- Que caigan como caería la tela de verdad sobre ese cuerpo, con sus arrugas y sus sombras.
+- No inventes logotipos, bolsillos, cinturones ni accesorios que no estén en las imágenes.
+- Si falta calzado o alguna prenda, deja esa parte sencilla y neutra; no te inventes una prenda que no te han dado.
+
+LA FOTO:
+- Fotografía realista, con luz coherente entre la persona y el sitio donde está.
+- Nada de collage, ni de recortes pegados, ni de marcas de agua.`;
+
+/**
  * Prueba un outfit sobre una foto de la persona.
  *
  * ## Por qué no se verifica como "mejorar"
@@ -138,12 +165,17 @@ const SCENES = {
  * de la primera vez** y aquí no se guarda nada: se manda, se recibe y se
  * devuelve. Ver `TryOnConsent` en la app.
  */
-async function tryOn(person, garments, scene, key, log, error) {
+async function tryOn(person, describedPerson, garments, scene, key, log, error) {
   const where = SCENES[scene] || SCENES.plain;
+  const prompt = person
+    ? TRYON_PROMPT
+    : TRYON_DESCRIBED_PROMPT(describedPerson || 'una persona de complexión media');
   const content = [
-    { type: 'text', text: `${TRYON_PROMPT}\n\nEL SITIO — OBLIGATORIO:\n- ${where}` },
-    { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } },
+    { type: 'text', text: `${prompt}\n\nEL SITIO — OBLIGATORIO:\n- ${where}` },
   ];
+  if (person) {
+    content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } });
+  }
   for (const garment of garments) {
     content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${garment}` } });
   }
@@ -181,7 +213,10 @@ async function tryOn(person, garments, scene, key, log, error) {
   }
 
   const usage = completion?.usage || {};
-  log(`probado con ${garments.length} prenda(s) · tokens ${usage.completion_tokens ?? '?'}`);
+  log(
+    `probado ${person ? 'sobre foto' : 'por descripción'} con ${garments.length} prenda(s)`
+    + ` · tokens ${usage.completion_tokens ?? '?'}`,
+  );
   return {
     status: 200,
     body: {
@@ -441,9 +476,14 @@ export default async ({ req, res, log, error }) => {
   // **El probador va primero**: es el único que no manda `imageBase64`, sino
   // una persona y varias prendas.
   if (body?.action === 'tryon') {
-    const person = body?.personBase64;
+    const person = typeof body?.personBase64 === 'string' ? body.personBase64 : null;
+    const describedPerson = typeof body?.personDescription === 'string'
+      ? body.personDescription.slice(0, 400)
+      : null;
     const garments = Array.isArray(body?.garmentsBase64) ? body.garmentsBase64 : [];
-    if (!person || typeof person !== 'string') {
+    // Una de las dos: o la foto, o quién eres. Sin ninguna no hay a quién
+    // vestir.
+    if (!person && !describedPerson) {
       return res.json({ error: 'missing_person' }, 400);
     }
     if (!garments.length || garments.length > 6) {
@@ -451,11 +491,12 @@ export default async ({ req, res, log, error }) => {
     }
     // La foto de la persona llega a 1024 de lado en JPEG: unos cientos de kB.
     // Cuatro megabytes de entrada significan que alguien manda otra cosa.
-    const total = person.length + garments.reduce((sum, item) => sum + (item?.length || 0), 0);
+    const total = (person?.length || 0)
+      + garments.reduce((sum, item) => sum + (item?.length || 0), 0);
     if (total > 6000000) {
       return res.json({ error: 'image_too_large' }, 413);
     }
-    const result = await tryOn(person, garments, body?.scene, key, log, error);
+    const result = await tryOn(person, describedPerson, garments, body?.scene, key, log, error);
     return res.json(result.body, result.status);
   }
 

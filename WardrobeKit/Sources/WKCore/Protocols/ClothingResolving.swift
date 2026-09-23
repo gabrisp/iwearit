@@ -62,7 +62,15 @@ public protocol ClothingResolving: Sendable {
     ///   - scene: dónde ponerte. El escenario va **en el encargo** y no se
     ///     cambia después: pedir la ropa y luego pegar un fondo deja la luz de
     ///     un sitio sobre una persona iluminada de otro.
-    func tryOn(personJPEG: Data, garmentsPNG: [Data], scene: String) async throws -> Data
+    ///   - personJPEG: tu foto, si la hay. Sin ella se dibuja a alguien con
+    ///     la descripción del perfil, que es el caso normal: casi nadie tiene
+    ///     a mano una foto suya de cuerpo entero con buena luz.
+    func tryOn(
+        personJPEG: Data?,
+        personDescription: String,
+        garmentsPNG: [Data],
+        scene: String
+    ) async throws -> Data
 }
 
 /// Lo que se manda a resolver.

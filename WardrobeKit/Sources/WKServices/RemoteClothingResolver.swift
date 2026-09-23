@@ -145,7 +145,12 @@ public actor RemoteClothingResolver: ClothingResolving {
         return data
     }
 
-    public func tryOn(personJPEG: Data, garmentsPNG: [Data], scene: String) async throws -> Data {
+    public func tryOn(
+        personJPEG: Data?,
+        personDescription: String,
+        garmentsPNG: [Data],
+        scene: String
+    ) async throws -> Data {
         await acquireSlot()
         defer { releaseSlot() }
         try await ensureSession()
@@ -153,7 +158,8 @@ public actor RemoteClothingResolver: ClothingResolving {
         let start = ContinuousClock.now
         let body = TryOnPayload(
             action: "tryon",
-            personBase64: personJPEG.base64EncodedString(),
+            personBase64: personJPEG?.base64EncodedString(),
+            personDescription: personDescription,
             garmentsBase64: garmentsPNG.map { $0.base64EncodedString() },
             scene: scene
         )
@@ -288,7 +294,8 @@ public actor RemoteClothingResolver: ClothingResolving {
 
     private struct TryOnPayload: Encodable {
         let action: String
-        let personBase64: String
+        let personBase64: String?
+        let personDescription: String
         let garmentsBase64: [String]
         let scene: String
     }

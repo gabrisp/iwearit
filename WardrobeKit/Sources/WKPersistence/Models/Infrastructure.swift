@@ -14,15 +14,138 @@ public final class BodyProfile {
     /// el consentimiento es explícito, separado y revocable.
     public var consentAcceptedAt: Date?
 
-    public init(label: String, imageKey: String) {
+    // MARK: Quién es
+    //
+    // **Un perfil no es una foto: es una descripción.** Una foto tuya de
+    // cuerpo entero con buena luz no la tiene casi nadie a mano, y pedirla
+    // antes de poder probar nada es cerrar la puerta en el primer paso. Con
+    // cuatro datos —estatura, complexión, cómo vistes— ya se puede dibujar a
+    // alguien con tu forma llevando tu ropa, que es para lo que se usa esto:
+    // ver cómo cae, no verte la cara.
+    //
+    // La foto sigue existiendo y es la versión buena cuando la hay. Los dos
+    // caminos conviven porque resuelven dos momentos distintos.
+
+    /// Estatura en centímetros. Es el dato que más cambia cómo cae la ropa.
+    public var heightCentimetres: Int?
+    /// Complexión. Ver `BodyProfile.Shape`.
+    public var shapeRaw: String?
+    /// Cómo se viste, que decide el corte y no el cuerpo. Ver `Presentation`.
+    public var presentationRaw: String?
+    /// Tono de piel, para que la persona dibujada se parezca a quien mira.
+    public var skinToneRaw: String?
+    /// Lo que no cabe en una lista: "llevo gafas", "barba", "pelo largo".
+    public var notes: String?
+
+    public init(
+        label: String,
+        imageKey: String = "",
+        heightCentimetres: Int? = nil,
+        shape: Shape? = nil,
+        presentation: Presentation? = nil,
+        skinTone: SkinTone? = nil,
+        notes: String? = nil
+    ) {
         self.id = UUID()
         self.label = label
         self.imageKey = imageKey
         self.createdAt = Date()
+        self.heightCentimetres = heightCentimetres
+        self.shapeRaw = shape?.rawValue
+        self.presentationRaw = presentation?.rawValue
+        self.skinToneRaw = skinTone?.rawValue
+        self.notes = notes
     }
 
     public static let maximumProfiles = 3
+    /// Solo hay foto que mandar si hay foto **y** permiso.
     public var canLeaveDevice: Bool { consentAcceptedAt != nil }
+    public var hasPhoto: Bool { !imageKey.isEmpty }
+
+    public var shape: Shape? { shapeRaw.flatMap(Shape.init) }
+    public var presentation: Presentation? { presentationRaw.flatMap(Presentation.init) }
+    public var skinTone: SkinTone? { skinToneRaw.flatMap(SkinTone.init) }
+
+    public enum Shape: String, Sendable, CaseIterable, Codable {
+        case slim, athletic, average, curvy, large
+
+        public var label: String {
+            switch self {
+            case .slim: "Delgada"
+            case .athletic: "Atlética"
+            case .average: "Media"
+            case .curvy: "Con curvas"
+            case .large: "Corpulenta"
+            }
+        }
+
+        /// Cómo se le cuenta al modelo, que no entiende de etiquetas.
+        public var described: String {
+            switch self {
+            case .slim: "complexión delgada"
+            case .athletic: "complexión atlética, hombros marcados"
+            case .average: "complexión media"
+            case .curvy: "cuerpo con curvas, cintura marcada"
+            case .large: "complexión corpulenta"
+            }
+        }
+    }
+
+    public enum Presentation: String, Sendable, CaseIterable, Codable {
+        case woman, man, neutral
+
+        public var label: String {
+            switch self {
+            case .woman: "Mujer"
+            case .man: "Hombre"
+            case .neutral: "Neutro"
+            }
+        }
+
+        public var described: String {
+            switch self {
+            case .woman: "una mujer"
+            case .man: "un hombre"
+            case .neutral: "una persona de aspecto andrógino"
+            }
+        }
+    }
+
+    public enum SkinTone: String, Sendable, CaseIterable, Codable {
+        case light, medium, tan, dark
+
+        public var label: String {
+            switch self {
+            case .light: "Clara"
+            case .medium: "Media"
+            case .tan: "Morena"
+            case .dark: "Oscura"
+            }
+        }
+
+        public var described: String {
+            switch self {
+            case .light: "piel clara"
+            case .medium: "piel de tono medio"
+            case .tan: "piel morena"
+            case .dark: "piel oscura"
+            }
+        }
+    }
+
+    /// El perfil en una frase, que es lo que viaja cuando no hay foto.
+    ///
+    /// Se arma aquí y no en la vista para que lo que se manda sea exactamente
+    /// lo que se ve escrito en la ficha: sin adornos y sin nada que el usuario
+    /// no haya puesto.
+    public var described: String {
+        var parts: [String] = [presentation?.described ?? "una persona"]
+        if let heightCentimetres { parts.append("de \(heightCentimetres) cm") }
+        if let shape { parts.append(shape.described) }
+        if let skinTone { parts.append(skinTone.described) }
+        if let notes, !notes.trimmingCharacters(in: .whitespaces).isEmpty { parts.append(notes) }
+        return parts.joined(separator: ", ")
+    }
 }
 
 /// Un modelo de Core ML ya descargado, verificado y compilado.

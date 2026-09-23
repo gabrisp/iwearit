@@ -64,9 +64,9 @@ final class TryOnModel {
             state = .failed("Esto necesita conexión con el servidor.")
             return false
         }
-        guard profile.canLeaveDevice else {
-            // No debería llegar aquí: la hoja pide el permiso antes. Pero si
-            // llega, no se manda nada.
+        // **El permiso solo hace falta si hay foto.** Un perfil descrito no
+        // lleva nada tuyo: es una estatura y una complexión.
+        if profile.hasPhoto, !profile.canLeaveDevice {
             state = .failed("Falta aceptar que la foto salga del teléfono.")
             return false
         }
@@ -78,12 +78,16 @@ final class TryOnModel {
         state = .working
         result = nil
 
-        guard
-            let person = try? await imageStore.image(for: profile.imageKey, variant: .display),
-            let personJPEG = Self.jpeg(from: person, maxSide: 1024)
-        else {
-            state = .failed("No se pudo preparar tu foto.")
-            return false
+        var personJPEG: Data?
+        if profile.hasPhoto {
+            guard
+                let person = try? await imageStore.image(for: profile.imageKey, variant: .display),
+                let encoded = Self.jpeg(from: person, maxSide: 1024)
+            else {
+                state = .failed("No se pudo preparar tu foto.")
+                return false
+            }
+            personJPEG = encoded
         }
 
         var pieces: [Data] = []
@@ -104,6 +108,7 @@ final class TryOnModel {
         do {
             let data = try await resolver.tryOn(
                 personJPEG: personJPEG,
+                personDescription: profile.described,
                 garmentsPNG: pieces,
                 scene: scene.rawValue
             )
