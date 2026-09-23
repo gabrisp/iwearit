@@ -59,17 +59,11 @@ struct CreditsHistoryScreen: View {
     }()
 
     var body: some View {
-        Group {
-            if store.ledger.isEmpty {
-                ContentUnavailableView {
-                    Label("Todavía no has gastado nada", systemImage: "wand.and.stars")
-                } description: {
-                    Text("Aquí aparecerá cada mejora y cada prueba, con lo que costó.")
-                }
-            } else {
-                list
-            }
-        }
+        // **Primero lo que tienes.** Un cartel de "todavía no has gastado
+        // nada" ocupaba la pantalla entera para decir algo que no se venía a
+        // leer: lo que se viene a mirar es el saldo, y el gasto es el detalle
+        // de debajo.
+        list
         .background(WK.Palette.canvas.ignoresSafeArea())
         .navigationTitle("Gastos")
         .navigationBarTitleDisplayMode(.inline)
@@ -95,6 +89,13 @@ struct CreditsHistoryScreen: View {
                 }
 
                 WKSection("En qué se ha ido") {
+                    if store.ledger.isEmpty {
+                        WKRow(showsSeparator: false) {
+                            Text("Nada todavía")
+                                .font(WK.Font.rowTitle)
+                                .foregroundStyle(WK.Palette.secondaryText)
+                        }
+                    }
                     ForEach(Array(store.ledger.enumerated()), id: \.element.id) { index, entry in
                         WKRow(showsSeparator: index < store.ledger.count - 1) {
                             VStack(alignment: .leading, spacing: 2) {

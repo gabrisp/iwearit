@@ -30,28 +30,33 @@ struct PaywallStep: View {
     private var store: Store { appEnvironment.store }
     private var packages: [Package] { store.packages }
 
+    /// Los de ejemplo, **solo** para cuando no hay tienda. Los de verdad los
+    /// pone la App Store a través de RevenueCat, y son los que mandan.
     enum Plan: String, CaseIterable, Identifiable {
-        case yearly, monthly
+        case yearly, monthly, weekly
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .yearly: "Anual"
             case .monthly: "Mensual"
+            case .weekly: "Semanal"
             }
         }
 
         var price: String {
             switch self {
-            case .yearly: "29,99 €/año"
-            case .monthly: "4,99 €/mes"
+            case .yearly: "44,99 €/año"
+            case .monthly: "11,99 €/mes"
+            case .weekly: "4,99 €/semana"
             }
         }
 
         var detail: String? {
             switch self {
-            case .yearly: "7 días gratis · 2,50 €/mes"
+            case .yearly: "7 días gratis · 3,75 €/mes"
             case .monthly: nil
+            case .weekly: "Para probarlo un viaje"
             }
         }
     }
