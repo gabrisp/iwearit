@@ -184,8 +184,14 @@ private struct SubscriptionSection: View {
             // outfit se pagan con monedas, y una moneda que no se puede mirar
             // es una moneda que nadie sabe si tiene. Ver `StoreIDs.Currency`.
             if appEnvironment.store.isReady {
-                WKValueRow("Mejoras", value: "\(appEnvironment.store.improvements)")
-                WKValueRow("Pruebas", value: "\(appEnvironment.store.tryOns)")
+                WKValueRow(
+                    appEnvironment.store.improvementsName,
+                    value: "\(appEnvironment.store.improvements)"
+                )
+                WKValueRow(
+                    appEnvironment.store.tryOnsName,
+                    value: "\(appEnvironment.store.tryOns)"
+                )
                 WKRow(showsSeparator: false) {
                     Task {
                         _ = await appEnvironment.store.restore()

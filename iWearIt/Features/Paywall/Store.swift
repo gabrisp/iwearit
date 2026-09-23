@@ -24,11 +24,20 @@ nonisolated enum StoreIDs {
     /// cuesta céntimos; probarse un outfit es varias veces eso. Con una sola
     /// moneda, el precio de una tendría que ser el de la otra —y entonces o
     /// las mejoras salen caras o las pruebas salen regaladas—.
+    /// Cada moneda: el código que las identifica y el nombre con el que se
+    /// llama en el panel **y** en la app.
+    ///
+    /// El nombre lo pone el panel de RevenueCat y viaja con el saldo, así que
+    /// lo que se ve en Ajustes es lo que tú escribas allí. Estos son los que
+    /// hay que poner para que las dos cosas digan lo mismo; si el panel está
+    /// vacío o la moneda todavía no existe, se usa el de aquí.
     enum Currency {
         /// Para redibujar una prenda como foto de catálogo ("mejorar").
         static let improvements = "MEJ"
+        static let improvementsName = "Mejoras"
         /// Para probarse un outfit encima (fase 10).
         static let tryOns = "PRU"
+        static let tryOnsName = "Pruebas"
     }
 }
 
@@ -80,9 +89,11 @@ final class Store {
     private(set) var isWorking = false
     /// El último fallo, para poder decirlo en vez de no hacer nada.
     private(set) var problem: String?
-    /// Saldo de cada moneda.
+    /// Saldo de cada moneda, con el nombre que les hayas puesto en el panel.
     private(set) var improvements = 0
+    private(set) var improvementsName = StoreIDs.Currency.improvementsName
     private(set) var tryOns = 0
+    private(set) var tryOnsName = StoreIDs.Currency.tryOnsName
     /// Si el SDK está configurado. Sin clave, la app funciona entera: el
     /// paywall enseña sus precios de ejemplo y no se puede comprar.
     private(set) var isReady = false
@@ -169,8 +180,14 @@ final class Store {
         guard Purchases.isConfigured else { return }
         do {
             let currencies = try await Purchases.shared.virtualCurrencies()
-            improvements = currencies[StoreIDs.Currency.improvements]?.balance ?? 0
-            tryOns = currencies[StoreIDs.Currency.tryOns]?.balance ?? 0
+            let mejoras = currencies[StoreIDs.Currency.improvements]
+            let pruebas = currencies[StoreIDs.Currency.tryOns]
+            improvements = mejoras?.balance ?? 0
+            tryOns = pruebas?.balance ?? 0
+            // El nombre del panel manda: si allí se llama de otra forma, eso es
+            // lo que ve el usuario.
+            improvementsName = mejoras?.name ?? StoreIDs.Currency.improvementsName
+            tryOnsName = pruebas?.name ?? StoreIDs.Currency.tryOnsName
             DiagnosticsLog.record("TIENDA", "saldo · mejoras \(improvements) · pruebas \(tryOns)")
         } catch {
             // Sin monedas configuradas en el panel esto falla, y no es un
