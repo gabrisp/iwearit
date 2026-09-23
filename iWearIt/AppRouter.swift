@@ -16,26 +16,50 @@ import SwiftUI
 @MainActor
 @Observable
 final class AppRouter {
-    /// La prenda cuya ficha está abierta.
-    var garment: GarmentRef?
 
-    /// La hoja de inspiración.
+    /// **Una sola hoja a la vez, y un solo `.sheet` que la presenta.**
     ///
-    /// Aquí arriba y no en el armario: se abre desde la barra de pestañas, que
-    /// está en las dos pantallas raíz, y presentarla desde cada una daría dos
-    /// hojas distintas con dos hilos de chat distintos según por dónde
-    /// entraste.
-    var isShowingInspo = false
+    /// No es una preferencia de estilo: con dos `.sheet` puestos en la misma
+    /// vista SwiftUI solo atiende a uno y el otro se queda mudo —ya nos pasó
+    /// dentro del editor con el color de fondo—. Con un enum, añadir una hoja
+    /// nueva es añadir un caso, y no hay forma de que la anterior deje de
+    /// funcionar sin que se note.
+    enum Sheet: Identifiable {
+        /// La ficha de una prenda.
+        case garment(GarmentRef)
+        /// La inspiración con su chat.
+        case inspo
+
+        var id: String {
+            switch self {
+            case let .garment(ref): "garment-\(ref.id)"
+            case .inspo: "inspo"
+            }
+        }
+    }
+
+    var sheet: Sheet?
+
+    /// La prenda cuya ficha está abierta, si es eso lo que hay puesto.
+    var garment: GarmentRef? {
+        if case let .garment(ref) = sheet { return ref }
+        return nil
+    }
 
     func open(_ garment: GarmentRef) {
-        self.garment = garment
+        sheet = .garment(garment)
     }
 
     func closeGarment() {
-        garment = nil
+        guard case .garment = sheet else { return }
+        sheet = nil
     }
 
     func openInspo() {
-        isShowingInspo = true
+        sheet = .inspo
+    }
+
+    func close() {
+        sheet = nil
     }
 }

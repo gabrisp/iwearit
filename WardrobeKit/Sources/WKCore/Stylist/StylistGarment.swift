@@ -86,6 +86,17 @@ public enum StylistRole: String, Sendable, CaseIterable, Hashable {
         }
     }
 
+    /// Cómo se llama en una frase: "otro pantalón".
+    public var spokenName: String {
+        switch self {
+        case .top: "arriba"
+        case .bottom: "pantalón"
+        case .outer: "abrigo"
+        case .shoes: "calzado"
+        case .accessory: "complemento"
+        }
+    }
+
     /// Sin esto no hay conjunto. Los complementos y la chaqueta se añaden si
     /// aportan; el torso y el calzado no son opcionales.
     public var isEssential: Bool {

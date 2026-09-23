@@ -133,10 +133,14 @@ struct InspoSheet: View {
                 }
             }
             .scrollTargetLayout()
-            .padding(.horizontal, WK.Spacing.screenInset)
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollIndicators(.hidden)
+        // **El margen, como inserción del scroll y no como relleno del
+        // contenido.** `containerRelativeFrame` mide el contenedor, así que
+        // con el relleno por dentro cada tarjeta medía el ancho entero y se
+        // salía por la derecha: los botones quedaban cortados por el borde.
+        .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
     }
 
     /// Donde se escribe. Pegado al teclado, como cualquier chat.
@@ -298,7 +302,12 @@ private struct InspoLookCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
+            // **Con tope de alto.** Un lienzo es alto —mil por mil
+            // cuatrocientos— y a ancho completo se comía la pantalla entera:
+            // el conjunto se veía, pero ni el motivo ni el chat cabían debajo,
+            // y esta pantalla es las dos cosas.
             LookCanvasView(garments: garments, store: store)
+                .frame(maxHeight: 420)
                 .overlay(alignment: .topTrailing) { actions }
 
             Text(look.headline)

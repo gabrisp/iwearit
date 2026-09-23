@@ -18,8 +18,15 @@ public enum StylistPhrase {
         public var brief: StylistBrief
         /// Lo que se ha reconocido, en palabras, para poder confirmarlo.
         public var understood: [String]
+        /// **Qué se puede tocar del conjunto que hay puesto.**
+        ///
+        /// "Cámbiame el pantalón" no es lo mismo que "algo azul": lo primero
+        /// dice exactamente qué se queda y qué se va. Sin esto, cualquier
+        /// petición rehacía el conjunto entero y se llevaba por delante las
+        /// prendas que el usuario había puesto a mano.
+        public var freedRoles: Set<StylistRole>
         /// `true` si de toda la frase no se sacó nada.
-        public var isBlank: Bool { understood.isEmpty }
+        public var isBlank: Bool { understood.isEmpty && freedRoles.isEmpty }
     }
 
     /// Aplica una frase sobre el encargo que hubiera.
@@ -29,6 +36,7 @@ public enum StylistPhrase {
         base: StylistBrief
     ) -> Reading {
         var brief = base
+        var freedRoles: Set<StylistRole> = []
         brief.note = text
         // Cada frase nueva pide conjuntos nuevos, aunque diga lo mismo.
         brief.seed = UInt64(truncatingIfNeeded: text.hashValue) ^ UInt64(Date().timeIntervalSince1970)
@@ -69,6 +77,18 @@ public enum StylistPhrase {
                 understood.append("de entretiempo")
             }
 
+            // Una parte nombrada: "cámbiame el pantalón", "sin chaqueta".
+            //
+            // Nombrar una parte con intención de cambio la **suelta**: deja de
+            // estar fijada aunque esté puesta en el lienzo, que es justo lo
+            // que se pide al decir "otro pantalón".
+            let wantsChange = words.contains { changeWords.contains($0) }
+            for (role, synonyms) in roleWords where words.contains(where: { synonyms.contains($0) }) {
+                guard negated || wantsChange else { continue }
+                freedRoles.insert(role)
+                understood.append(negated ? "fuera \(role.spokenName)" : "otro \(role.spokenName)")
+            }
+
             // Una prenda nombrada: "con los vaqueros negros", "el jersey no".
             for garment in matches(in: words, wardrobe: wardrobe) {
                 if negated {
@@ -88,7 +108,7 @@ public enum StylistPhrase {
             understood.append("sin repetir lo de estos días")
         }
 
-        return Reading(brief: brief, understood: uniqued(understood))
+        return Reading(brief: brief, understood: uniqued(understood), freedRoles: freedRoles)
     }
 
     /// Cómo contesta el estilista cuando ha entendido algo.
@@ -145,6 +165,21 @@ public enum StylistPhrase {
 
     private static let repeatWords = [
         "no repet", "sin repet", "repetir", "otra cosa", "algo distinto", "algo diferente", "cambia",
+    ]
+
+    /// Palabras que piden cambio: "otro pantalón", "cámbiame los zapatos".
+    private static let changeWords: Set<String> = [
+        "cambia", "cambiame", "cambiar", "otro", "otra", "otros", "otras",
+        "distinto", "distinta", "diferente", "quita", "saca", "sustituye",
+    ]
+
+    /// Las partes del conjunto, en las palabras con las que se nombran.
+    private static let roleWords: [(StylistRole, Set<String>)] = [
+        (.bottom, ["pantalon", "pantalones", "vaqueros", "jeans", "falda", "shorts", "bermudas", "leggings"]),
+        (.top, ["camiseta", "camisa", "jersey", "sudadera", "polo", "blusa", "top", "vestido", "chaleco"]),
+        (.outer, ["chaqueta", "abrigo", "cazadora", "gabardina", "blazer", "plumifero", "chubasquero"]),
+        (.shoes, ["zapatos", "zapatillas", "botas", "botines", "sandalias", "calzado", "deportivas"]),
+        (.accessory, ["gorra", "gorro", "bolso", "mochila", "bufanda", "cinturon", "complemento", "complementos", "gafas"]),
     ]
 
     private static let coldWords: Set<String> = [

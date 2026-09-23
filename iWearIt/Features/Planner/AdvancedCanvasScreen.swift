@@ -189,6 +189,23 @@ private struct CanvasEditorScreen: View {
     @State private var isConfirmingDiscard = false
     @State private var history = CanvasHistory()
 
+    // MARK: El estilista
+    //
+    // **No abre una hoja.** El botón pone un campo encima del teclado y ya
+    // está escribiendo: una hoja taparía el lienzo justo cuando lo que
+    // quieres es verlo cambiar. Ver `CanvasStylist`.
+
+    /// Si el campo está puesto en lugar de los botones de abajo.
+    @State private var isAsking = false
+    @State private var stylistPrompt = ""
+    /// Mientras piensa: el lienzo se cubre de brillo y no se toca nada.
+    @State private var isThinking = false
+    /// Lo que ha hecho, en una línea. Se enseña unos segundos y se va.
+    @State private var stylistNote: String?
+    /// El tiempo del día que se está editando, para que lo que proponga
+    /// abrigue lo que toca. Se pide una vez al abrir el campo.
+    @State private var stylistWeather: WeatherSnapshot?
+
     /// Cómo está el lienzo ahora mismo.
     private var snapshot: CanvasSnapshot { CanvasSnapshot(outfit) }
 
@@ -294,6 +311,8 @@ private struct CanvasEditorScreen: View {
     private func closeEverything() {
         trayKind = nil
         sheet = nil
+        isAsking = false
+        stylistNote = nil
         editingText = nil
         editingTextItemID = nil
         photoItem = nil
@@ -332,8 +351,17 @@ private struct CanvasEditorScreen: View {
                 selection: selection,
                 drawing: drawing
             )
+
+            if isThinking {
+                CanvasShimmer()
+                    .ignoresSafeArea()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(WKAnimation.content, value: isThinking)
+        // Mientras piensa no se toca: el conjunto está a punto de cambiar, y
+        // mover una prenda a mitad sería editar algo que ya no va a estar.
+        .allowsHitTesting(!isThinking)
         // Fondo del contenedor, no una capa con `ignoresSafeArea` dentro del
         // `ZStack`: ver `DayPage`.
         .background(backdropColor.ignoresSafeArea())
@@ -422,10 +450,43 @@ private struct CanvasEditorScreen: View {
         // es que no se ve y no recibe toques. Un `Color.clear` medido a mano
         // sería lo mismo con una medida que puede quedarse desfasada.
         .adaptiveSafeAreaBar(edge: .bottom) {
-            bottom
-                .opacity(isTrayOpen ? 0 : 1)
-                .allowsHitTesting(!isTrayOpen)
-                .animation(WKAnimation.selection, value: isTrayOpen)
+            VStack(spacing: WK.Spacing.s) {
+                // Lo que acaba de hacer, encima de los controles y un rato
+                // nada más: si se quedara, sería un cartel; si no estuviera,
+                // el conjunto cambiaría sin decir por qué.
+                if let stylistNote {
+                    Text(stylistNote)
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, WK.Spacing.m)
+                        .padding(.vertical, WK.Spacing.s)
+                        .adaptiveGlass(in: .capsule)
+                        .padding(.horizontal, WK.Spacing.screenInset)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
+                if isAsking {
+                    // **El campo se desvanece al enviar**, no se queda
+                    // esperando: lo que hay que mirar mientras piensa es el
+                    // lienzo.
+                    CanvasStylistField(
+                        text: $stylistPrompt,
+                        isEnabled: !isThinking,
+                        onSend: { askStylist() },
+                        onCancel: { withAnimation(WKAnimation.selection) { isAsking = false } }
+                    )
+                    .transition(.opacity)
+                } else {
+                    bottom
+                        .opacity(isTrayOpen ? 0 : 1)
+                        .allowsHitTesting(!isTrayOpen)
+                        .animation(WKAnimation.selection, value: isTrayOpen)
+                        .transition(.opacity)
+                }
+            }
+            .animation(WKAnimation.selection, value: isAsking)
+            .animation(WKAnimation.content, value: stylistNote)
         }
         // Sin gesto de volver: el editor está lleno de arrastres, y el
         // deslizamiento desde el borde izquierdo compite con colocar una
@@ -583,6 +644,21 @@ private struct CanvasEditorScreen: View {
             // eso es justo lo que hacía que el relleno de una pareciera
             // derramarse sobre la de al lado.
             HStack(spacing: WK.Spacing.s) {
+                // **El estilista.** No abre hoja: pone el campo encima del
+                // teclado, que es el que está justo debajo del pulgar.
+                Button {
+                    stylistPrompt = ""
+                    withAnimation(WKAnimation.selection) { isAsking = true }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(WK.Font.headline)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .frame(width: Self.controlSide, height: Self.controlSide)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(WKPressStyle())
+                .adaptiveGlassInteractive(in: .circle)
+
                 ForEach([TrayKind.drawing, .garments, .stickers], id: \.self) { kind in
                     Button {
                         withAnimation(WKAnimation.arrival) { trayKind = kind }
@@ -639,10 +715,20 @@ private struct CanvasEditorScreen: View {
     private var trayContent: some View {
         switch trayKind {
         case .garments, nil:
-            CanvasGarmentTray(store: store) { garment in
-                CanvasEditing.insert(garment: garment, in: outfit, context: modelContext)
-                withAnimation(WKAnimation.arrival) { trayKind = nil }
-            }
+            CanvasGarmentTray(
+                store: store,
+                onPick: { garment in
+                    CanvasEditing.insert(garment: garment, in: outfit, context: modelContext)
+                    withAnimation(WKAnimation.arrival) { trayKind = nil }
+                },
+                onPickOutfit: { source in
+                    withAnimation(WKAnimation.arrival) {
+                        OutfitAssembly.append(source, to: outfit, context: modelContext)
+                        trayKind = nil
+                    }
+                },
+                editedOutfitID: outfit.stableID
+            )
         case .stickers:
             StickerPicker { kind in
                 add(kind)
@@ -652,6 +738,56 @@ private struct CanvasEditorScreen: View {
             DrawingPicker(drawing: drawing)
         case .backdrop:
             BackdropPicker(outfit: outfit)
+        }
+    }
+
+    // MARK: El estilista
+
+    /// Pide el cambio y lo escribe en el lienzo.
+    ///
+    /// El campo se va en el mismo turno en que se envía y el brillo entra en
+    /// su lugar: lo que hay que mirar ahora es el conjunto. Y como el cambio
+    /// se escribe en el lienzo como cualquier otro, **el historial lo recoge
+    /// solo** —ver `onChange(of: snapshot)`— y deshacer lo quita entero.
+    private func askStylist() {
+        let prompt = stylistPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty, !isThinking else { return }
+        stylistPrompt = ""
+        selection.clear()
+        withAnimation(WKAnimation.selection) {
+            isAsking = false
+            isThinking = true
+            stylistNote = nil
+        }
+
+        Task { @MainActor in
+            // El tiempo del día que se edita, si no se pidió ya.
+            if stylistWeather == nil {
+                stylistWeather = await appEnvironment.weather.snapshot(for: editedDate)
+            }
+            // Un momento de brillo aunque la cuenta sea instantánea: lo que
+            // cambia es el conjunto entero, y verlo saltar de golpe se lee
+            // como un fallo. No se finge más de lo que dura el cambio.
+            async let pause: Void = Task.sleep(for: .milliseconds(650))
+
+            let outcome = CanvasStylist.restyle(
+                prompt: prompt,
+                outfit: outfit,
+                context: modelContext,
+                weather: stylistWeather,
+                date: editedDate
+            )
+            try? await pause
+
+            withAnimation(WKAnimation.arrival) {
+                isThinking = false
+                stylistNote = outcome.note
+            }
+            // La nota se va sola: es un acuse de recibo, no un cartel.
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation(WKAnimation.content) {
+                if stylistNote == outcome.note { stylistNote = nil }
+            }
         }
     }
 
@@ -845,6 +981,10 @@ private struct CanvasTrayEmpty: View {
 private struct CanvasGarmentTray: View {
     let store: ImageStore
     let onPick: (Garment) -> Void
+    /// Añadir **un conjunto entero**, con todas sus prendas de una vez.
+    let onPickOutfit: (Outfit) -> Void
+    /// El que se está editando: no tiene sentido añadírselo a sí mismo.
+    let editedOutfitID: UUID
 
     // Las consultas traen el filtro de eliminadas puesto: ver
     // `FetchDescriptor.visibleGarments()` en `SoftDeletion.swift`.
@@ -977,6 +1117,12 @@ private struct CanvasGarmentTray: View {
         // baldas del armario se leen mejor para recorrer, pero aquí no vienes
         // a recorrer.
         ScrollView {
+            SavedOutfitsStrip(
+                store: store,
+                excluding: editedOutfitID,
+                onPick: onPickOutfit
+            )
+
             LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
                 ForEach(visible) { garment in
                     Button { onPick(garment) } label: {
@@ -1220,4 +1366,56 @@ private struct TrayChipSurface: ViewModifier {
 
 extension TextSticker: Identifiable {
     public var id: String { "\(string)-\(colorHex)-\(backgroundHex ?? "")-\(alignment.rawValue)" }
+}
+
+/// Los conjuntos guardados, para **meter uno entero** en el lienzo.
+///
+/// ## Por qué aquí y no en su propio botón
+///
+/// Porque es lo mismo que coger una prenda, solo que de golpe: estás llenando
+/// el lienzo, y lo que cambia es cuántas cosas entran de una vez. Un quinto
+/// botón abajo para esto convertiría la fila de controles en un menú.
+///
+/// Se añaden **con su colocación**: si guardaste ese conjunto con la chaqueta
+/// girada, así llega. Ver `OutfitAssembly.append`.
+private struct SavedOutfitsStrip: View {
+    let store: ImageStore
+    let excluding: UUID
+    let onPick: (Outfit) -> Void
+
+    @Query(FetchDescriptor<Outfit>.favouriteOutfits())
+    private var outfits: [Outfit]
+
+    private var visible: [Outfit] {
+        // Por `stableID` y no por `id`: visto desde fuera, `outfit.id` se
+        // resuelve al identificador de SwiftData, que cambia al guardar.
+        outfits.filter { $0.stableID != excluding && !$0.garments.isEmpty }
+    }
+
+    var body: some View {
+        if !visible.isEmpty {
+            VStack(alignment: .leading, spacing: WK.Spacing.xs) {
+                Text("Tus conjuntos")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .padding(.horizontal, WK.Spacing.m)
+
+                ScrollView(.horizontal) {
+                    HStack(spacing: WK.Spacing.s) {
+                        ForEach(visible, id: \.stableID) { outfit in
+                            Button { onPick(outfit) } label: {
+                                LookCanvasView(garments: outfit.garments, store: store)
+                                    .frame(height: 132)
+                                    .contentShape(.rect)
+                            }
+                            .buttonStyle(WKPressStyle())
+                        }
+                    }
+                    .padding(.horizontal, WK.Spacing.m)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .padding(.top, WK.Spacing.s)
+        }
+    }
 }

@@ -85,12 +85,15 @@ struct RootTabView: View {
         .environment(router)
         // **La ficha de una prenda, aquí.** Presentada por su percha se iba con
         // ella en cuanto la prenda salía de la lista. Ver `AppRouter`.
-        .sheet(item: $router.garment) { garment in
-            GarmentDetailLoader(persistentID: garment.persistentID)
-        }
-        // **La inspiración, también desde aquí.** Ver `AppRouter`.
-        .sheet(isPresented: $router.isShowingInspo) {
-            InspoSheet(feed: appEnvironment.inspo)
+        // Y la inspiración, y lo que venga: **un solo `.sheet`**, porque dos
+        // en la misma vista dejan mudo a uno. Ver `AppRouter.Sheet`.
+        .sheet(item: $router.sheet) { sheet in
+            switch sheet {
+            case let .garment(garment):
+                GarmentDetailLoader(persistentID: garment.persistentID)
+            case .inspo:
+                InspoSheet(feed: appEnvironment.inspo)
+            }
         }
         .ignoresSafeArea(.keyboard)
         // .environment(chrome)
@@ -183,8 +186,9 @@ private struct RootTabBarSlot: ViewModifier {
     let onAssistant: (() -> Void)?
     let onPlus: () -> Void
 
-    /// Quién presenta la hoja. Ver `AppRouter`.
-    @Environment(AppRouter.self) private var router
+    /// Quién presenta la hoja. Ver `AppRouter`. Opcional porque la barra se
+    /// pinta también en las previsualizaciones, donde no hay router.
+    @Environment(AppRouter.self) private var router: AppRouter?
 
     /// `morphingBottomBar` de Lockty: la barra a la izquierda y los dos
     /// círculos —la carita y el "+"— a la derecha.
@@ -221,7 +225,7 @@ private struct RootTabBarSlot: ViewModifier {
 
                     // El de Lockty, en su sitio de siempre: abre la
                     // inspiración. La carita se queda comentada por si vuelve.
-                    Button { (onAssistant ?? router.openInspo)() } label: {
+                    Button { onAssistant?() ?? router?.openInspo() } label: {
                         Image(systemName: "sparkles")
                             .font(.body.weight(.medium))
                             .foregroundStyle(WK.Palette.primaryText)

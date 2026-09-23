@@ -174,6 +174,30 @@ public struct Stylist: Sendable {
         looks(from: wardrobe, brief: brief, count: 1).first
     }
 
+    /// **Qué es lo que peor pega** de lo que hay puesto.
+    ///
+    /// Sirve para cuando se pide un cambio sin decir cuál: se prueba a quitar
+    /// cada prenda y se mira cuánto mejora el resto sin ella. La que más
+    /// mejora al irse es la que sobra, y esa es la que se sustituye.
+    ///
+    /// Devuelve `nil` si quitar cualquiera empeora: entonces el conjunto está
+    /// bien como está y decirlo es más útil que cambiar algo por cambiar.
+    public func weakest(among pieces: [StylistGarment], brief: StylistBrief) -> UUID? {
+        guard pieces.count > 2 else { return nil }
+        let base = harmony(of: pieces) * 1.6 + contrast(of: pieces) * 0.9
+        var best: (UUID, Double)?
+        for piece in pieces where !brief.pinned.contains(piece.id) {
+            let rest = pieces.filter { $0.id != piece.id }
+            // Sin torso o sin calzado no hay conjunto: quitar eso siempre
+            // "mejora" la armonía porque quedan menos colores peleándose.
+            guard rest.contains(where: { $0.role == .top }) else { continue }
+            let value = harmony(of: rest) * 1.6 + contrast(of: rest) * 0.9
+            guard value > base + 0.05 else { continue }
+            if best == nil || value > best!.1 { best = (piece.id, value) }
+        }
+        return best?.0
+    }
+
     // MARK: Candidatos
 
     /// Cuántas opciones por hueco entran en la combinatoria.
@@ -513,7 +537,11 @@ public extension StylistRole {
     }
 }
 
-extension String {
+public extension String {
+    /// La primera letra en mayúscula, dejando el resto como está.
+    ///
+    /// No es `capitalized`: ese pone mayúscula en **cada** palabra y convierte
+    /// "azul y arena" en "Azul Y Arena".
     var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
     var lowercasedFirst: String { prefix(1).lowercased() + dropFirst() }
 }
