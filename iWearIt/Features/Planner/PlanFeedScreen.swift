@@ -90,10 +90,17 @@ struct PlanFeedScreen: View {
 
     var body: some View {
         NavigationStack {
-            pager
+            ZStack(alignment: .top) {
+                pager
+                // **La tira de días de siempre.** Es el mismo componente que
+                // llevaba el plan: calendario a la izquierda, los días
+                // deslizándose, el taco de hoy y el botón de revista/rejilla.
+                // No se ha tocado; solo vive aquí. Ver `DayStripBar`.
+                strip
+            }
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { toolbar }
+            .toolbarVisibility(.hidden, for: .navigationBar)
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
             .navigationDestination(item: $editingOutfit) { outfit in
                 AdvancedCanvasScreen(
@@ -136,38 +143,40 @@ struct PlanFeedScreen: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        // **El calendario, arriba a la izquierda.** Es lo que cambia de día, y
-        // como tira ocupaba una franja entera de pantalla para enseñar siete
-        // días de los que se usan dos.
-        ToolbarItem(placement: .topBarLeading) {
-            // **El mismo botón de siempre.** Es el que abría el calendario en
-            // la tira de días; lo único que cambia es dónde está. Ver
-            // `StripIcon`.
-            StripIcon(symbol: "calendar") { isPickingDay = true }
-        }
-        ToolbarItem(placement: .principal) {
-            Text(title)
-                .font(WK.Font.callout)
-                .foregroundStyle(WK.Palette.primaryText)
-                .fixedSize()
-        }
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
+    /// La tira: el calendario, los días y el cambio de modo. Todo dentro,
+    /// como estaba.
+    private var strip: some View {
+        DayStripBar(
+            anchorDay: anchor,
+            selectedOffset: Binding(
+                get: { offset(of: day ?? anchor) },
+                set: { newValue in
+                    withAnimation(WKAnimation.content) { day = date(atOffset: newValue) }
+                }
+            ),
+            onOpenCalendar: { isPickingDay = true },
+            layoutSymbol: layout == .feed ? "square.grid.2x2" : "rectangle.portrait",
+            onToggleLayout: {
                 withAnimation(WKAnimation.content) {
                     layout = layout == .feed ? .grid : .feed
                 }
-            } label: {
-                Image(systemName: layout == .feed ? "square.grid.2x2" : "rectangle.portrait")
-                    .contentTransition(.symbolEffect(.replace.downUp))
             }
-            .tint(WK.Palette.primaryText)
-        }
+        )
     }
 
-    /// El día que se está mirando.
-    private var title: String { Self.dayLabel(for: day ?? Date()) }
+    /// Lo que mide la tira con su aire. Ver `DayStripBar`.
+    private static let stripHeight: CGFloat = 64
+
+    /// Hoy, que es desde donde se cuentan los días de la tira.
+    private var anchor: Date { Calendar.current.startOfDay(for: Date()) }
+
+    private func offset(of date: Date) -> Int {
+        Calendar.current.dateComponents([.day], from: anchor, to: date).day ?? 0
+    }
+
+    private func date(atOffset offset: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: offset, to: anchor) ?? anchor
+    }
 
     // MARK: Los días, de lado
 
@@ -196,6 +205,11 @@ struct PlanFeedScreen: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $day)
         .scrollIndicators(.hidden)
+        // **Debajo de la tira.** La tira flota sobre el lienzo —así el papel de
+        // puntos sigue por debajo y la pantalla es una hoja y no dos zonas— y
+        // sin este hueco los botones de la tarjeta caían justo detrás del botón
+        // de rejilla.
+        .safeAreaPadding(.top, Self.stripHeight)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
@@ -363,15 +377,9 @@ private struct PlanFeedCard: View {
             outfit: entry.outfit,
             showsBorder: true
         )
-        .overlay(alignment: .topLeading) {
-            Text(PlanFeedScreen.dayLabel(for: entry.day))
-                .font(WK.Font.caption.weight(.medium))
-                .foregroundStyle(WK.Palette.secondaryText)
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.xs)
-                .adaptiveGlass(in: .capsule)
-                .padding(WK.Spacing.m)
-        }
+        // **Sin píldora de fecha.** El día ya está arriba, en la tira, y
+        // repetirlo dentro de cada lienzo es decir dos veces lo mismo tapando
+        // la ropa.
         .overlay(alignment: .topTrailing) {
             VStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
@@ -414,12 +422,6 @@ private struct PlanGridCell: View {
             outfit: entry.outfit,
             showsBorder: true
         )
-        .overlay(alignment: .bottomLeading) {
-            Text(PlanFeedScreen.dayLabel(for: entry.day))
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .padding(WK.Spacing.s)
-        }
         .overlay(alignment: .topTrailing) {
             HStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
