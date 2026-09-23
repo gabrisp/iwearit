@@ -71,17 +71,20 @@ public actor ImageStore {
             }
         }
 
-        /// En qué formato se guarda.
+        /// En qué formato se guarda: **PNG, las tres**.
         ///
-        /// La de catálogo, **PNG sin pérdida**. Las otras dos son fotos y HEIC
-        /// con pérdida es exactamente lo que se quiere para una foto; la de
-        /// catálogo no es una foto, es un recorte con canal alfa, y ahí la
-        /// compresión con pérdida trabaja justo donde más duele: el borde. Los
-        /// píxeles medio transparentes del contorno llevan color premultiplicado
-        /// y el compresor los mezcla con los vecinos, que es lo que devolvía el
-        /// filete de fondo alrededor de la prenda por mucho que el recorte
-        /// saliera limpio.
-        var isLossless: Bool { self == .catalog }
+        /// Antes solo la de catálogo. Las otras dos se guardaban en HEIC con
+        /// pérdida porque "son fotos" — y no lo son: son recortes con canal
+        /// alfa, y la compresión con pérdida trabaja justo donde más duele, el
+        /// borde. Los píxeles medio transparentes del contorno llevan el color
+        /// premultiplicado y el compresor los mezcla con los vecinos, así que
+        /// el filete de fondo alrededor de la prenda volvía por mucho que el
+        /// recorte saliera limpio.
+        ///
+        /// Pesa más —un recorte de 1024 con alfa son unos cientos de kB en vez
+        /// de ochenta— y da igual: un armario son cientos de prendas, no
+        /// cientos de miles, y lo que se ve en pantalla es el borde.
+        var isLossless: Bool { true }
 
         var fileExtension: String { isLossless ? "png" : "heic" }
 
@@ -166,7 +169,7 @@ public actor ImageStore {
             let source = variant == .display
                 ? canonical
                 : (Self.resize(canonical, maxPixelSize: variant.maxPixelSize) ?? canonical)
-            let data = try Self.encodeHEIC(source, quality: variant.compressionQuality)
+            let data = try Self.encodePNG(source)
             try writeAtomically(data, to: url)
             // Y copia a la base si hay sincronización: el fichero es la caché
             // rápida de este dispositivo, la fila es lo que llega al otro.
@@ -272,12 +275,20 @@ public actor ImageStore {
 
     public func exists(key: String, variant: Variant = .thumb) -> Bool {
         fileManager.fileExists(atPath: url(for: key, variant: variant).path(percentEncoded: false))
+            || fileManager.fileExists(atPath: legacyURL(for: key, variant: variant).path(percentEncoded: false))
     }
 
     public func data(for key: String, variant: Variant) async throws -> Data {
         let url = url(for: key, variant: variant)
         if let data = fileManager.contents(atPath: url.path(percentEncoded: false)) {
             return data
+        }
+        // **Lo que se guardó antes en HEIC sigue valiendo.** Cambiar de
+        // formato no puede dejar sin foto a las prendas que ya estaban: si el
+        // PNG no está, se lee el HEIC de siempre y se sigue como si nada. Se
+        // reescribirá en PNG cuando toque rehacerla.
+        if let legacy = fileManager.contents(atPath: legacyURL(for: key, variant: variant).path(percentEncoded: false)) {
+            return legacy
         }
         // **No está en disco: puede que haya llegado del otro dispositivo.**
         //
@@ -300,16 +311,28 @@ public actor ImageStore {
     private func deriveThumb(for key: String) throws -> Data? {
         let displayURL = url(for: key, variant: .display)
         guard
-            let display = fileManager.contents(atPath: displayURL.path(percentEncoded: false)),
+            // La grande, en PNG o en el HEIC de antes: las dos sirven de
+            // origen para la miniatura. Ver `legacyURL`.
+            let display = fileManager.contents(atPath: displayURL.path(percentEncoded: false))
+                ?? fileManager.contents(
+                    atPath: legacyURL(for: key, variant: .display).path(percentEncoded: false)
+                ),
             let source = CGImageSourceCreateWithData(display as CFData, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
             let resized = Self.resize(image, maxPixelSize: Variant.thumb.maxPixelSize)
         else { return nil }
-        let data = try Self.encodeHEIC(resized, quality: Variant.thumb.compressionQuality)
+        let data = try Self.encodePNG(resized)
         try writeAtomically(data, to: url(for: key, variant: .thumb))
         // La de 256 ya no se usa.
         try? fileManager.removeItem(at: legacyThumbURL(for: key))
         return data
+    }
+
+    /// Donde vive la versión en HEIC, la de antes de guardar todo en PNG.
+    private nonisolated func legacyURL(for key: String, variant: Variant) -> URL {
+        root
+            .appending(path: String(key.prefix(2)), directoryHint: .isDirectory)
+            .appending(path: "\(key).\(variant.fileName).heic")
     }
 
     /// Donde estaba la miniatura de 256.
@@ -340,7 +363,7 @@ public actor ImageStore {
             let resized = Self.resize(image, maxPixelSize: Variant.thumb.maxPixelSize)
         else { return nil }
 
-        let data = try Self.encodeHEIC(resized, quality: Variant.thumb.compressionQuality)
+        let data = try Self.encodePNG(resized)
         try writeAtomically(data, to: url(for: key, variant: .thumb))
         return data
     }
@@ -568,6 +591,10 @@ public actor ImageStore {
         return data as Data
     }
 
+    /// **Ya no lo usa nadie**: todo se guarda en PNG, que es lo único que
+    /// conserva el borde con alfa intacto. Se queda por si alguna vez hay que
+    /// guardar una foto de verdad —una foto original, no un recorte—, que es
+    /// donde HEIC sí es lo correcto.
     private static func encodeHEIC(_ image: CGImage, quality: CGFloat) throws -> Data {
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(

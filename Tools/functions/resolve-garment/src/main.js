@@ -54,9 +54,10 @@ const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const RESTYLE_PROMPT = `Convierte esto en la foto de producto que usaría una tienda online para ESTA prenda.
 
 FONDO — OBLIGATORIO:
-- Devuelve un PNG con CANAL ALFA y el fondo COMPLETAMENTE TRANSPARENTE (alfa 0) en todo lo que no sea la prenda, hasta los bordes.
-- NO pongas blanco, ni gris, ni color, ni degradados, ni sombras proyectadas sobre el fondo: donde no hay prenda no hay nada.
-- La prenda, opaca del todo; el borde, limpio, sin halo de color alrededor.
+- El fondo debe ser MAGENTA PURO Y PLANO (#FF00FF), cubriendo todo lo que no sea la prenda, hasta los bordes.
+- NO uses blanco, ni gris, ni degradados, ni sombras proyectadas sobre el fondo.
+- NO dibujes el patrón de cuadros grises y blancos con el que los editores representan la transparencia: eso son píxeles pintados, no un fondo vacío. Magenta plano.
+- Ni un solo píxel magenta dentro de la prenda.
 
 SOLO ESTA PRENDA — OBLIGATORIO:
 - En la foto puede haber más cosas: un bolso, un cinturón, otra prenda, una persona, una percha, una mano. NO FORMAN PARTE de la prenda y no deben aparecer.
@@ -190,7 +191,7 @@ async function verify(original, generated, key, log, error) {
                 'La primera imagen es la foto original de una prenda. La segunda es una '
                 + 'reconstrucción de catálogo de ESA MISMA prenda.\n\n'
                 + 'IGNORA POR COMPLETO EL FONDO, LA ILUMINACIÓN, LA POSTURA Y LAS ARRUGAS: '
-                + 'la reconstrucción va sobre fondo transparente a propósito, quita la percha y '
+                + 'la reconstrucción cambia el fondo a magenta a propósito, quita la percha y '
                 + 'alisa la prenda. Eso NO es un fallo. Juzga ÚNICAMENTE la prenda.\n\n'
                 // **Y que esté plana.** Es la mitad del trabajo: si devuelve la
                 // prenda puesta en alguien, el armario acaba con fotos de
