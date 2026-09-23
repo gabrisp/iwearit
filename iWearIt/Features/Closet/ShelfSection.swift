@@ -33,10 +33,11 @@ struct ShelfSection: View, Equatable {
     /// El hueco delante de una prenda, según por dónde va el arrastre.
     /// El aire entre prendas colgadas.
     ///
-    /// Cuatro puntos más que el espaciado normal: una balda llena se lee mejor
-    /// con las perchas algo más separadas, y el hueco que se abre al arrastrar
-    /// cuenta desde aquí para no descuadrarse.
-    static let garmentGap = WK.Spacing.m + 4
+    /// El espaciado de siempre: los cuatro puntos de más que se probaron se
+    /// quedan fuera. El hueco que se abre al arrastrar cuenta desde aquí para
+    /// no descuadrarse.
+    // static let garmentGap = WK.Spacing.m + 4
+    static let garmentGap = WK.Spacing.m
 
     private func gap(before id: UUID) -> CGFloat {
         guard drag.target == .before(id) else { return 0 }
