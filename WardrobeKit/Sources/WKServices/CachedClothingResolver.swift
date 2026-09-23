@@ -15,10 +15,22 @@ import WKCore
 public struct CachedClothingResolver: ClothingResolving {
     private let base: any ClothingResolving
     private let cache: ResolutionCache
+    /// Qué hacer cuando de verdad se ha reconstruido una prenda.
+    ///
+    /// Un aviso y no una dependencia: aquí no se sabe qué es una moneda ni
+    /// hace falta saberlo. Quien monta esto —la app— apunta el gasto donde
+    /// corresponda. Es el **único** sitio por el que pasan todas las
+    /// reconstrucciones, así que apuntarlo aquí es apuntarlo una vez.
+    private let onRestyled: (@Sendable () -> Void)?
 
-    public init(base: any ClothingResolving, cache: ResolutionCache) {
+    public init(
+        base: any ClothingResolving,
+        cache: ResolutionCache,
+        onRestyled: (@Sendable () -> Void)? = nil
+    ) {
         self.base = base
         self.cache = cache
+        self.onRestyled = onRestyled
     }
 
     public func resolve(_ query: RemoteGarmentQuery) async throws -> RemoteGarmentAnswer {
@@ -38,6 +50,9 @@ public struct CachedClothingResolver: ClothingResolving {
     /// caché sería tener dos sitios donde vive la misma imagen, y dos sitios
     /// que limpiar al borrar una prenda.
     public func restyle(_ imageJPEG: Data) async throws -> Data {
-        try await base.restyle(imageJPEG)
+        let data = try await base.restyle(imageJPEG)
+        // Solo si ha llegado: lo que falla no se cobra.
+        onRestyled?()
+        return data
     }
 }

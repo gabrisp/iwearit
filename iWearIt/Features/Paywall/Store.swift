@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import RevenueCat
 import WKCore
+import WKServices
 
 /// Lo que hay que tener configurado en RevenueCat para que esto funcione.
 ///
@@ -24,20 +25,69 @@ nonisolated enum StoreIDs {
     /// cuesta céntimos; probarse un outfit es varias veces eso. Con una sola
     /// moneda, el precio de una tendría que ser el de la otra —y entonces o
     /// las mejoras salen caras o las pruebas salen regaladas—.
-    /// Cada moneda: el código que las identifica y el nombre con el que se
-    /// llama en el panel **y** en la app.
+    /// Las dos monedas.
+    ///
+    /// ## Por qué dos y no una
+    ///
+    /// Porque no cuestan lo mismo ni se gastan al mismo ritmo. Mejorar una
+    /// prenda es una llamada a un modelo de imagen que tarda unos segundos;
+    /// probarse un outfit es varias veces eso. Con una sola moneda, el precio
+    /// de una tendría que ser el de la otra — y entonces o las mejoras salen
+    /// caras o las pruebas salen regaladas.
     ///
     /// El nombre lo pone el panel de RevenueCat y viaja con el saldo, así que
-    /// lo que se ve en Ajustes es lo que tú escribas allí. Estos son los que
-    /// hay que poner para que las dos cosas digan lo mismo; si el panel está
-    /// vacío o la moneda todavía no existe, se usa el de aquí.
-    enum Currency {
+    /// en Ajustes se lee lo que tú escribas allí; estos son el respaldo.
+    enum Currency: String, Sendable, CaseIterable, Codable {
         /// Para redibujar una prenda como foto de catálogo ("mejorar").
-        static let improvements = "MEJ"
-        static let improvementsName = "Mejoras"
+        case improvements = "MEJ"
         /// Para probarse un outfit encima (fase 10).
-        static let tryOns = "PRU"
-        static let tryOnsName = "Pruebas"
+        case tryOns = "PRU"
+
+        var fallbackName: String {
+            switch self {
+            case .improvements: "Mejoras"
+            case .tryOns: "Pruebas"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .improvements: "wand.and.stars"
+            case .tryOns: "person.crop.rectangle"
+            }
+        }
+    }
+
+    /// Lo que cuesta cada cosa, y con qué moneda se paga.
+    ///
+    /// En un sitio y como datos: cambiar el precio no puede obligar a recordar
+    /// en qué tres pantallas se restaba.
+    enum Cost: String, Sendable, CaseIterable, Codable {
+        /// Redibujar una prenda como foto de catálogo.
+        case improvement
+        /// Probarse un outfit encima.
+        case generation
+
+        var currency: Currency {
+            switch self {
+            case .improvement: .improvements
+            case .generation: .tryOns
+            }
+        }
+
+        var amount: Int {
+            switch self {
+            case .improvement: 1
+            case .generation: 1
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .improvement: "Mejorar una prenda"
+            case .generation: "Probarte un outfit"
+            }
+        }
     }
 }
 
@@ -89,11 +139,11 @@ final class Store {
     private(set) var isWorking = false
     /// El último fallo, para poder decirlo en vez de no hacer nada.
     private(set) var problem: String?
-    /// Saldo de cada moneda, con el nombre que les hayas puesto en el panel.
-    private(set) var improvements = 0
-    private(set) var improvementsName = StoreIDs.Currency.improvementsName
-    private(set) var tryOns = 0
-    private(set) var tryOnsName = StoreIDs.Currency.tryOnsName
+    /// Cuánto queda de cada moneda y cómo se llama en el panel.
+    private(set) var balances: [StoreIDs.Currency: Int] = [:]
+    private(set) var names: [StoreIDs.Currency: String] = [:]
+    /// En qué se han gastado, de lo más reciente a lo más viejo.
+    private(set) var ledger: [CreditEntry] = CreditEntry.load()
     /// Si el SDK está configurado. Sin clave, la app funciona entera: el
     /// paywall enseña sus precios de ejemplo y no se puede comprar.
     private(set) var isReady = false
@@ -175,20 +225,52 @@ final class Store {
         }
     }
 
-    /// Cuánto saldo queda de cada moneda.
+    /// **Apunta un gasto.**
+    ///
+    /// Apunta, no resta: restar una moneda lo hace RevenueCat con su clave
+    /// secreta, que no puede vivir en la app. Esto es el registro de lo que la
+    /// app ha hecho —lo que se ve en el historial— y, en cuanto el servidor
+    /// sepa cobrar, este es el sitio donde se le pide.
+    func note(_ cost: StoreIDs.Cost, detail: String? = nil) {
+        let entry = CreditEntry(cost: cost, detail: detail)
+        ledger.insert(entry, at: 0)
+        if ledger.count > CreditEntry.maximum { ledger.removeLast(ledger.count - CreditEntry.maximum) }
+        CreditEntry.save(ledger)
+        DiagnosticsLog.record("TIENDA", "gasto: \(cost.label) · \(cost.amount) \(cost.currency.rawValue)")
+        Task { await refreshCredits() }
+    }
+
+    func balance(of currency: StoreIDs.Currency) -> Int { balances[currency] ?? 0 }
+    func name(of currency: StoreIDs.Currency) -> String {
+        names[currency] ?? currency.fallbackName
+    }
+
+    /// Si alcanza para algo.
+    func canAfford(_ cost: StoreIDs.Cost) -> Bool {
+        // Sin monedas configuradas todavía, no se bloquea nada: cobrar por algo
+        // que nadie puede comprar sería cerrar la app a cambio de nada.
+        guard isReady, balance(of: cost.currency) > 0 else { return true }
+        return balance(of: cost.currency) >= cost.amount
+    }
+
+    /// Cuánto saldo queda.
     func refreshCredits() async {
         guard Purchases.isConfigured else { return }
         do {
             let currencies = try await Purchases.shared.virtualCurrencies()
-            let mejoras = currencies[StoreIDs.Currency.improvements]
-            let pruebas = currencies[StoreIDs.Currency.tryOns]
-            improvements = mejoras?.balance ?? 0
-            tryOns = pruebas?.balance ?? 0
-            // El nombre del panel manda: si allí se llama de otra forma, eso es
-            // lo que ve el usuario.
-            improvementsName = mejoras?.name ?? StoreIDs.Currency.improvementsName
-            tryOnsName = pruebas?.name ?? StoreIDs.Currency.tryOnsName
-            DiagnosticsLog.record("TIENDA", "saldo · mejoras \(improvements) · pruebas \(tryOns)")
+            for currency in StoreIDs.Currency.allCases {
+                let found = currencies[currency.rawValue]
+                balances[currency] = found?.balance ?? 0
+                // El nombre del panel manda: si allí se llama de otra forma,
+                // eso es lo que ve el usuario.
+                names[currency] = found?.name ?? currency.fallbackName
+            }
+            DiagnosticsLog.record(
+                "TIENDA",
+                "saldo · " + StoreIDs.Currency.allCases
+                    .map { "\(name(of: $0)) \(balance(of: $0))" }
+                    .joined(separator: " · ")
+            )
         } catch {
             // Sin monedas configuradas en el panel esto falla, y no es un
             // problema: la app entera funciona sin saldo mientras no existan.
@@ -196,3 +278,32 @@ final class Store {
         }
     }
 }
+
+
+/// Una línea del historial: qué se hizo, cuánto costó y cuándo.
+///
+/// Se guarda en el teléfono y no en el servidor porque es **lo que ha hecho la
+/// app**: el saldo lo lleva RevenueCat, y esto explica en qué se fue. Sin ello,
+/// el número de Ajustes baja sin que nadie sepa por qué.
+struct CreditEntry: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var date = Date()
+    var cost: StoreIDs.Cost
+    /// De qué prenda o de qué outfit, si se sabe.
+    var detail: String?
+
+    var amount: Int { cost.amount }
+    var currency: StoreIDs.Currency { cost.currency }
+
+    static let maximum = 120
+    private static let key = "credits.ledger"
+
+    static func load() -> [CreditEntry] {
+        SyncedStore.value([CreditEntry].self, forKey: key) ?? []
+    }
+
+    static func save(_ entries: [CreditEntry]) {
+        SyncedStore.setValue(entries, forKey: key)
+    }
+}
+

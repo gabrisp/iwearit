@@ -10,6 +10,8 @@ import WKPersistence
 /// márgenes, y pelearse con ellos acaba en una pila de `listRow*` que se
 /// comporta distinto en cada versión de iOS.
 struct ProfileScreen: View {
+    @Environment(AppEnvironment.self) private var appEnvironment
+
     var body: some View {
         // **Sin `NavigationStack` propia.** Ajustes es ahora una pantalla que
         // se empuja sobre la del armario; creando aquí otra pila, la pantalla
@@ -37,8 +39,28 @@ struct ProfileScreen: View {
         .adaptiveScrollEdge(.top)
         .navigationTitle("Ajustes")
         .navigationBarTitleDisplayMode(.inline)
+        // **El saldo, arriba a la derecha.** Es lo que se viene a mirar, y
+        // enterrado en una fila entre iCloud y los modelos no se encuentra.
+        // Tocarlo cuenta en qué se ha ido. Ver `CreditsPill`.
+        .toolbar {
+            if appEnvironment.store.isReady {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: CreditsRoute.history) {
+                        CreditsPill(store: appEnvironment.store)
+                    }
+                    .buttonStyle(WKPressStyle())
+                }
+            }
+        }
+        .navigationDestination(for: CreditsRoute.self) { _ in
+            CreditsHistoryScreen(store: appEnvironment.store)
+        }
     }
 }
+
+/// A dónde lleva la píldora. Un enum con un caso porque `navigationDestination`
+/// necesita un tipo, no un booleano.
+enum CreditsRoute: Hashable { case history }
 
 /// Qué pasa con iCloud.
 ///
@@ -180,18 +202,9 @@ private struct SubscriptionSection: View {
                 RemainingRow(feature: .customCategories, label: "Baldas propias")
             }
 
-            // **El saldo, a la vista.** Mejorar una prenda y probarse un
-            // outfit se pagan con monedas, y una moneda que no se puede mirar
-            // es una moneda que nadie sabe si tiene. Ver `StoreIDs.Currency`.
+            // El saldo ya no va aquí: vive en la píldora de la barra, que está
+            // a la vista desde cualquier sitio de Ajustes. Ver `CreditsPill`.
             if appEnvironment.store.isReady {
-                WKValueRow(
-                    appEnvironment.store.improvementsName,
-                    value: "\(appEnvironment.store.improvements)"
-                )
-                WKValueRow(
-                    appEnvironment.store.tryOnsName,
-                    value: "\(appEnvironment.store.tryOns)"
-                )
                 WKRow(showsSeparator: false) {
                     Task {
                         _ = await appEnvironment.store.restore()

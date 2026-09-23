@@ -151,6 +151,13 @@ public final class AppEnvironment {
         // Fuera del hilo principal: ver `makeOffMainThread`.
         // self.wardrobe = WardrobeActor(modelContainer: container)
         self.wardrobe = WardrobeActor.makeOffMainThread(modelContainer: container)
+        // **La tienda, antes que nada de lo que cobra.** El derecho a ser Pro
+        // se le pregunta a RevenueCat, y preguntarle antes de configurarlo
+        // devuelve "no" para todo el mundo; y el gasto se apunta desde el
+        // resolutor, que se monta justo aquí debajo.
+        let store = Store()
+        store.start()
+        self.store = store
         // Con memoria: cada consulta cuesta dinero y segundo y medio, y la
         // misma prenda reimportada produce el mismo recorte byte a byte.
         if modelSource == .appwrite, let cache = try? ResolutionCache() {
@@ -159,15 +166,13 @@ public final class AppEnvironment {
                     endpoint: AppConfiguration.appwriteEndpoint,
                     projectID: AppConfiguration.appwriteProjectID
                 ),
-                cache: cache
+                cache: cache,
+                // **Una reconstrucción que llega es una mejora gastada.** Aquí
+                // y no en las tres pantallas que la piden: es el único sitio
+                // por el que pasan todas. Ver `Store.note`.
+                onRestyled: { Task { @MainActor in store.note(.improvement) } }
             )
         }
-        // **La tienda se configura antes que la puerta.** El derecho a ser Pro
-        // se le pregunta a RevenueCat, y preguntarle antes de configurarlo
-        // devuelve "no" para todo el mundo.
-        let store = Store()
-        store.start()
-        self.store = store
         self.gate = FeatureGate(
             entitlements: Self.makeEntitlements(),
             container: container
