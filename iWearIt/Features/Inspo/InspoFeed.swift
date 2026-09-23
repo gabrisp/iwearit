@@ -46,6 +46,8 @@ final class InspoFeed {
     private let weather: WeatherProvider
     private var ticker: Task<Void, Never>?
     private var forecast: WeatherSnapshot?
+    /// Para no pedir más conjuntos dos veces a la vez al llegar al final.
+    private var isExtending = false
     private let stylist = Stylist()
 
     init(container: ModelContainer, weather: WeatherProvider) {
@@ -60,6 +62,7 @@ final class InspoFeed {
     /// Arranca el goteo. Llamarlo dos veces no arranca dos bucles.
     func start() {
         guard ticker == nil else { return }
+        loadDislikes()
         refresh(replacingAll: true)
         ticker = Task { [weak self] in
             while !Task.isCancelled {
@@ -80,12 +83,72 @@ final class InspoFeed {
         refresh(replacingAll: true)
     }
 
+    /// Fuera este **y anotado**: sus prendas pesan menos a partir de ahora.
+    ///
+    /// Tirar un conjunto a la izquierda no es solo quitarlo de en medio: es lo
+    /// más parecido a enseñarle algo al estilista que hay en esta pantalla, y
+    /// si no se guarda en ningún sitio, al rato vuelve lo mismo.
+    func dislike(_ look: StylistLook) {
+        for id in look.garmentIDs {
+            dislikes[id, default: 0] += 0.5
+        }
+        saveDislikes()
+        dismiss(look)
+    }
+
     /// Fuera este, y otro en su sitio.
     func dismiss(_ look: StylistLook) {
         dismissed.insert(look.id)
         looks.removeAll { $0.id == look.id }
         materialised[look.id] = nil
         refill()
+    }
+
+    /// Cuántos conjuntos puede llegar a haber en memoria.
+    ///
+    /// El feed no se acaba mientras queden combinaciones, pero tampoco crece
+    /// sin freno: sesenta son muchos más de los que nadie pasa de una sentada,
+    /// y a partir de ahí lo que salga va a ser variaciones de lo mismo.
+    static let maximum = 60
+
+    /// Más conjuntos al llegar al final.
+    ///
+    /// ## Por qué se generan al llegar y no de golpe
+    ///
+    /// Porque montar ocho es instantáneo y montar sesenta no lo es tanto, y
+    /// sobre todo porque casi nadie llega al octavo: preparar cincuenta que
+    /// nadie va a ver es trabajo tirado en la pantalla que tiene que abrirse
+    /// al instante.
+    ///
+    /// Se piden con una semilla nueva y **sin repetir conjuntos** que ya estén
+    /// en la lista. Si el armario ya no da para más combinaciones distintas,
+    /// no se añade nada: el feed se acaba, que es lo honesto — inventar
+    /// repetidos para que parezca infinito es peor que quedarse corto.
+    func extend() {
+        guard !isExtending, looks.count < Self.maximum else { return }
+        isExtending = true
+        defer { isExtending = false }
+
+        var brief = baseBrief(
+            seed: UInt64(Date().timeIntervalSince1970) &+ UInt64(looks.count) &* 31
+        )
+        // Lo de las últimas tarjetas, fuera: así lo que aparece al seguir
+        // bajando se nota distinto y no es el mismo pantalón una vez más.
+        brief.banned.formUnion(looks.suffix(3).flatMap(\.garmentIDs))
+
+        let existing = Set(looks.map(Self.signature))
+        let fresh = stylist.looks(from: wardrobe(), brief: brief, count: Self.capacity)
+        let additions = fresh.filter {
+            !dismissed.contains($0.id) && !existing.contains(Self.signature($0))
+        }
+        guard !additions.isEmpty else { return }
+        looks.append(contentsOf: additions.prefix(Self.maximum - looks.count))
+    }
+
+    /// Qué prendas lleva, sin importar el orden: dos conjuntos con las mismas
+    /// prendas son el mismo conjunto aunque se llamen distinto.
+    private static func signature(_ look: StylistLook) -> String {
+        look.garmentIDs.map(\.uuidString).sorted().joined(separator: "·")
     }
 
     /// Otro conjunto para ese hueco, sin tocar los demás.
@@ -151,9 +214,41 @@ final class InspoFeed {
         StylistBrief(
             date: Date(),
             weather: forecast,
+            discouraged: dislikes,
             recentlyWorn: container.mainContext.recentlyWornGarments(),
             seed: seed == 0 ? Self.seedForNow() : seed
         )
+    }
+
+    // MARK: Lo que no te gusta
+
+    /// Cuánto pesa en contra cada prenda, por los conjuntos que has tirado.
+    ///
+    /// ## Dónde se guarda
+    ///
+    /// En `UserDefaults`, no en la base. No es parte de tu armario —no es un
+    /// dato de la prenda, es una opinión sobre lo que te propuso este
+    /// teléfono—, y meterlo en el modelo obligaría a migrar el esquema y a
+    /// sincronizar un número que solo sirve para ordenar sugerencias.
+    private(set) var dislikes: [UUID: Double] = [:]
+
+    private static let dislikesKey = "inspo.dislikes"
+
+    private func loadDislikes() {
+        guard
+            let raw = UserDefaults.standard.dictionary(forKey: Self.dislikesKey) as? [String: Double]
+        else { return }
+        dislikes = raw.reduce(into: [:]) { result, entry in
+            guard let id = UUID(uuidString: entry.key) else { return }
+            result[id] = entry.value
+        }
+    }
+
+    private func saveDislikes() {
+        let raw = dislikes.reduce(into: [String: Double]()) { result, entry in
+            result[entry.key.uuidString] = entry.value
+        }
+        UserDefaults.standard.set(raw, forKey: Self.dislikesKey)
     }
 
     func wardrobe() -> [StylistGarment] {

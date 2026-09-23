@@ -30,6 +30,8 @@ import WKPersistence
 struct InspoScreen: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// Quién presenta la hoja del estilista. Ver `AppRouter`.
+    @Environment(AppRouter.self) private var router: AppRouter?
 
     /// Qué pestaña está puesta. La barra vive dentro de la pila de cada
     /// pantalla raíz: ver `rootTabBar`.
@@ -55,6 +57,9 @@ struct InspoScreen: View {
     @State private var datingLook: StylistLook?
     /// De qué propuesta salió el editor, para devolverle lo editado.
     @State private var editedLook: StylistLook?
+    /// Cuánto se está arrastrando la tarjeta de encima, **fuera del cuerpo de
+    /// la pantalla**. Ver `InspoSwipe`.
+    @State private var swipe = InspoSwipe()
 
     private var shown: [StylistLook] { feed.looks }
 
@@ -69,7 +74,10 @@ struct InspoScreen: View {
                 .navigationTitle("Inspiración")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
-                .rootTabBar(.inspo, selection: $tab)
+                // **El estilista, solo aquí.** Preguntarle por un look es
+                // algo que se hace mirando conjuntos; en el armario el botón
+                // era un icono más que no venía a cuento.
+                .rootTabBar(.inspo, selection: $tab, onAssistant: { router?.openStylist() })
                 .navigationDestination(item: $editingOutfit) { outfit in
                     AdvancedCanvasScreen(
                         outfit: outfit,
@@ -141,18 +149,21 @@ struct InspoScreen: View {
                             garments: look.garmentIDs.compactMap { byID[$0] },
                             outfit: outfit(for: look),
                             store: appEnvironment.imageStore,
+                            backdrop: InspoPalette.backdrop(for: look),
                             isSaved: saved.contains(look.id),
                             onSave: { save(look) },
                             onPlan: { datingLook = look },
                             onRegenerate: { regenerate(look) },
                             onEdit: { edit(look) },
-                            onDismiss: { withAnimation(WKAnimation.content) { discard(look) } }
+                            onDismiss: { withAnimation(WKAnimation.content) { discard(look) } },
+                            onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
+                            swipe: swipe
                         )
-                        // Siete octavos del alto: el siguiente asoma por abajo
-                        // y el anterior por arriba, que es lo que cuenta que
-                        // hay más sin gastar ni un punto en decirlo.
+                        // Once doceavos del alto: el conjunto manda en la
+                        // pantalla y el siguiente asoma lo justo para contar
+                        // que hay más, sin gastar ni un punto en decirlo.
                         .containerRelativeFrame(
-                            .vertical, count: 8, span: 7, spacing: WK.Spacing.m
+                            .vertical, count: 12, span: 11, spacing: WK.Spacing.m
                         )
                         // El del centro, entero. Los de los lados, atrás.
                         .scrollTransition(.interactive, axis: .vertical) { content, phase in
@@ -160,15 +171,31 @@ struct InspoScreen: View {
                                 .opacity(phase.isIdentity ? 1 : 0.35)
                                 .scaleEffect(phase.isIdentity ? 1 : 0.88)
                         }
+
                     }
                 }
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
             .scrollIndicators(.hidden)
-            // El octavo que sobra, repartido arriba y abajo: así el conjunto
+            .scrollBounceBehavior(.always, axes: .vertical)
+            // **Más, cuando lo pidas.** Se montan solos cada rato y se
+            // rehacen al barajar, pero llegar al final y que aparezcan ocho
+            // más sin haberlos pedido convierte la pantalla en un pozo: ni se
+            // acaba nunca ni se sabe cuándo has visto todo. Con el tirón, el
+            // final es un final y seguir es una decisión.
+            .overlay { InspoVerdictPill(swipe: swipe) }
+            .overscrollAction(
+                threshold: 84,
+                symbol: "wand.and.stars",
+                label: "Generar \(InspoFeed.capacity) más",
+                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs
+            ) {
+                withAnimation(WKAnimation.content) { feed.extend() }
+            }
+            // Lo que sobra, repartido arriba y abajo: así el conjunto
             // enfocado queda **centrado de verdad** y no pegado al borde.
-            .safeAreaPadding(.vertical, pageHeight / 16)
+            .safeAreaPadding(.vertical, pageHeight / 24)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
         }
     }
@@ -237,6 +264,12 @@ struct InspoScreen: View {
         feed.dismiss(look)
     }
 
+    /// Tirado a la izquierda: fuera, y sus prendas pesan menos a partir de
+    /// ahora. Ver `InspoFeed.dislike`.
+    private func dislike(_ look: StylistLook) {
+        feed.dislike(look)
+    }
+
     /// El conjunto propuesto, hecho outfit de verdad.
     private func materialise(_ look: StylistLook, isFavorite: Bool) -> Outfit? {
         let pieces = look.garmentIDs.compactMap { byID[$0] }
@@ -246,8 +279,12 @@ struct InspoScreen: View {
             name: look.headline,
             origin: .inspo,
             isFavorite: isFavorite,
-            backdropRaw: nil,
-            context: modelContext
+            // El papel que estabas viendo se guarda con él: abrir lo guardado
+            // y encontrárselo en otro color sería otra prenda más que no
+            // pediste.
+            backdropRaw: InspoPalette.backdrop(for: look).rawValue,
+            context: modelContext,
+            seed: InspoPalette.seed(for: look)
         )
     }
 }
@@ -259,23 +296,99 @@ private struct InspoLookCard: View {
     /// El outfit de verdad, si esta propuesta ya se convirtió en uno.
     let outfit: Outfit?
     let store: ImageStore
+    /// El color del papel. Ver `InspoPalette`.
+    let backdrop: OutfitBackdrop
     let isSaved: Bool
     let onSave: () -> Void
     let onPlan: () -> Void
     let onRegenerate: () -> Void
     let onEdit: () -> Void
     let onDismiss: () -> Void
+    /// Descartar **y que cuente**: tirado a la izquierda.
+    let onDislike: () -> Void
+    /// Dónde se apunta el arrastre para que lo lea la píldora. La tarjeta
+    /// **escribe** aquí y no lo lee: así apuntarlo no la reevalúa a ella.
+    let swipe: InspoSwipe
+
+    /// Lo que se ha arrastrado de lado ahora mismo.
+    @State private var drag: CGFloat = 0
+    /// Si el arrastre ya ha pasado del punto de no retorno. Cambia una vez por
+    /// cruce, que es lo que dispara el golpecito.
+    @State private var isCommitted = false
+
+    /// Cuánto hay que tirar para que cuente.
+    ///
+    /// Ciento veinte puntos: lo bastante para que no pase al pasar tarjetas
+    /// con el pulgar, lo bastante poco para hacerlo sin recolocar la mano.
+    private static let threshold: CGFloat = 120
 
     var body: some View {
-        LookCanvasView(garments: garments, store: store, outfit: outfit)
+        LookCanvasView(
+            garments: garments,
+            store: store,
+            backdrop: InspoPalette.color(backdrop),
+            outfit: outfit,
+            showsBorder: true
+        )
             .overlay(alignment: .topTrailing) { actions }
+            .offset(x: drag)
+            .rotationEffect(.degrees(drag / 28), anchor: .bottom)
             .contentShape(.rect)
+            // **Simultáneo con el scroll y no por encima.** Con un gesto
+            // propio que se lo comía, cada arrastre tenía que ganarle primero
+            // la partida al scroll: eso era el tirón que se notaba al empezar
+            // a mover, tanto de lado como al pasar de conjunto.
+            .simultaneousGesture(sideSwipe)
+            // El golpecito al cruzar el umbral, en los dos sentidos: es cómo
+            // se sabe que ya vale sin mirar cuánto llevas arrastrado.
+            .sensoryFeedback(.impact(weight: .medium), trigger: isCommitted) { _, new in new }
             // **Doble toque o pulsación larga para editarlo**, los mismos dos
             // gestos que abren cualquier otro lienzo de la app. Un toque
             // simple no: pasando conjuntos con el pulgar se toca sin querer, y
             // abrir el editor por error saca de la pantalla en la que estabas.
             .onTapGesture(count: 2, perform: onEdit)
             .onLongPressGesture(perform: onEdit)
+    }
+
+    /// El arrastre: a la derecha se guarda, a la izquierda se descarta.
+    private var sideSwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onChanged { value in
+                // Solo horizontal: el vertical es pasar de conjunto, y
+                // competir con él haría los dos peor.
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                drag = value.translation.width
+                // Lo que lee la píldora, que vive fuera de la tarjeta.
+                swipe.amount = drag
+                let crossed = abs(drag) >= Self.threshold
+                if crossed != isCommitted { isCommitted = crossed }
+            }
+            .onEnded { value in
+                let distance = value.translation.width
+                // **Y cuánta fuerza llevaba.** Un arrastre corto pero rápido
+                // es tan decidido como uno largo y lento; medir solo la
+                // distancia obliga a arrastrar media pantalla para algo que ya
+                // habías decidido.
+                let projected = distance + value.predictedEndTranslation.width * 0.35
+                isCommitted = false
+                swipe.amount = 0
+
+                guard abs(projected) >= Self.threshold else {
+                    withAnimation(WKAnimation.arrival) { drag = 0 }
+                    return
+                }
+                let goesRight = projected > 0
+                withAnimation(.easeOut(duration: 0.22)) {
+                    drag = goesRight ? 900 : -900
+                }
+                // Después de irse, no antes: la tarjeta sale de pantalla y
+                // entonces cambia la lista.
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(200))
+                    drag = 0
+                    if goesRight { onSave() } else { onDislike() }
+                }
+            }
     }
 
     private var actions: some View {
@@ -351,6 +464,89 @@ private struct InspoEmptyState: View {
                     ? "Hace falta al menos algo de arriba y algo de abajo para montar un conjunto."
                     : "Añade algunas prendas al armario y aquí aparecerán conjuntos hechos con ellas."
             )
+        }
+    }
+}
+
+/// El color del papel de cada propuesta, y la variante de reparto.
+///
+/// ## Por qué cada una el suyo
+///
+/// Porque ocho conjuntos sobre el mismo fondo gris se leen como ocho filas de
+/// una tabla. Con el papel cambiando, cada uno es **una lámina**: al pasar se
+/// nota que ha cambiado algo aunque las prendas se parezcan.
+///
+/// Sale del identificador del conjunto y no de un contador, así que el mismo
+/// conjunto tiene siempre su color —al volver a la pestaña, al guardarlo— y no
+/// baila al añadir otros por encima.
+enum InspoPalette {
+
+    static func seed(for look: StylistLook) -> UInt64 {
+        var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+        for byte in look.id.uuidString.utf8 {
+            hash = (hash ^ UInt64(byte)) &* 0x1000_0000_01b3
+        }
+        return hash
+    }
+
+    static func backdrop(for look: StylistLook) -> OutfitBackdrop {
+        let all = OutfitBackdrop.allCases
+        return all[Int(seed(for: look) % UInt64(all.count))]
+    }
+
+    static func color(_ backdrop: OutfitBackdrop) -> Color {
+        let components = backdrop.components
+        return WK.Palette.canvasTint(
+            red: components.red,
+            green: components.green,
+            blue: components.blue
+        )
+    }
+}
+
+/// Cuánto se está arrastrando la tarjeta de encima.
+///
+/// ## Por qué esto no es un `@State` de la pantalla
+///
+/// Porque se escribe en cada fotograma del arrastre, y un `@State` de la
+/// pantalla reevaluaría el feed entero —lista, tarjetas, lienzos— sesenta
+/// veces por segundo. Con un objeto observable aparte, lo único que se
+/// reevalúa es quien lo lee: la píldora.
+@MainActor
+@Observable
+final class InspoSwipe {
+    /// Puntos arrastrados. Positivo a la derecha.
+    var amount: CGFloat = 0
+}
+
+/// Lo que va a pasar si sueltas: guardar o descartar.
+///
+/// **Quieta en el centro de la pantalla**, no pegada a la tarjeta. Pegada se
+/// iba con ella —y girada—, así que justo cuando más falta hace leerla era
+/// cuando peor se leía.
+private struct InspoVerdictPill: View {
+    let swipe: InspoSwipe
+
+    /// Lo mismo que le cuesta a la tarjeta comprometerse. Ver
+    /// `InspoLookCard.threshold`.
+    private static let threshold: CGFloat = 120
+
+    var body: some View {
+        let progress = min(1, abs(swipe.amount) / Self.threshold)
+        if progress > 0.05 {
+            let goesRight = swipe.amount > 0
+            Label(
+                goesRight ? "Guardar" : "No me gusta",
+                systemImage: goesRight ? "heart.fill" : "hand.thumbsdown.fill"
+            )
+            .font(WK.Font.headline)
+            .foregroundStyle(WK.Palette.primaryText)
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.s)
+            .adaptiveGlass(in: .capsule)
+            .opacity(progress)
+            .scaleEffect(0.92 + progress * 0.08)
+            .allowsHitTesting(false)
         }
     }
 }

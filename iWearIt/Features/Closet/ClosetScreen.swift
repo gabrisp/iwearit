@@ -256,7 +256,15 @@ struct ClosetScreen: View {
             // .adaptiveFloatingAccessory { MakeOutfitsAccessory() }
             // Con el modo bloque encendido la barra de pestañas se va y en su
             // sitio quedan las tres acciones.
-            .rootTabBar(.closet, selection: $tab, isHidden: bulk.isActive) { isRequestingAdd = true }
+            // `onPlus:` con su nombre y no como cierre final: desde que el
+            // botón del estilista es opcional, un cierre suelto se lo queda él
+            // —así lo empareja Swift— y el "+" acababa abriendo el estilista.
+            .rootTabBar(
+                .closet,
+                selection: $tab,
+                isHidden: bulk.isActive,
+                onPlus: { isRequestingAdd = true }
+            )
             // Las acciones sobre lo marcado, las mismas que dentro de una
             // balda. Ver `ClosetBulkActionsModifier`.
             .closetBulkActions(on: selectedGarments, isActive: bulk.isActive) {
@@ -417,7 +425,11 @@ private struct ClosetRouteDestination: View {
         case .suitcases:
             SuitcasesScreen()
         case .favourites:
-            CategoryScreen(favourites: "Favoritas")
+            // **Prendas y conjuntos, juntos.** La pantalla de solo prendas se
+            // queda comentada: el corazón significa lo mismo en los dos casos
+            // y separarlos obligaba a acordarse de dónde guardaste qué.
+            // CategoryScreen(favourites: "Favoritas")
+            FavouritesScreen()
         }
     }
 }

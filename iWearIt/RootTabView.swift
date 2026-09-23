@@ -158,6 +158,8 @@ extension View {
         _ tab: RootTab,
         selection: Binding<RootTab>,
         isHidden: Bool = false,
+        // `nil` y no un valor por defecto: sin acción no hay botón. Ver
+        // `RootTabBarSlot`.
         onAssistant: (() -> Void)? = nil,
         // El "+" está comentado en la barra desde que se centró; el parámetro
         // sigue aquí porque el flujo que abre existe entero. Con valor por
@@ -193,9 +195,9 @@ private struct RootTabBarSlot: ViewModifier {
     let tab: RootTab
     @Binding var selection: RootTab
     var isHidden = false
-    /// Qué hace el botón de la derecha. `nil` = lo de siempre, abrir la
-    /// inspiración; una pantalla puede quedárselo para otra cosa sin que haya
-    /// que tocar la barra.
+    /// Qué hace el botón de la derecha. **`nil` = no hay botón**: no se pinta
+    /// ni se le guarda el hueco. Lo pone la pantalla que tiene algo que poner
+    /// ahí, que ahora mismo es solo la inspiración.
     let onAssistant: (() -> Void)?
     let onPlus: () -> Void
 
@@ -203,8 +205,8 @@ private struct RootTabBarSlot: ViewModifier {
     /// pinta también en las previsualizaciones, donde no hay router.
     @Environment(AppRouter.self) private var router: AppRouter?
 
-    /// `morphingBottomBar` de Lockty: la barra a la izquierda y los dos
-    /// círculos —la carita y el "+"— a la derecha.
+    /// `morphingBottomBar` de Lockty: la barra centrada y, donde haga falta,
+    /// un círculo a la derecha.
     func body(content: Content) -> some View {
         content
             .adaptiveSafeAreaBar(edge: .bottom) {
@@ -214,14 +216,20 @@ private struct RootTabBarSlot: ViewModifier {
                     Color.clear.frame(height: 0)
                 } else {
                 HStack(alignment: .bottom, spacing: 12) {
-                    // **El hueco del botón, a la izquierda.** Sin él, la barra
-                    // se iría hacia la izquierda justo lo que ocupa el círculo
-                    // de la derecha: con el hueco, la barra queda centrada en
-                    // la pantalla y el botón en el borde, que es donde estaba
-                    // en Lockty.
-                    Color.clear
-                        .frame(width: 52, height: 1)
-                        .allowsHitTesting(false)
+                    // **El botón solo está donde sirve.**
+                    //
+                    // Era el de Lockty y salía en las tres pantallas; pero
+                    // pedirle un look al estilista es algo que se hace
+                    // mirando conjuntos, no ordenando el armario. Donde no hay
+                    // acción no hay botón —ni su hueco— y la barra se queda
+                    // centrada y sola.
+                    if onAssistant != nil {
+                        // El hueco del botón, para que la barra siga centrada
+                        // en la pantalla con el círculo puesto a la derecha.
+                        Color.clear
+                            .frame(width: 52, height: 1)
+                            .allowsHitTesting(false)
+                    }
 
                     Spacer(minLength: 0)
 
@@ -241,16 +249,18 @@ private struct RootTabBarSlot: ViewModifier {
 
                     Spacer(minLength: 0)
 
-                    // El de Lockty, en su sitio de siempre: abre el chat con
-                    // el estilista. La carita se queda comentada por si vuelve.
-                    Button { onAssistant?() ?? router?.openStylist() } label: {
-                        Image(systemName: "sparkles")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(WK.Palette.primaryText)
-                            .frame(width: 52, height: 52)
-                            .contentShape(Circle())
+                    if let onAssistant {
+                        // El de Lockty, en su sitio de siempre. La carita se
+                        // queda comentada por si vuelve.
+                        Button(action: onAssistant) {
+                            Image(systemName: "sparkles")
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(WK.Palette.primaryText)
+                                .frame(width: 52, height: 52)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
                     }
-                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
 
                     // Button(action: onAssistant) {
                     //     Text("🙂")

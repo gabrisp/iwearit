@@ -20,6 +20,12 @@ struct LookCanvasView: View {
     /// y giraste la gorra, eso es lo que hay que ver aquí, no el reparto por
     /// huecos de la propuesta original.
     var outfit: Outfit?
+    /// Un filo alrededor, para que se vea dónde empieza y dónde acaba.
+    ///
+    /// El fondo del lienzo es el mismo de la pantalla —a propósito: la ropa
+    /// tiene que mandar—, y sin borde un conjunto flota sin que se sepa cuánto
+    /// papel ocupa ni dónde acaba uno y empieza el siguiente.
+    var showsBorder = false
 
     /// Dónde cae cada prenda. Se calcula una vez por conjunto y no por
     /// fotograma: es aritmética barata, pero dentro del `body` se repetiría en
@@ -58,6 +64,12 @@ struct LookCanvasView: View {
         }
         .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
         .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+        .overlay {
+            if showsBorder {
+                RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                    .stroke(WK.Palette.ink(0.12), lineWidth: 1)
+            }
+        }
     }
 }
 

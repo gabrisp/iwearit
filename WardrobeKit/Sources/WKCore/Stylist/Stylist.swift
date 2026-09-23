@@ -17,6 +17,14 @@ public struct StylistBrief: Sendable, Equatable {
     public var pinned: Set<UUID>
     /// Lo que no quieres ver: el vaquero de ayer, lo que acabas de descartar.
     public var banned: Set<UUID>
+    /// Lo que has dicho que no te gusta, **sin llegar a prohibirlo**.
+    ///
+    /// Prohibir es una orden —"sin negro"— y esto es una preferencia: tiras un
+    /// conjunto a la izquierda y sus prendas pesan menos la próxima vez, pero
+    /// una camiseta que descartaste en un conjunto malo puede volver en otro
+    /// que funcione. Con prohibición dura, dos descartes te dejaban sin medio
+    /// armario.
+    public var discouraged: [UUID: Double]
     /// Cuándo se llevó cada prenda. Lo de esta semana pesa menos.
     public var recentlyWorn: [UUID: Date]
     /// Etiquetas de uso pedidas: "Deporte", "Formal"…
@@ -37,6 +45,7 @@ public struct StylistBrief: Sendable, Equatable {
         weather: WeatherSnapshot? = nil,
         pinned: Set<UUID> = [],
         banned: Set<UUID> = [],
+        discouraged: [UUID: Double] = [:],
         recentlyWorn: [UUID: Date] = [:],
         requiredTags: [String] = [],
         preferredColors: [String] = [],
@@ -49,6 +58,7 @@ public struct StylistBrief: Sendable, Equatable {
         self.weather = weather
         self.pinned = pinned
         self.banned = banned
+        self.discouraged = discouraged
         self.recentlyWorn = recentlyWorn
         self.requiredTags = requiredTags
         self.preferredColors = preferredColors
@@ -268,6 +278,13 @@ public struct Stylist: Sendable {
                 case ..<8: score -= 0.25
                 default: break
                 }
+            }
+
+            // Lo que has ido descartando, más abajo en la lista. Tope al
+            // penalizar: si no, tres descartes desaparecen una prenda para
+            // siempre y el armario se va encogiendo solo.
+            if let dislike = brief.discouraged[garment.id] {
+                score -= min(1.5, dislike)
             }
 
             if garment.isFavorite { score += 0.25 }

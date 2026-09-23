@@ -281,6 +281,7 @@ private struct StylistPrompts: View {
             Text("Pídeme por color, por ocasión o por una prenda tuya.")
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
+                .padding(.horizontal, WK.Spacing.screenInset)
 
             ScrollView(.horizontal) {
                 HStack(spacing: WK.Spacing.s) {
@@ -289,6 +290,7 @@ private struct StylistPrompts: View {
                             Text(example)
                                 .font(WK.Font.caption)
                                 .foregroundStyle(WK.Palette.primaryText)
+                                .fixedSize()
                                 .padding(.horizontal, WK.Spacing.m)
                                 .padding(.vertical, WK.Spacing.s)
                                 .adaptiveGlass(in: .capsule)
@@ -296,10 +298,16 @@ private struct StylistPrompts: View {
                         .buttonStyle(WKPressStyle())
                     }
                 }
+                .scrollTargetLayout()
             }
             .scrollIndicators(.hidden)
+            // **Sin recortar las píldoras.** El margen va como inserción del
+            // scroll y no como relleno de fuera: puesto fuera, la fila medía
+            // menos que la pantalla y la última píldora salía cortada por la
+            // mitad, con su cristal partido.
+            .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
+            .scrollClipDisabled()
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
     }
 }
 
@@ -314,7 +322,7 @@ private struct StylistResultCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-            LookCanvasView(garments: garments, store: store)
+            LookCanvasView(garments: garments, store: store, showsBorder: true)
                 .overlay(alignment: .topTrailing) {
                     HStack(spacing: WK.Spacing.xs) {
                         circle(isSaved ? "heart.fill" : "heart", action: onSave)
