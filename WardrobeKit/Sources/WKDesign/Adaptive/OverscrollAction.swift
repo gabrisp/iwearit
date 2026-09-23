@@ -275,3 +275,38 @@ private struct OverscrollAction: ViewModifier {
         }
     }
 }
+
+
+/// El aura del tirón, **suelta**, para quien la necesite fuera de la píldora.
+///
+/// La usa la inspiración: tirar hacia abajo desde arriba enciende el botón de
+/// barajar, y lo que dice cuánto llevas tirado es la misma nube que en el
+/// indicador del final. Dos gestos que hacen lo mismo —pedir algo tirando— se
+/// tienen que ver igual.
+public struct WKAura: View {
+    private let progress: CGFloat
+    private let color: Color
+
+    public init(progress: CGFloat, color: Color = Color.black.opacity(0.6)) {
+        self.progress = progress
+        self.color = color
+    }
+
+    public var body: some View {
+        if progress <= 0 {
+            Color.clear
+        } else {
+            EllipticalGradient(
+                stops: [
+                    .init(color: color, location: 0),
+                    .init(color: color.opacity(0.62), location: 0.34),
+                    .init(color: color.opacity(0.24), location: 0.62),
+                    .init(color: color.opacity(0), location: 1),
+                ],
+                center: .center,
+                startRadiusFraction: 0,
+                endRadiusFraction: progress * 1.9
+            )
+        }
+    }
+}

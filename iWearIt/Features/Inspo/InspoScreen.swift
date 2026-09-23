@@ -75,6 +75,10 @@ struct InspoScreen: View {
     @State private var isGenerating = false
     /// Si el gesto de los lados ya se ha enseñado alguna vez.
     @State private var hasHintedSwipe = true
+    /// Cuánto se está tirando desde arriba, de 0 a 1. Ver `pullToShuffle`.
+    @State private var pull: CGFloat = 0
+    /// Si este tirón todavía puede disparar: uno por gesto.
+    @State private var isPullArmed = false
     /// El conjunto que se está abriendo en el editor.
     @State private var editingOutfit: Outfit?
     /// De qué propuesta salió el editor, para devolverle lo editado.
@@ -257,18 +261,24 @@ struct InspoScreen: View {
             .tint(feed.anchors.isEmpty ? WK.Palette.primaryText : WK.Palette.accent)
         }
         ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                withAnimation(WKAnimation.content) {
-                    feed.shuffle()
-                    // **Y arriba del todo.** Barajar cambia lo que hay en
-                    // todas las tarjetas; quedarse a medio scroll sería mirar
-                    // la quinta de una baraja que acaba de cambiar entera.
-                    scrolled = feed.looks.first?.id
-                }
-            } label: {
+            Button { shuffle() } label: {
                 Image(systemName: "shuffle")
+                    // **El botón se enciende mientras tiras.**
+                    //
+                    // Tirar hacia abajo desde arriba baraja, y un gesto que no
+                    // dice qué va a hacer no se descubre: el mismo aura que la
+                    // píldora del final, creciendo en el botón que hace eso
+                    // mismo, cuenta el gesto y su destino a la vez.
+                    .scaleEffect(1 + pull * 0.45)
+                    .background {
+                        WKAura(progress: pull, color: WK.Palette.accent.opacity(0.75))
+                            .frame(width: 64, height: 64)
+                            .blur(radius: 4)
+                    }
+                    .animation(.smooth(duration: 0.18), value: pull)
             }
             .tint(WK.Palette.primaryText)
+            .sensoryFeedback(.impact(weight: .light), trigger: pull >= 1)
         }
     }
 
@@ -303,6 +313,7 @@ struct InspoScreen: View {
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
         .overlay { InspoVerdictPill(swipe: swipe) }
+        .modifier(PullToShuffle(pull: $pull, isArmed: $isPullArmed, action: shuffle))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
@@ -429,6 +440,17 @@ struct InspoScreen: View {
 
     private func discard(_ look: StylistLook) {
         feed.dismiss(look)
+    }
+
+    /// Baraja la tanda entera y sube arriba del todo.
+    ///
+    /// Barajar cambia lo que hay en todas las tarjetas; quedarse a medio
+    /// scroll sería mirar la quinta de una baraja que acaba de cambiar entera.
+    private func shuffle() {
+        withAnimation(WKAnimation.content) {
+            feed.shuffle()
+            scrolled = feed.looks.first?.id
+        }
     }
 
     /// Monta la siguiente tanda y lleva la vista al primero de los nuevos.
@@ -891,5 +913,62 @@ private struct InspoCardSize: ViewModifier {
                         .scaleEffect(phase.isIdentity ? 1 : 0.88)
                 }
         }
+    }
+}
+
+/// Tirar hacia abajo desde arriba para barajar.
+///
+/// ## Por qué no `overscrollAction`
+///
+/// Porque aquel dibuja su propia píldora abajo, y aquí lo que tiene que
+/// encenderse es el botón que ya existe: el de barajar. Lo que se comparte es
+/// lo que importa —medir el desbordamiento, armar el gesto al empezar a
+/// arrastrar y disparar al soltar— y el aura, que es la misma (ver `WKAura`).
+///
+/// Las tres reglas son las de siempre: solo cuenta el arrastre que **empieza**
+/// arriba —si no, llegar al principio con inercia dispararía solo—, se decide
+/// al soltar, y una vez por gesto.
+private struct PullToShuffle: ViewModifier {
+    @Binding var pull: CGFloat
+    @Binding var isArmed: Bool
+    let action: () -> Void
+
+    /// Cuánto hay que tirar. Menos que el del final: arriba no hay nada que
+    /// pueda dispararse sin querer.
+    private static let threshold: CGFloat = 96
+
+    @State private var offset: CGFloat = 0
+    @State private var isTouching = false
+    @State private var hasFired = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                // Negativo cuando se desborda por arriba.
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, new in
+                offset = new
+                let overscroll = max(0, -new)
+                pull = isArmed ? min(1, overscroll / Self.threshold) : 0
+                if overscroll <= 2 { hasFired = false }
+            }
+            .onScrollPhaseChange { _, phase in
+                let touching = phase == .tracking || phase == .interacting
+                if touching, !isTouching {
+                    // Solo si el arrastre empieza ya arriba del todo.
+                    isArmed = offset >= -4
+                }
+                if !touching, isTouching {
+                    fireIfDue()
+                }
+                isTouching = touching
+            }
+    }
+
+    private func fireIfDue() {
+        defer { pull = 0 }
+        guard isArmed, !hasFired, pull >= 1 else { return }
+        hasFired = true
+        action()
     }
 }
