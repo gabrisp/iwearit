@@ -66,17 +66,19 @@ enum CanvasStylist {
         }
         pinned.subtract(base.banned)
 
-        // Ni has dicho qué cambiar ni falta nada: entonces se cambia lo que
-        // peor pega, y se dice cuál para que no parezca capricho.
-        var swapped: StylistGarment?
-        let isComplete = Set(currentValues.map(\.role)).isSuperset(of: [.top, .bottom, .shoes])
-        if reading.freedRoles.isEmpty, base.banned.isEmpty, isComplete {
-            var probe = base
-            probe.pinned = []
-            if let weakest = Stylist().weakest(among: currentValues, brief: probe) {
-                pinned.remove(weakest)
-                base.banned.insert(weakest)
-                swapped = currentValues.first { $0.id == weakest }
+        // **Siempre hay algo que soltar.**
+        //
+        // Si todo lo que hay puesto se queda fijo, el estilista devuelve el
+        // mismo conjunto y contesta sin haber cambiado nada — que es
+        // exactamente lo que parecía roto: respondía y el lienzo seguía igual.
+        // Así que cuando no has dicho qué cambiar, se decide aquí, por este
+        // orden, y se cuenta cuál ha sido.
+        var swapped: [StylistGarment] = []
+        if reading.freedRoles.isEmpty, base.banned.isEmpty, !currentValues.isEmpty {
+            for piece in loosen(currentValues, brief: base, phrase: reading) {
+                pinned.remove(piece.id)
+                base.banned.insert(piece.id)
+                swapped.append(piece)
             }
         }
         base.pinned = pinned
@@ -102,13 +104,90 @@ enum CanvasStylist {
             return Outcome(note: "Con eso no me sale nada del armario.", didChange: false)
         }
 
+        // **Y si sale lo mismo, se dice.** Rehacer el lienzo con las mismas
+        // prendas y contestar como si algo hubiera pasado es la forma más
+        // rápida de que no te fíes de lo que propone.
+        let before = Set(current.map(\.id))
+        let after = Set(pieces.map(\.id))
+        guard before != after else {
+            return Outcome(
+                note: "Con lo que tienes en el armario, esto es lo que mejor pega. No lo toco.",
+                didChange: false
+            )
+        }
+
         OutfitAssembly.place(pieces, in: outfit, context: context, keeping: pinned)
 
         var note = look.reason
-        if let swapped {
-            note = "Fuera \(swapped.name.lowercasedFirst) · " + note
+        let removed = swapped.filter { !after.contains($0.id) }
+        if let first = removed.first {
+            note = "Fuera \(first.name.lowercasedFirst) · " + note
         }
         return Outcome(note: note, didChange: true)
+    }
+
+    /// Qué se suelta cuando no lo has dicho tú.
+    ///
+    /// Por este orden, y siempre algo mientras haya más de una prenda:
+    ///
+    /// 1. **Lo que choca con lo que pediste**: si pides azul y no hay nada
+    ///    azul, se va lo que menos aporta para dejarle sitio; si pides
+    ///    deporte, se va lo que no es de deporte; si pides abrigo, lo que no
+    ///    abriga.
+    /// 2. **Lo que peor pega** del conjunto, medido quitándolo y viendo si el
+    ///    resto mejora (ver `Stylist.weakest`).
+    /// 3. Y si ni eso —un conjunto de dos piezas que encajan—, la que no es
+    ///    imprescindible, o la de arriba: algo tiene que moverse cuando pides
+    ///    un cambio.
+    private static func loosen(
+        _ pieces: [StylistGarment],
+        brief: StylistBrief,
+        phrase: StylistPhrase.Reading
+    ) -> [StylistGarment] {
+        guard pieces.count > 1 else { return pieces }
+
+        let preferred = Set(brief.preferredColors)
+        let required = Set(brief.requiredTags)
+
+        var conflicting: [StylistGarment] = []
+        if !preferred.isEmpty, !pieces.contains(where: { preferred.contains($0.tone.familyName) }) {
+            // Nadie lleva el color pedido: sale el que menos pinta, que es el
+            // que menos se echa en falta.
+            conflicting += weakestOrLast(pieces, brief: brief).map { [$0] } ?? []
+        }
+        if !required.isEmpty {
+            conflicting += pieces.filter { Set($0.tags).isDisjoint(with: required) }
+        }
+        if let warmth = brief.warmth {
+            conflicting += pieces.filter {
+                $0.seasons != .all && $0.seasons.intersection(warmth.seasons).isEmpty
+            }
+        }
+        if !conflicting.isEmpty {
+            var seen = Set<UUID>()
+            // Nunca todas: algo tiene que quedar de lo que tenías puesto.
+            return conflicting
+                .filter { seen.insert($0.id).inserted }
+                .prefix(max(1, pieces.count - 1))
+                .map { $0 }
+        }
+
+        return weakestOrLast(pieces, brief: brief).map { [$0] } ?? []
+    }
+
+    /// La que peor pega; y si todas pegan, la más prescindible.
+    private static func weakestOrLast(
+        _ pieces: [StylistGarment],
+        brief: StylistBrief
+    ) -> StylistGarment? {
+        var probe = brief
+        probe.pinned = []
+        if let id = Stylist().weakest(among: pieces, brief: probe) {
+            return pieces.first { $0.id == id }
+        }
+        // El orden es el de leerse un conjunto: complemento, abrigo, arriba,
+        // abajo, calzado. Lo primero que sobra es lo accesorio.
+        return pieces.min { $0.role.sortOrder < $1.role.sortOrder }
     }
 
     /// Las prendas que el conjunto propuesto necesita y no estaban puestas.

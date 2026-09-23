@@ -92,15 +92,22 @@ struct GarmentEditSheet: View {
         // cambiar cinco campos, y ahí una hoja a media altura deja la imagen
         // recortada y las filas apretadas contra el teclado.
         .presentationDetents([.large])
-        // Cualquier cambio en lo que forma el nombre lo rehace.
-        // El nombre fijo —de la tienda o escrito a mano— se queda aunque cambie
-        // el tipo: si se quiere el compuesto, se vacía el campo.
+        // **El nombre ya no se rehace solo.**
+        //
+        // Lo hacía en cuanto se tocaba cualquier campo que entrara en él, y
+        // eso significa que corregir el material te cambiaba el nombre por
+        // debajo: le habías puesto uno al importar —o lo traía de la tienda— y
+        // dejaba de ser el suyo sin que nadie lo pidiera. La prenda ya tiene
+        // nombre; rehacerlo es una decisión del usuario, y para eso está vaciar
+        // el campo (ver `nameBinding`).
+        //
+        // Los avisos de antes se quedan comentados:
         // .onChange(of: garment.subcategory) { garment.productName = nil; regenerateName() }
-        .onChange(of: garment.subcategory) { regenerateName() }
-        .onChange(of: garment.material) { regenerateName() }
-        .onChange(of: garment.brand) { regenerateName() }
-        .onChange(of: garment.kindRaw) { regenerateName() }
-        .onChange(of: garment.colors) { regenerateName() }
+        // .onChange(of: garment.subcategory) { regenerateName() }
+        // .onChange(of: garment.material) { regenerateName() }
+        // .onChange(of: garment.brand) { regenerateName() }
+        // .onChange(of: garment.kindRaw) { regenerateName() }
+        // .onChange(of: garment.colors) { regenerateName() }
         .sheet(item: $editing) { field in
             sheet(for: field)
         }
@@ -285,6 +292,32 @@ struct GarmentEditSheet: View {
         )
     }
 
+    /// Los tipos que se ofrecen: los de su parte del cuerpo delante y el
+    /// resto detrás, sin repetir.
+    private var typeOptions: [WKChipSheet.Option] {
+        let own = GarmentVocabulary.types(for: garment.kind)
+        let rest = GarmentVocabulary.allTypes.filter { !own.contains($0) }
+        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: "Sin definir")]
+    }
+
+    /// Escribe el tipo y, con él, **la parte del cuerpo**.
+    ///
+    /// La parte no se edita a mano a propósito —es lo que usa el combinador de
+    /// outfits, y una parte inventada lo rompería—, pero sí se deduce del
+    /// tipo: si dices que es una camiseta, va arriba. La balda no se toca:
+    /// dónde cuelga una prenda lo decides tú, y moverla sola sería deshacer lo
+    /// que colocaste.
+    private func chooseType(_ type: String?) {
+        guard let type, !type.isEmpty else {
+            garment.subcategory = nil
+            return
+        }
+        garment.subcategory = type
+        if let kind = GarmentVocabulary.kind(forType: type), kind != garment.kind {
+            garment.kind = kind
+        }
+    }
+
     private var nameBinding: Binding<String> {
         Binding(
             get: { garment.name },
@@ -314,15 +347,21 @@ struct GarmentEditSheet: View {
         case .shelf:
             ShelfPickerSheet(garment: garment)
         case .type:
+            // **Todos los tipos, no solo los de su parte del cuerpo.**
+            //
+            // El detector se equivoca —llama vestido a una camiseta larga, o
+            // bañador a unos shorts— y con la lista filtrada por lo que él
+            // decidió no había forma de corregirlo: para decir "es una
+            // camiseta" primero había que poder cambiar la parte, y la parte
+            // no se edita. Ahora la manda el tipo, que es lo que el usuario sí
+            // sabe. Los de su parte van primero, que son los de siempre.
             WKChipSheet(
                 title: "Cambiar tipo",
                 subtitle: "Selecciona el tipo que mejor describe esta prenda",
-                options: GarmentVocabulary.types(for: garment.kind).map {
-                    .init(id: $0, label: $0)
-                } + [.init(id: "", label: "Sin definir")],
+                options: typeOptions,
                 selection: Binding(
                     get: { Set([garment.subcategory?.capitalized].compactMap { $0 }) },
-                    set: { garment.subcategory = $0.first?.isEmpty == false ? $0.first : nil }
+                    set: { chooseType($0.first) }
                 ),
                 limit: 1
             )
@@ -575,6 +614,15 @@ struct GarmentEditSheet: View {
         if let embedding = best.featurePrint { garment.embedding = embedding }
 
         if let key = try? await appEnvironment.imageStore.store(best.normalized.cgImage) {
+            // **La reconstrucción se viene con ella.** El recorte cambia de
+            // clave al rehacerse, y la versión de catálogo colgaba de la
+            // vieja: sin mudarla, mejorar una prenda tiraba a la basura la
+            // imagen por la que se había pagado y la balda volvía a enseñar el
+            // recorte del detector.
+            await appEnvironment.imageStore.moveCatalog(
+                from: garment.normalizedImageKey,
+                to: key
+            )
             garment.normalizedImageKey = key
         }
         garment.needsReview = false

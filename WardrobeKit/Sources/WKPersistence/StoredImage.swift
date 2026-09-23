@@ -71,7 +71,9 @@ public struct StoredImage: View {
         store: ImageStore,
         alignment: Alignment = .center,
         shadow: Shadow? = nil,
-        prefersCatalog: Bool = false
+        // **Encendida por defecto**, otra vez y a propósito: ver
+        // `resolvedVariant()`. Quien quiera el recorte de verdad lo pide.
+        prefersCatalog: Bool = true
     ) {
         self.key = key
         self.variant = variant
@@ -149,17 +151,24 @@ public struct StoredImage: View {
 
     private func load() async {
         let resolved = await resolvedVariant()
+        // La de catálogo mide 1024 y pesa lo que pesa un PNG con alfa. Cuando
+        // lo que se pedía era una miniatura, se decodifica al tamaño de la
+        // miniatura: en la balda se ve igual y cabe diez veces más en memoria.
+        let cap: CGFloat? =
+            resolved == .catalog && variant == .thumb ? ImageStore.Variant.thumb.maxPixelSize : nil
 
         // Golpe de caché: síncrono, sin parpadeo entre frames al reciclar celdas.
-        if let cached = ThumbnailCache.shared.image(for: key, variant: resolved) {
+        if let cached = ThumbnailCache.shared.image(for: key, variant: resolved, cappedAt: cap) {
             image = cached
             return
         }
-        guard let loaded = try? await store.image(for: key, variant: resolved) else { return }
+        guard
+            let loaded = try? await store.image(for: key, variant: resolved, cappedAt: cap)
+        else { return }
         guard !Task.isCancelled else { return }
 
         let rendered = UIImage(cgImage: loaded)
-        ThumbnailCache.shared.insert(rendered, for: key, variant: resolved)
+        ThumbnailCache.shared.insert(rendered, for: key, variant: resolved, cappedAt: cap)
         image = rendered
     }
 
@@ -175,6 +184,20 @@ public struct StoredImage: View {
     /// —la sección de imágenes de la ficha, por ejemplo—, pero ya no es lo que
     /// pasa sin decir nada. Antes sí lo era, y por eso una prenda se veía de
     /// una manera en la ficha y de otra en la balda.
+    ///
+    /// ## Y sin embargo vuelve a estar encendida
+    ///
+    /// Porque el razonamiento de arriba describía mal el caso real. La versión
+    /// reconstruida **no aparece sola**: cuesta dinero y se genera porque
+    /// alguien la pide. Pagar por mejorar una prenda y seguir viendo en la
+    /// balda el recorte malo —que es justo lo que se quería arreglar— no es
+    /// respetar la elección del usuario, es ignorarla; y encima la ficha sí
+    /// enseñaba la buena, así que la misma prenda se veía de dos maneras
+    /// según dónde la miraras.
+    ///
+    /// La vuelta atrás sigue existiendo y es explícita: "Usar el recorte real"
+    /// en la ficha borra la reconstrucción, y entonces no hay nada que
+    /// preferir.
     private func resolvedVariant() async -> ImageStore.Variant {
         guard prefersCatalog, await store.hasCatalog(for: key) else { return variant }
         return .catalog

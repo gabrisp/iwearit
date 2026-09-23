@@ -40,7 +40,14 @@ public enum GarmentVocabulary {
         case .lowerBody:
             // Lo que es el pantalón. El largo —short, capri— va en su propia
             // etiqueta, y "pantalones" es la balda, no un tipo.
-            ["Vaqueros", "Chinos", "De vestir", "Chándal", "Jogger", "Cargo", "Leggings", "Falda"]
+            // **Bañador, con su nombre.** El detector lo llama short —y no le
+            // falta razón mirando la foto—, pero un bañador no se lleva a los
+            // mismos sitios, y sin estar en la lista no había forma de
+            // corregirlo: quedaba de chándal para siempre.
+            [
+                "Vaqueros", "Chinos", "De vestir", "Chándal", "Jogger", "Cargo",
+                "Leggings", "Falda", "Short", "Bañador",
+            ]
         case .wholeBody:
             ["Vestido", "Vestido largo", "Mono", "Peto"]
         case .feet:

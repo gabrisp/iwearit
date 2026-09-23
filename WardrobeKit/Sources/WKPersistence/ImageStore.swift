@@ -192,6 +192,28 @@ public actor ImageStore {
         try? await blobs?.storeBlob(key: key, variant: Variant.catalog.rawValue, data: data)
     }
 
+    /// Lleva la versión de catálogo de una clave a otra.
+    ///
+    /// Hace falta cuando el recorte se rehace —"mejorar" vuelve a pasar la
+    /// foto por el detector— y la prenda cambia de clave: la reconstrucción
+    /// sigue siendo de **esta** prenda, pero vivía colgada de la clave vieja y
+    /// se quedaba huérfana. El usuario había pagado por ella y desaparecía sin
+    /// decir nada.
+    /// - Returns: `true` si había algo que llevar y se llevó.
+    @discardableResult
+    public func moveCatalog(from key: String, to newKey: String) async -> Bool {
+        guard key != newKey else { return true }
+        guard let data = try? await data(for: key, variant: .catalog) else { return false }
+        do {
+            try writeAtomically(data, to: url(for: newKey, variant: .catalog))
+            try? await blobs?.storeBlob(key: newKey, variant: Variant.catalog.rawValue, data: data)
+            try? deleteCatalog(for: key)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Tira la versión de catálogo y se queda con el recorte de verdad.
     ///
     /// Hace falta porque la reconstrucción **puede salir mal**: el modelo se
@@ -323,12 +345,32 @@ public actor ImageStore {
         return data
     }
 
-    public func image(for key: String, variant: Variant) async throws -> CGImage {
+    /// - Parameter cappedAt: lado máximo en píxeles. Con él, la imagen se
+    ///   decodifica **ya reducida** en vez de decodificar entera y encoger
+    ///   después: la de catálogo es un PNG de 1024 con alfa, y una balda llena
+    ///   de esas son decenas de megas de mapa de bits para pintar prendas de
+    ///   cien puntos.
+    public func image(
+        for key: String,
+        variant: Variant,
+        cappedAt: CGFloat? = nil
+    ) async throws -> CGImage {
         let data = try await data(for: key, variant: variant)
-        guard
-            let source = CGImageSourceCreateWithData(data as CFData, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            throw StoreError.decodeFailed(key: key, variant: variant)
+        }
+        if let cappedAt {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: cappedAt,
+            ]
+            if let reduced = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) {
+                return reduced
+            }
+        }
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             throw StoreError.decodeFailed(key: key, variant: variant)
         }
         return image

@@ -24,6 +24,16 @@ import WKVision
 /// mirar la foto original al lado del recorte, rodear la prenda a mano y
 /// quitarla del lote.
 struct ImportSingleCard: View {
+
+    /// Los tipos que se ofrecen: los de su parte del cuerpo delante, el resto
+    /// detrás. Escrito aquí y no en el vocabulario porque es una decisión de
+    /// cómo se enseña la lista, no de qué prendas existen.
+    static func typeOptions(for kind: GarmentKind) -> [WKChipSheet.Option] {
+        let own = GarmentVocabulary.types(for: kind)
+        let rest = GarmentVocabulary.allTypes.filter { !own.contains($0) }
+        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: "Sin definir")]
+    }
+
     let candidate: ImportCandidate
     /// La foto tal cual entró, para poder comparar.
     let photo: CGImage
@@ -388,10 +398,13 @@ struct ImportSingleCard: View {
             WKChipSheet(
                 title: "Qué prenda es",
                 subtitle: "Manga larga, corta, vaqueros… lo que la distingue",
-                // Los de su parte, no la lista entera: cincuenta palabras para
-                // elegir una era demasiado.
-                options: GarmentVocabulary.types(for: candidate.kind).map { .init(id: $0, label: $0) }
-                    + [.init(id: "", label: "Sin definir")],
+                // Los de su parte **primero** y el resto detrás: lo normal es
+                // que lo que buscas esté arriba del todo, y cuando el detector
+                // se equivocó de parte —un bañador leído como short, una
+                // camiseta larga leída como vestido— la prenda correcta sigue
+                // estando, un poco más abajo. Con la lista recortada no había
+                // forma de arreglarlo.
+                options: Self.typeOptions(for: candidate.kind),
                 selection: Binding(
                     get: { Set([candidate.subcategory?.capitalized].compactMap { $0 }) },
                     set: { chosen in
