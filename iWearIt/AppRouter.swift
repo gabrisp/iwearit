@@ -1,4 +1,5 @@
 import SwiftData
+import WKPersistence
 import SwiftUI
 
 /// Quién presenta las hojas de la app.
@@ -39,6 +40,43 @@ final class AppRouter {
     }
 
     var sheet: Sheet?
+
+    /// Qué outfit hay que abrir en el editor, pedido desde una hoja.
+    ///
+    /// ## Por qué pasa por aquí
+    ///
+    /// Porque el editor es una pantalla de la pila de navegación y el
+    /// estilista es una hoja puesta encima: desde dentro de la hoja no hay
+    /// pila a la que empujar. La hoja pide, el router apunta y la pantalla de
+    /// abajo —que sí tiene pila— lo empuja.
+    var editRequest: OutfitRef?
+
+    /// Si al cerrar ese editor hay que volver a abrir el estilista.
+    ///
+    /// Editar desde el chat es un paréntesis, no una salida: cierras, tocas,
+    /// vuelves y la conversación sigue donde estaba (ver `StylistChat`).
+    var reopensStylist = false
+
+    /// Una referencia a un outfit que puede cruzar vistas.
+    struct OutfitRef: Hashable, Identifiable {
+        let id: UUID
+        let persistentID: PersistentIdentifier
+    }
+
+    /// Cierra el estilista, abre el editor y deja dicho que hay que volver.
+    func editFromStylist(_ outfit: Outfit) {
+        editRequest = OutfitRef(id: outfit.stableID, persistentID: outfit.persistentModelID)
+        reopensStylist = true
+        sheet = nil
+    }
+
+    /// El editor se ha cerrado: si venía del estilista, se vuelve a él.
+    func finishedEditing() {
+        editRequest = nil
+        guard reopensStylist else { return }
+        reopensStylist = false
+        sheet = .stylist
+    }
 
     /// La prenda cuya ficha está abierta, si es eso lo que hay puesto.
     var garment: GarmentRef? {

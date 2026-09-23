@@ -674,6 +674,19 @@ public struct Stylist: Sendable {
         return Self.uniqued(candidates)
     }
 
+    /// Por qué **este** conjunto, en lo que de verdad se puede comprobar.
+    ///
+    /// ## Lo que se quitó de aquí
+    ///
+    /// "Un solo color sobre neutros", "colores vecinos, sin ruido",
+    /// "contraste entre arriba y abajo". Sonaban a revista y no decían nada
+    /// que el usuario no estuviera viendo ya en la tarjeta: los colores están
+    /// delante. Un motivo solo vale si aporta algo que no se ve — y lo que no
+    /// se ve es el tiempo que va a hacer, lo que llevaste esta semana y qué
+    /// prenda mandó en la propuesta.
+    ///
+    /// Si no hay nada de eso que decir, **no se dice nada**: una frase vacía
+    /// repetida en ocho tarjetas es ruido.
     private func reason(
         for pieces: [StylistGarment],
         brief: StylistBrief,
@@ -683,43 +696,27 @@ public struct Stylist: Sendable {
     ) -> String {
         var parts: [String] = []
 
-        let colored = pieces.filter { !$0.tone.isNeutral }
-        if colored.count >= 2,
-           let distance = colored[0].tone.hueDistance(to: colored[1].tone) {
-            if distance >= 150 {
-                parts.append("colores opuestos, que es donde se nota")
-            } else if distance < 55 {
-                parts.append("colores vecinos, sin ruido")
-            }
-        } else if colored.count == 1 {
-            parts.append("un solo color sobre neutros")
-        } else if harmony > 0.5 {
-            parts.append("todo en neutros")
-        }
-
-        if contrast >= 0.9 {
-            parts.append("contraste entre arriba y abajo")
-        } else if contrast <= 0.3 {
-            parts.append("mismo tono arriba y abajo")
-        }
-
         if let weather = brief.weather {
             let degrees = Int(((weather.highCelsius + weather.lowCelsius) / 2).rounded())
             parts.append("para \(degrees)° y \(weather.condition.label.lowercased())")
         }
 
-        if freshness > 0.4 {
-            parts.append("nada de esta semana")
-        }
-
         if !brief.pinned.isEmpty {
             let names = pieces.filter { brief.pinned.contains($0.id) }.map(\.name)
             if let first = names.first {
-                parts.append("montado alrededor de \(first.lowercasedFirst)")
+                parts.append("con \(first.lowercasedFirst)")
             }
         }
 
-        return parts.isEmpty ? "Combina bien con lo que tienes" : parts.joined(separator: " · ")
+        if !brief.requiredTags.isEmpty {
+            parts.append(brief.requiredTags.joined(separator: " y ").lowercased())
+        }
+
+        if freshness > 0.4 {
+            parts.append("sin nada de esta semana")
+        }
+
+        return parts.joined(separator: " · ")
     }
 
     /// El color, concordado con la prenda: "camisa roja", "zapatillas azules".
@@ -761,7 +758,7 @@ public struct Stylist: Sendable {
     ///
     /// Feo, y a propósito: es la señal de que dos conjuntos se parecen tanto
     /// que ni mirándolos por seis sitios distintos se les ocurre un nombre que
-    /// los separe. Antes eso mismo pasaba sin avisar.
+    /// los separe.
     private static func distinguish(_ name: String, taken: Set<String>) -> String {
         var attempt = 2
         while taken.contains("\(name) \(attempt)"), attempt < 20 { attempt += 1 }

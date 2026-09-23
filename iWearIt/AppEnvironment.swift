@@ -127,6 +127,10 @@ public final class AppEnvironment {
     /// `InspoFeed`.
     let inspo: InspoFeed
 
+    /// La conversación con el estilista. Vive aquí para que cerrar la hoja no
+    /// la borre. Ver `StylistChat`.
+    let stylistChat = StylistChat()
+
     private init(
         modelSource: ModelSource,
         container: ModelContainer,

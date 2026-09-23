@@ -25,23 +25,32 @@ struct StylistChatSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// Quien sabe empujar el editor: esto es una hoja y no tiene pila. Ver
+    /// `AppRouter.editFromStylist`.
+    @Environment(AppRouter.self) private var router: AppRouter?
 
     let feed: InspoFeed
 
     @Query(FetchDescriptor<Garment>.visibleGarments())
     private var garments: [Garment]
 
-    @State private var thread: [StylistMessage] = []
-    @State private var draft = ""
-    /// Los conjuntos de la última petición.
-    @State private var results: [StylistLook] = []
-    /// El encargo vivo: cada frase se apila sobre la anterior, para que "y sin
-    /// negro" siga valiendo cuando la siguiente diga "algo más abrigado".
-    @State private var brief: StylistBrief?
-    @State private var saved: Set<UUID> = []
-    @State private var isThinking = false
+    /// **Lo hablado no vive en esta hoja.**
+    ///
+    /// Vivía aquí, y cerrar el estilista lo borraba entero: lo que habías
+    /// pedido, lo que te había propuesto y las prendas que habías adjuntado.
+    /// Abrir y cerrar una hoja no es terminar una conversación. Ahora el hilo
+    /// es de la app y la hoja solo lo enseña. Ver `StylistChat`.
+    @Bindable var chat: StylistChat
+
     @State private var datingLook: StylistLook?
+    @State private var isPickingGarments = false
+    @State private var isShowingArchive = false
     @FocusState private var isWriting: Bool
+
+    /// Lo adjuntado, resuelto a prendas y en un orden estable.
+    private var attachedGarments: [Garment] {
+        chat.attached.compactMap { byID[$0] }.sorted { $0.name < $1.name }
+    }
 
     private var byID: [UUID: Garment] {
         Dictionary(garments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -57,8 +66,31 @@ struct StylistChatSheet: View {
                         Button { dismiss() } label: { Image(systemName: "xmark") }
                             .tint(WK.Palette.primaryText)
                     }
+                    // **El archivo.** Lo que el estilista ha propuesto y tú has
+                    // guardado no se queda en el hilo —se va a favoritos— y
+                    // desde aquí se llega sin salir de la conversación.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { isShowingArchive = true } label: {
+                            Image(systemName: "archivebox")
+                        }
+                        .tint(WK.Palette.primaryText)
+                    }
                 }
-                .adaptiveSafeAreaBar(edge: .bottom) { composer }
+                .navigationDestination(isPresented: $isShowingArchive) {
+                    FavouritesScreen()
+                }
+                .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+                .sheet(isPresented: $isPickingGarments) {
+                    GarmentPickerSheet(
+                        title: "Añadir prendas",
+                        // Cuatro: con cinco ya está el conjunto puesto y no
+                        // queda nada que proponer.
+                        limit: 4,
+                        initial: chat.attached
+                    ) { picked in
+                        withAnimation(WKAnimation.content) { chat.attached = picked }
+                    }
+                }
                 .sheet(item: $datingLook) { look in
                     StylistDayPicker { date in
                         plan(look, on: date)
@@ -71,7 +103,7 @@ struct StylistChatSheet: View {
     private var content: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: WK.Spacing.l) {
-                if thread.isEmpty {
+                if chat.thread.isEmpty {
                     // **El ejemplo se envía tal cual, sin pasar por el
                     // campo.** Escribirlo en `draft` y llamar a `send()` en el
                     // mismo turno no funciona: el estado todavía no se ha
@@ -80,17 +112,17 @@ struct StylistChatSheet: View {
                     StylistPrompts { example in ask(example) }
                 }
 
-                ForEach(thread) { message in
+                ForEach(chat.thread) { message in
                     StylistBubble(message: message)
                         .padding(.horizontal, WK.Spacing.screenInset)
                 }
 
-                if isThinking {
+                if chat.isThinking {
                     ProgressView()
                         .padding(.horizontal, WK.Spacing.screenInset)
                 }
 
-                if !results.isEmpty {
+                if !chat.results.isEmpty {
                     resultsStrip
                 }
             }
@@ -103,14 +135,16 @@ struct StylistChatSheet: View {
     private var resultsStrip: some View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.m) {
-                ForEach(results) { look in
+                ForEach(chat.results) { look in
                     StylistResultCard(
                         garments: look.garmentIDs.compactMap { byID[$0] },
                         store: appEnvironment.imageStore,
                         reason: look.reason,
-                        isSaved: saved.contains(look.id),
+                        isSaved: chat.saved.contains(look.id),
                         onSave: { save(look) },
-                        onPlan: { datingLook = look }
+                        onPlan: { datingLook = look },
+                        onEdit: { edit(look) },
+                        onDislike: { dislike(look) }
                     )
                     .containerRelativeFrame(.horizontal, count: 3, span: 2, spacing: WK.Spacing.m)
                 }
@@ -122,9 +156,72 @@ struct StylistChatSheet: View {
         .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
     }
 
+    /// Abajo: lo adjuntado y el campo.
+    private var bottom: some View {
+        VStack(spacing: WK.Spacing.s) {
+            if !chat.attached.isEmpty { attachments }
+            composer
+        }
+        .animation(WKAnimation.content, value: chat.attached)
+    }
+
+    /// Las prendas adjuntas, en píldoras y con su recorte dentro.
+    private var attachments: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: WK.Spacing.s) {
+                ForEach(attachedGarments, id: \.persistentModelID) { garment in
+                    Button { detach(garment) } label: {
+                        HStack(spacing: WK.Spacing.xs) {
+                            StoredImage(
+                                key: garment.normalizedImageKey,
+                                variant: .thumb,
+                                store: appEnvironment.imageStore
+                            )
+                            .frame(width: 26, height: 26)
+
+                            Text(garment.name)
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.primaryText)
+                                .lineLimit(1)
+
+                            // La equis dentro de la propia píldora: quitar una
+                            // prenda es tocarla, no volver al selector.
+                            Image(systemName: "xmark")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(WK.Palette.secondaryText)
+                        }
+                        .padding(.leading, WK.Spacing.xs)
+                        .padding(.trailing, WK.Spacing.s)
+                        .padding(.vertical, WK.Spacing.xs)
+                        .adaptiveGlass(in: .capsule)
+                        .fixedSize()
+                    }
+                    .buttonStyle(WKPressStyle())
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
+        .scrollClipDisabled()
+    }
+
     private var composer: some View {
         HStack(spacing: WK.Spacing.s) {
-            TextField("Pídeme un look…", text: $draft, axis: .vertical)
+            // El "+" primero, como en cualquier chat: lo que se adjunta va
+            // antes de lo que se escribe.
+            Button { isPickingGarments = true } label: {
+                Image(systemName: chat.attached.isEmpty ? "plus" : "plus.circle.fill")
+                    .font(WK.Font.headline)
+                    .foregroundStyle(
+                        chat.attached.isEmpty ? WK.Palette.primaryText : WK.Palette.accent
+                    )
+                    .frame(width: 44, height: 44)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(WKPressStyle())
+            .adaptiveGlassInteractive(in: .circle)
+
+            TextField("Pídeme un look…", text: $chat.draft, axis: .vertical)
                 .lineLimit(1...4)
                 .focused($isWriting)
                 .submitLabel(.send)
@@ -148,7 +245,7 @@ struct StylistChatSheet: View {
             }
             .buttonStyle(WKPressStyle())
             .adaptiveGlassInteractive(in: .circle)
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(chat.draft.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.xs)
@@ -156,23 +253,34 @@ struct StylistChatSheet: View {
 
     // MARK: Acciones
 
+    /// Quita una prenda de las adjuntas.
+    ///
+    /// En su propio método y no dentro del botón: `Set.remove` devuelve lo que
+    /// quitó, así que dentro de un `withAnimation` el cierre deja de ser
+    /// `Void` y el compilador se pierde en la vista entera.
+    private func detach(_ garment: Garment) {
+        withAnimation(WKAnimation.content) {
+            _ = chat.attached.remove(garment.id)
+        }
+    }
+
     private func send() {
-        ask(draft)
+        ask(chat.draft)
     }
 
     private func ask(_ raw: String) {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        draft = ""
-        thread.append(StylistMessage(role: .user, text: text))
+        chat.draft = ""
+        chat.thread.append(StylistMessage(role: .user, text: text))
 
-        let reading = StylistPhrase.read(
-            text,
-            wardrobe: feed.wardrobe(),
-            base: brief ?? feed.baseBrief()
-        )
-        brief = reading.brief
-        isThinking = true
+        var base = chat.brief ?? feed.baseBrief()
+        // Lo adjuntado **manda**: son las prendas que has señalado, y van
+        // puestas en todo lo que se proponga.
+        base.pinned = chat.attached
+        let reading = StylistPhrase.read(text, wardrobe: feed.wardrobe(), base: base)
+        chat.brief = reading.brief
+        chat.isThinking = true
 
         // Un turno de respiro: el motor tarda milisegundos, y contestar en el
         // mismo fotograma en que escribes se lee como si no hubiera mirado
@@ -181,14 +289,14 @@ struct StylistChatSheet: View {
             try? await Task.sleep(for: .milliseconds(320))
             let fresh = feed.looks(for: reading.brief, count: 6)
             withAnimation(WKAnimation.content) {
-                results = fresh
-                thread.append(
+                chat.results = fresh
+                chat.thread.append(
                     StylistMessage(
                         role: .stylist,
                         text: StylistPhrase.acknowledgement(reading, lookCount: fresh.count)
                     )
                 )
-                isThinking = false
+                chat.isThinking = false
             }
         }
     }
@@ -197,7 +305,7 @@ struct StylistChatSheet: View {
         guard let outfit = materialise(look, isFavorite: true) else { return }
         _ = outfit
         try? modelContext.save()
-        saved.insert(look.id)
+        chat.saved.insert(look.id)
     }
 
     private func plan(_ look: StylistLook, on date: Date) {
@@ -213,7 +321,24 @@ struct StylistChatSheet: View {
         }()
         outfit.plannedDay = day
         try? modelContext.save()
-        saved.insert(look.id)
+        chat.saved.insert(look.id)
+    }
+
+    /// Abre el conjunto en el editor: se cierra el estilista, se empuja el
+    /// editor y al volver la conversación sigue donde estaba.
+    private func edit(_ look: StylistLook) {
+        guard let outfit = materialise(look, isFavorite: false) else { return }
+        try? modelContext.save()
+        chat.saved.insert(look.id)
+        router?.editFromStylist(outfit)
+    }
+
+    /// No me gusta: fuera de aquí y anotado para lo que venga.
+    private func dislike(_ look: StylistLook) {
+        feed.dislike(look)
+        withAnimation(WKAnimation.content) {
+            chat.results.removeAll { $0.id == look.id }
+        }
     }
 
     private func materialise(_ look: StylistLook, isFavorite: Bool) -> Outfit? {
@@ -228,14 +353,6 @@ struct StylistChatSheet: View {
             context: modelContext
         )
     }
-}
-
-/// Un mensaje del hilo.
-struct StylistMessage: Identifiable, Hashable {
-    enum Role { case user, stylist }
-    let id = UUID()
-    let role: Role
-    let text: String
 }
 
 private struct StylistBubble: View {
@@ -319,6 +436,8 @@ private struct StylistResultCard: View {
     let isSaved: Bool
     let onSave: () -> Void
     let onPlan: () -> Void
+    let onEdit: () -> Void
+    let onDislike: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
@@ -328,8 +447,34 @@ private struct StylistResultCard: View {
                         circle(isSaved ? "heart.fill" : "heart", action: onSave)
                             .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
                         circle("calendar", action: onPlan)
+                        // **El lápiz hace lo mismo que el doble toque.** Los
+                        // dos gestos están bien para quien los conoce; el
+                        // botón está para quien no.
+                        circle("pencil", action: onEdit)
                     }
                     .padding(WK.Spacing.xs)
+                }
+                .contentShape(.rect)
+                .onTapGesture(count: 2, perform: onEdit)
+                // **Y mantener pulsado, las mismas acciones escritas.**
+                //
+                // Aquí sí y en la inspiración no: allí cada conjunto tiene sus
+                // cuatro botones al lado y el arrastre a los lados, así que un
+                // menú encima sería una tercera forma de hacer lo mismo. En el
+                // chat las tarjetas son pequeñas y solo caben tres iconos.
+                .contextMenu {
+                    Button { onSave() } label: {
+                        Label(isSaved ? "Guardado" : "Guardar en favoritos", systemImage: "heart")
+                    }
+                    Button { onPlan() } label: {
+                        Label("Añadir a un día", systemImage: "calendar")
+                    }
+                    Button { onEdit() } label: {
+                        Label("Editar", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) { onDislike() } label: {
+                        Label("No me gusta", systemImage: "hand.thumbsdown")
+                    }
                 }
 
             // Aquí sí se cuenta el porqué: has preguntado tú.

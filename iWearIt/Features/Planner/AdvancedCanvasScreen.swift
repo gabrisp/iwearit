@@ -770,6 +770,12 @@ private struct CanvasEditorScreen: View {
             // como un fallo. No se finge más de lo que dura el cambio.
             async let pause: Void = Task.sleep(for: .milliseconds(650))
 
+            // **Un solo paso de deshacer para todo el cambio.** Quitar tres
+            // prendas y poner otras tres son media docena de escrituras, y
+            // apuntadas una a una deshacer devolvía lienzos a medio montar que
+            // nunca existieron. Ver `CanvasHistory.beginBatch`.
+            let before = snapshot
+            let token = history.beginBatch()
             let outcome = CanvasStylist.restyle(
                 prompt: prompt,
                 outfit: outfit,
@@ -777,6 +783,7 @@ private struct CanvasEditorScreen: View {
                 weather: stylistWeather,
                 date: editedDate
             )
+            history.endBatch(token, previous: before, current: snapshot)
             try? await pause
 
             withAnimation(WKAnimation.arrival) {

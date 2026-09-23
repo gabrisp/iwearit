@@ -3,6 +3,7 @@ import Observation
 import SwiftData
 import WKCore
 import WKPersistence
+import WKServices
 
 /// La inspiración **ya está hecha cuando entras**.
 ///
@@ -49,6 +50,8 @@ final class InspoFeed {
     private(set) var forecast: WeatherSnapshot?
     /// Para no pedir más conjuntos dos veces a la vez al llegar al final.
     private var isExtending = false
+    /// Quien avisa de que otro dispositivo cambió los ajustes.
+    private var settingsObserver: NSObjectProtocol?
     private let stylist = Stylist()
 
     init(container: ModelContainer, weather: WeatherProvider) {
@@ -64,6 +67,12 @@ final class InspoFeed {
     func start() {
         guard ticker == nil else { return }
         loadDislikes()
+        // Y lo que se descarte en el iPad llega aquí: ver `SyncedStore`.
+        if settingsObserver == nil {
+            settingsObserver = SyncedStore.observeExternalChanges { [weak self] in
+                self?.loadDislikes()
+            }
+        }
         refresh(replacingAll: true)
         ticker = Task { [weak self] in
             while !Task.isCancelled {
@@ -294,8 +303,7 @@ final class InspoFeed {
     private static let dislikesKey = "inspo.dislikes"
 
     private func loadDislikes() {
-        guard
-            let raw = UserDefaults.standard.dictionary(forKey: Self.dislikesKey) as? [String: Double]
+        guard let raw = SyncedStore.value([String: Double].self, forKey: Self.dislikesKey)
         else { return }
         dislikes = raw.reduce(into: [:]) { result, entry in
             guard let id = UUID(uuidString: entry.key) else { return }
@@ -307,7 +315,7 @@ final class InspoFeed {
         let raw = dislikes.reduce(into: [String: Double]()) { result, entry in
             result[entry.key.uuidString] = entry.value
         }
-        UserDefaults.standard.set(raw, forKey: Self.dislikesKey)
+        SyncedStore.setValue(raw, forKey: Self.dislikesKey)
     }
 
     func wardrobe() -> [StylistGarment] {

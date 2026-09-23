@@ -29,14 +29,17 @@ public final class WeatherProvider {
 
     public init(service: any WeatherService = OpenMeteoWeatherService()) {
         self.service = service
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey) {
+        SyncedStore.start()
+        if let data = SyncedStore.data(forKey: Self.storageKey) {
             place = try? JSONDecoder().decode(GeoPlace.self, from: data)
         }
     }
 
     public func use(_ place: GeoPlace) {
         self.place = place
-        UserDefaults.standard.set(try? JSONEncoder().encode(place), forKey: Self.storageKey)
+        // **Donde vives no es de este teléfono.** Ver `SyncedStore`: en
+        // `UserDefaults` se quedaba aquí y el iPad volvía a preguntarlo.
+        SyncedStore.setValue(place, forKey: Self.storageKey)
     }
 
     /// El tiempo de un día. `nil` si no hay sitio elegido, si no hay red o si

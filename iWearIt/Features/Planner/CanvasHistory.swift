@@ -69,6 +69,35 @@ final class CanvasHistory {
         future.removeAll()
     }
 
+    /// Empieza a tratar lo que venga como **un solo paso**.
+    ///
+    /// ## Por qué hace falta
+    ///
+    /// Porque el estilista no mueve una prenda: quita tres y pone otras tres,
+    /// y el lienzo pasa por estados intermedios que nunca existieron para el
+    /// usuario —el conjunto a medio montar—. Apuntados uno a uno, deshacer
+    /// daba tres pasos atrás para volver a lo de antes, y el de en medio era
+    /// un lienzo roto.
+    ///
+    /// - Returns: por dónde iba la pila, para poder recortar hasta ahí.
+    func beginBatch() -> Int { past.count }
+
+    /// Cierra el paso: tira lo apuntado durante el cambio y deja **uno**.
+    /// - Parameters:
+    ///   - token: lo que devolvió `beginBatch`.
+    ///   - previous: cómo estaba el lienzo antes de tocarlo.
+    ///   - current: cómo está ahora, para reconocer el eco que llega después.
+    func endBatch(_ token: Int, previous: CanvasSnapshot, current: CanvasSnapshot) {
+        if past.count > token { past.removeLast(past.count - token) }
+        guard previous != current else { return }
+        past.append(previous)
+        if past.count > Self.depth { past.removeFirst() }
+        future.removeAll()
+        // El `onChange` del lienzo llegará después con el estado final: ya
+        // está apuntado, así que se reconoce y se ignora.
+        justApplied = current
+    }
+
     /// El estado al que volver, guardando el actual para poder rehacer.
     func undo(from current: CanvasSnapshot) -> CanvasSnapshot? {
         guard let previous = past.popLast() else { return nil }

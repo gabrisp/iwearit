@@ -73,6 +73,8 @@ struct InspoScreen: View {
     }
     /// Lo que mide el feed, para poder centrar el conjunto enfocado.
     @State private var pageHeight: CGFloat = 0
+    /// Mientras se montan los siguientes.
+    @State private var isGenerating = false
     /// El conjunto que se está abriendo en el editor.
     @State private var editingOutfit: Outfit?
     /// De qué propuesta salió el editor, para devolverle lo editado.
@@ -89,6 +91,9 @@ struct InspoScreen: View {
 
     /// El id de la transición cuando no se sabe de qué tarjeta se salió.
     private static let noLookZoomID = UUID()
+
+    /// El de la tarjeta del final, la que trae más.
+    private static let moreCardID = UUID()
 
     /// Qué pone arriba: el sitio y los grados de hoy.
     private var weatherTitle: String {
@@ -156,7 +161,10 @@ struct InspoScreen: View {
                             Task { await feed.loadWeather() }
                         }
                     case .anchors:
-                        InspoAnchorSheet(initial: feed.anchors) { picked in
+                        GarmentPickerSheet(
+                            title: "Con estas prendas",
+                            initial: feed.anchors
+                        ) { picked in
                             withAnimation(WKAnimation.content) {
                                 feed.setAnchors(picked)
                                 scrolled = feed.looks.first?.id
@@ -177,10 +185,20 @@ struct InspoScreen: View {
             await feed.loadWeather()
             feed.start()
         }
+        // **Lo que pide el estilista.** Él no tiene pila de navegación —es una
+        // hoja—, así que deja apuntado qué abrir y lo empuja esta pantalla,
+        // que es la de debajo. Ver `AppRouter.editFromStylist`.
+        .onChange(of: router?.editRequest) { _, request in
+            guard let request else { return }
+            editingOutfit = modelContext.registeredModel(for: request.persistentID)
+        }
         // Al volver del editor: si el outfit sigue existiendo, se quedó lo
         // editado y la tarjeta lo enseña; si no —descartaste— se olvida y
         // vuelve la propuesta.
         .onChange(of: editingOutfit) { previous, current in
+            // Y si el editor venía del estilista, se vuelve a él con la
+            // conversación intacta.
+            if current == nil, router?.editRequest != nil { router?.finishedEditing() }
             guard current == nil, let previous, let look = editedLook else { return }
             if previous.deletedAt == nil, previous.modelContext != nil {
                 feed.remember(previous, for: look)
@@ -293,6 +311,31 @@ struct InspoScreen: View {
                         }
 
                     }
+
+                    // **Y una tarjeta más al final.**
+                    //
+                    // En vez de una píldora flotando sobre el borde, la última
+                    // tarjeta de la pila es la que trae más: cuesta subirla
+                    // —hay que tirar del final— y cuando sube, se llena. El
+                    // gesto es el mismo que para pasar de conjunto, así que no
+                    // hay nada nuevo que aprender.
+                    InspoMoreCard(count: InspoFeed.capacity, isWorking: isGenerating)
+                        .containerRelativeFrame(
+                            .vertical, count: 12, span: 11, spacing: WK.Spacing.m
+                        )
+                        .scrollTransition(.interactive, axis: .vertical) { content, phase in
+                            content
+                                .opacity(phase.isIdentity ? 1 : 0.35)
+                                .scaleEffect(phase.isIdentity ? 1 : 0.88)
+                        }
+                        .id(Self.moreCardID)
+                        // Al asomar de verdad —más de la mitad— se pone a
+                        // montar. Antes de eso no: rozarla al pasar de
+                        // conjunto no es pedir ocho más.
+                        .onScrollVisibilityChange(threshold: 0.6) { isVisible in
+                            guard isVisible else { return }
+                            generateMore()
+                        }
                 }
                 // **El aire de centrado, por dentro.**
                 //
@@ -307,23 +350,6 @@ struct InspoScreen: View {
             .scrollPosition(id: $scrolled)
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.always, axes: .vertical)
-            // **Más, cuando lo pidas.** Se montan solos cada rato y se
-            // rehacen al barajar, pero llegar al final y que aparezcan ocho
-            // más sin haberlos pedido convierte la pantalla en un pozo: ni se
-            // acaba nunca ni se sabe cuándo has visto todo. Con el tirón, el
-            // final es un final y seguir es una decisión.
-            .overlay { InspoVerdictPill(swipe: swipe) }
-            .overscrollAction(
-                threshold: 84,
-                symbol: "wand.and.stars",
-                label: "Generar \(InspoFeed.capacity) más",
-                // El mismo respiro que "Crear nuevo outfit" en el armario: el
-                // hueco de la barra ya lo reserva ella, así que sumarle su
-                // alto otra vez subía la píldora media pantalla.
-                bottomInset: WK.Spacing.m
-            ) {
-                withAnimation(WKAnimation.content) { feed.extend() }
-            }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
         }
     }
@@ -390,6 +416,23 @@ struct InspoScreen: View {
 
     private func discard(_ look: StylistLook) {
         feed.dismiss(look)
+    }
+
+    /// Monta la siguiente tanda y lleva la vista al primero de los nuevos.
+    ///
+    /// Los nuevos entran **antes** de la tarjeta del final, así que quedarse
+    /// donde estabas sería quedarse mirando la misma tarjeta de "más" con ocho
+    /// conjuntos recién hechos por encima.
+    private func generateMore() {
+        guard !isGenerating else { return }
+        isGenerating = true
+        let before = Set(feed.looks.map(\.id))
+        withAnimation(WKAnimation.content) { feed.extend() }
+        let fresh = feed.looks.first { !before.contains($0.id) }
+        if let fresh {
+            withAnimation(WKAnimation.content) { scrolled = fresh.id }
+        }
+        isGenerating = false
     }
 
     /// Tirado a la izquierda: fuera, y sus prendas pesan menos a partir de
@@ -573,6 +616,9 @@ private struct InspoLookCard: View {
             circle(isSaved ? "heart.fill" : "heart", action: onSave)
                 .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
             circle("calendar", action: onPlan)
+            // **El lápiz hace lo mismo que el doble toque.** Los dos gestos
+            // están bien para quien los conoce; el botón está para quien no.
+            circle("pencil", action: onEdit)
             circle("arrow.triangle.2.circlepath", action: onRegenerate)
             circle("xmark", action: onDismiss)
         }
@@ -727,5 +773,42 @@ private struct InspoVerdictPill: View {
                 .scaleEffect(0.7 + progress * 0.3)
                 .allowsHitTesting(false)
         }
+    }
+}
+
+/// La última tarjeta del feed: la que trae ocho más.
+///
+/// Tiene la pinta de un conjunto vacío —el mismo papel, el mismo borde— para
+/// que al subir se lea como "aquí va a haber algo", y no como un botón que
+/// alguien dejó suelto al final de la lista.
+private struct InspoMoreCard: View {
+    let count: Int
+    let isWorking: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+            .fill(WK.Palette.ink(0.03))
+            .overlay {
+                RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                    .stroke(
+                        WK.Palette.ink(0.12),
+                        style: StrokeStyle(lineWidth: 1, dash: [8, 6])
+                    )
+            }
+            .overlay {
+                VStack(spacing: WK.Spacing.s) {
+                    if isWorking {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "wand.and.stars")
+                            .font(.system(size: 26))
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                    Text(isWorking ? "Montando…" : "Generar \(count) más")
+                        .font(WK.Font.headline)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                }
+            }
+            .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
     }
 }
