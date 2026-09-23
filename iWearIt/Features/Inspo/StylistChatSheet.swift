@@ -235,7 +235,10 @@ struct StylistChatSheet: View {
             // El "+" primero, como en cualquier chat: lo que se adjunta va
             // antes de lo que se escribe.
             Button { sheet = .picker } label: {
-                Image(systemName: chat.attached.isEmpty ? "plus" : "plus.circle.fill")
+                // Siempre el mismo símbolo: un "+" que cambia de forma al
+                // adjuntar se lee como otro botón. Lo que dice que hay algo
+                // puesto son las píldoras de encima, que están para eso.
+                Image(systemName: "plus")
                     .font(WK.Font.headline)
                     .foregroundStyle(
                         chat.attached.isEmpty ? WK.Palette.primaryText : WK.Palette.accent
@@ -297,9 +300,8 @@ struct StylistChatSheet: View {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         chat.draft = ""
-        chat.thread.append(
-            StylistMessage(role: .user, text: text, attachments: Array(chat.attached))
-        )
+        let sent = Array(chat.attached)
+        chat.thread.append(StylistMessage(role: .user, text: text, attachments: sent))
 
         var base = chat.brief ?? feed.baseBrief()
         // Lo adjuntado **manda**: son las prendas que has señalado, y van
@@ -308,6 +310,10 @@ struct StylistChatSheet: View {
         let reading = StylistPhrase.read(text, wardrobe: feed.wardrobe(), base: base)
         chat.brief = reading.brief
         chat.isThinking = true
+        // **El campo se queda limpio.** Lo adjuntado ya viaja en el mensaje y
+        // en el encargo; dejarlo puesto hace que la siguiente pregunta arrastre
+        // prendas que creías haber soltado al enviar.
+        withAnimation(WKAnimation.content) { chat.attached.removeAll() }
 
         // Un turno de respiro: el motor tarda milisegundos, y contestar en el
         // mismo fotograma en que escribes se lee como si no hubiera mirado
