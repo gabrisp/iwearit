@@ -221,6 +221,63 @@ public actor GarmentPipeline {
         return false
     }
 
+    /// **El sujeto que haya dentro de un trozo de foto.**
+    ///
+    /// Es lo que hace falta detrás de rodear con el dedo: el trazo dice dónde
+    /// está la prenda y esto la levanta del fondo ahí dentro, que es
+    /// exactamente lo que hace el iPhone al copiar un sujeto. No es la pasada
+    /// completa —ni pose, ni fichas de producto, ni buscar varias prendas—
+    /// porque no hace falta: en lo que has rodeado hay una cosa, y lo caro de
+    /// la pasada completa es justo lo que aquí sobra.
+    ///
+    /// Sobre el propio recorte y no sobre la foto: el sujeto de Vision falla
+    /// más cuanto más hay alrededor, así que quitar el resto de la foto es la
+    /// forma más barata de ayudarle.
+    ///
+    /// - Returns: la prenda levantada, con su tipo si el segmentador está
+    ///   cargado, o `nil` si ahí dentro no se ve ningún sujeto.
+    public func subject(in region: CGImage) async -> DetectedGarment? {
+        guard
+            let observation = try? await VisionStages.foregroundInstances(in: region),
+            !observation.allInstances.isEmpty,
+            let buffer = try? observation.generateMaskedImage(
+                for: observation.allInstances,
+                imageFrom: ImageRequestHandler(region),
+                croppedToInstancesExtent: true
+            ),
+            let masked = Self.cgImage(from: buffer),
+            let tight = CropNormalizer.opaqueBounds(of: masked),
+            let cut = masked.cropping(to: tight)
+        else {
+            DiagnosticsLog.record("SUJETO", "dentro de lo rodeado no se ve ningún sujeto")
+            return nil
+        }
+
+        // Qué es, si hay con qué decirlo. Un mapa de clases sobre un recorte
+        // pequeño son milisegundos, y es la diferencia entre entrar como
+        // "otros" o entrar en su balda.
+        var kind = GarmentKind.other
+        if let segmenter, let map = try? await segmenter.classMap(for: region),
+           let tally = Self.tally(of: masked, in: map), let dominant = tally.dominantKind {
+            kind = dominant
+        }
+
+        let rawCrop = Self.scaledDown(cut, maxSide: Self.keptCropMaxSide) ?? cut
+        guard let normalized = CropNormalizer.normalize(rawCrop, for: kind) else { return nil }
+        DiagnosticsLog.record(
+            "SUJETO",
+            "dentro de lo rodeado: \(kind.rawValue) · \(normalized.width)×\(normalized.height)"
+        )
+        return DetectedGarment(
+            kind: kind,
+            confidence: 0.9,
+            normalized: ImmutableImage(normalized),
+            rawCrop: ImmutableImage(rawCrop),
+            colors: ColorExtractor.dominantColors(in: normalized),
+            featurePrint: nil
+        )
+    }
+
     /// - Parameter image: la foto original, sin recortar.
     /// - Returns: una prenda por franja utilizable, de arriba abajo.
     /// - Parameter image: la foto original, sin recortar.

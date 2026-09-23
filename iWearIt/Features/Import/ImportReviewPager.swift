@@ -99,7 +99,9 @@ private struct ImportPagerPage: View {
             // detectada.
             generatesCatalog: isCurrent,
             onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
-            onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
+            onManualCrop: { cropped in
+                Task { await model.setManualCrop(cropped, forCandidateWithID: candidate.id) }
+            },
             onRestyle: { await model.restyle(candidateWithID: candidate.id) },
             onImprove: { model.improve(candidateWithID: candidate.id) }
         )

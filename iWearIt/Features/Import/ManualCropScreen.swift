@@ -25,9 +25,9 @@ struct ManualCropScreen: View {
     let onCrop: (CGImage) -> Void
     /// Si al terminar un recorte la pantalla se queda para el siguiente.
     ///
-    /// En la importación sí: estás separando las prendas de una foto. Al
-    /// cambiar la imagen de una prenda que ya existe, no: ahí se recorta una y
-    /// se vuelve.
+    /// **Ya no se usa**: se recorta una y se cierra, siempre. Ver `crop()`. Se
+    /// queda el parámetro porque quien llama sigue diciendo cuál de los dos
+    /// casos es, y porque volver atrás es cambiar una línea.
     var keepsGoing = false
 
     @Environment(\.dismiss) private var dismiss
@@ -112,18 +112,10 @@ struct ManualCropScreen: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
             Spacer()
-            // Con recortes ya hechos, el botón de la derecha pasa a ser el de
-            // acabar: es lo que se quiere después del último.
-            if keepsGoing, cropped > 0, !canCrop {
-                Button("Listo") { dismiss() }
-                    .font(WK.Font.callout)
-                    .foregroundStyle(WK.Palette.accent)
-            } else {
-                Button("Repetir") { path = [] }
-                    .font(WK.Font.callout)
-                    .foregroundStyle(canCrop ? WK.Palette.accent : WK.Palette.tertiaryText)
-                    .disabled(!canCrop)
-            }
+            Button("Repetir") { path = [] }
+                .font(WK.Font.callout)
+                .foregroundStyle(canCrop ? WK.Palette.accent : WK.Palette.tertiaryText)
+                .disabled(!canCrop)
         }
         .padding(.top, WK.Spacing.m)
     }
@@ -144,17 +136,12 @@ struct ManualCropScreen: View {
 
     private var status: String {
         if canCrop { return "Se queda lo de dentro del trazo." }
-        if cropped > 0 {
-            return cropped == 1
-                ? "Una prenda recortada. Rodea otra o toca Listo."
-                : "\(cropped) prendas recortadas. Rodea otra o toca Listo."
-        }
+        if cropped > 0 { return "Recortada." }
         return "Dibuja alrededor de la prenda sin levantar el dedo."
     }
 
     private var primaryTitle: String {
-        if isWorking { return "Recortando…" }
-        return keepsGoing && cropped > 0 ? "Añadir esta también" : "Usar este recorte"
+        isWorking ? "Recortando…" : "Usar este recorte"
     }
 
     /// Dónde cae la imagen dentro del hueco, con `scaledToFit`.
@@ -201,14 +188,21 @@ struct ManualCropScreen: View {
             onCrop(result)
             cropped += 1
 
-            // Con varias prendas en la foto, la pantalla se queda: se borra el
-            // trazo y se puede rodear la siguiente. Salir y volver a entrar por
-            // cada una era recorrer el mismo camino tres veces.
-            if keepsGoing {
-                withAnimation(WKAnimation.content) { path = [] }
-            } else {
-                dismiss()
-            }
+            // **Se recorta una vez y se cierra.**
+            //
+            // Antes, rodeando prendas nuevas, la pantalla se quedaba puesta
+            // para la siguiente: la idea era ahorrar el camino de entrar y
+            // salir por cada prenda. En la mano no se lee así — le das a
+            // recortar, la pantalla sigue ahí y parece que no ha pasado nada,
+            // porque lo que ha pasado está **detrás** de la hoja. Cerrar es lo
+            // que enseña el resultado, y rodear otra es volver a tocar el
+            // botón, que está a un toque.
+            //
+            // if keepsGoing {
+            //     withAnimation(WKAnimation.content) { path = [] }
+            // } else {
+            dismiss()
+            // }
         }
     }
 }

@@ -42,9 +42,23 @@ public enum ManualCrop {
         feather: Int = 2
     ) -> CGImage? {
         guard points.count >= minimumPoints else { return nil }
+        guard image.width > 0, image.height > 0 else { return nil }
+
+        // **Primero se recorta a la caja del trazo, y en pequeño.**
+        //
+        // Todo lo que viene después —rellenar la máscara, crecerla por
+        // contraste, cerrar, alisar y multiplicar el alfa— recorre la imagen
+        // entera media docena de veces. Sobre una foto de doce megapíxeles eso
+        // son varios segundos con el dedo esperando, y para nada: lo que está
+        // fuera del lazo se va a tirar igualmente, y el recorte acaba a 768
+        // píxeles de todos modos.
+        //
+        // Con la caja del trazo y un tope de lado, lo mismo cuesta una
+        // fracción: una prenda rodeada en media foto son ~2 Mpx en vez de 12,
+        // y encima el crecimiento por contraste trabaja sobre lo que importa.
+        guard let (image, points) = boxed(image, path: points) else { return nil }
         let width = image.width
         let height = image.height
-        guard width > 0, height > 0 else { return nil }
 
         guard
             let buffer = PixelBuffer(width: width, height: height),
@@ -164,5 +178,70 @@ public enum ManualCrop {
         // Ajustado a lo que quedó: un lazo pequeño en una foto grande dejaría
         // la prenda diminuta en una esquina de un lienzo casi vacío.
         return CropNormalizer.normalize(cut, for: .other) ?? cut
+    }
+
+    /// Lo más grande que se trabaja: por encima, el trazo se aplica sobre una
+    /// copia reducida. El recorte final mide 768, así que no se pierde nada.
+    static let workingMaxSide = 1400
+
+    /// La caja del trazo, recortada y reducida, con el trazo recolocado.
+    ///
+    /// - Returns: la porción de imagen y los puntos en coordenadas unitarias
+    ///   **de esa porción**, o `nil` si el trazo no encierra nada útil.
+    private static func boxed(
+        _ image: CGImage,
+        path points: [CGPoint]
+    ) -> (CGImage, [CGPoint])? {
+        let xs = points.map(\.x)
+        let ys = points.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(),
+              let minY = ys.min(), let maxY = ys.max() else { return nil }
+
+        // Un margen alrededor: el trazo es aproximado y lo que se crece por
+        // contraste necesita sitio hacia fuera para recuperar la manga que te
+        // dejaste dentro.
+        let pad = 0.04
+        let box = CGRect(
+            x: max(0, minX - pad),
+            y: max(0, minY - pad),
+            width: min(1, maxX + pad) - max(0, minX - pad),
+            height: min(1, maxY + pad) - max(0, minY - pad)
+        )
+        guard box.width > 0.02, box.height > 0.02 else { return nil }
+
+        let pixels = CGRect(
+            x: (box.minX * Double(image.width)).rounded(.down),
+            y: (box.minY * Double(image.height)).rounded(.down),
+            width: (box.width * Double(image.width)).rounded(.up),
+            height: (box.height * Double(image.height)).rounded(.up)
+        ).intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard !pixels.isNull, let cropped = image.cropping(to: pixels) else { return nil }
+
+        let moved = points.map { point in
+            CGPoint(
+                x: (point.x - box.minX) / box.width,
+                y: (point.y - box.minY) / box.height
+            )
+        }
+        guard let small = scaledDown(cropped, maxSide: workingMaxSide) else {
+            return (cropped, moved)
+        }
+        return (small, moved)
+    }
+
+    /// Reduce si hace falta. `nil` si ya cabe.
+    private static func scaledDown(_ image: CGImage, maxSide: Int) -> CGImage? {
+        let longest = max(image.width, image.height)
+        guard longest > maxSide else { return nil }
+        let scale = Double(maxSide) / Double(longest)
+        let width = max(1, Int((Double(image.width) * scale).rounded()))
+        let height = max(1, Int((Double(image.height) * scale).rounded()))
+        guard
+            let buffer = PixelBuffer(width: width, height: height),
+            let context = buffer.makeContext()
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
     }
 }

@@ -66,13 +66,17 @@ struct ImportDetectedStep: View {
         .sheet(isPresented: $isCroppingByHand) {
             ManualCropScreen(
                 image: photos[min(current, photos.count - 1)],
-                // Lo que rodeas es el recorte, y entra al momento. Ver
+                // Lo rodeado se recorta y dentro se busca el sujeto. Ver
                 // `ImportModel.addManualCandidate`.
                 onCrop: { cropped in
-                    if let recropping {
-                        model.setManualCrop(cropped, forCandidateWithID: recropping)
-                    } else {
-                        model.addManualCandidate(cropped, photoIndex: current)
+                    let photo = current
+                    let target = recropping
+                    Task {
+                        if let target {
+                            await model.setManualCrop(cropped, forCandidateWithID: target)
+                        } else {
+                            await model.addManualCandidate(cropped, photoIndex: photo)
+                        }
                     }
                 },
                 // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
@@ -228,9 +232,11 @@ struct ImportDetectedStep: View {
     private var caption: some View {
         VStack(spacing: 2) {
             Text(
-                model.candidates.isEmpty
-                    ? "No hemos visto ninguna prenda: rodéala con el dedo."
-                    : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
+                model.searchingInRegion
+                    ? "Levantando la prenda de lo que has rodeado…"
+                    : model.candidates.isEmpty
+                        ? "No hemos visto ninguna prenda: rodéala con el dedo."
+                        : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
             )
             .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)

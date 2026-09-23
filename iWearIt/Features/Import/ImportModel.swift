@@ -92,6 +92,8 @@ final class ImportModel {
     /// El total de la tanda añadida y cuántas van, para la barra de progreso.
     private(set) var addingTotal = 0
     private(set) var addingDone = 0
+    /// Si se está levantando el sujeto de lo que acabas de rodear.
+    private(set) var searchingInRegion = false
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
     /// Cómo se está reintentando, para poder decirlo en el botón.
@@ -483,27 +485,30 @@ final class ImportModel {
     /// Sin atributos deducidos: lo único que se sabe con certeza es la imagen y
     /// sus colores. El tipo y el nombre se corrigen en la ficha, que es donde
     /// están los controles para eso.
-    /// **Lo que rodeas es el recorte.** Se queda tal cual y al instante.
+    /// **Rodear recorta, y dentro del recorte se busca el sujeto.**
     ///
-    /// ## Por qué ya no se busca dentro
+    /// Que es lo que hace el iPhone al copiar un sujeto de una foto, y lo que
+    /// falla menos cuanto menos hay alrededor: por eso se le da el trozo que
+    /// has rodeado y no la foto entera. Lo que sale es la prenda levantada del
+    /// fondo, con su tipo si el segmentador está cargado.
     ///
-    /// Se probó: rodear señalaba el sitio y el pipeline miraba solo ahí. En
-    /// teoría es mejor —saldría con tipo, colores y un recorte fino—; en la
-    /// práctica no, por dos motivos que se notan a la primera.
+    /// No es la pasada completa del análisis —aquella son veinte segundos y
+    /// mira cosas que aquí sobran—: es una petición de Vision sobre un recorte
+    /// pequeño. Ver `GarmentPipeline.subject(in:)`.
     ///
-    /// 1. **Lo que hay debajo no acierta.** El sujeto de Vision falla
-    ///    exactamente en las fotos por las que acabas rodeando a mano: ropa
-    ///    tirada sobre una cama, dos prendas juntas, una foto de tienda. Si
-    ///    fallaba en la foto entera, dentro del trozo falla igual.
-    /// 2. **Cuesta lo que analizar una foto.** Veinte segundos después de
-    ///    cerrar el lazo, para acabar con algo peor que lo que habías dibujado.
-    ///
-    /// Tu trazo, en cambio, es exacto por definición: has señalado la prenda
-    /// mirándola. Así que el trazo manda, y la versión bonita —plana, sobre
-    /// fondo transparente— la da "mejorar", que es donde de verdad hay un
-    /// modelo que sabe hacerla.
-    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) {
-        candidates.append(manualCandidate(from: image, photoIndex: photoIndex))
+    /// Si ahí dentro no se ve ningún sujeto, se queda lo rodeado tal cual: lo
+    /// que has señalado tú vale más que un hueco vacío.
+    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) async {
+        searchingInRegion = true
+        defer { searchingInRegion = false }
+
+        if let found = await pipeline.subject(in: image) {
+            var candidate = ImportCandidate(found, photoIndex: photoIndex)
+            candidate.wasCorrectedByUser = true
+            candidates.append(candidate)
+        } else {
+            candidates.append(manualCandidate(from: image, photoIndex: photoIndex))
+        }
         DiagnosticsLog.record("IMPORT", "prenda rodeada a mano: \(candidates.count) en total")
     }
 
@@ -894,14 +899,27 @@ final class ImportModel {
         candidates[index].wasCorrectedByUser = true
     }
 
-    /// Rehacer el recorte de una prenda que ya está: manda lo que rodees.
-    func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
+    /// Rehacer el recorte de una prenda que ya está, con el mismo camino: se
+    /// recorta lo rodeado y se levanta el sujeto de dentro.
+    func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) async {
+        guard candidates.contains(where: { $0.id == id }) else { return }
+        searchingInRegion = true
+        defer { searchingInRegion = false }
+
+        let found = await pipeline.subject(in: image)
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
-        candidates[index].manualCrop = ImmutableImage(image)
+        candidates[index].manualCrop = ImmutableImage(found?.normalized.cgImage ?? image)
         candidates[index].catalogImage = nil
         candidates[index].catalogFailure = nil
         candidates[index].wasCorrectedByUser = true
-        DiagnosticsLog.record("IMPORT", "recorte a mano aplicado")
+        // El tipo, solo si no lo habías tocado tú.
+        if let found, !candidates[index].wasCorrectedByUser || candidates[index].kind == .other {
+            candidates[index].kind = found.kind
+        }
+        DiagnosticsLog.record(
+            "IMPORT",
+            found == nil ? "recorte a mano aplicado tal cual" : "sujeto levantado dentro del recorte"
+        )
     }
 
     var keptCount: Int { candidates.count { $0.isKept } }
