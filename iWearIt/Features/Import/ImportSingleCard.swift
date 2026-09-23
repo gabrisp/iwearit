@@ -269,7 +269,7 @@ struct ImportSingleCard: View {
                 label: "Material"
             ) { field = .material }
             EditRow(
-                value: GarmentVocabulary.Warmth.from(candidate.seasons).label,
+                value: GarmentVocabulary.Warmth.label(for: candidate.seasons),
                 label: "Calidez"
             ) { field = .warmth }
             // **Sin estilo.** "Casual · Edgy" se adivinaba y no servía para
@@ -354,21 +354,30 @@ struct ImportSingleCard: View {
         case .warmth:
             WKChipSheet(
                 title: "Cambiar calidez",
-                subtitle: "Selecciona qué tan abrigada es la prenda",
+                // Se puede **quitar**: hay prendas que valen para todo el año.
+                subtitle: "Quítala si vale para todo el año",
                 options: GarmentVocabulary.Warmth.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
                 selection: Binding(
-                    get: { [GarmentVocabulary.Warmth.from(candidate.seasons).rawValue] },
+                    get: {
+                        GarmentVocabulary.Warmth.from(candidate.seasons)
+                            .map { [$0.rawValue] } ?? []
+                    },
                     set: { set in
                         guard
                             let raw = set.first,
                             let warmth = GarmentVocabulary.Warmth(rawValue: raw)
-                        else { return }
+                        else {
+                            // Sin nada marcado: vale para todas.
+                            onChangeSeasons?(.all)
+                            return
+                        }
                         onChangeSeasons?(warmth.seasons)
                     }
                 ),
-                limit: 1
+                limit: 1,
+                allowsEmpty: true
             )
         case .type:
             // **Todas las prendas, no solo las de su parte.** Si el detector

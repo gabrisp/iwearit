@@ -239,7 +239,7 @@ struct GarmentEditSheet: View {
             //     label: "Etiquetas"
             // ) { editing = .tags }
             EditRow(
-                value: GarmentVocabulary.Warmth.from(garment.seasons).label,
+                value: GarmentVocabulary.Warmth.label(for: garment.seasons),
                 label: "Calidez"
             ) { editing = .warmth }
 
@@ -364,21 +364,28 @@ struct GarmentEditSheet: View {
         case .warmth:
             WKChipSheet(
                 title: "Cambiar calidez",
-                subtitle: "Selecciona qué tan abrigada es la prenda",
+                subtitle: "Quítala si vale para todo el año",
                 options: GarmentVocabulary.Warmth.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
                 selection: Binding(
-                    get: { [GarmentVocabulary.Warmth.from(garment.seasons).rawValue] },
+                    get: {
+                        GarmentVocabulary.Warmth.from(garment.seasons)
+                            .map { [$0.rawValue] } ?? []
+                    },
                     set: { set in
                         guard
                             let raw = set.first,
                             let warmth = GarmentVocabulary.Warmth(rawValue: raw)
-                        else { return }
+                        else {
+                            garment.seasons = .all
+                            return
+                        }
                         garment.seasons = warmth.seasons
                     }
                 ),
-                limit: 1
+                limit: 1,
+                allowsEmpty: true
             )
         }
     }

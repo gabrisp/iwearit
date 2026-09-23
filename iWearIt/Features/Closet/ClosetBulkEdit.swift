@@ -270,11 +270,16 @@ struct ClosetBulkWarmthSheet: View {
                     guard
                         let raw = newValue.first,
                         let warmth = GarmentVocabulary.Warmth(rawValue: raw)
-                    else { return }
+                    else {
+                        // Sin nada marcado: valen para todo el año.
+                        for garment in garments { garment.seasons = .all }
+                        return
+                    }
                     for garment in garments { garment.seasons = warmth.seasons }
                 }
             ),
-            limit: 1
+            limit: 1,
+            allowsEmpty: true
         )
     }
 }

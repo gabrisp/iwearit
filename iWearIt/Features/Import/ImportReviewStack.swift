@@ -409,7 +409,7 @@ private struct ImportGarmentCard: View {
     private var details: String {
         [
             candidate.cut,
-            GarmentVocabulary.Warmth.from(candidate.seasons).label,
+            GarmentVocabulary.Warmth.label(for: candidate.seasons),
             candidate.material?.capitalized,
             candidate.detected.brand,
         ].compactMap { $0 }.joined(separator: " · ")

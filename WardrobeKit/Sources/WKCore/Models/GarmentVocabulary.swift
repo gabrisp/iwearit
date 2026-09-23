@@ -230,15 +230,27 @@ public enum GarmentVocabulary {
         public var seasons: SeasonSet {
             switch self {
             case .summer: [.spring, .summer]
-            case .midSeason: .all
+            // **Entretiempo ya no es "todas".** Se solapaba con la prenda que
+            // vale para todo el año, y no son lo mismo: una gabardina es de
+            // entretiempo, una camiseta blanca vale siempre.
+            case .midSeason: [.spring, .autumn]
             case .winter: [.autumn, .winter]
             }
         }
 
-        public static func from(_ seasons: SeasonSet) -> Warmth {
+        /// Lo que se enseña cuando la prenda no es de ninguna en concreto.
+        public static let anyLabel = "Todo el año"
+
+        /// `nil` = vale para todo el año: ninguna calidez marcada.
+        public static func from(_ seasons: SeasonSet) -> Warmth? {
             if seasons == [.spring, .summer] { return .summer }
             if seasons == [.autumn, .winter] { return .winter }
-            return .midSeason
+            if seasons == [.spring, .autumn] { return .midSeason }
+            return nil
+        }
+
+        public static func label(for seasons: SeasonSet) -> String {
+            from(seasons)?.label ?? anyLabel
         }
     }
 }

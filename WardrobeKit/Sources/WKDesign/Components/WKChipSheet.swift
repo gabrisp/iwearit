@@ -26,6 +26,11 @@ public struct WKChipSheet: View {
     private let limit: Int?
     /// Si se puede escribir un valor que no está en la lista.
     private let allowsCustom: Bool
+    /// Si se puede quedar **sin nada elegido** tocando lo ya elegido.
+    ///
+    /// Para lo que de verdad puede no aplicar: hay prendas que no son de
+    /// ninguna temporada en concreto.
+    private let allowsEmpty: Bool
     @Binding private var selection: Set<String>
     @State private var custom = ""
 
@@ -38,9 +43,11 @@ public struct WKChipSheet: View {
         options: [Option],
         selection: Binding<Set<String>>,
         limit: Int? = nil,
-        allowsCustom: Bool = false
+        allowsCustom: Bool = false,
+        allowsEmpty: Bool = false
     ) {
         self.allowsCustom = allowsCustom
+        self.allowsEmpty = allowsEmpty
         self.title = title
         self.subtitle = subtitle
         self.options = options
@@ -96,10 +103,11 @@ public struct WKChipSheet: View {
     private func toggle(_ id: String) {
         withAnimation(WKAnimation.selection) {
             if selection.contains(id) {
-                // En selección única no se deselecciona: dejar la prenda sin
+                // En selección única no se deselecciona —dejar la prenda sin
                 // tipo al tocar el que ya estaba es un accidente, no una
-                // intención.
-                if limit != 1 { selection.remove(id) }
+                // intención— salvo donde no elegir nada significa algo. Ver
+                // `allowsEmpty`.
+                if limit != 1 || allowsEmpty { selection.remove(id) }
             } else {
                 if limit == 1 {
                     selection = [id]
