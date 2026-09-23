@@ -150,8 +150,19 @@ struct StylistChatSheet: View {
     }
 
     private var content: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: WK.Spacing.l) {
+        // **El índice del armario, una sola vez por pasada.**
+        //
+        // `byID` es una propiedad calculada: construye un diccionario con
+        // todas las prendas cada vez que se lee, y se leía una vez por mensaje
+        // **y otra por cada conjunto propuesto**. Con tres preguntas en el
+        // hilo eso son veinte diccionarios del armario entero en cada
+        // fotograma de scroll, y de ahí venía el tirón. Aquí se construye uno
+        // y lo usan todos.
+        let wardrobe = byID
+        return ScrollView(.vertical) {
+            // Perezoso: lo que no se ve no se monta. El hilo crece sin tope y
+            // cada respuesta trae seis lienzos.
+            LazyVStack(alignment: .leading, spacing: WK.Spacing.l) {
                 if chat.thread.isEmpty {
                     // **El ejemplo se envía tal cual, sin pasar por el
                     // campo.** Escribirlo en `draft` y llamar a `send()` en el
@@ -164,7 +175,7 @@ struct StylistChatSheet: View {
                 ForEach(chat.thread) { message in
                     StylistBubble(
                         message: message,
-                        garments: message.attachments.compactMap { byID[$0] },
+                        garments: message.attachments.compactMap { wardrobe[$0] },
                         store: appEnvironment.imageStore
                     )
                     .padding(.horizontal, WK.Spacing.screenInset)
@@ -178,14 +189,15 @@ struct StylistChatSheet: View {
                     // borraba lo anterior aunque todavía lo estuvieras
                     // mirando.
                     if !message.looks.isEmpty {
-                        looksStrip(message.looks)
+                        looksStrip(message.looks, wardrobe: wardrobe)
                     }
                 }
 
                 if chat.isThinking {
+                    // Sin el identificador del final: dos vistas con el mismo
+                    // `id` dentro del mismo contenedor se pisan.
                     ProgressView()
                         .padding(.horizontal, WK.Spacing.screenInset)
-                        .id(Self.bottomID)
                 }
 
                 Color.clear
@@ -195,6 +207,7 @@ struct StylistChatSheet: View {
             .padding(.vertical, WK.Spacing.m)
         }
         .scrollDismissesKeyboard(.interactively)
+        .scrollIndicators(.hidden)
         // Lo último, a la vista: una respuesta que llega debajo del borde es
         // una respuesta que no ha llegado.
         .defaultScrollAnchor(.bottom)
@@ -204,12 +217,12 @@ struct StylistChatSheet: View {
     private static let bottomID = "bottom"
 
     /// Lo que propuso en una respuesta, para mirarlo de lado.
-    private func looksStrip(_ looks: [StylistLook]) -> some View {
+    private func looksStrip(_ looks: [StylistLook], wardrobe: [UUID: Garment]) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.m) {
                 ForEach(looks) { look in
                     StylistResultCard(
-                        garments: look.garmentIDs.compactMap { byID[$0] },
+                        garments: look.garmentIDs.compactMap { wardrobe[$0] },
                         // **Lo editado se queda en su tarjeta.** Si abriste
                         // esta propuesta en el editor y moviste cosas, lo que
                         // se ve aquí es eso, no la propuesta de antes. Igual
@@ -284,50 +297,20 @@ struct StylistChatSheet: View {
     }
 
     private var composer: some View {
-        HStack(spacing: WK.Spacing.s) {
-            // El "+" primero, como en cualquier chat: lo que se adjunta va
-            // antes de lo que se escribe.
-            Button { sheet = .picker } label: {
-                // Siempre el mismo símbolo: un "+" que cambia de forma al
-                // adjuntar se lee como otro botón. Lo que dice que hay algo
-                // puesto son las píldoras de encima, que están para eso.
-                Image(systemName: "plus")
-                    .font(WK.Font.headline)
-                    .foregroundStyle(
-                        chat.attached.isEmpty ? WK.Palette.primaryText : WK.Palette.accent
-                    )
-                    .frame(width: 44, height: 44)
-                    .contentShape(.circle)
-            }
-            .buttonStyle(WKPressStyle())
-            .adaptiveGlassInteractive(in: .circle)
-
-            TextField("Pídeme un look…", text: $chat.draft, axis: .vertical)
-                .lineLimit(1...4)
-                .focused($isWriting)
-                .submitLabel(.send)
-                .onSubmit {
-                    isWriting = false
-                    send()
-                }
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.s)
-                .adaptiveGlass(in: .capsule)
-
-            Button {
-                isWriting = false
-                send()
-            } label: {
-                Image(systemName: "arrow.up")
-                    .font(WK.Font.headline)
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .frame(width: 44, height: 44)
-                    .contentShape(.circle)
-            }
-            .buttonStyle(WKPressStyle())
-            .adaptiveGlassInteractive(in: .circle)
-            .disabled(chat.draft.trimmingCharacters(in: .whitespaces).isEmpty)
-        }
+        // **Lo que escribes no repinta el hilo.**
+        //
+        // El campo estaba atado a `chat.draft`, así que cada tecla cambiaba el
+        // objeto observado y con él la hoja entera: las burbujas, los lienzos
+        // de cada propuesta, todo. Ahora el texto vive en el campo y solo sale
+        // de él al enviar —o al cerrar, para no perder lo empezado—.
+        StylistComposer(
+            initialText: chat.draft,
+            hasAttachments: !chat.attached.isEmpty,
+            isWriting: $isWriting,
+            onPlus: { sheet = .picker },
+            onSend: { text in ask(text) },
+            onStash: { text in chat.draft = text }
+        )
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.xs)
     }
@@ -343,10 +326,6 @@ struct StylistChatSheet: View {
         withAnimation(WKAnimation.content) {
             _ = chat.attached.remove(garment.id)
         }
-    }
-
-    private func send() {
-        ask(chat.draft)
     }
 
     private func ask(_ raw: String) {
@@ -621,16 +600,10 @@ private struct StylistResultCard: View {
         }
     }
 
+    /// La misma medida que en la inspiración: ver `WKCircleButton`.
     private func circle(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.caption.weight(.semibold))
-                .frame(width: 30, height: 30)
-                .contentShape(.circle)
-        }
-        .buttonStyle(WKPressStyle())
-        .tint(WK.Palette.primaryText)
-        .adaptiveGlassInteractive(in: .circle)
+        WKCircleButton(symbol, size: .compact, action: action)
+            .tint(WK.Palette.primaryText)
     }
 }
 
@@ -661,5 +634,57 @@ struct StylistDayPicker: View {
                 }
         }
         .presentationDetents([.medium])
+    }
+}
+
+
+/// El campo de escribir, **con su propio texto**.
+///
+/// Vive aparte por rendimiento: mientras escribes, lo único que cambia es esta
+/// vista. Lo escrito se devuelve al chat al enviar y al desaparecer, así que
+/// cerrar la hoja a mitad de frase sigue sin perderla.
+private struct StylistComposer: View {
+    let initialText: String
+    let hasAttachments: Bool
+    @FocusState.Binding var isWriting: Bool
+    let onPlus: () -> Void
+    let onSend: (String) -> Void
+    /// Para guardar lo empezado cuando la hoja se va.
+    let onStash: (String) -> Void
+
+    @State private var text: String = ""
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.s) {
+            // El "+" primero, como en cualquier chat: lo que se adjunta va
+            // antes de lo que se escribe.
+            // Siempre el mismo símbolo: un "+" que cambia de forma al adjuntar
+            // se lee como otro botón. Lo que dice que hay algo puesto son las
+            // píldoras de encima, que están para eso.
+            WKCircleButton("plus", action: onPlus)
+                .tint(hasAttachments ? WK.Palette.accent : WK.Palette.primaryText)
+
+            TextField("Pídeme un look…", text: $text, axis: .vertical)
+                .lineLimit(1...4)
+                .focused($isWriting)
+                .submitLabel(.send)
+                .onSubmit(send)
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.s)
+                .adaptiveGlass(in: .capsule)
+
+            WKCircleButton("arrow.up", action: send)
+                .tint(WK.Palette.primaryText)
+                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .onAppear { if text.isEmpty { text = initialText } }
+        .onDisappear { onStash(text) }
+    }
+
+    private func send() {
+        isWriting = false
+        let outgoing = text
+        text = ""
+        onSend(outgoing)
     }
 }

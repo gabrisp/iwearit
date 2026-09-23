@@ -77,11 +77,15 @@ final class StylistChat {
     }
 
     /// Lo ya guardado, para que el corazón lo diga sin preguntar a la base.
+    ///
+    /// Guardado como conjunto y no como lista: esto se lee una vez **por
+    /// tarjeta y por fotograma**, y construir un `Set` en cada lectura era
+    /// repartir asignaciones por todo el scroll.
     var saved: Set<UUID> {
-        get { Set(conversations[safe: activeIndex]?.saved ?? []) }
+        get { conversations[safe: activeIndex]?.saved ?? [] }
         set {
             guard conversations.indices.contains(activeIndex) else { return }
-            conversations[activeIndex].saved = Array(newValue)
+            conversations[activeIndex].saved = newValue
             persist()
         }
     }
@@ -187,12 +191,23 @@ final class StylistChat {
         conversations.removeAll { doomed.contains($0.id) }
     }
 
+    /// **Se guarda al rato, no en cada tecla.**
+    ///
+    /// Escribir esto es codificar el archivo entero a JSON, y se llamaba en
+    /// cada mensaje y en cada corazón —además de reordenar la lista, que es
+    /// una escritura observada y por tanto un repintado de todo el hilo—. Se
+    /// espera a que pare la mano: lo que hay que conservar es el resultado, no
+    /// cada paso intermedio.
     private func persist() {
-        // Ordenadas por lo último que pasó en ellas: el archivo se lee de
-        // arriba abajo y arriba va lo de hoy.
-        conversations.sort { $0.updatedAt > $1.updatedAt }
-        SyncedStore.setValue(conversations, forKey: Self.storeKey)
+        saveTask?.cancel()
+        saveTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(700))
+            guard let self, !Task.isCancelled else { return }
+            SyncedStore.setValue(self.conversations, forKey: Self.storeKey)
+        }
     }
+
+    private var saveTask: Task<Void, Never>?
 }
 
 /// Un chat entero: lo dicho, lo propuesto y cuándo fue.
@@ -202,7 +217,7 @@ struct StylistConversation: Identifiable, Hashable, Codable {
     var updatedAt = Date()
     var messages: [StylistMessage] = []
     /// Los conjuntos de este chat que ya están en favoritos o en un día.
-    var saved: [UUID] = []
+    var saved: Set<UUID> = []
 
     /// Cómo se llama en el archivo: lo primero que pediste.
     ///

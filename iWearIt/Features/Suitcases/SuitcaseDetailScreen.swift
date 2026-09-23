@@ -170,14 +170,10 @@ private struct SuitcaseContent: View {
                     case .inspo: "Inspo"
                     }
                 }
-                Button { isPresentingStyle = true } label: {
-                    Image(systemName: "pencil")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .frame(width: 52, height: 52)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
+                // La misma medida que cualquier otro botón redondo de la app.
+                // Ver `WKCircleButton`.
+                WKCircleButton("pencil") { isPresentingStyle = true }
+                    .tint(WK.Palette.primaryText)
             }
             .padding(.bottom, WK.Spacing.xs)
         }
@@ -547,7 +543,7 @@ private struct SuitcaseWeatherPill: View {
             .foregroundStyle(WK.Palette.primaryText)
             .fixedSize()
             .padding(.horizontal, WK.Spacing.m)
-            .padding(.vertical, WK.Spacing.xs)
+            .padding(.vertical, WK.Spacing.s)
             .adaptiveGlassInteractive(in: .capsule)
         }
         .tint(WK.Palette.primaryText)

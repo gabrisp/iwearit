@@ -32,7 +32,12 @@ struct StylistArchiveScreen: View {
     /// Las que tienen algo dentro. Una conversación en blanco no es un
     /// recuerdo de nada.
     private var saved: [StylistConversation] {
-        chat.conversations.filter { !$0.messages.isEmpty }
+        // Ordenadas aquí y no al guardar: reordenar la lista en cada mensaje
+        // era una escritura observada, y con ella un repintado del hilo entero
+        // mientras escribías.
+        chat.conversations
+            .filter { !$0.messages.isEmpty }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
     var body: some View {

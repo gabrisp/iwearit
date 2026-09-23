@@ -793,16 +793,12 @@ struct InspoLookCard: View {
         .padding(WK.Spacing.m)
     }
 
+    /// El botón redondo de siempre, con la medida de siempre. Ver
+    /// `WKCircleButton`: antes cada sitio lo ponía a mano con su `frame`, y no
+    /// había dos iguales.
     private func circle(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.footnote.weight(.semibold))
-                .frame(width: 34, height: 34)
-                .contentShape(.circle)
-        }
-        .buttonStyle(WKPressStyle())
-        .tint(WK.Palette.primaryText)
-        .adaptiveGlassInteractive(in: .circle)
+        WKCircleButton(symbol, size: .compact, action: action)
+            .tint(WK.Palette.primaryText)
     }
 }
 
