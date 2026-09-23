@@ -180,6 +180,28 @@ private struct SubscriptionSection: View {
                 RemainingRow(feature: .customCategories, label: "Baldas propias")
             }
 
+            // **El saldo, a la vista.** Mejorar una prenda y probarse un
+            // outfit se pagan con monedas, y una moneda que no se puede mirar
+            // es una moneda que nadie sabe si tiene. Ver `StoreIDs.Currency`.
+            if appEnvironment.store.isReady {
+                WKValueRow("Mejoras", value: "\(appEnvironment.store.improvements)")
+                WKValueRow("Pruebas", value: "\(appEnvironment.store.tryOns)")
+                WKRow(showsSeparator: false) {
+                    Task {
+                        _ = await appEnvironment.store.restore()
+                        await appEnvironment.gate.refresh()
+                    }
+                } leading: {
+                    Text("Restaurar compras")
+                        .font(WK.Font.rowTitle)
+                        .foregroundStyle(WK.Palette.primaryText)
+                } trailing: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                }
+            }
+
             #if DEBUG
             if appEnvironment.gate.isDebugControllable {
                 WKRow(showsSeparator: false) {

@@ -1,3 +1,4 @@
+import RevenueCat
 import SwiftUI
 import WKDesign
 
@@ -11,11 +12,23 @@ import WKDesign
 /// convierte a quien ya iba a pagar y pierde a todo el resto, incluida la gente
 /// que habría pagado más adelante, una vez la app le hubiera demostrado algo.
 ///
-/// - Note: precios de ejemplo. Los reales llegan de RevenueCat en F9.
+/// ## De dónde salen los precios
+///
+/// De RevenueCat, que los pide a la App Store: el precio de verdad, en la
+/// moneda de verdad, con la promoción que tenga puesta esa cuenta. Los de
+/// ejemplo se quedan **solo** para cuando no hay tienda —sin clave, sin red o
+/// sin oferta configurada—, porque un paywall en blanco es peor que uno con
+/// precios orientativos.
 struct PaywallStep: View {
     let onFinish: () -> Void
 
+    @Environment(AppEnvironment.self) private var appEnvironment
     @State private var plan: Plan = .yearly
+    /// Cuál de los paquetes de verdad está elegido.
+    @State private var picked: Package?
+
+    private var store: Store { appEnvironment.store }
+    private var packages: [Package] { store.packages }
 
     enum Plan: String, CaseIterable, Identifiable {
         case yearly, monthly
@@ -68,8 +81,26 @@ struct PaywallStep: View {
                     TestimonialCard(OnboardingContent.testimonials[0])
 
                     VStack(spacing: WK.Spacing.s) {
-                        ForEach(Plan.allCases) { option in
-                            PlanRow(plan: option, isSelected: plan == option) { plan = option }
+                        if packages.isEmpty {
+                            // Sin tienda: los de ejemplo, que al menos dicen de
+                            // qué orden de precio hablamos.
+                            ForEach(Plan.allCases) { option in
+                                PlanRow(
+                                    title: option.title,
+                                    price: option.price,
+                                    detail: option.detail,
+                                    isSelected: plan == option
+                                ) { plan = option }
+                            }
+                        } else {
+                            ForEach(packages, id: \.identifier) { package in
+                                PlanRow(
+                                    title: package.planTitle,
+                                    price: package.storeProduct.localizedPriceString,
+                                    detail: package.planDetail,
+                                    isSelected: picked?.identifier == package.identifier
+                                ) { picked = package }
+                            }
                         }
                     }
                 }
@@ -78,20 +109,65 @@ struct PaywallStep: View {
 
             AdaptiveGlassContainer(spacing: WK.Spacing.s) {
                 VStack(spacing: WK.Spacing.s) {
-                    WKPrimaryButton("Empezar 7 días gratis", surface: .glass) {
-                        // F9: compra real con RevenueCat.
-                        onFinish()
-                    }
+                    WKPrimaryButton(buyTitle, surface: .glass) { buy() }
+                        .disabled(store.isWorking)
+
                     WKSecondaryButton("Seguir gratis") { onFinish() }
 
-                    Text("Puedes cancelar cuando quieras.")
+                    // **Restaurar tiene que estar a la vista.** Lo pide la App
+                    // Store, y es lo primero que busca quien cambia de
+                    // teléfono y se encuentra el paywall otra vez.
+                    Button("Restaurar compras") {
+                        Task {
+                            let restored = await store.restore()
+                            await appEnvironment.gate.refresh()
+                            if restored { onFinish() }
+                        }
+                    }
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .disabled(store.isWorking)
+
+                    Text(store.problem ?? "Puedes cancelar cuando quieras.")
                         .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.tertiaryText)
+                        .foregroundStyle(
+                            store.problem == nil ? WK.Palette.tertiaryText : WK.Palette.accent
+                        )
+                        .multilineTextAlignment(.center)
                 }
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.m)
+        .task {
+            // Por si se abre antes de que el arranque haya traído la oferta.
+            if packages.isEmpty { await store.load() }
+            picked = picked ?? packages.first { $0.packageType == .annual } ?? packages.first
+        }
+    }
+
+    /// Lo que pone el botón: si el paquete elegido trae prueba gratis, se dice.
+    private var buyTitle: String {
+        if store.isWorking { return "Un momento…" }
+        guard let picked else { return "Empezar 7 días gratis" }
+        if let trial = picked.storeProduct.introductoryDiscount, trial.price == 0 {
+            return "Empezar \(trial.subscriptionPeriod.localizedDescription) gratis"
+        }
+        return "Suscribirme"
+    }
+
+    private func buy() {
+        guard let picked else {
+            // Sin tienda no hay nada que comprar: se sale como quien dice que
+            // no, en vez de dejar un botón que no hace nada.
+            onFinish()
+            return
+        }
+        Task {
+            let bought = await store.purchase(picked)
+            await appEnvironment.gate.refresh()
+            if bought { onFinish() }
+        }
     }
 }
 
@@ -112,7 +188,9 @@ private struct PaywallBenefit: View {
 }
 
 private struct PlanRow: View {
-    let plan: PaywallStep.Plan
+    let title: String
+    let price: String
+    let detail: String?
     let isSelected: Bool
     let action: () -> Void
 
@@ -120,13 +198,13 @@ private struct PlanRow: View {
         Button(action: action) {
             HStack {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(plan.title).font(.body.weight(.medium))
-                    if let detail = plan.detail {
+                    Text(title).font(.body.weight(.medium))
+                    if let detail {
                         Text(detail).font(.caption).foregroundStyle(WK.Palette.secondaryText)
                     }
                 }
                 Spacer()
-                Text(plan.price).font(.subheadline.weight(.semibold))
+                Text(price).font(.subheadline.weight(.semibold))
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(isSelected ? WK.Palette.accent : WK.Palette.ink(0.22))
             }
@@ -139,5 +217,59 @@ private struct PlanRow: View {
             .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())
+    }
+}
+
+
+/// Cómo se llama y qué se dice de un paquete de RevenueCat.
+///
+/// El nombre sale del **tipo** de paquete y no del título del producto: el de
+/// App Store Connect suele ser "iWearIt Pro (anual)", que repite el nombre de
+/// la app dentro de la app.
+private extension Package {
+
+    var planTitle: String {
+        switch packageType {
+        case .annual: "Anual"
+        case .sixMonth: "Seis meses"
+        case .threeMonth: "Tres meses"
+        case .twoMonth: "Dos meses"
+        case .monthly: "Mensual"
+        case .weekly: "Semanal"
+        case .lifetime: "Para siempre"
+        default: storeProduct.localizedTitle
+        }
+    }
+
+    /// Lo que se puede decir con verdad debajo del nombre: la prueba gratis si
+    /// la hay, y lo que sale al mes si es un plan largo.
+    var planDetail: String? {
+        var parts: [String] = []
+        if let intro = storeProduct.introductoryDiscount, intro.price == 0 {
+            parts.append("\(intro.subscriptionPeriod.localizedDescription) gratis")
+        }
+        if packageType == .annual, let monthly = storeProduct.pricePerMonth {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .currency
+            formatter.currencyCode = storeProduct.currencyCode
+            if let text = formatter.string(from: monthly) {
+                parts.append("\(text)/mes")
+            }
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+private extension SubscriptionPeriod {
+    /// "7 días", "1 mes": lo justo para el botón.
+    var localizedDescription: String {
+        let count = value
+        switch unit {
+        case .day: return count == 1 ? "1 día" : "\(count) días"
+        case .week: return count == 1 ? "1 semana" : "\(count) semanas"
+        case .month: return count == 1 ? "1 mes" : "\(count) meses"
+        case .year: return count == 1 ? "1 año" : "\(count) años"
+        @unknown default: return "\(count)"
+        }
     }
 }

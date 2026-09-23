@@ -33,6 +33,11 @@ public final class AppEnvironment {
     public let modelStore: ModelStore
     /// Qué puede hacer el usuario. Lo único que sabe de suscripciones.
     public let gate: FeatureGate
+    /// Lo que se puede comprar y cuánto saldo queda. Ver `Store`.
+    ///
+    /// Interno y no público, como la puerta: la tienda es cosa de la app, no
+    /// del paquete.
+    let store: Store
     /// Los avisos que enseñan a usar la app. Ver `WKTipCenter`.
     public let tips = WKTipCenter()
     /// La importación cerrada sin guardar, para retomarla. Ver
@@ -157,6 +162,12 @@ public final class AppEnvironment {
                 cache: cache
             )
         }
+        // **La tienda se configura antes que la puerta.** El derecho a ser Pro
+        // se le pregunta a RevenueCat, y preguntarle antes de configurarlo
+        // devuelve "no" para todo el mundo.
+        let store = Store()
+        store.start()
+        self.store = store
         self.gate = FeatureGate(
             entitlements: Self.makeEntitlements(),
             container: container
@@ -170,11 +181,20 @@ public final class AppEnvironment {
     /// nada ni pelearse con el sandbox es lo que hace que el gating se pruebe
     /// de verdad. En Release, el servicio real.
     private static func makeEntitlements() -> EntitlementsService {
-        #if DEBUG
-        DebugEntitlementsService()
-        #else
-        RevenueCatEntitlementsService(apiKey: AppConfiguration.revenueCatAPIKey)
-        #endif
+        // **Con clave, la de verdad; sin clave, el interruptor.**
+        //
+        // Y con clave también en Debug: la de pruebas de RevenueCat compra sin
+        // App Store Connect, así que el camino real se puede recorrer entero
+        // desde el simulador. El interruptor de Perfil sigue estando para
+        // cuando no hay clave o no hay red.
+        guard !AppConfiguration.revenueCatAPIKey.isEmpty else {
+            #if DEBUG
+            return DebugEntitlementsService()
+            #else
+            return StaticEntitlementsService(isPro: false)
+            #endif
+        }
+        return RevenueCatEntitlements()
     }
 
     /// El repositorio que toca según el origen elegido.
@@ -321,6 +341,11 @@ public final class AppEnvironment {
         }
 
         await gate.refresh()
+        // Lo que se puede comprar y el saldo, en cuanto arranca: el paywall se
+        // abre de golpe cuando topas con un límite, y abrirlo sin precios es
+        // enseñar un muro en blanco.
+        await store.load()
+        await store.refreshCredits()
         await prepareModels()
 
         #if DEBUG

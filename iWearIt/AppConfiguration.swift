@@ -34,8 +34,24 @@ enum AppConfiguration {
     ///
     /// Las claves públicas de RevenueCat están **pensadas** para ir en el
     /// cliente: solo permiten leer y comprar en nombre del usuario, no
-    /// administrar. Aun así sigue vacía hasta que haya productos configurados.
-    static let revenueCatAPIKey = ""
+    /// administrar. La que administra —la secreta, la que ajusta saldos— no
+    /// está aquí ni puede estarlo.
+    ///
+    /// Esta empieza por `test_`: es la de la **tienda de pruebas** de
+    /// RevenueCat, que simula compras sin App Store Connect y sirve para
+    /// montar el paywall entero antes de tener productos de verdad. El día del
+    /// lanzamiento se cambia por la `appl_…` y no se toca nada más.
+    static let revenueCatAPIKey = "test_pFNpMCuImvcnsGYxAOVYwvSlnlc"
+
+    /// Si esto es una compilación de depuración. Para poner el SDK de la
+    /// tienda más hablador sin sembrar `#if DEBUG` por ahí.
+    static var isDebugBuild: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
 
     /// Identificadores de los modelos en el manifiesto.
     enum ModelID {

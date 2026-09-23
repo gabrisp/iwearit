@@ -14,6 +14,7 @@
 		AA0000000000000000000204 /* WKVision in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000104 /* WKVision */; };
 		AA0000000000000000000205 /* WKCanvas in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000105 /* WKCanvas */; };
 		AA0000000000000000000206 /* WKScanning in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000106 /* WKScanning */; };
+		AA0000000000000000000207 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000107 /* RevenueCat */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +54,7 @@
 				AA0000000000000000000204 /* WKVision in Frameworks */,
 				AA0000000000000000000205 /* WKCanvas in Frameworks */,
 				AA0000000000000000000206 /* WKScanning in Frameworks */,
+				AA0000000000000000000207 /* RevenueCat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +104,7 @@
 				AA0000000000000000000104 /* WKVision */,
 				AA0000000000000000000105 /* WKCanvas */,
 				AA0000000000000000000106 /* WKScanning */,
+				AA0000000000000000000107 /* RevenueCat */,
 			);
 			productName = iWearIt;
 			productReference = ED86A00D305F2C80004B31A4 /* iWearIt.app */;
@@ -134,6 +137,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA0000000000000000000001 /* XCLocalSwiftPackageReference "WardrobeKit" */,
+				AA0000000000000000000002 /* XCRemoteSwiftPackageReference "purchases-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ED86A00E305F2C80004B31A4 /* Products */;
@@ -395,6 +399,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0000000000000000000002 /* XCRemoteSwiftPackageReference "purchases-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.90.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		AA0000000000000000000100 /* WKCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -423,6 +438,11 @@
 		AA0000000000000000000106 /* WKScanning */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = WKScanning;
+		};
+		AA0000000000000000000107 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000002 /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
