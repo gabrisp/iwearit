@@ -305,12 +305,25 @@ private struct FavouriteOutfitCell: View {
         .scaleEffect(isSelecting && !isSelected ? 0.94 : 1)
         .animation(WKAnimation.selection, value: isSelected)
         .animation(WKAnimation.selection, value: isSelecting)
+        // **El lápiz, que es por donde se entra ahora.** Al quitar el doble
+        // toque y la pulsación larga esta celda se quedaba sin puerta, y un
+        // favorito que no se puede abrir es una foto.
+        .overlay(alignment: .topLeading) {
+            if !isSelecting {
+                WKCircleButton("pencil", size: .compact, action: onOpen)
+                    .tint(WK.Palette.primaryText)
+                    .padding(WK.Spacing.s)
+            }
+        }
         .contentShape(.rect)
         // Un toque marca mientras se está eligiendo; fuera de eso, la tarjeta
         // se abre como siempre.
         .onTapGesture { if isSelecting { onToggle() } }
-        .onTapGesture(count: 2) { if !isSelecting { onOpen() } }
-        .onLongPressGesture { if !isSelecting { onOpen() } }
+        // Sin doble toque ni pulsación larga: ver `InspoLookCard`. Aquí
+        // además abrían el editor, que descarta el outfit al cerrarse con la
+        // equis — dos toques sin querer y el favorito se iba.
+        // .onTapGesture(count: 2) { if !isSelecting { onOpen() } }
+        // .onLongPressGesture { if !isSelecting { onOpen() } }
     }
 
     private var backdropColor: Color {

@@ -429,12 +429,16 @@ private struct SuitcaseTabContent: View {
     var body: some View {
         switch tab {
         case .outfits:
-            SuitcaseOutfitsTab(
+            // **Como el plan**: un lienzo por pantalla, los días de lado y la
+            // tarjeta de añadir al final. La pestaña vieja —revista con curl,
+            // rejilla con fechas y lista de preparados— sigue en el repositorio
+            // sin tocar: volver es poner aquí `SuitcaseOutfitsTab` otra vez.
+            // Ver `SuitcaseOutfitsFeedTab`.
+            SuitcaseOutfitsFeedTab(
                 suitcase: suitcase,
-                layout: layout,
                 dayIndex: $dayIndex,
-                zoom: zoom,
-                onOpenDay: onOpenDay,
+                topInset: WKTabBarMetrics.topClearance,
+                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l,
                 onEdit: onEdit
             )
         case .packing:

@@ -532,8 +532,15 @@ private struct TripDayCanvas: View {
             if let outfit, !outfit.visibleItems.isEmpty {
                 FreeformCanvas(outfit: outfit, store: appEnvironment.imageStore, selection: selection)
                     .allowsHitTesting(false)
-                    .onTapGesture(count: 2) { onEdit(outfit, false) }
-                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(outfit, false) }
+                    // **Sin doble toque ni pulsación larga para editar.**
+                    //
+                    // Cada lienzo tiene ya su lápiz, que es un botón que se ve.
+                    // Los dos gestos estaban para quien los conociera, y a
+                    // cambio hacían que tocar dos veces sin querer —o apoyar el
+                    // dedo mientras pasas— te sacara de donde estabas. Se
+                    // quedan comentados: revivirlos es quitar dos barras.
+                    // .onTapGesture(count: 2) { onEdit(outfit, false) }
+                    // .onLongPressGesture(minimumDuration: 0.4) { onEdit(outfit, false) }
                     // En todo el lienzo: sin esto el gesto solo existe donde
                     // hay una prenda pintada, y el hueco entre ellas —que es
                     // casi todo— no respondería.

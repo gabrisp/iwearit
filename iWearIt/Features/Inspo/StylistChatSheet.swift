@@ -572,7 +572,9 @@ private struct StylistResultCard: View {
                     .padding(WK.Spacing.s)
                 }
                 .contentShape(.rect)
-                .onTapGesture(count: 2, perform: onEdit)
+                // Sin doble toque: el lápiz de la esquina hace lo mismo y se
+                // ve. Ver `InspoLookCard`.
+                // .onTapGesture(count: 2, perform: onEdit)
                 // **Y mantener pulsado, las mismas acciones escritas.**
                 //
                 // Aquí sí y en la inspiración no: allí cada conjunto tiene sus

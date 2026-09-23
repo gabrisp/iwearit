@@ -355,7 +355,7 @@ struct SuitcaseInspoTab: View {
 /// Días del viaje y no un calendario: dentro de una maleta, "el 25" no
 /// significa nada hasta que sabes que es el tercer día. Con fechas puestas se
 /// enseñan las dos cosas.
-private struct SuitcaseDayPicker: View {
+struct SuitcaseDayPicker: View {
     let suitcase: Suitcase
     let onPick: (Int) -> Void
 

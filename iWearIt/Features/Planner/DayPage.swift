@@ -319,8 +319,15 @@ private struct DayCanvas: View {
                     // no puede ser —compite con el scroll de página y con
                     // deseleccionar—, y cuál de las dos espera cada uno depende
                     // de si viene de una app de fotos o de una de notas.
-                    .onTapGesture(count: 2) { onEdit(current, false) }
-                    .onLongPressGesture(minimumDuration: 0.4) { onEdit(current, false) }
+                    // **Sin doble toque ni pulsación larga para editar.**
+                    //
+                    // Cada lienzo tiene ya su lápiz, que es un botón que se ve.
+                    // Los dos gestos estaban para quien los conociera, y a
+                    // cambio hacían que tocar dos veces sin querer —o apoyar el
+                    // dedo mientras pasas— te sacara de donde estabas. Se
+                    // quedan comentados: revivirlos es quitar dos barras.
+                    // .onTapGesture(count: 2) { onEdit(current, false) }
+                    // .onLongPressGesture(minimumDuration: 0.4) { onEdit(current, false) }
             } else {
                 EmptyDayPrompt(
                     date: date,

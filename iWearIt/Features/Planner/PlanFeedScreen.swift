@@ -142,10 +142,10 @@ struct PlanFeedScreen: View {
         // como tira ocupaba una franja entera de pantalla para enseñar siete
         // días de los que se usan dos.
         ToolbarItem(placement: .topBarLeading) {
-            Button { isPickingDay = true } label: {
-                Image(systemName: "calendar")
-            }
-            .tint(WK.Palette.primaryText)
+            // **El mismo botón de siempre.** Es el que abría el calendario en
+            // la tira de días; lo único que cambia es dónde está. Ver
+            // `StripIcon`.
+            StripIcon(symbol: "calendar") { isPickingDay = true }
         }
         ToolbarItem(placement: .principal) {
             Text(title)
@@ -224,8 +224,14 @@ struct PlanFeedScreen: View {
                 PlanCreateCard()
                     .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
                     .modifier(PlanCardSize(page: pageSize))
+                    // **Solo si había algo antes.** Con el día vacío, esta
+                    // tarjeta es lo único en pantalla: dispararse al verse
+                    // sería abrir el selector nada más llegar al día. Con
+                    // outfits detrás, llegar hasta aquí es un tirón hacia
+                    // arriba —una decisión— y entonces sí.
                     .onScrollVisibilityChange(threshold: 0.55) { isVisible in
                         guard isVisible, !isPicking, editingOutfit == nil else { return }
+                        guard !entries(of: date).isEmpty else { return }
                         isPicking = true
                     }
                     .onTapGesture { isPicking = true }
@@ -323,7 +329,7 @@ struct PlanFeedScreen: View {
 /// El mismo reparto que la inspiración —once doceavas partes— para que el
 /// enganche del scroll y el centro de la pantalla sean el mismo punto. Ver
 /// `InspoCardSize`.
-private struct PlanCardSize: ViewModifier {
+struct PlanCardSize: ViewModifier {
     let page: CGSize
 
     func body(content: Content) -> some View {
@@ -433,7 +439,9 @@ private struct PlanGridCell: View {
 /// Crear uno nuevo. **La misma tarjeta** al final de la revista y al final de
 /// la rejilla: no son dos botones que hacen lo mismo, es uno que está donde
 /// acaba lo que hay.
-private struct PlanCreateCard: View {
+struct PlanCreateCard: View {
+    var title = "Crear un outfit"
+
     var body: some View {
         RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
             .fill(WK.Palette.ink(0.03))
@@ -446,7 +454,7 @@ private struct PlanCreateCard: View {
                     Image(systemName: "plus")
                         .font(.system(size: 26))
                         .foregroundStyle(WK.Palette.secondaryText)
-                    Text("Crear un outfit")
+                    Text(title)
                         .font(WK.Font.headline)
                         .foregroundStyle(WK.Palette.secondaryText)
                 }

@@ -229,7 +229,9 @@ private struct TodayButton: View {
 }
 
 /// Un icono de los extremos de la cápsula.
-private struct StripIcon: View {
+/// El icono de la tira. Compartido con la barra del plan nuevo: el calendario
+/// se abre con **este** botón y no con otro parecido.
+struct StripIcon: View {
     let symbol: String
     let action: () -> Void
 
