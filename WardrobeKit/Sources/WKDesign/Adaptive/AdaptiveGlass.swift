@@ -57,6 +57,30 @@ public extension View {
         }
     }
 
+    /// Una píldora de elegir: cristal de verdad, o nada.
+    ///
+    /// **El cristal no se apila.** Una cápsula rellena con el acento y luego
+    /// un `glassEffect` encima son dos fondos, uno tapando al otro: el cristal
+    /// no tiene nada que refractar y queda una pegatina turbia sobre un color
+    /// plano. El tinte va **dentro** del cristal, que es para lo que está.
+    ///
+    /// Y donde no hay cristal de verdad, tampoco lo hay de mentira: un
+    /// material imitándolo sobre un fondo claro se lee como suciedad. Un
+    /// relleno plano dice lo mismo —esto se toca, esto está elegido— sin
+    /// fingir una profundidad que no existe.
+    @ViewBuilder
+    func adaptiveGlassChip(isSelected: Bool, tint: Color) -> some View {
+        if #available(iOS 26, *) {
+            if isSelected {
+                self.glassEffect(.regular.tint(tint).interactive(), in: .capsule)
+            } else {
+                self.glassEffect(.regular.interactive(), in: .capsule)
+            }
+        } else {
+            self.background(isSelected ? tint : WK.Palette.ink(0.06), in: .capsule)
+        }
+    }
+
     /// Cristal teñido **y** pulsable: la acción principal sobre cristal.
     ///
     /// **Decide también el color de la etiqueta.** No es un extra: con el

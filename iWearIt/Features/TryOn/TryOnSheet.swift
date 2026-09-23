@@ -200,31 +200,42 @@ struct TryOnSheet: View {
     /// iluminada de otro. "Sin fondo" devuelve un PNG recortado.
     private var scenes: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: WK.Spacing.s) {
-                ForEach(TryOnScene.allCases) { option in
-                    Button { scene = option } label: {
-                        Label(option.label, systemImage: option.symbol)
-                            .font(WK.Font.caption)
-                            .foregroundStyle(
-                                scene == option ? WK.Palette.onAccent : WK.Palette.primaryText
-                            )
-                            .fixedSize()
-                            .padding(.horizontal, WK.Spacing.m)
-                            .padding(.vertical, WK.Spacing.s)
-                            .background {
-                                if scene == option {
-                                    Capsule().fill(WK.Palette.accent)
-                                }
-                            }
-                            .adaptiveGlass(in: .capsule)
+            // **Las píldoras, en un contenedor de cristal.** Sueltas, cada una
+            // muestrea el fondo por su cuenta y la de al lado le sale un canto
+            // duro: el cristal no puede muestrear otro cristal. Dentro del
+            // contenedor se funden entre ellas, que es lo que hace que una
+            // fila parezca una fila y no seis pegatinas.
+            AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+                HStack(spacing: WK.Spacing.s) {
+                    ForEach(TryOnScene.allCases) { option in
+                        Button {
+                            withAnimation(WKAnimation.selection) { scene = option }
+                        } label: {
+                            Label(option.label, systemImage: option.symbol)
+                                .font(WK.Font.caption)
+                                .foregroundStyle(
+                                    scene == option ? WK.Palette.onAccent : WK.Palette.primaryText
+                                )
+                                .fixedSize()
+                                .padding(.horizontal, WK.Spacing.m)
+                                .padding(.vertical, WK.Spacing.s)
+                                // El tinte **dentro** del cristal y no debajo:
+                                // ver `adaptiveGlassChip`.
+                                .adaptiveGlassChip(
+                                    isSelected: scene == option,
+                                    tint: WK.Palette.accent
+                                )
+                        }
+                        .buttonStyle(WKPressStyle())
                     }
-                    .buttonStyle(WKPressStyle())
                 }
+                // Sitio para que el cristal se dibuje fuera de la píldora sin
+                // que el scroll se lo coma.
+                .padding(.vertical, 2)
             }
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .animation(WKAnimation.selection, value: scene)
     }
 
     @ViewBuilder

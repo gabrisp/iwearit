@@ -5,23 +5,30 @@ import WKCore
 import WKDesign
 import WKPersistence
 
-/// Quién se prueba la ropa.
+/// Quién se prueba la ropa, **paso a paso**.
 ///
 /// ## Por qué la foto es obligatoria
 ///
-/// Porque sin ella el probador no prueba nada: dibuja a **alguien** con tu
+/// Porque sin ella el probador no prueba nada: dibuja a *alguien* con tu
 /// estatura y tu complexión llevando tu ropa, y eso se mira una vez y no se
 /// vuelve. Lo que se viene a ver es cómo te queda a ti, y para eso hace falta
-/// tu cara y tu cuerpo. Un perfil sin foto era una promesa a medias que además
-/// competía con la buena.
+/// tu cara y tu cuerpo. Por eso es el primer paso y no se sale de él sin ella.
 ///
-/// Los datos de al lado no sobran por eso. La foto dice quién eres; la
-/// estatura, la complexión y el resto dicen **cómo encuadrar la escena** —de
-/// cuerpo entero, con las proporciones que te tocan— y son lo que evita que la
-/// prenda salga a una talla que no es la tuya.
+/// Los datos de después no sobran: la foto dice quién eres, y la estatura y la
+/// complexión dicen **cómo encuadrar la escena** —de cuerpo entero, con las
+/// proporciones que te tocan—, que es lo que evita que la prenda salga a una
+/// talla que no es la tuya.
 ///
-/// Y por eso se pide arriba y a tamaño de foto, no en una fila de lista: es lo
-/// primero que hay que dar, así que es lo primero que se ve.
+/// ## Por qué por pasos y no un formulario
+///
+/// Un formulario con seis campos a la vez obliga a leerlo entero antes de
+/// empezar, y el que se cansa a la mitad se queda sin perfil. Por pasos cada
+/// pantalla hace una pregunta, el botón dice siempre qué va a pasar y el chrome
+/// —salir, volver, continuar— no se mueve: solo cambia el medio. Es el mismo
+/// flujo que crear una maleta. Ver `WKFlowScreen`.
+///
+/// Y no se cierra sola: se sale por la equis, y si hay algo escrito se
+/// pregunta antes de tirarlo.
 struct TryOnProfileSheet: View {
     /// El que se edita. `nil` = uno nuevo.
     var profile: BodyProfile?
@@ -30,126 +37,215 @@ struct TryOnProfileSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
+    @State private var flow = WKFlowStack(Step.photo)
     @State private var name = ""
-    @State private var height: Int = 170
+    @State private var height: Int? = 170
     @State private var shape: BodyProfile.Shape = .average
     @State private var presentation: BodyProfile.Presentation = .neutral
     @State private var skinTone: BodyProfile.SkinTone = .medium
     @State private var notes = ""
     @State private var picked: PhotosPickerItem?
     @State private var imageKey = ""
+    @State private var isLoadingPhoto = false
+    /// Si hay que preguntar antes de irse. Ver `hasProgress`.
+    @State private var isConfirmingExit = false
+    /// Cómo estaba al abrir: lo que decide si hay algo que perder.
+    @State private var baseline: Snapshot?
 
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: WK.Spacing.l) {
-                    photoWell
-
-                    WKSection("Nombre") {
-                        WKRow(showsSeparator: false) {
-                            TextField("Yo", text: $name)
-                                .font(WK.Font.rowTitle)
-                                .textInputAutocapitalization(.words)
-                        }
-                    }
-
-                    WKSection("Cuerpo", footer: preview) {
-                        WKRow {
-                            Text("Estatura").font(WK.Font.rowTitle)
-                        } trailing: {
-                            // Rueda y no teclado: es un número de tres cifras
-                            // dentro de un rango conocido, y teclearlo obliga a
-                            // abrir y cerrar el teclado por 170.
-                            Picker("", selection: $height) {
-                                ForEach(140...210, id: \.self) { value in
-                                    Text("\(value) cm").tag(value)
-                                }
-                            }
-                            .labelsHidden()
-                            .tint(WK.Palette.primaryText)
-                        }
-                        chips("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
-                        chips("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
-                        chips("Piel", BodyProfile.SkinTone.allCases, selection: $skinTone, isLast: true) { $0.label }
-                    }
-
-                    WKSection("Algo más", footer: "Lo que no cabe arriba: gafas, barba, pelo largo.") {
-                        WKRow(showsSeparator: false) {
-                            TextField("Opcional", text: $notes, axis: .vertical)
-                                .font(WK.Font.rowTitle)
-                                .lineLimit(1...3)
-                        }
-                    }
-
-                }
-                .padding(.horizontal, WK.Spacing.screenInset)
-                .padding(.bottom, WK.Spacing.xxl)
-            }
-            .scrollIndicators(.hidden)
-            .background(WK.Palette.canvas.ignoresSafeArea())
-            .navigationTitle(profile == nil ? "Nuevo perfil" : "Perfil")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(WK.Palette.primaryText)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { save() } label: { Image(systemName: "checkmark") }
-                        .tint(WK.Palette.primaryText)
-                        .adaptiveProminentButton()
-                        // Sin foto no hay perfil que guardar. Apagado y no
-                        // escondido: el botón sigue donde estará cuando se
-                        // pueda tocar, y el hueco de arriba dice qué falta.
-                        .disabled(imageKey.isEmpty)
-                }
-            }
-            .task { load() }
-            .task(id: picked) { await storePhoto(picked) }
-        }
+    enum Step: Int, WKFlowStep {
+        case photo, name, body, extras
+        var flowDepth: Int { rawValue }
     }
 
-    /// Lo que se le va a decir al modelo, tal cual, mientras lo escribes.
+    /// Lo que se compara para saber si se ha tocado algo.
     ///
-    /// Enseñarlo no es un adorno: es lo que evita la sensación de estar
-    /// rellenando una ficha que no se sabe para qué sirve.
-    private var preview: String {
-        "Se dibujará " + draft.described + "."
+    /// Una foto de lo que había al abrir, y no una bandera de "ha escrito":
+    /// deshacer a mano lo que acabas de escribir vuelve a contar como que no
+    /// hay nada que descartar, que es lo que espera cualquiera.
+    private struct Snapshot: Equatable {
+        var name: String
+        var height: Int?
+        var shape: BodyProfile.Shape
+        var presentation: BodyProfile.Presentation
+        var skinTone: BodyProfile.SkinTone
+        var notes: String
+        var imageKey: String
     }
 
-    /// Un perfil de mentira con lo que hay en pantalla, solo para la frase.
-    private var draft: BodyProfile {
-        BodyProfile(
-            label: name,
-            heightCentimetres: height,
+    private var current: Snapshot {
+        Snapshot(
+            name: name,
+            height: height,
             shape: shape,
             presentation: presentation,
             skinTone: skinTone,
-            notes: notes
+            notes: notes,
+            imageKey: imageKey
         )
     }
 
+    private var hasProgress: Bool {
+        guard let baseline else { return !imageKey.isEmpty || !name.isEmpty }
+        return current != baseline
+    }
+
+    var body: some View {
+        Group {
+            switch flow.step {
+            case .photo: photoStep
+            case .name: nameStep
+            case .body: bodyStep
+            case .extras: extrasStep
+            }
+        }
+        .wkDynamicSheet()
+        // **No se cierra deslizando.** A medio perfil, un gesto hacia abajo
+        // —el mismo que se hace para pasar cualquier otra cosa— tiraba lo
+        // escrito sin preguntar. Se sale por la equis, que sí pregunta.
+        .interactiveDismissDisabled()
+        .confirmationDialog(
+            "¿Descartar el perfil?",
+            isPresented: $isConfirmingExit,
+            titleVisibility: .visible
+        ) {
+            Button("Descartar", role: .destructive) { dismiss() }
+            Button("Seguir", role: .cancel) {}
+        } message: {
+            Text("Lo que has puesto hasta aquí no se guarda.")
+        }
+        .task { load() }
+        .task(id: picked) { await storePhoto(picked) }
+    }
+
+    // MARK: Pasos
+
+    private var photoStep: some View {
+        WKFlowScreen(
+            title: profile == nil ? "¿Quién se prueba la ropa?" : "Tu foto",
+            subtitle: "De cuerpo entero, de frente y con buena luz. Con ella te dibuja a ti.",
+            stepID: Step.photo,
+            transition: flow.transition,
+            primaryTitle: "Siguiente",
+            isPrimaryEnabled: !imageKey.isEmpty,
+            isAtRoot: flow.isAtRoot,
+            onLeading: { leave() },
+            onPrimary: { flow.move(to: .name) }
+        ) {
+            photoWell
+        }
+    }
+
+    private var nameStep: some View {
+        WKFlowScreen(
+            title: "¿Cómo lo llamas?",
+            subtitle: "Para distinguirlo de los otros perfiles.",
+            stepID: Step.name,
+            transition: flow.transition,
+            primaryTitle: "Siguiente",
+            isAtRoot: false,
+            onLeading: { flow.move(to: .photo) },
+            onPrimary: { flow.move(to: .body) }
+        ) {
+            TextField("Yo", text: $name)
+                .font(WK.Font.title)
+                .multilineTextAlignment(.center)
+                .textFieldStyle(.plain)
+                .textInputAutocapitalization(.words)
+                .padding(WK.Spacing.m)
+                .background(
+                    WK.Palette.shelf,
+                    in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
+                )
+        }
+    }
+
+    private var bodyStep: some View {
+        WKFlowScreen(
+            title: "¿Cómo eres?",
+            subtitle: "Es lo que encuadra la escena y da a la ropa tus proporciones.",
+            stepID: Step.body,
+            transition: flow.transition,
+            primaryTitle: "Siguiente",
+            isAtRoot: false,
+            onLeading: { flow.move(to: .name) },
+            onPrimary: { flow.move(to: .extras) }
+        ) {
+            VStack(spacing: WK.Spacing.l) {
+                // Rueda y no teclado: es un número de tres cifras dentro de un
+                // rango conocido, y teclearlo obliga a abrir y cerrar el
+                // teclado por 170.
+                WKWheelPicker(items: Array(140...210), selection: $height, rowHeight: 44) { value in
+                    Text("\(value) cm")
+                        .font(WK.Font.rowTitle)
+                        .monospacedDigit()
+                        .foregroundStyle(
+                            value == height ? WK.Palette.primaryText : WK.Palette.secondaryText
+                        )
+                }
+                .frame(height: 132)
+
+                chips("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
+                chips("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
+                chips("Piel", BodyProfile.SkinTone.allCases, selection: $skinTone) { $0.label }
+            }
+        }
+    }
+
+    private var extrasStep: some View {
+        WKFlowScreen(
+            title: "¿Algo más?",
+            subtitle: "Lo que no cabe arriba: gafas, barba, pelo largo.",
+            stepID: Step.extras,
+            transition: flow.transition,
+            primaryTitle: "Guardar",
+            isAtRoot: false,
+            onLeading: { flow.move(to: .body) },
+            onPrimary: { save() }
+        ) {
+            VStack(spacing: WK.Spacing.m) {
+                TextField("Opcional", text: $notes, axis: .vertical)
+                    .font(WK.Font.rowTitle)
+                    .lineLimit(2...4)
+                    .padding(WK.Spacing.m)
+                    .background(
+                        WK.Palette.shelf,
+                        in: .rect(cornerRadius: WK.Radius.medium, style: .continuous)
+                    )
+
+                // Lo que se le va a decir al modelo, tal cual. Enseñarlo no es
+                // un adorno: es lo que evita la sensación de haber rellenado
+                // una ficha sin saber para qué.
+                Text("Se dibujará " + draft.described + ".")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    // MARK: Piezas
+
     /// La foto, a tamaño de foto.
     ///
-    /// Es el primer hueco de la hoja y ocupa lo que ocupa una persona de
-    /// cuerpo entero, porque es lo que se pide. Vacío enseña la silueta y lo
-    /// que hace falta —entera, de frente, con luz—; lleno enseña la foto y se
-    /// aparta.
+    /// Vacío enseña la silueta y lo que hace falta; lleno enseña la foto y se
+    /// aparta. Una fila de lista con un "Añadir una foto" a la derecha pedía lo
+    /// más importante del perfil como si fuera un extra.
     @ViewBuilder
     private var photoWell: some View {
         if imageKey.isEmpty {
             PhotosPicker(selection: $picked, matching: .images) {
                 VStack(spacing: WK.Spacing.s) {
-                    Image(systemName: "figure.stand")
-                        .font(.system(size: 44, weight: .light))
-                        .foregroundStyle(WK.Palette.secondaryText)
-                    Text("Tu foto de cuerpo entero")
+                    if isLoadingPhoto {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "figure.stand")
+                            .font(.system(size: 44, weight: .light))
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                    Text("Elegir una foto")
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(WK.Palette.primaryText)
-                    Text("De frente, entera y con buena luz.")
-                        .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
                 .aspectRatio(3.0 / 4.0, contentMode: .fit)
@@ -180,11 +276,6 @@ struct TryOnProfileSheet: View {
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: WK.Spacing.xs) {
                     PhotosPicker(selection: $picked, matching: .images) {
-                        // La misma pieza que los botones de los lienzos, para
-                        // que un botón redondo sobre una imagen sea siempre el
-                        // mismo botón redondo. En su propia `View` porque la
-                        // etiqueta del selector no está en el actor principal
-                        // y el cristal sí.
                         GlassCircleLabel(symbol: "arrow.trianglehead.2.clockwise")
                     }
                     .buttonStyle(WKPressStyle())
@@ -194,16 +285,17 @@ struct TryOnProfileSheet: View {
                 .padding(WK.Spacing.m)
             }
             .overlay(alignment: .bottomLeading) {
-                Text("Se procesa fuera del teléfono al probarte. Quitarla lo revoca.")
+                Text("Se procesa fuera del teléfono al probarte.")
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.onAccent.opacity(0.9))
                     .padding(WK.Spacing.m)
-                    .frame(maxWidth: 220, alignment: .leading)
+                    .frame(maxWidth: 200, alignment: .leading)
             }
         }
     }
 
-    /// Un icono redondo de cristal, del tamaño de los de los lienzos.
+    /// Un icono redondo de cristal. En su propia `View` porque la etiqueta de
+    /// un selector de fotos no está en el actor principal y el cristal sí.
     private struct GlassCircleLabel: View {
         let symbol: String
 
@@ -222,7 +314,6 @@ struct TryOnProfileSheet: View {
         _ title: String,
         _ options: [Option],
         selection: Binding<Option>,
-        isLast: Bool = false,
         label: @escaping (Option) -> String
     ) -> some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
@@ -232,7 +323,11 @@ struct TryOnProfileSheet: View {
             ScrollView(.horizontal) {
                 HStack(spacing: WK.Spacing.xs) {
                     ForEach(options, id: \.self) { option in
-                        Button { selection.wrappedValue = option } label: {
+                        Button {
+                            withAnimation(WKAnimation.selection) {
+                                selection.wrappedValue = option
+                            }
+                        } label: {
                             Text(label(option))
                                 .font(WK.Font.caption)
                                 .foregroundStyle(
@@ -242,7 +337,7 @@ struct TryOnProfileSheet: View {
                                 )
                                 .fixedSize()
                                 .padding(.horizontal, WK.Spacing.m)
-                                .padding(.vertical, WK.Spacing.xs)
+                                .padding(.vertical, WK.Spacing.s)
                                 .background {
                                     Capsule().fill(
                                         selection.wrappedValue == option
@@ -258,60 +353,79 @@ struct TryOnProfileSheet: View {
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
         }
-        .padding(.vertical, WK.Spacing.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) {
-            if !isLast {
-                Rectangle()
-                    .fill(WK.Palette.ink(0.06))
-                    .frame(height: 1)
-            }
-        }
+    }
+
+    /// Un perfil de mentira con lo que hay en pantalla, solo para la frase.
+    private var draft: BodyProfile {
+        BodyProfile(
+            label: name,
+            heightCentimetres: height ?? 170,
+            shape: shape,
+            presentation: presentation,
+            skinTone: skinTone,
+            notes: notes
+        )
     }
 
     // MARK: Datos
 
     private func load() {
-        guard let profile, name.isEmpty else { return }
-        name = profile.label
-        height = profile.heightCentimetres ?? 170
-        shape = profile.shape ?? .average
-        presentation = profile.presentation ?? .neutral
-        skinTone = profile.skinTone ?? .medium
-        notes = profile.notes ?? ""
-        imageKey = profile.imageKey
+        guard baseline == nil else { return }
+        if let profile {
+            name = profile.label
+            height = profile.heightCentimetres ?? 170
+            shape = profile.shape ?? .average
+            presentation = profile.presentation ?? .neutral
+            skinTone = profile.skinTone ?? .medium
+            notes = profile.notes ?? ""
+            imageKey = profile.imageKey
+        }
+        baseline = current
+    }
+
+    /// Salir. Si hay algo que perder, se pregunta; si no, se sale sin ruido —
+    /// preguntar por un perfil que nadie ha tocado es un paso de más.
+    private func leave() {
+        if hasProgress {
+            isConfirmingExit = true
+        } else {
+            dismiss()
+        }
     }
 
     private func save() {
         let label = name.trimmingCharacters(in: .whitespaces)
         let target = profile ?? BodyProfile(label: label.isEmpty ? "Yo" : label)
         target.label = label.isEmpty ? "Yo" : label
-        target.heightCentimetres = height
+        target.heightCentimetres = height ?? 170
         target.shapeRaw = shape.rawValue
         target.presentationRaw = presentation.rawValue
         target.skinToneRaw = skinTone.rawValue
         target.notes = notes.trimmingCharacters(in: .whitespaces)
         target.imageKey = imageKey
-        // Sin foto no hay nada que consentir, y el permiso viejo no puede
-        // quedarse puesto para la siguiente foto que se añada.
-        if imageKey.isEmpty { target.consentAcceptedAt = nil }
         if profile == nil { modelContext.insert(target) }
         try? modelContext.save()
         dismiss()
     }
 
     private func storePhoto(_ item: PhotosPickerItem?) async {
-        guard let item, let data = try? await item.loadTransferable(type: Data.self),
+        guard let item else { return }
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data)?.cgImage,
               let key = try? await appEnvironment.imageStore.store(image)
         else { return }
-        imageKey = key
+        withAnimation(WKAnimation.content) { imageKey = key }
         picked = nil
     }
 
+    /// Quitar la foto **es revocar el permiso**: se va la imagen y se va lo
+    /// que se aceptó sobre ella.
     private func removePhoto() {
         let key = imageKey
-        imageKey = ""
+        withAnimation(WKAnimation.content) { imageKey = "" }
         profile?.consentAcceptedAt = nil
         Task { try? await appEnvironment.imageStore.delete(key: key) }
     }
