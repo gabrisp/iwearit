@@ -498,16 +498,19 @@ final class ImportModel {
     ///
     /// Si ahí dentro no se ve ningún sujeto, se queda lo rodeado tal cual: lo
     /// que has señalado tú vale más que un hueco vacío.
-    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) async {
+    func addManualCandidate(_ crop: ManualCrop.Result, photoIndex: Int = 0) async {
         searchingInRegion = true
         defer { searchingInRegion = false }
 
-        if let found = await pipeline.subject(in: image) {
+        // **Se busca en el cachito, no en la foto.** Y en el cachito tal cual,
+        // con su fondo: el sujeto se levanta de una foto, y lo que ya está
+        // recortado contra transparencia no lo es.
+        if let found = await pipeline.subject(in: crop.region.cgImage) {
             var candidate = ImportCandidate(found, photoIndex: photoIndex)
             candidate.wasCorrectedByUser = true
             candidates.append(candidate)
         } else {
-            candidates.append(manualCandidate(from: image, photoIndex: photoIndex))
+            candidates.append(manualCandidate(from: crop.cutout.cgImage, photoIndex: photoIndex))
         }
         DiagnosticsLog.record("IMPORT", "prenda rodeada a mano: \(candidates.count) en total")
     }
@@ -853,7 +856,7 @@ final class ImportModel {
         ]
         // Repetidos para pasar el mínimo de puntos del lazo: ocho puntos es lo
         // que distingue un trazo de un resbalón, y un rectángulo tiene cuatro.
-        return ManualCrop.apply(to: photo, path: corners + corners)
+        return ManualCrop.apply(to: photo, path: corners + corners)?.cutout.cgImage
     }
 
     func setSubcategory(_ subcategory: String?, forCandidateWithID id: UUID) {
@@ -901,14 +904,14 @@ final class ImportModel {
 
     /// Rehacer el recorte de una prenda que ya está, con el mismo camino: se
     /// recorta lo rodeado y se levanta el sujeto de dentro.
-    func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) async {
+    func setManualCrop(_ crop: ManualCrop.Result, forCandidateWithID id: UUID) async {
         guard candidates.contains(where: { $0.id == id }) else { return }
         searchingInRegion = true
         defer { searchingInRegion = false }
 
-        let found = await pipeline.subject(in: image)
+        let found = await pipeline.subject(in: crop.region.cgImage)
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
-        candidates[index].manualCrop = ImmutableImage(found?.normalized.cgImage ?? image)
+        candidates[index].manualCrop = found?.normalized ?? crop.cutout
         candidates[index].catalogImage = nil
         candidates[index].catalogFailure = nil
         candidates[index].wasCorrectedByUser = true

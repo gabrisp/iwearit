@@ -16,13 +16,14 @@ import WKVision
 /// de la ficha el dedo tapa justo lo que estás bordeando.
 struct ManualCropScreen: View {
     let image: CGImage
-    /// Devuelve el recorte hecho a mano. Quien llama decide qué hacer con él:
-    /// en la importación sustituye al candidato, en la ficha a la prenda.
+    /// Devuelve **el trozo rodeado y el recorte del trazo**. Quien llama
+    /// decide qué hacer con ellos: en la importación se busca el sujeto dentro
+    /// del trozo; en la ficha se usa el recorte.
     ///
     /// Puede llamarse **varias veces**: una foto suele traer más de una prenda
     /// y obligar a entrar y salir por cada una era hacer el mismo camino tres
     /// veces. Ver `keepsGoing`.
-    let onCrop: (CGImage) -> Void
+    let onCrop: (ManualCrop.Result) -> Void
     /// Si al terminar un recorte la pantalla se queda para el siguiente.
     ///
     /// **Ya no se usa**: se recorta una y se cierra, siempre. Ver `crop()`. Se

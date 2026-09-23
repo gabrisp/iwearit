@@ -130,8 +130,10 @@ struct GarmentEditSheet: View {
         // sin querer tira el trabajo.
         .sheet(isPresented: $isCroppingByHand) {
             if let cropSource {
-                ManualCropScreen(image: cropSource) { cropped in
-                    Task { await applyManualCrop(cropped) }
+                ManualCropScreen(image: cropSource) { crop in
+                    // En la ficha de una prenda que ya existe, lo que manda es
+                    // tu trazo: aquí no hay detección que corregir.
+                    Task { await applyManualCrop(crop.cutout.cgImage) }
                 }
                 .interactiveDismissDisabled()
             }

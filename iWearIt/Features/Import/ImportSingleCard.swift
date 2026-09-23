@@ -64,7 +64,7 @@ struct ImportSingleCard: View {
     var generatesCatalog: Bool = true
     var onToggleKeep: ((Bool) -> Void)?
     /// Rehacer el recorte a dedo. Lo que devuelva manda sobre lo detectado.
-    var onManualCrop: ((CGImage) -> Void)?
+    var onManualCrop: ((ManualCrop.Result) -> Void)?
     /// Vuelve a pedir la versión de catálogo. Se genera sola al detectar; esto
     /// es para reintentarlo si falló.
     let onRestyle: () async -> Void

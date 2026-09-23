@@ -26,6 +26,21 @@ public enum ManualCrop {
     /// Mínimo de puntos para que el trazo sea un lazo y no un resbalón.
     public static let minimumPoints = 8
 
+    /// Lo que sale de rodear: **el trozo y el recorte**.
+    ///
+    /// Los dos hacen falta y son cosas distintas. `region` es ese cachito de
+    /// foto tal cual, rectangular y pequeño: es lo que se le da a Vision para
+    /// que busque el sujeto **ahí** y no en la foto entera, porque una imagen
+    /// ya recortada contra transparencia no es una foto y el sujeto se busca
+    /// sobre fotos. `cutout` es lo que encierra tu trazo, que es lo que se usa
+    /// si ahí dentro no se ve ningún sujeto.
+    public struct Result: Sendable {
+        /// El rectángulo de foto que rodeaste, reducido.
+        public let region: ImmutableImage
+        /// Lo de dentro del trazo, recortado y encajado.
+        public let cutout: ImmutableImage
+    }
+
     /// Recorta la imagen dejando solo lo que hay dentro del trazo.
     ///
     /// - Parameters:
@@ -34,13 +49,13 @@ public enum ManualCrop {
     ///     izquierda** — que es como los da SwiftUI.
     ///   - feather: cuántos píxeles de difuminado en el canto. Un recorte a
     ///     dedo con el borde duro se ve troquelado.
-    /// - Returns: la prenda recortada y ajustada a su caja, o `nil` si el
-    ///   trazo no encierra nada.
+    /// - Returns: el trozo de foto rodeado y el recorte del trazo, o `nil` si
+    ///   el trazo no encierra nada.
     public static func apply(
         to image: CGImage,
         path points: [CGPoint],
         feather: Int = 2
-    ) -> CGImage? {
+    ) -> Result? {
         guard points.count >= minimumPoints else { return nil }
         guard image.width > 0, image.height > 0 else { return nil }
 
@@ -56,7 +71,8 @@ public enum ManualCrop {
         // Con la caja del trazo y un tope de lado, lo mismo cuesta una
         // fracción: una prenda rodeada en media foto son ~2 Mpx en vez de 12,
         // y encima el crecimiento por contraste trabaja sobre lo que importa.
-        guard let (image, points) = boxed(image, path: points) else { return nil }
+        guard let (region, points) = boxed(image, path: points) else { return nil }
+        let image = region
         let width = image.width
         let height = image.height
 
@@ -177,7 +193,8 @@ public enum ManualCrop {
         guard kept > 0, let cut = context.makeImage() else { return nil }
         // Ajustado a lo que quedó: un lazo pequeño en una foto grande dejaría
         // la prenda diminuta en una esquina de un lienzo casi vacío.
-        return CropNormalizer.normalize(cut, for: .other) ?? cut
+        let cutout = CropNormalizer.normalize(cut, for: .other) ?? cut
+        return Result(region: ImmutableImage(region), cutout: ImmutableImage(cutout))
     }
 
     /// Lo más grande que se trabaja: por encima, el trazo se aplica sobre una
