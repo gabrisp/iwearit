@@ -172,11 +172,14 @@ def main() -> None:
     print()
     print("Lo que hay que rematar en el panel (la API no lo expone):")
     print("  · Atar cada producto a su paquete de la oferta si no se ató solo.")
-    print("  · Conceder monedas en cada renovación:")
-    print("      seis meses → 270 MEJ y 60 PRU")
-    print("      mensual    →  45 MEJ y 11 PRU")
-    print("      semanal    →  20 MEJ y  5 PRU")
+    print("  · Conceder monedas en cada renovación. **La misma ración al mes**")
+    print("    en los tres: lo que cambia entre planes es el precio, no lo que")
+    print("    te llevas. 30 mejoras y 8 pruebas al mes, o sea:")
+    print("      seis meses → 180 MEJ y 48 PRU")
+    print("      mensual    →  30 MEJ y  8 PRU")
+    print("      semanal    →   7 MEJ y  2 PRU")
     print("  · Y, si quieres, 3 MEJ de regalo la primera vez, para probar.")
+    print("  · Regalar a mano cuando haga falta: Tools/gift_currency.py.")
 
 
 if __name__ == "__main__":
