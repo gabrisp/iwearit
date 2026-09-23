@@ -61,11 +61,17 @@ struct ImportDetectedStep: View {
         .fullScreenCover(isPresented: $isCroppingByHand) {
             ManualCropScreen(
                 image: photos[min(current, photos.count - 1)],
+                // **Lo rodeado se mira, no se recorta y ya.** Ver
+                // `ImportModel.addManualCandidate`.
                 onCrop: { cropped in
-                    if let recropping {
-                        model.setManualCrop(cropped, forCandidateWithID: recropping)
-                    } else {
-                        model.addManualCandidate(cropped, photoIndex: current)
+                    let photo = current
+                    let target = recropping
+                    Task {
+                        if let target {
+                            await model.setManualCrop(cropped, forCandidateWithID: target)
+                        } else {
+                            await model.addManualCandidate(cropped, photoIndex: photo)
+                        }
                     }
                 },
                 // Rodeando prendas nuevas se sigue; rehaciendo el recorte de
@@ -220,9 +226,14 @@ struct ImportDetectedStep: View {
     private var caption: some View {
         VStack(spacing: 2) {
             Text(
-                model.candidates.isEmpty
-                    ? "No hemos visto ninguna prenda: rodéala con el dedo."
-                    : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
+                model.searchingInRegion
+                    // Rodear no recorta: se busca la prenda ahí dentro, y eso
+                    // tarda lo que tarda analizar. Decirlo evita que parezca
+                    // que el lazo no ha hecho nada.
+                    ? "Buscando la prenda donde has rodeado…"
+                    : model.candidates.isEmpty
+                        ? "No hemos visto ninguna prenda: rodéala con el dedo."
+                        : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
             )
             .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)
@@ -283,21 +294,14 @@ private struct DetectedCell: View {
     @ViewBuilder
     private var improveButton: some View {
         if candidate.catalogImage == nil {
-            Button { Task { await onImprove() } } label: {
-                Label(
-                    candidate.isRestyling ? "mejorando…" : "mejorar",
-                    systemImage: "wand.and.sparkles"
-                )
-                .font(WK.Font.caption)
-                .labelStyle(.titleAndIcon)
-                .foregroundStyle(WK.Palette.primaryText)
-                .padding(.horizontal, WK.Spacing.s)
-                .padding(.vertical, 5)
-                .background(WK.Palette.ink(0.07), in: .capsule)
-                .contentShape(.capsule)
+            WKProgressPill(
+                candidate.isRestyling ? "mejorando…" : "mejorar",
+                symbol: "wand.and.sparkles",
+                isWorking: candidate.isRestyling,
+                size: .compact
+            ) {
+                Task { await onImprove() }
             }
-            .buttonStyle(WKPressStyle())
-            .disabled(candidate.isRestyling)
             .animation(WKAnimation.content, value: candidate.isRestyling)
         } else {
             Label("mejorada", systemImage: "checkmark")

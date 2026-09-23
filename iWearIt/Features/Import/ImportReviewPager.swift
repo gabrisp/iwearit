@@ -99,9 +99,13 @@ private struct ImportPagerPage: View {
             // detectada.
             generatesCatalog: isCurrent,
             onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
-            onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
+            onManualCrop: { cropped in
+                Task { await model.setManualCrop(cropped, forCandidateWithID: candidate.id) }
+            },
             onRestyle: { await model.restyle(candidateWithID: candidate.id) },
-            onImprove: { model.improve(candidateWithID: candidate.id) }
+            onImprove: { model.improve(candidateWithID: candidate.id) },
+            onRetrySearch: { await model.retrySearch(forCandidateWithID: candidate.id) },
+            isSearching: model.searchingInRegion
         )
         // Cada ficha ocupa una pantalla exacta: es lo que hace que el gesto se
         // sienta como pasar de prenda y no como un scroll que se para donde le

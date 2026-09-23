@@ -199,19 +199,15 @@ struct GarmentEditSheet: View {
     /// versión, este botón aprovecha lo nuevo sin tener que volver a importar
     /// la foto.
     private var enhanceButton: some View {
-        Button {
+        // El botón se llena mientras dura, y el texto va cambiando de color
+        // por donde pasa el relleno. Ver `WKProgressPill`.
+        WKProgressPill(
+            isEnhancing ? "mejorando…" : "mejorar",
+            symbol: "wand.and.sparkles",
+            isWorking: isEnhancing
+        ) {
             Task { await enhance() }
-        } label: {
-            Label(isEnhancing ? "Mejorando…" : "mejorar", systemImage: "wand.and.sparkles")
-                .font(WK.Font.callout)
-                .foregroundStyle(WK.Palette.primaryText)
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.s)
-                .background(WK.Palette.ink(0.07), in: .capsule)
-                .contentShape(.capsule)
         }
-        .buttonStyle(WKPressStyle())
-        .disabled(isEnhancing)
     }
 
     // MARK: Datos

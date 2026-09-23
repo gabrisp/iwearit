@@ -241,8 +241,12 @@ struct ImportReviewStack: View {
                         onChangeSubcategory: { model.setSubcategory($0, forCandidateWithID: candidate.id) },
                         onChangeMaterial: { model.setMaterial($0, forCandidateWithID: candidate.id) },
                         onToggleKeep: { model.setKeep($0, forCandidateWithID: candidate.id) },
-                        onManualCrop: { model.setManualCrop($0, forCandidateWithID: candidate.id) },
-                        onRestyle: { await model.restyle(candidateWithID: candidate.id) }
+                        onManualCrop: { cropped in
+                            Task { await model.setManualCrop(cropped, forCandidateWithID: candidate.id) }
+                        },
+                        onRestyle: { await model.restyle(candidateWithID: candidate.id) },
+                        onRetrySearch: { await model.retrySearch(forCandidateWithID: candidate.id) },
+                        isSearching: model.searchingInRegion
                     )
                     .navigationTitle("Editar")
                     .navigationBarTitleDisplayMode(.inline)

@@ -33,15 +33,20 @@ public enum CatalogExtractor {
     /// - Returns: la prenda sola, con alfa, ya normalizada. `nil` si no se pudo
     ///   separar, y entonces quien llama se queda con el recorte de siempre.
     public static func extract(_ image: CGImage, kind: GarmentKind) async -> CGImage? {
-        // **Primero el croma.** Se le pide al modelo que devuelva la prenda
-        // sobre magenta puro, y entonces el recorte no es una estimación: es
-        // una comparación de color. Funciona con una camiseta blanca, que es
-        // justo donde levantar el sujeto sobre blanco no tiene nada que
+        // **Primero, lo que ya viene recortado.** Al modelo se le pide la
+        // prenda sobre fondo transparente; cuando hace caso, el mejor recorte
+        // posible es el suyo y cualquier cosa que hagamos aquí solo puede
+        // estropearlo.
+        var cut = alphaCutout(image)
+        // Si vino opaca, el croma: hubo una época en que se pedía magenta puro
+        // y todavía puede llegar alguna así —o un fondo plano que el croma
+        // reconoce—. Se queda porque no estorba y salva el caso de la camiseta
+        // blanca, donde levantar el sujeto sobre blanco no tiene nada que
         // separar.
-        var cut = ChromaKey.cutout(image)
-        // Y si el croma no estaba —el modelo lo ignoró y la devolvió sobre
-        // blanco— se cae a levantar el sujeto, que sigue siendo mejor que
-        // entregar un rectángulo de fondo.
+        if cut == nil { cut = ChromaKey.cutout(image) }
+        // Y si tampoco —fondo blanco de estudio, que es lo que devuelven los
+        // modelos que no saben hacer alfa— se cae a levantar el sujeto, que
+        // sigue siendo mejor que entregar un rectángulo de fondo.
         if cut == nil { cut = await subject(of: image) }
 
         guard let cut else {
@@ -51,6 +56,51 @@ public enum CatalogExtractor {
             return nil
         }
         return CropNormalizer.normalize(cut, for: kind) ?? cut
+    }
+
+    /// La imagen **si ya trae su propio recorte**.
+    ///
+    /// ## Por qué hay que comprobarlo y no fiarse del formato
+    ///
+    /// Un PNG casi siempre declara canal alfa aunque esté entero a 255: el
+    /// formato dice "puede haber transparencia", no "la hay". Así que se mira
+    /// el borde de la imagen, que es donde tiene que haber fondo: si la mayor
+    /// parte del marco es transparente, el modelo hizo lo que se le pidió.
+    ///
+    /// - Returns: la misma imagen, o `nil` si viene opaca.
+    private static func alphaCutout(_ image: CGImage) -> CGImage? {
+        switch image.alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast: return nil
+        default: break
+        }
+
+        let width = image.width
+        let height = image.height
+        guard width > 2, height > 2 else { return nil }
+        guard
+            let buffer = PixelBuffer(width: width, height: height),
+            let context = buffer.makeContext()
+        else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        // El marco de fuera, una fila y una columna de cada lado.
+        var clear = 0
+        var total = 0
+        for x in 0..<width {
+            for y in [0, height - 1] {
+                total += 1
+                if buffer[x, y, 3] < 16 { clear += 1 }
+            }
+        }
+        for y in 0..<height {
+            for x in [0, width - 1] {
+                total += 1
+                if buffer[x, y, 3] < 16 { clear += 1 }
+            }
+        }
+        guard total > 0, Double(clear) / Double(total) > 0.9 else { return nil }
+        DiagnosticsLog.record("CATÁLOGO", "la imagen ya venía recortada")
+        return image
     }
 
     /// La prenda sin fondo, tal cual la levanta Vision.

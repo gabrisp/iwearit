@@ -74,6 +74,11 @@ struct ImportSingleCard: View {
     /// moviendo el recuadro sobre la foto, que es donde se ve qué se dejó
     /// fuera. Se queda por si hace falta volver a sacarlo.
     var onImprove: (() -> Void)?
+    /// Mirar otra vez dentro del mismo recorte. Ver
+    /// `ImportModel.retrySearch`.
+    var onRetrySearch: (() async -> Void)?
+    /// Si se está mirando dentro de lo rodeado ahora mismo.
+    var isSearching = false
 
     /// Qué imagen se está mirando. Vive aquí porque es estado de presentación:
     /// cambiarla no toca la prenda.
@@ -233,21 +238,39 @@ struct ImportSingleCard: View {
             //
             // Sale del teléfono únicamente el recorte normalizado.
             if candidate.catalogImage == nil {
-                ToolButton(
-                    title: candidate.isRestyling ? "mejorando…" : "mejorar",
-                    symbol: "wand.and.sparkles"
+                // Se llena mientras dura. Ver `WKProgressPill`.
+                WKProgressPill(
+                    candidate.isRestyling ? "mejorando…" : "mejorar",
+                    symbol: "wand.and.sparkles",
+                    isWorking: candidate.isRestyling
                 ) {
                     Task { await onRestyle() }
                 }
-                .disabled(candidate.isRestyling)
             }
 
-            // Sin "recortar": se queda comentado.
-            // if onManualCrop != nil {
-            //     ToolButton(title: "recortar", symbol: "lasso") { isCroppingByHand = true }
-            // }
+            // **Y las dos salidas cuando el recorte no vale.**
+            //
+            // Reintentar, porque el detector no da siempre lo mismo. Y rodear
+            // a mano, que aquí no es "quédate este trozo": es señalar dónde
+            // está la prenda para que la busque **ahí**. Ver
+            // `ImportModel.addManualCandidate`.
+            if let onRetrySearch {
+                WKProgressPill(
+                    isSearching ? "mirando…" : "reintentar",
+                    symbol: "arrow.clockwise",
+                    isWorking: isSearching
+                ) {
+                    Task { await onRetrySearch() }
+                }
+            }
+
+            if onManualCrop != nil {
+                ToolButton(title: "rodear", symbol: "lasso") { isCroppingByHand = true }
+                    .disabled(isSearching)
+            }
         }
         .animation(WKAnimation.content, value: candidate.isRestyling)
+        .animation(WKAnimation.content, value: isSearching)
     }
 
     // MARK: Los datos

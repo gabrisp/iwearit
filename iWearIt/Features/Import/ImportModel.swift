@@ -92,6 +92,13 @@ final class ImportModel {
     /// El total de la tanda añadida y cuántas van, para la barra de progreso.
     private(set) var addingTotal = 0
     private(set) var addingDone = 0
+    /// Si se está mirando dentro de lo que acabas de rodear.
+    ///
+    /// Rodear con el dedo no recorta: **dice dónde mirar**, y mirar cuesta los
+    /// mismos segundos que analizar una foto. Sin esto, tras cerrar el lazo la
+    /// pantalla se quedaba igual un rato largo y parecía que no había pasado
+    /// nada.
+    private(set) var searchingInRegion = false
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
     /// Cómo se está reintentando, para poder decirlo en el botón.
@@ -483,7 +490,48 @@ final class ImportModel {
     /// Sin atributos deducidos: lo único que se sabe con certeza es la imagen y
     /// sus colores. El tipo y el nombre se corrigen en la ficha, que es donde
     /// están los controles para eso.
-    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) {
+    /// **Rodear no es recortar: es decir dónde mirar.**
+    ///
+    /// ## Por qué no se queda el lazo tal cual
+    ///
+    /// Porque un lazo hecho con el dedo sobre una foto trae de todo: el borde
+    /// de la mesa, un trozo de brazo, la sombra. Guardarlo como prenda dejaba
+    /// en el armario un recorte con esquinas de fondo pegadas, y encima sin
+    /// tipo —entraba como "otros"— ni colores fiables.
+    ///
+    /// Lo que se hace es lo que pedías: **buscar la prenda ahí dentro**. El
+    /// mismo pipeline que mira una foto entera, pero mirando solo ese trozo,
+    /// que es justo lo que hace que encuentre lo que en la foto entera se le
+    /// pasaba —una mochila entre cuatro cosas, la segunda prenda de la foto—.
+    ///
+    /// Si dentro no encuentra nada, se queda lo rodeado tal cual: algo que tú
+    /// has señalado vale más que un hueco vacío.
+    func addManualCandidate(_ image: CGImage, photoIndex: Int = 0) async {
+        searchingInRegion = true
+        defer { searchingInRegion = false }
+
+        let found = await search(in: image)
+        guard !found.isEmpty else {
+            candidates.append(manualCandidate(from: image, photoIndex: photoIndex))
+            DiagnosticsLog.record(
+                "IMPORT",
+                "en lo rodeado no se ve ninguna prenda: se queda el recorte tal cual"
+            )
+            return
+        }
+        for garment in found {
+            var candidate = ImportCandidate(garment, photoIndex: photoIndex)
+            candidate.wasCorrectedByUser = true
+            candidates.append(candidate)
+        }
+        DiagnosticsLog.record(
+            "IMPORT",
+            "\(found.count) prenda(s) dentro de lo rodeado · \(candidates.count) en total"
+        )
+    }
+
+    /// Lo rodeado como prenda, sin más: el camino de respaldo.
+    private func manualCandidate(from image: CGImage, photoIndex: Int) -> ImportCandidate {
         let cropped = ImmutableImage(image)
         let detected = DetectedGarment(
             kind: .other,
@@ -495,8 +543,21 @@ final class ImportModel {
         )
         var candidate = ImportCandidate(detected, photoIndex: photoIndex)
         candidate.wasCorrectedByUser = true
-        candidates.append(candidate)
-        DiagnosticsLog.record("IMPORT", "prenda añadida a mano: \(candidates.count) en total")
+        return candidate
+    }
+
+    /// Busca prendas **dentro de un trozo de foto**.
+    ///
+    /// Separando piezas: dentro de un trozo rodeado a dedo suele haber **una**
+    /// prenda, pero si rodeas la mitad de arriba de una foto puede haber una
+    /// camiseta y una chaqueta, y la pasada normal las fundiría en una.
+    private func search(in region: CGImage) async -> [DetectedGarment] {
+        do {
+            return try await detect(region, number: 1, of: 1, using: pipeline(for: .splitPieces))
+        } catch {
+            DiagnosticsLog.record("IMPORT", "mirar dentro falla: \(error)", isProblem: true)
+            return []
+        }
     }
 
     /// Quita un candidato de la lista **del todo**.
@@ -868,13 +929,50 @@ final class ImportModel {
         candidates[index].wasCorrectedByUser = true
     }
 
-    func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) {
+    /// Lo mismo para una prenda que ya está: **mirar otra vez, ahí**.
+    ///
+    /// Se usa cuando lo detectado no vale —media manga fuera, medio sofá
+    /// dentro— y rodeas tú el sitio. Si dentro se ve la prenda, la que estaba
+    /// se sustituye por la encontrada; si no, se queda lo rodeado, que es lo
+    /// que hacía antes siempre.
+    func setManualCrop(_ image: CGImage, forCandidateWithID id: UUID) async {
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
-        candidates[index].manualCrop = ImmutableImage(image)
-        candidates[index].catalogImage = nil
-        candidates[index].catalogFailure = nil
-        candidates[index].wasCorrectedByUser = true
-        DiagnosticsLog.record("IMPORT", "recorte a mano aplicado")
+        searchingInRegion = true
+        defer { searchingInRegion = false }
+
+        let found = await search(in: image)
+        guard
+            let best = found.max(by: { $0.confidence < $1.confidence }),
+            let position = candidates.firstIndex(where: { $0.id == id })
+        else {
+            candidates[index].manualCrop = ImmutableImage(image)
+            candidates[index].catalogImage = nil
+            candidates[index].catalogFailure = nil
+            candidates[index].wasCorrectedByUser = true
+            DiagnosticsLog.record("IMPORT", "recorte a mano aplicado tal cual")
+            return
+        }
+
+        // Lo que tú hayas corregido se conserva: el tipo, la balda y el resto
+        // de campos editados son tuyos y no los pisa una pasada del detector.
+        let previous = candidates[position]
+        var replacement = ImportCandidate(best, photoIndex: previous.photoIndex)
+        replacement.kind = previous.wasCorrectedByUser ? previous.kind : best.kind
+        replacement.isKept = previous.isKept
+        replacement.wasCorrectedByUser = true
+        candidates[position] = replacement
+        DiagnosticsLog.record("IMPORT", "prenda encontrada dentro de lo rodeado")
+    }
+
+    /// **Mirar otra vez dentro de lo mismo.**
+    ///
+    /// El detector no da siempre el mismo resultado —depende de qué tenga
+    /// ocupada la ANE y de cuánto le dé tiempo—, así que volver a mirar el
+    /// mismo recorte cambia lo que sale más veces de las que parece. Es el
+    /// "reintentar" de una prenda, al lado de "mejorar" y de rodearla otra vez.
+    func retrySearch(forCandidateWithID id: UUID) async {
+        guard let candidate = candidates.first(where: { $0.id == id }) else { return }
+        await setManualCrop(candidate.cutout.cgImage, forCandidateWithID: id)
     }
 
     var keptCount: Int { candidates.count { $0.isKept } }
