@@ -170,13 +170,28 @@ public enum OutfitAssembly {
                 // El espejo: lo que estaba a la izquierda, a la derecha.
                 x = CanvasSpace.width - x
             case 2:
-                // Escalonado: el torso sube, las piernas bajan y el
-                // complemento se va al otro lado.
+                // Escalonado: el torso sube y las piernas bajan.
                 if slot == .top || slot == .outer { y -= 50 }
                 if slot == .bottom || slot == .shoes { y += 40 }
-                if slot == .accessory { x = CanvasSpace.width - x }
             default:
                 break
+            }
+
+            // **El complemento, donde le toca por lo que es.**
+            //
+            // Iba siempre arriba a la derecha, y ahí una mochila queda
+            // flotando sobre el hombro como si se hubiera caído del cielo. Un
+            // gorro sí va arriba —es donde se lleva—, pero un bolso o una
+            // mochila van al suelo, junto a las piernas y el calzado, que es
+            // donde los deja cualquiera. Y dentro de su zona, la semilla
+            // reparte entre un par de sitios para que no salgan todos
+            // calcados.
+            if slot == .accessory {
+                let spot = Self.accessorySpot(kind: piece.kind, variant: variant)
+                x = spot.x
+                y = spot.y
+                width *= spot.scale
+                height *= spot.scale
             }
 
             // Y una inclinación pequeña, distinta por prenda: lo justo para
@@ -192,6 +207,38 @@ public enum OutfitAssembly {
                 rotation: tilt,
                 zIndex: zIndex
             )
+        }
+    }
+
+    /// Dónde cae un complemento, según qué sea.
+    ///
+    /// Lo de la cabeza arriba, lo que se lleva en la mano o al hombro abajo, y
+    /// lo demás —una bufanda, un cinturón— a media altura, que es por donde
+    /// pasa. Dos sitios por zona para que dos conjuntos seguidos no lo pongan
+    /// en el mismo punto.
+    private nonisolated static func accessorySpot(
+        kind: GarmentKind,
+        variant: Int
+    ) -> (x: Double, y: Double, scale: Double) {
+        let alternate = variant == 1
+        switch kind {
+        case .head:
+            // Sobre el hombro, a un lado del torso: puesto en el centro tapa
+            // el cuello de la prenda de arriba.
+            return alternate
+                ? (x: 250, y: 300, scale: 0.85)
+                : (x: 770, y: 300, scale: 0.85)
+        case .bag:
+            // En el suelo, al lado del calzado. Un poco más grande que el
+            // resto de complementos porque un bolso lo es.
+            return alternate
+                ? (x: 815, y: 1215, scale: 1.05)
+                : (x: 195, y: 1215, scale: 1.05)
+        default:
+            // Bufandas, cinturones y demás: a la altura del torso, al borde.
+            return alternate
+                ? (x: 215, y: 780, scale: 0.9)
+                : (x: 800, y: 780, scale: 0.9)
         }
     }
 

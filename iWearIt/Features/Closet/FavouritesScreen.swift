@@ -78,7 +78,11 @@ struct FavouritesScreen: View {
                     .transition(.blurReplace)
                 }
             }
-            .padding(WK.Spacing.m)
+            // El mismo margen que la barra de arriba y que el resto de
+            // pantallas: con el de dentro de una tarjeta, la rejilla no
+            // cuadraba con el título ni con los botones.
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.vertical, WK.Spacing.m)
             // **El cambio de filtro se mueve.** Lo que entra y lo que sale es
             // lo mismo que había —las mismas celdas, unas cuantas menos—, así
             // que cambiar de golpe parece que la pantalla se ha recargado en

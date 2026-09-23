@@ -62,6 +62,8 @@ struct InspoScreen: View {
     @State private var swipe = InspoSwipe()
     /// De dónde sale el editor al abrirse: de la propia tarjeta.
     @Namespace private var zoom
+    /// Qué tarjeta se está mirando, para poder subir arriba al barajar.
+    @State private var scrolled: UUID?
 
     private var shown: [StylistLook] { feed.looks }
 
@@ -145,7 +147,13 @@ struct InspoScreen: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
-                withAnimation(WKAnimation.content) { feed.shuffle() }
+                withAnimation(WKAnimation.content) {
+                    feed.shuffle()
+                    // **Y arriba del todo.** Barajar cambia lo que hay en
+                    // todas las tarjetas; quedarse a medio scroll sería mirar
+                    // la quinta de una baraja que acaba de cambiar entera.
+                    scrolled = feed.looks.first?.id
+                }
             } label: {
                 Image(systemName: "shuffle")
             }
@@ -202,6 +210,7 @@ struct InspoScreen: View {
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $scrolled)
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.always, axes: .vertical)
             // **Más, cuando lo pidas.** Se montan solos cada rato y se
@@ -367,6 +376,12 @@ private struct InspoLookCard: View {
             outfit: outfit,
             showsBorder: true
         )
+        // **La ropa se cambia, la tarjeta se queda.** Con la identidad puesta
+        // en lo que hay dentro, al barajar se funde el contenido y el marco ni
+        // se entera; sin ella, SwiftUI actualizaría las imágenes a saltos según
+        // fueran cargando.
+        .id(look.garmentIDs)
+        .transition(.opacity)
             .overlay(alignment: .topTrailing) { actions }
             // **Con freno.** La tarjeta sigue al dedo de cerca al principio y
             // se va quedando: arrastrarla a la misma velocidad que el dedo la

@@ -143,8 +143,21 @@ public struct Stylist: Sendable {
 
                     // Chaqueta y complemento se añaden **después**: son
                     // opcionales, así que entran solo si mejoran el conjunto.
+                    // **Y a veces chaqueta aunque no haga falta.**
+                    //
+                    // Con la regla de "solo si mejora", en cuanto el tiempo es
+                    // suave la chaqueta no entraba nunca: el conjunto ya está
+                    // bien sin ella y añadirla no sube la puntuación. Pero una
+                    // cazadora encima de una camiseta es media forma de
+                    // vestir, y no verla nunca deja media balda fuera de la
+                    // inspiración. Así que un tercio de las veces —lo decide
+                    // la semilla, no un dado— se le baja el listón.
+                    let favoursOuter = (brief.seed % 3) == 0
                     if let outer = bestAddition(
-                        from: pool[.outer, default: []], to: pieces, brief: brief
+                        from: pool[.outer, default: []],
+                        to: pieces,
+                        brief: brief,
+                        margin: favoursOuter ? -0.2 : 0.08
                     ) {
                         pieces.append(outer)
                     }
@@ -330,10 +343,14 @@ public struct Stylist: Sendable {
     /// Se mide de verdad: se puntúa el conjunto con y sin, y solo entra si
     /// sube. Añadir siempre una chaqueta en julio es lo que hace que estas
     /// propuestas dejen de tomarse en serio.
+    /// - Parameter margin: cuánto tiene que mejorar para entrar. Negativo =
+    ///   entra aunque empeore un poco, que es como se cuela una chaqueta en un
+    ///   día que no la pide.
     private func bestAddition(
         from options: [StylistGarment],
         to pieces: [StylistGarment],
-        brief: StylistBrief
+        brief: StylistBrief,
+        margin: Double = 0.08
     ) -> StylistGarment? {
         guard !options.isEmpty else { return nil }
         let base = harmony(of: pieces) + coverage(of: pieces, brief: brief)
@@ -342,7 +359,7 @@ public struct Stylist: Sendable {
             let candidate = pieces + [option]
             let value = harmony(of: candidate) + coverage(of: candidate, brief: brief)
             let forced = brief.pinned.contains(option.id)
-            guard forced || value > base + 0.08 else { continue }
+            guard forced || value > base + margin else { continue }
             if best == nil || value > best!.1 || forced { best = (option, forced ? .infinity : value) }
         }
         return best?.0

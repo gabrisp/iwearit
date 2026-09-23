@@ -194,6 +194,9 @@ public enum ChromaKey {
 
         // --- 4. Y el color del borde, traído de dentro ---
         extendEdgeColour(buffer, width: width, height: height)
+
+        // --- 5. Y el filete que queda pegado por dentro ---
+        scrubEdgeSpill(buffer, width: width, height: height)
     }
 
     /// Por encima de este alfa, un píxel es prenda de verdad y su color es de
@@ -410,10 +413,86 @@ public enum ChromaKey {
     /// tono, y un burdeos (rojo 115, verde 30, azul 45) ni se entera: su exceso
     /// está por debajo de la tolerancia.
     static func suppressSpill(
-        red: Double, green: Double, blue: Double
+        red: Double, green: Double, blue: Double,
+        tolerance: Double = spillTolerance
     ) -> (red: Double, green: Double, blue: Double) {
-        let excess = min(red, blue) - green - spillTolerance
+        let excess = min(red, blue) - green - tolerance
         guard excess > 0 else { return (red, green, blue) }
         return (max(0, red - excess), green, max(0, blue - excess))
+    }
+
+    /// Hasta dónde llega el derrame hacia dentro de la prenda, en píxeles.
+    ///
+    /// El JPEG del modelo comprime el color en bloques y a media resolución,
+    /// así que el magenta del fondo se cuela dos o tres píxeles por debajo del
+    /// contorno aunque el alfa ya esté al máximo.
+    static let edgeSpillRadius = 3
+
+    /// Limpia el magenta que queda **pegado por dentro del contorno**.
+    ///
+    /// ## Por qué hace falta otra pasada
+    ///
+    /// Porque el derrame se quita con tolerancia: rojo y azul pueden pasarse
+    /// del verde unos 26 niveles sin que se toque nada, y eso protege a un
+    /// burdeos, a un lavanda o a un rosa palo de salir desaturados. El precio
+    /// es que en el anillo del borde —donde el píxel es medio fondo— queda
+    /// permitido justo ese 10% de magenta, y diez por ciento de magenta a lo
+    /// largo de todo el contorno es el filete rosa que se ve.
+    ///
+    /// ## Y por qué solo en el borde
+    ///
+    /// Porque ahí el magenta **no puede ser de la prenda**: es el fondo que se
+    /// ha corrido. Dentro sí puede serlo, así que dentro se mantiene la
+    /// tolerancia. La regla es la misma de siempre, aplicada donde la duda no
+    /// existe.
+    private static func scrubEdgeSpill(_ buffer: PixelBuffer, width: Int, height: Int) {
+        // Qué píxeles no son prenda del todo: el fondo y la rampa del borde.
+        var soft = [Bool](repeating: false, count: width * height)
+        for y in 0..<height {
+            let row = y * width
+            for x in 0..<width where buffer[x, y, 3] < opaqueFloor {
+                soft[row + x] = true
+            }
+        }
+
+        // Y cuáles están a tiro de ellos. Se dilata por pasadas de cuatro
+        // vecinos —tres pasadas, tres píxeles— en vez de mirar un cuadrado por
+        // píxel: es la misma vecindad y cuesta una fracción.
+        var near = soft
+        for _ in 0..<edgeSpillRadius {
+            var grown = near
+            for y in 0..<height {
+                let row = y * width
+                for x in 0..<width where near[row + x] {
+                    if x > 0 { grown[row + x - 1] = true }
+                    if x < width - 1 { grown[row + x + 1] = true }
+                    if y > 0 { grown[row - width + x] = true }
+                    if y < height - 1 { grown[row + width + x] = true }
+                }
+            }
+            near = grown
+        }
+
+        var scrubbed = 0
+        for y in 0..<height {
+            let row = y * width
+            for x in 0..<width where near[row + x] && !soft[row + x] {
+                let cleaned = suppressSpill(
+                    red: Double(buffer[x, y, 0]),
+                    green: Double(buffer[x, y, 1]),
+                    blue: Double(buffer[x, y, 2]),
+                    // Sin tolerancia: aquí el magenta es del fondo.
+                    tolerance: 0
+                )
+                guard cleaned.red < Double(buffer[x, y, 0]) else { continue }
+                buffer[x, y, 0] = UInt8(cleaned.red)
+                buffer[x, y, 1] = UInt8(cleaned.green)
+                buffer[x, y, 2] = UInt8(cleaned.blue)
+                scrubbed += 1
+            }
+        }
+        if scrubbed > 0 {
+            DiagnosticsLog.record("CATÁLOGO", "filete del borde limpiado en \(scrubbed) píxeles")
+        }
     }
 }

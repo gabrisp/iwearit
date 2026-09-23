@@ -78,9 +78,37 @@ final class InspoFeed {
         ticker = nil
     }
 
-    /// Rehace la tanda entera. Lo que pide el botón de barajar.
+    /// Rehace la tanda entera **sin cambiar las tarjetas**.
+    ///
+    /// Los conjuntos nuevos se quedan con los identificadores de los que
+    /// había, así que para la lista son las mismas tarjetas con otra ropa
+    /// dentro: se cambia lo que hay puesto, no se vacía la pantalla y se
+    /// vuelve a llenar. Es la diferencia entre barajar una baraja y tirarla
+    /// para sacar otra.
     func shuffle() {
-        refresh(replacingAll: true)
+        let fresh = stylist.looks(from: wardrobe(), brief: baseBrief(seed: UInt64(Date().timeIntervalSince1970)), count: max(Self.capacity, looks.count))
+        guard !fresh.isEmpty else { return }
+
+        var rebuilt: [StylistLook] = []
+        for (index, look) in fresh.enumerated() {
+            guard index < looks.count else {
+                rebuilt.append(look)
+                continue
+            }
+            let existing = looks[index]
+            materialised[existing.id] = nil
+            rebuilt.append(
+                StylistLook(
+                    id: existing.id,
+                    garmentIDs: look.garmentIDs,
+                    headline: look.headline,
+                    reason: look.reason,
+                    score: look.score
+                )
+            )
+        }
+        looks = rebuilt
+        updatedAt = Date()
     }
 
     /// Fuera este **y anotado**: sus prendas pesan menos a partir de ahora.
