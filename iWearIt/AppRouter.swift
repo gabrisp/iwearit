@@ -27,13 +27,13 @@ final class AppRouter {
     enum Sheet: Identifiable {
         /// La ficha de una prenda.
         case garment(GarmentRef)
-        /// La inspiración con su chat.
-        case inspo
+        /// El chat con el estilista.
+        case stylist
 
         var id: String {
             switch self {
             case let .garment(ref): "garment-\(ref.id)"
-            case .inspo: "inspo"
+            case .stylist: "stylist"
             }
         }
     }
@@ -55,8 +55,10 @@ final class AppRouter {
         sheet = nil
     }
 
-    func openInspo() {
-        sheet = .inspo
+    /// El chat **sí** es una hoja: se abre, se pide y se cierra. La
+    /// inspiración, en cambio, es una pestaña: se pasa por delante.
+    func openStylist() {
+        sheet = .stylist
     }
 
     func close() {

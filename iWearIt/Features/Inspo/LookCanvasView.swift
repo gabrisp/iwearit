@@ -14,11 +14,25 @@ struct LookCanvasView: View {
     let garments: [Garment]
     let store: ImageStore
     var backdrop: Color = WK.Palette.canvas
+    /// Cuando la propuesta ya es un outfit de verdad, **manda él**.
+    ///
+    /// Lo editado vuelve a la tarjeta de la que salió: si moviste la chaqueta
+    /// y giraste la gorra, eso es lo que hay que ver aquí, no el reparto por
+    /// huecos de la propuesta original.
+    var outfit: Outfit?
 
     /// Dónde cae cada prenda. Se calcula una vez por conjunto y no por
     /// fotograma: es aritmética barata, pero dentro del `body` se repetiría en
     /// cada scroll.
     private var placed: [(garment: Garment, transform: ItemTransform)] {
+        if let outfit {
+            return outfit.items
+                .filter { $0.sticker == nil }
+                .compactMap { item in
+                    guard let garment = item.garment, garment.deletedAt == nil else { return nil }
+                    return (garment: garment, transform: item.transform)
+                }
+        }
         let ordered = garments.sorted {
             StylistRole($0.kind).sortOrder < StylistRole($1.kind).sortOrder
         }

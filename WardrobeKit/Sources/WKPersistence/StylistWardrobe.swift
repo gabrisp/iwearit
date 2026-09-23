@@ -35,6 +35,9 @@ public extension ModelContext {
             // Sin recorte no se puede enseñar, y un conjunto con un hueco no
             // es una propuesta.
             .filter { !$0.normalizedImageKey.isEmpty }
+            // Y sin las baldas que has dejado fuera. Ver
+            // `GarmentCategory.isExcludedFromInspo`.
+            .filter { $0.category?.isExcludedFromInspo != true }
             .map(\.stylistValue)
     }
 

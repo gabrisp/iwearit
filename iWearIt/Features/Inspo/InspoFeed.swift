@@ -84,7 +84,55 @@ final class InspoFeed {
     func dismiss(_ look: StylistLook) {
         dismissed.insert(look.id)
         looks.removeAll { $0.id == look.id }
+        materialised[look.id] = nil
         refill()
+    }
+
+    /// Otro conjunto para ese hueco, sin tocar los demás.
+    ///
+    /// - Parameter excluding: lo que ya se está viendo, para que el nuevo no
+    ///   sea el de al lado con otro nombre.
+    func replacement(for look: StylistLook, excluding used: Set<UUID>) -> StylistLook? {
+        var brief = baseBrief(seed: UInt64(Date().timeIntervalSince1970) &+ 7)
+        brief.banned.formUnion(look.garmentIDs)
+        let fresh = stylist.looks(from: wardrobe(), brief: brief, count: Self.capacity)
+        return fresh.first { Set($0.garmentIDs).isDisjoint(with: used) } ?? fresh.first
+    }
+
+    func replace(_ look: StylistLook, with other: StylistLook) {
+        guard let index = looks.firstIndex(where: { $0.id == look.id }) else { return }
+        looks[index] = other
+        materialised[look.id] = nil
+    }
+
+    // MARK: Los que ya son outfits
+
+    /// Los conjuntos que se han convertido en outfit de verdad —al guardarlos,
+    /// al ponerles fecha o al abrirlos en el editor—.
+    ///
+    /// ## Por qué hace falta acordarse
+    ///
+    /// Porque al editar uno **lo editado tiene que volver a su sitio**: si
+    /// mueves la chaqueta y cambias los zapatos, la tarjeta de inspiración de
+    /// la que saliste tiene que enseñar eso, no la propuesta de antes. Para
+    /// eso la tarjeta deja de pintarse por huecos y se pinta con el outfit,
+    /// que ya guarda dónde está cada prenda.
+    ///
+    /// En memoria y no en la base: la propuesta sigue sin guardarse; lo que se
+    /// guarda es el outfit, y esto solo dice cuál es el suyo mientras la
+    /// pantalla viva.
+    private(set) var materialised: [UUID: PersistentIdentifier] = [:]
+
+    func remember(_ outfit: Outfit, for look: StylistLook) {
+        materialised[look.id] = outfit.persistentModelID
+    }
+
+    func forget(_ look: StylistLook) {
+        materialised[look.id] = nil
+    }
+
+    func outfitID(for look: StylistLook) -> PersistentIdentifier? {
+        materialised[look.id]
     }
 
     /// El tiempo de hoy, para que las propuestas sepan si hace frío.

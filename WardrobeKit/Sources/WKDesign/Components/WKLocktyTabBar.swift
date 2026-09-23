@@ -37,7 +37,10 @@ public struct WKLocktyTabBar<Tab: Hashable>: View {
     }
 
     public var body: some View {
-        let labelSize = CGSize(width: WKLocktyTabBarMetrics.width, height: WKLocktyTabBarMetrics.height)
+        let labelSize = CGSize(
+            width: WKLocktyTabBarMetrics.width(for: tabs.count),
+            height: WKLocktyTabBarMetrics.height
+        )
         let homeIndex = tabs.firstIndex(of: home) ?? 0
         let index = Binding {
             tabs.firstIndex(of: selection) ?? homeIndex
@@ -67,8 +70,14 @@ public struct WKLocktyTabBar<Tab: Hashable>: View {
 }
 
 public enum WKLocktyTabBarMetrics {
-    /// `collapsedWidth` de Lockty.
+    /// `collapsedWidth` de Lockty, que eran dos destinos.
     public static let width: CGFloat = 132
+
+    /// Lo mismo por destino: la barra crece al añadir uno en vez de apretar
+    /// los iconos dentro del mismo hueco.
+    public static func width(for count: Int) -> CGFloat {
+        CGFloat(max(1, count)) * (width / 2)
+    }
     /// `LocktySpacing.tabBarHeight`.
     public static let height: CGFloat = 52
 }

@@ -25,6 +25,16 @@ public final class GarmentCategory {
     /// reordenan y ocultan.
     public var isBuiltIn: Bool = false
     public var isHidden: Bool = false
+
+    /// Fuera de la inspiración.
+    ///
+    /// No es lo mismo que esconder la balda: la ropa de disfraces, la de
+    /// trabajar en el campo o la que ya no te pones sigue en el armario y se
+    /// busca igual, pero no tiene sentido que el estilista la proponga para un
+    /// martes. Con el sitio de las prendas ya dividido en baldas, excluir por
+    /// balda es la forma más barata de decirlo: una casilla en vez de repasar
+    /// prenda por prenda.
+    public var isExcludedFromInspo: Bool = false
     public var sortOrder: Int = 0
     public var modifiedAt: Date = Date()
     public var deletedAt: Date?

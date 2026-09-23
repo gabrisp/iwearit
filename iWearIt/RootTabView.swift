@@ -47,6 +47,15 @@ struct RootTabView: View {
                 PlannerScreen(tab: $selection)
                     .toolbarVisibility(.hidden, for: .tabBar)
             }
+            // **La inspiración es pestaña.** Estaba detrás del botón de la
+            // barra, y eso la convertía en algo que hay que acordarse de
+            // abrir: se rehace sola cada rato, así que tiene que estar donde
+            // se pasa por delante sin buscarla. El botón se queda para hablar
+            // con el estilista, que es otra cosa.
+            Tab(value: RootTab.inspo) {
+                InspoScreen(tab: $selection, feed: appEnvironment.inspo)
+                    .toolbarVisibility(.hidden, for: .tabBar)
+            }
         }
         // Y en el propio `TabView` además de en cada pestaña. Ninguno de los
         // dos sitios basta por sí solo en todas las versiones, y que asome un
@@ -91,8 +100,8 @@ struct RootTabView: View {
             switch sheet {
             case let .garment(garment):
                 GarmentDetailLoader(persistentID: garment.persistentID)
-            case .inspo:
-                InspoSheet(feed: appEnvironment.inspo)
+            case .stylist:
+                StylistChatSheet(feed: appEnvironment.inspo)
             }
         }
         .ignoresSafeArea(.keyboard)
@@ -111,7 +120,7 @@ struct RootTabView: View {
 }
 
 enum RootTab: Hashable {
-    case closet, planner, profile
+    case closet, planner, inspo, profile
 
     /// En Debug, `-tab profile` arranca en esa pestaña. Sirve para capturar
     /// cualquier pantalla sin tener que tocarla.
@@ -121,6 +130,7 @@ enum RootTab: Hashable {
         if let i = args.firstIndex(of: "-tab"), i + 1 < args.count {
             switch args[i + 1] {
             case "planner": return .planner
+            case "inspo": return .inspo
             case "profile": return .profile
             default: break
             }
@@ -149,7 +159,10 @@ extension View {
         selection: Binding<RootTab>,
         isHidden: Bool = false,
         onAssistant: (() -> Void)? = nil,
-        onPlus: @escaping () -> Void
+        // El "+" está comentado en la barra desde que se centró; el parámetro
+        // sigue aquí porque el flujo que abre existe entero. Con valor por
+        // defecto para las pantallas que no tienen nada que añadir.
+        onPlus: @escaping () -> Void = {}
     ) -> some View {
         modifier(
             RootTabBarSlot(
@@ -212,10 +225,15 @@ private struct RootTabBarSlot: ViewModifier {
 
                     Spacer(minLength: 0)
 
-                    WKLocktyTabBar(tabs: [RootTab.closet, .planner], home: tab, selection: $selection) { tab in
+                    WKLocktyTabBar(
+                        tabs: [RootTab.closet, .planner, .inspo],
+                        home: tab,
+                        selection: $selection
+                    ) { tab in
                         switch tab {
                         case .closet: "cabinet"
                         case .planner: "calendar"
+                        case .inspo: "wand.and.stars"
                         case .profile: "person.crop.circle"
                         }
                     }
@@ -223,9 +241,9 @@ private struct RootTabBarSlot: ViewModifier {
 
                     Spacer(minLength: 0)
 
-                    // El de Lockty, en su sitio de siempre: abre la
-                    // inspiración. La carita se queda comentada por si vuelve.
-                    Button { onAssistant?() ?? router?.openInspo() } label: {
+                    // El de Lockty, en su sitio de siempre: abre el chat con
+                    // el estilista. La carita se queda comentada por si vuelve.
+                    Button { onAssistant?() ?? router?.openStylist() } label: {
                         Image(systemName: "sparkles")
                             .font(.body.weight(.medium))
                             .foregroundStyle(WK.Palette.primaryText)
