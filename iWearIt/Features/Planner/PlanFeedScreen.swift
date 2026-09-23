@@ -93,43 +93,21 @@ struct PlanFeedScreen: View {
             pager
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            // **En la barra, no flotando.**
+            // **En una barra de área segura, no en la de navegación.**
             //
-            // Es la misma tira de siempre, pero puesta donde van las cosas de
-            // la pantalla: así el sistema le da el mismo fondo, el mismo alto
-            // y el mismo sitio que a cualquier otra barra, y el scroll de
-            // debajo sabe que está ahí sin tener que descontarla a mano.
+            // Estuvo en la barra de navegación un rato: la pinta el sistema,
+            // con su fondo y su alto, y era lo lógico. Pero una barra de
+            // navegación reparte el ancho como quiere, y cuando lo que pide un
+            // elemento no cabe no lo encoge: lo esconde entero. Con una tira
+            // de días —que es lo más ancho que hay en la pantalla— eso
+            // significa que en una ventana estrecha el calendario desaparece,
+            // y un control que a veces no está es peor que uno que ocupa.
             //
-            // Dos elementos hermanos y no una pieza con un botón pegado: el
-            // calendario con los días es uno, el cambio de modo es el otro, y
-            // los dos los pinta la barra igual.
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    DayStripCapsule(
-                        anchorDay: anchor,
-                        selectedOffset: selectedOffset,
-                        onOpenCalendar: { isPickingDay = true },
-                        hasBackground: false
-                    )
-                    // Los días necesitan ancho: sin decirlo, el scroll pide
-                    // todo el que hay y echa al botón de al lado fuera de la
-                    // barra. Con tope por arriba: un elemento que pide más de
-                    // lo que la barra puede dar no se encoge, la barra lo
-                    // esconde entero.
-                    .frame(width: min(max(180, pageSize.width - Self.toolbarButtonSpace), 340))
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(WKAnimation.content) {
-                            layout = layout == .feed ? .grid : .feed
-                        }
-                    } label: {
-                        Image(systemName: layout == .feed ? "square.grid.2x2" : "rectangle.portrait")
-                            .contentTransition(.symbolEffect(.replace.downUp))
-                    }
-                    .tint(WK.Palette.primaryText)
-                }
-            }
+            // Aquí manda ella: la tira es la de siempre, con su cápsula y su
+            // botón al lado, y la barra le reserva el sitio —así el scroll de
+            // debajo sabe lo que tiene encima sin que nadie lo cuente a mano.
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
             .navigationDestination(item: $editingOutfit) { outfit in
                 AdvancedCanvasScreen(
@@ -172,6 +150,23 @@ struct PlanFeedScreen: View {
         }
     }
 
+    /// La tira: el calendario, los días y el cambio de modo. La misma que
+    /// llevaba el plan desde siempre, con su cápsula de cristal flotando sobre
+    /// el lienzo. Ver `DayStripBar`.
+    private var strip: some View {
+        DayStripBar(
+            anchorDay: anchor,
+            selectedOffset: selectedOffset,
+            onOpenCalendar: { isPickingDay = true },
+            layoutSymbol: layout == .feed ? "square.grid.2x2" : "rectangle.portrait",
+            onToggleLayout: {
+                withAnimation(WKAnimation.content) {
+                    layout = layout == .feed ? .grid : .feed
+                }
+            }
+        )
+    }
+
     /// Qué día se mira, como desplazamiento desde hoy: es como habla la tira.
     private var selectedOffset: Binding<Int> {
         Binding(
@@ -182,8 +177,8 @@ struct PlanFeedScreen: View {
         )
     }
 
-    /// Lo que se le deja al botón de la derecha, con su aire.
-    private static let toolbarButtonSpace: CGFloat = 96
+    /// Lo que mide la tira con su aire. Ver `DayStripBar`.
+    private static let stripHeight: CGFloat = 64
 
     /// **Lo que mide un hueco, descontando lo que tapan las barras.**
     ///
@@ -192,10 +187,11 @@ struct PlanFeedScreen: View {
     /// barra de navegación y la de pestañas, y aquí la de arriba está
     /// escondida —manda la tira— así que hay que restarlas a mano.
     private var stride: CGFloat {
-        // **Ya no se resta nada.** Con la tira dentro de la barra de
-        // navegación, el contenedor del scroll llega recortado por arriba y
-        // por abajo igual que en inspiración, que es de donde tiene que salir
-        // el tamaño de las tarjetas.
+        // **Sin restar nada.** La barra de área segura encoge el marco del
+        // scroll igual que lo hace la de pestañas, así que lo que se mide aquí
+        // ya viene sin la tira. Restándola otra vez las tarjetas salían un
+        // dedo más cortas que las de inspiración —medido en el simulador: 572
+        // puntos contra 635—.
         max(320, pageSize.height)
     }
 
@@ -440,52 +436,60 @@ private struct PlanDayFeed: View {
                     .id(AnyHashable(entry.id))
                 }
 
-                // **Asomarse ya es entrar.** Nadie quiere quedarse mirando una
-                // tarjeta que dice "crear": subir hasta ella *es* la decisión,
-                // así que en cuanto asoma de verdad se abre el selector. Es el
-                // mismo gesto que trae más propuestas en inspiración.
-                PlanCreateCard()
-                    .matchedGeometryEffect(id: createID, in: morph)
-                    .modifier(PlanCardSize(page: pageSize, stride: stride))
-                    // **Solo si había algo antes.** Con el día vacío, esta
-                    // tarjeta es lo único en pantalla: dispararse al verse
-                    // sería abrir el selector nada más llegar al día. Con
-                    // outfits detrás, llegar hasta aquí es un tirón hacia
-                    // arriba —una decisión— y entonces sí.
-                    // **Y no llega a centrarse.** Es un tope, no una página:
-                    // en cuanto asoma, el scroll vuelve al último outfit y el
-                    // selector se abre encima. Quedarse ahí parado —con el
-                    // lienzo del día ya fuera de pantalla— era estar en un
-                    // sitio que no existe.
-                    .onScrollVisibilityChange(threshold: 0.4) { isVisible in
-                        guard isVisible, !isPicking, !isEditing else { return }
-                        guard let last = entries.last else { return }
-                        onCreate()
-                        withAnimation(WKAnimation.content) { anchor = AnyHashable(last.id) }
-                    }
-                    .onTapGesture { onCreate() }
-                    .id(Self.createAnchor)
+                // **Solo cuando no hay nada.** Con outfits detrás, una tarjeta
+                // de "crear" al final es un sitio al que se llega sin querer:
+                // no es un outfit, no se puede mirar y quedarse ahí es estar
+                // en ninguna parte —por eso había que devolver el scroll a
+                // empujones—. Con el día vacío sí: entonces no hay nada que
+                // mirar y la tarjeta es lo único que dice qué hacer.
+                if entries.isEmpty {
+                    PlanCreateCard()
+                        .matchedGeometryEffect(id: createID, in: morph)
+                        .modifier(PlanCardSize(page: pageSize, stride: stride))
+                        .onTapGesture { onCreate() }
+                }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $anchor, anchor: .center)
         .scrollIndicators(.hidden)
-        // **De la tarjeta de crear no te quedas colgado.**
+        // **Y con outfits, el tirón.**
         //
-        // Es un botón, no un sitio: al cerrarse el selector la vista vuelve al
-        // último outfit, así que nunca te quedas parado delante de una tarjeta
-        // que ya hizo lo suyo. Solo se puede estar ahí cuando el día está
-        // vacío, porque entonces no hay otro sitio al que volver.
-        .onChange(of: isPicking) { _, isOpen in
-            guard !isOpen, let last = entries.last else { return }
-            withAnimation(WKAnimation.content) { anchor = AnyHashable(last.id) }
+        // Llegas al último lienzo del día, sigues tirando hacia arriba porque
+        // quieres ver si hay más, y la respuesta llega en el mismo movimiento
+        // con el que has preguntado: no hay más, pero puedes añadir otro. Es
+        // el mismo gesto que ya trae más propuestas en inspiración y el que
+        // tenía el plan viejo. Ver `overscrollAction`.
+        .modifier(
+            CreateOnOverscroll(
+                isOn: !entries.isEmpty && !isPicking && !isEditing,
+                action: onCreate
+            )
+        )
+    }
+}
+
+/// El tirón del final que crea un outfit, o nada.
+///
+/// En un modificador porque `overscrollAction` no se puede poner "a medias":
+/// con el selector abierto encima, o con el editor delante, el scroll sigue
+/// vivo por debajo y un rebote dispararía otra vez lo que ya está abierto.
+struct CreateOnOverscroll: ViewModifier {
+    let isOn: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.overscrollAction(
+                label: "Crear un outfit",
+                bottomInset: WKTabBarMetrics.clearance,
+                action: action
+            )
+        } else {
+            content
         }
     }
-
-    /// La identidad de la tarjeta de crear dentro del scroll. Constante: el
-    /// scroll solo necesita distinguirla de los outfits.
-    private static let createAnchor = AnyHashable("plan.create.anchor")
 }
 
 /// Lo que mide una tarjeta del plan: una pantalla, con su aire dentro.
@@ -527,7 +531,10 @@ private struct PlanFeedCard: View {
             store: store,
             backdrop: backdrop,
             outfit: entry.outfit,
-            showsBorder: true
+            showsBorder: true,
+            // El doble toque tiene que llegar también encima de la ropa: si la
+            // prenda no lo lleva, ahí el gesto no existe. Ver `GarmentTouch`.
+            onDoubleTap: onEdit
         )
         // **Sin píldora de fecha.** El día ya está arriba, en la tira, y
         // repetirlo dentro de cada lienzo es decir dos veces lo mismo tapando
@@ -574,7 +581,10 @@ private struct PlanGridCell: View {
             store: store,
             backdrop: PlanFeedScreen.backdrop(of: entry.outfit),
             outfit: entry.outfit,
-            showsBorder: true
+            showsBorder: true,
+            // El doble toque tiene que llegar también encima de la ropa: si la
+            // prenda no lo lleva, ahí el gesto no existe. Ver `GarmentTouch`.
+            onDoubleTap: onEdit
         )
         .overlay(alignment: .topTrailing) {
             VStack(spacing: WK.Spacing.xs) {

@@ -145,7 +145,13 @@ private struct LookGarmentImage: View {
         //
         // Antes de escalar y girar: así la silueta se transforma con la
         // prenda en lugar de quedarse quieta sobre ella.
-        .modifier(GarmentTouchArea(mask: masks?.mask(for: garment.normalizedImageKey), isActive: onSelect != nil))
+        .modifier(
+            GarmentTouch(
+                mask: masks?.mask(for: garment.normalizedImageKey),
+                onSelect: onSelect,
+                onDoubleTap: onDoubleTap
+            )
+        )
         .scaleEffect(transform.scale)
         .rotationEffect(.radians(transform.rotation))
         .position(x: transform.x, y: transform.y)
@@ -154,34 +160,45 @@ private struct LookGarmentImage: View {
             guard onSelect != nil else { return }
             masks?.load(key: garment.normalizedImageKey)
         }
-        // **El doble toque gana, y el simple espera.**
-        //
-        // Con dos `onTapGesture` encadenados no basta: el de un toque se lleva
-        // el primer contacto y el doble no llega a formarse nunca, así que
-        // desde una prenda no se podía entrar a editar. Un gesto exclusivo lo
-        // dice de verdad — primero se intenta el de dos toques y el de uno
-        // solo se resuelve cuando aquel ha fallado.
-        .gesture(
-            TapGesture(count: 2).onEnded { onDoubleTap?() }
-                .exclusively(before: TapGesture().onEnded { onSelect?() })
-        )
     }
 }
 
-/// El área de toque de una prenda: su silueta, o nada si el lienzo es mudo.
+/// Lo que escucha una prenda: su silueta y sus toques, **o nada**.
 ///
-/// En un modificador y no suelto en la cadena porque `contentShape` **siempre**
-/// define un área —también la vacía—, y aplicarlo donde no se escucha ningún
-/// toque le robaría los gestos a lo que haya debajo.
-private struct GarmentTouchArea: ViewModifier {
+/// El "o nada" es el caso importante. Un gesto puesto siempre, con closures
+/// vacías detrás, no es inofensivo: se queda con el toque igual, así que en el
+/// plan —donde la prenda no tiene nada que hacer— el doble toque de la tarjeta
+/// dejaba de llegar y no se podía entrar a editar tocando encima de la ropa.
+/// Sin closures no hay ni área ni gesto, y el toque pasa de largo hasta la
+/// tarjeta.
+///
+/// El área es la silueta y no el rectángulo: una chaqueta recortada tiene
+/// media esquina transparente, y por bounding box tocar el hueco del cuello
+/// abriría la chaqueta en vez de la camiseta que se ve debajo.
+private struct GarmentTouch: ViewModifier {
     let mask: AlphaMask?
-    let isActive: Bool
+    let onSelect: (() -> Void)?
+    let onDoubleTap: (() -> Void)?
 
     func body(content: Content) -> some View {
-        if isActive {
-            content.contentShape(AnyShape(AlphaShape(mask: mask)))
+        if onSelect == nil, onDoubleTap == nil {
+            content
         } else {
             content
+                .contentShape(AnyShape(AlphaShape(mask: mask)))
+                .gesture(gesture)
         }
+    }
+
+    /// **El doble toque gana, y el simple espera.**
+    ///
+    /// Con dos `onTapGesture` encadenados no basta: el de un toque se lleva el
+    /// primer contacto y el doble no llega a formarse nunca. Un gesto
+    /// exclusivo lo dice de verdad — primero se intenta el de dos toques, y el
+    /// de uno se resuelve cuando aquel ha fallado.
+    private var gesture: some Gesture {
+        let double = TapGesture(count: 2).onEnded { onDoubleTap?() }
+        let single = TapGesture().onEnded { onSelect?() }
+        return double.exclusively(before: single)
     }
 }

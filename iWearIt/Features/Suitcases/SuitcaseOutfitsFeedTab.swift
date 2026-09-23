@@ -231,31 +231,23 @@ private struct SuitcaseDayFeed: View {
                     .id(AnyHashable(outfit.stableID))
                 }
 
-                // Asomarse es crear, y no quedarse: en cuanto asoma, el scroll
-                // vuelve al último outfit y el selector se abre encima. Ver
-                // `PlanDayFeed`.
-                PlanCreateCard(title: "Añadir un outfit")
-                    .matchedGeometryEffect(id: createID, in: morph)
-                    .modifier(PlanCardSize(page: pageSize))
-                    .onScrollVisibilityChange(threshold: 0.4) { isVisible in
-                        guard isVisible, !isPicking else { return }
-                        guard let last = outfits.last else { return }
-                        onCreate()
-                        withAnimation(WKAnimation.content) {
-                            anchor = AnyHashable(last.stableID)
-                        }
-                    }
-                    .onTapGesture { onCreate() }
+                // Solo con el día vacío: ver `PlanDayFeed`.
+                if outfits.isEmpty {
+                    PlanCreateCard(title: "Añadir un outfit")
+                        .matchedGeometryEffect(id: createID, in: morph)
+                        .modifier(PlanCardSize(page: pageSize))
+                        .onTapGesture { onCreate() }
+                }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $anchor, anchor: .center)
         .scrollIndicators(.hidden)
-        .onChange(of: isPicking) { _, isOpen in
-            guard !isOpen, let last = outfits.last else { return }
-            withAnimation(WKAnimation.content) { anchor = AnyHashable(last.stableID) }
-        }
+        // Y con outfits, el tirón del final. El mismo que el plan.
+        .modifier(
+            CreateOnOverscroll(isOn: !outfits.isEmpty && !isPicking, action: onCreate)
+        )
     }
 }
 
@@ -276,7 +268,9 @@ private struct SuitcaseFeedCard: View {
             store: store,
             backdrop: backdrop,
             outfit: outfit,
-            showsBorder: true
+            showsBorder: true,
+            // Ver `PlanFeedCard`: encima de la ropa, el gesto es de la prenda.
+            onDoubleTap: onEdit
         )
         .overlay(alignment: .topTrailing) {
             VStack(spacing: WK.Spacing.xs) {

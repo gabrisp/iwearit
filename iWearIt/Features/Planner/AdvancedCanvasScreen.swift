@@ -1157,34 +1157,61 @@ private struct CanvasGarmentTray: View {
     }
 
     var body: some View {
-        // Rejilla de recortes: en una hoja que se abre para coger **una**
-        // prenda y se cierra, lo que importa es ver muchas a la vez. Las
-        // baldas del armario se leen mejor para recorrer, pero aquí no vienes
-        // a recorrer.
+        // **Por baldas, como el armario.**
+        //
+        // Era una sola rejilla con todo el armario seguido: doscientas
+        // prendas sin un corte, donde la única forma de saber por dónde vas es
+        // reconocer la ropa al vuelo. Con las baldas puestas —el mismo nombre
+        // y el mismo orden que en el armario— la bandeja se recorre igual que
+        // se recorre el armario, y el filtro deja de ser la única manera de
+        // encontrar algo.
         ScrollView {
-            SavedOutfitsStrip(
-                store: store,
-                excluding: editedOutfitID,
-                onPick: onPickOutfit
-            )
+            LazyVStack(alignment: .leading, spacing: WK.Spacing.l) {
+                SavedOutfitsStrip(
+                    store: store,
+                    excluding: editedOutfitID,
+                    onPick: onPickOutfit
+                )
 
-            LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
-                ForEach(visible) { garment in
-                    Button { onPick(garment) } label: {
-                        StoredImage(
-                            key: garment.normalizedImageKey,
-                            variant: .thumb,
-                            store: store,
-                            shadow: .init(opacity: 0.5, radius: 6, y: 3)
-                        )
-                        .frame(height: 96)
-                        .contentShape(.rect)
+                ForEach(groups) { group in
+                    VStack(alignment: .leading, spacing: WK.Spacing.s) {
+                        HStack(spacing: WK.Spacing.xs) {
+                            Text(group.name)
+                                .font(WK.Font.captionMedium)
+                                .foregroundStyle(WK.Palette.secondaryText)
+                            Text("\(group.garments.count)")
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                                .monospacedDigit()
+                        }
+                        .padding(.horizontal, WK.Spacing.m)
+
+                        LazyVGrid(columns: columns, spacing: WK.Spacing.m) {
+                            ForEach(group.garments) { garment in
+                                Button { onPick(garment) } label: {
+                                    StoredImage(
+                                        key: garment.normalizedImageKey,
+                                        variant: .thumb,
+                                        store: store,
+                                        shadow: .init(opacity: 0.5, radius: 6, y: 3)
+                                    )
+                                    // Cuadradas: con el alto fijo, una falda
+                                    // ancha y unos vaqueros largos ocupaban
+                                    // huecos distintos y las filas salían
+                                    // dentadas.
+                                    .frame(maxWidth: .infinity)
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .contentShape(.rect)
+                                }
+                                .buttonStyle(WKPressStyle())
+                            }
+                        }
+                        .padding(.horizontal, WK.Spacing.m)
                     }
-                    .buttonStyle(WKPressStyle())
                 }
             }
-            .padding(.horizontal, WK.Spacing.m)
             .padding(.top, WK.Spacing.s)
+            .padding(.bottom, WK.Spacing.l)
         }
         .scrollIndicators(.hidden)
         // **Sin el fondo del sistema.** Un `ScrollView` dentro de una hoja
@@ -1201,12 +1228,15 @@ private struct CanvasGarmentTray: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
         }
-        // **Los filtros arriba, por secciones y con su nombre.**
+        // **Los filtros, en una barra y no en un bloque.**
         //
-        // Con nombre porque tres filas de píldoras sin etiqueta son tres
-        // filas de palabras sueltas: "negro" y "deporte" no dicen por sí solas
-        // que una es un color y la otra un estilo.
-        .safeAreaInset(edge: .top) {
+        // Eran cuatro secciones apiladas —cuatro títulos y cuatro filas— que
+        // se comían la mitad de la bandeja: quedaba sitio para una fila y
+        // media de prendas, que es justo lo que se viene a ver. Ahora es una
+        // sola fila, con los grupos separados por una línea fina en lugar de
+        // por un título, en la barra de arriba: no se va con el scroll y el
+        // sistema le da su cristal.
+        .adaptiveSafeAreaBar(edge: .top, spacing: 0) {
             TrayFilterBars(
                 sections: [
                     .init(title: "Atajos", filters: [.recent]),
@@ -1229,6 +1259,33 @@ private struct CanvasGarmentTray: View {
         .onChange(of: visible.isEmpty) { _, isEmpty in
             if isEmpty, !filters.isEmpty { filters.removeAll() }
         }
+    }
+
+    /// Una balda de la bandeja: su nombre y lo que queda de ella tras el
+    /// filtro.
+    private struct Group: Identifiable {
+        let id: String
+        let name: String
+        let garments: [Garment]
+    }
+
+    /// Lo que se ve, repartido por baldas y en el orden del armario.
+    ///
+    /// Las que quedan vacías no salen: un título con nada debajo es un hueco
+    /// que hay que saltarse.
+    private var groups: [Group] {
+        var byShelf: [String: [Garment]] = [:]
+        for garment in visible {
+            byShelf[garment.category?.slug ?? "", default: []].append(garment)
+        }
+        var result = categories.compactMap { category -> Group? in
+            guard let items = byShelf[category.slug], !items.isEmpty else { return nil }
+            return Group(id: category.slug, name: category.name, garments: items)
+        }
+        if let loose = byShelf[""], !loose.isEmpty {
+            result.append(Group(id: "sin-balda", name: "Sin balda", garments: loose))
+        }
+        return result
     }
 }
 
@@ -1291,33 +1348,52 @@ private struct TrayFilterBars: View {
         var id: String { title }
     }
 
-    /// Una sección por criterio. Las vacías no se dibujan: un armario sin
-    /// estilos puestos no necesita una franja de aire donde iría la fila.
+    /// Una sección por criterio. Las vacías no se dibujan.
     let sections: [Section]
     /// La muestra de cada color, sacada del propio armario.
     let swatches: [String: NamedColor]
     @Binding var selection: Set<TrayFilter>
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            ForEach(sections) { section in
-                if !section.filters.isEmpty {
-                    VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                        Text(section.title)
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.tertiaryText)
-                            .padding(.horizontal, WK.Spacing.m)
+    private var filled: [Section] { sections.filter { !$0.filters.isEmpty } }
 
-                        TrayFilterRow(
-                            filters: section.filters,
-                            swatches: swatches,
-                            selection: $selection
-                        )
+    var body: some View {
+        // **Una fila, con los grupos separados por una línea.**
+        //
+        // Los títulos estaban por un motivo bueno —"negro" y "deporte" no
+        // dicen por sí solos cuál es color y cuál estilo— pero costaban cuatro
+        // franjas de bandeja, que es más de lo que ese motivo vale. Una línea
+        // fina separa igual: se ve que ahí cambia el criterio, y el chip de un
+        // color lleva además su muestra delante.
+        ScrollView(.horizontal) {
+            HStack(spacing: WK.Spacing.xs) {
+                ForEach(filled) { section in
+                    if section.id != filled.first?.id {
+                        Rectangle()
+                            .fill(WK.Palette.ink(0.12))
+                            .frame(width: 1, height: 20)
+                            .padding(.horizontal, WK.Spacing.xs)
+                    }
+                    ForEach(section.filters, id: \.self) { filter in
+                        TrayFilterChip(
+                            label: filter.label,
+                            swatch: filter.colorKey.flatMap { swatches[$0] },
+                            isSelected: selection.contains(filter)
+                        ) {
+                            withAnimation(WKAnimation.selection) {
+                                if selection.contains(filter) {
+                                    selection.remove(filter)
+                                } else {
+                                    selection.insert(filter)
+                                }
+                            }
+                        }
                     }
                 }
             }
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.s)
         }
-        .padding(.vertical, WK.Spacing.s)
+        .scrollIndicators(.hidden)
     }
 }
 
