@@ -415,6 +415,13 @@ private struct PickerCell: View {
                 //     .lineLimit(1)
                 //     .truncationMode(.tail)
                 //     .frame(width: WK.Shelf.garmentWidth)
+
+                // **El mismo hueco que en el armario.** Ahí abajo iba el
+                // nombre y, al quitarlo, la balda conservó su aire: sin él,
+                // las prendas de esta hoja se apoyaban más abajo que las de la
+                // misma balda vista en el armario. La misma balda tiene que
+                // verse igual por los dos lados. Ver `HangingGarmentView`.
+                Color.clear.frame(height: WK.Shelf.labelBottomInset)
             }
             .frame(height: WK.Shelf.height, alignment: .bottom)
             .contentShape(.rect)

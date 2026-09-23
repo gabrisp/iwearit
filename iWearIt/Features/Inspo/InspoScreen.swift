@@ -189,7 +189,10 @@ struct InspoScreen: View {
                 threshold: 84,
                 symbol: "wand.and.stars",
                 label: "Generar \(InspoFeed.capacity) más",
-                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.xs
+                // El mismo respiro que "Crear nuevo outfit" en el armario: el
+                // hueco de la barra ya lo reserva ella, así que sumarle su
+                // alto otra vez subía la píldora media pantalla.
+                bottomInset: WK.Spacing.m
             ) {
                 withAnimation(WKAnimation.content) { feed.extend() }
             }

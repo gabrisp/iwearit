@@ -67,9 +67,11 @@ LA MISMA PRENDA — OBLIGATORIO:
 - Mismo color exacto, mismo estampado, mismo logotipo y mismo texto.
 - Mismo corte, mismo largo, mismo cuello, mismas mangas, mismas proporciones.
 
-PRESENTACIÓN:
-- La vista de producto que usaría una tienda para ese tipo de prenda: camisetas, camisas, chaquetas, pantalones y vestidos de FRENTE y planos; zapatillas y zapatos de PERFIL.
-- Si la foto original ya está en esa vista, no la gires.
+PRESENTACIÓN — PLANA SIEMPRE:
+- La prenda va SOLA Y PLANA, como tendida sobre una mesa: SIN cuerpo, SIN persona, SIN maniquí, SIN percha, SIN volumen de estar puesta y SIN piernas o brazos dentro.
+- Esto vale TAMBIÉN cuando la foto original es de alguien llevándola puesta: en ese caso quítala del cuerpo y dibújala tendida. Nunca devuelvas a la persona, ni su silueta, ni un maniquí invisible con la prenda hinchada.
+- La vista de producto que usaría una tienda para ese tipo de prenda: camisetas, camisas, chaquetas, pantalones y vestidos de FRENTE; zapatillas y zapatos de PERFIL.
+- "No la gires" se refiere solo a frente o espalda: si la original se ve por delante, la reconstrucción también. Que esté puesta no es una vista que haya que conservar.
 - Prenda entera, centrada, sin recortar por ningún borde, con iluminación de estudio uniforme y sin arrugas de estar colgada.`;
 
 /** Pide la versión de catálogo y devuelve la imagen en base64. */
@@ -190,6 +192,14 @@ async function verify(original, generated, key, log, error) {
                 + 'IGNORA POR COMPLETO EL FONDO, LA ILUMINACIÓN, LA POSTURA Y LAS ARRUGAS: '
                 + 'la reconstrucción cambia el fondo a magenta a propósito, quita la percha y '
                 + 'alisa la prenda. Eso NO es un fallo. Juzga ÚNICAMENTE la prenda.\n\n'
+                // **Y que esté plana.** Es la mitad del trabajo: si devuelve la
+                // prenda puesta en alguien, el armario acaba con fotos de
+                // personas en vez de con fotos de ropa, y encima se ha pagado
+                // por ellas.
+                + 'Responde false TAMBIÉN si la segunda imagen no está plana: si aparece una '
+                + 'persona, parte de un cuerpo, un maniquí, una percha, o la prenda se ve hinchada '
+                + 'como si alguien la llevara puesta. La reconstrucción tiene que ser la prenda '
+                + 'sola y tendida.\n\n'
                 + 'Sé exigente con la prenda. Responde false si: el color no coincide, el corte o el largo '
                 + 'cambian, falta una parte de la prenda, aparece otra prenda u objeto que no '
                 + 'era esa prenda, o hay detalles (bolsillos, botones, logotipos, estampados) '

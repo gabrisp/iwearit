@@ -807,9 +807,12 @@ public actor GarmentPipeline {
         var attachedToLargest = IndexSet(integer: largest.instance)
         for piece in pieces where piece.instance != largest.instance {
             let isBigEnough = piece.area >= largest.area * separateSubjectShare
-            let isClothing = piece.clothing >= subjectClothingFloor
             let overlap = Self.overlapFraction(piece.bounds, inside: largest.bounds)
-            if isBigEnough, isClothing, overlap < sameSubjectOverlap {
+            // **Sin pedirle al segmentador que lo reconozca.** Que una mochila
+            // no sea "ropa" para él no la convierte en un trozo de la camiseta
+            // de al lado: lo que dice si son dos cosas o una es el tamaño y el
+            // solape, que es lo que se ve.
+            if isBigEnough, overlap < sameSubjectOverlap {
                 groups.append(IndexSet(integer: piece.instance))
                 DiagnosticsLog.record(
                     "SUJETO",
@@ -918,6 +921,10 @@ public actor GarmentPipeline {
         }
 
         var subjects: [Subject] = []
+        // El mayor de la foto: quien manda para decidir si un veredicto —"esto
+        // es una persona", "aquí hay dos prendas pegadas"— se lleva por delante
+        // toda la foto o solo a ese sujeto.
+        var largestArea = 0.0
         // **Lo que decide si dos sujetos son una prenda o dos es la foto, no
         // un interruptor.**
         //
@@ -953,19 +960,42 @@ public actor GarmentPipeline {
             DiagnosticsLog.record("SUJETO", summary)
 
             guard tally.area >= minimumAreaFraction else { continue }
-            // Alguien, aunque la pose no convenciera: que lo separe el
-            // segmentador. Devolver a la persona como prenda es el fallo que
-            // más caro nos ha salido.
-            if tally.person > Self.subjectPersonCeiling { return nil }
+            let isDominant = tally.area >= largestArea
+            largestArea = max(largestArea, tally.area)
+
+            // Alguien, aunque la pose no convenciera. Devolver a la persona
+            // como prenda es el fallo que más caro nos ha salido.
+            //
+            // **Pero solo tumba la foto si es lo que manda en ella.** Antes
+            // cualquier sujeto con piel abortaba el camino entero: una mano
+            // asomando por un lado y la mochila del suelo se perdía con ella.
+            // Si el de la piel es el grande, hay alguien puesto y separa el
+            // segmentador; si es un trozo pequeño, se salta y se sigue.
+            if tally.person > Self.subjectPersonCeiling {
+                if isDominant { return nil }
+                DiagnosticsLog.record("SUJETO", "sujeto \(instance): piel, pero pequeño: se salta")
+                continue
+            }
 
             if tally.clothing >= Self.subjectClothingFloor {
-                // Varias prendas en un solo sujeto: el sujeto no sirve.
-                guard tally.dominantShare >= Self.subjectDominantShare else { return nil }
+                // Varias prendas en un solo sujeto: ese sujeto no sirve. Si es
+                // el grande, la foto se va al segmentador, que sabe separarlas;
+                // si no, se salta y los demás siguen valiendo.
+                guard tally.dominantShare >= Self.subjectDominantShare else {
+                    if isDominant { return nil }
+                    DiagnosticsLog.record(
+                        "SUJETO", "sujeto \(instance): varias clases pegadas: se salta"
+                    )
+                    continue
+                }
                 subjects.append(Subject(instances: group, tally: tally, kind: tally.dominantKind))
-            } else if merged.count == 1 {
-                // Una sola cosa en la foto y el segmentador no la reconoce:
-                // lo que sea lo dice el embedder, como con cualquier prenda
-                // suelta.
+            } else {
+                // **El segmentador no lo reconoce, y eso no lo descalifica.**
+                //
+                // Solo sabe de ropa de vestir: una mochila, una riñonera o un
+                // gorro de lana le salen como fondo, y hasta ahora eso los
+                // tiraba salvo que fueran lo único de la foto. Lo que sea lo
+                // dice el embedder, igual que con cualquier prenda suelta.
                 subjects.append(Subject(instances: group, tally: tally, kind: nil))
             }
         }
