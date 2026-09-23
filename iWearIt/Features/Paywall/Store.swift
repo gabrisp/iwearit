@@ -135,6 +135,19 @@ final class Store {
 
     /// Lo que se puede comprar ahora mismo, en el orden del panel.
     private(set) var packages: [Package] = []
+
+    /// Los planes: lo que se suscribe.
+    var plans: [Package] {
+        packages.filter { $0.storeProduct.productType != .consumable }
+    }
+
+    /// Los paquetes de monedas sueltas.
+    ///
+    /// Para quien ya paga y se ha quedado sin: obligarle a esperar a la
+    /// renovación es decirle que no a alguien que quiere darte dinero.
+    var coinPacks: [Package] {
+        packages.filter { $0.storeProduct.productType == .consumable }
+    }
     /// Lo que se está comprando o restaurando.
     private(set) var isWorking = false
     /// El último fallo, para poder decirlo en vez de no hacer nada.

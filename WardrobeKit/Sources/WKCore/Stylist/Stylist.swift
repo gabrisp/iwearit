@@ -24,7 +24,14 @@ public struct StylistBrief: Sendable, Equatable {
     /// una camiseta que descartaste en un conjunto malo puede volver en otro
     /// que funcione. Con prohibición dura, dos descartes te dejaban sin medio
     /// armario.
-    public var discouraged: [UUID: Double]
+    /// **Lo que has dicho de cada prenda**, con signo: positivo si la guardas
+    /// o te la pones, negativo si tiras los conjuntos que la llevan.
+    ///
+    /// Antes solo era `discouraged` —cuánto pesaba en contra— y eso solo sabía
+    /// empeorar: pasar dos semanas guardando conjuntos con la misma chaqueta
+    /// no cambiaba nada. Con signo, lo que te gusta también cuenta. Ver
+    /// `ModelContext.styleWeights`.
+    public var affinity: [UUID: Double]
     /// Cuándo se llevó cada prenda. Lo de esta semana pesa menos.
     public var recentlyWorn: [UUID: Date]
     /// Etiquetas de uso pedidas: "Deporte", "Formal"…
@@ -45,7 +52,7 @@ public struct StylistBrief: Sendable, Equatable {
         weather: WeatherSnapshot? = nil,
         pinned: Set<UUID> = [],
         banned: Set<UUID> = [],
-        discouraged: [UUID: Double] = [:],
+        affinity: [UUID: Double] = [:],
         recentlyWorn: [UUID: Date] = [:],
         requiredTags: [String] = [],
         preferredColors: [String] = [],
@@ -58,7 +65,7 @@ public struct StylistBrief: Sendable, Equatable {
         self.weather = weather
         self.pinned = pinned
         self.banned = banned
-        self.discouraged = discouraged
+        self.affinity = affinity
         self.recentlyWorn = recentlyWorn
         self.requiredTags = requiredTags
         self.preferredColors = preferredColors
@@ -327,11 +334,12 @@ public struct Stylist: Sendable {
                 }
             }
 
-            // Lo que has ido descartando, más abajo en la lista. Tope al
-            // penalizar: si no, tres descartes desaparecen una prenda para
-            // siempre y el armario se va encogiendo solo.
-            if let dislike = brief.discouraged[garment.id] {
-                score -= min(1.5, dislike)
+            // **Lo que opinas, en los dos sentidos.** Con tope arriba y abajo:
+            // sin él, tres descartes desaparecen una prenda para siempre —y el
+            // armario se va encogiendo solo— y tres guardados la convierten en
+            // la respuesta a todo.
+            if let opinion = brief.affinity[garment.id] {
+                score += max(-1.5, min(1.0, opinion))
             }
 
             // **Y el tiempo que hace hoy, prenda a prenda.**

@@ -374,6 +374,7 @@ struct StylistChatSheet: View {
         outfit.isFavorite = true
         try? modelContext.save()
         feed.remember(outfit, for: look)
+        feed.record(.liked, for: look, source: .stylist)
         chat.saved.insert(look.id)
     }
 
@@ -391,6 +392,7 @@ struct StylistChatSheet: View {
         }()
         outfit.plannedDay = day
         try? modelContext.save()
+        feed.record(.planned, for: look, source: .stylist)
         chat.saved.insert(look.id)
     }
 

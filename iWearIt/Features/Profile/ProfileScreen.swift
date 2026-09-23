@@ -59,7 +59,10 @@ struct ProfileScreen: View {
         // dos atrás y había que volver por donde se vino.
         .sheet(isPresented: $isShowingCredits) {
             NavigationStack {
-                CreditsHistoryScreen(store: appEnvironment.store)
+                CreditsHistoryScreen(
+                    store: appEnvironment.store,
+                    isPro: appEnvironment.gate.isPro
+                )
             }
         }
     }

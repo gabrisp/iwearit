@@ -263,6 +263,8 @@ private struct CanvasEditorScreen: View {
         // `backdrop` ya no está aquí: el color del fondo se presenta en la
         // misma tarjeta de cristal que la bandeja, con `trayKind`.
         case more, place
+        /// Probarte este conjunto. Ver `TryOnSheet`.
+        case tryOn
         var id: String { rawValue }
     }
 
@@ -411,6 +413,15 @@ private struct CanvasEditorScreen: View {
                     .disabled(!history.canRedo)
                 }
                 .tint(WK.Palette.primaryText)
+            }
+            // **Probártelo**, que es la pregunta que queda cuando el conjunto
+            // ya está montado: ¿cómo me queda? Ver `TryOnSheet`.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { sheet = .tryOn } label: {
+                    Image(systemName: "person.crop.rectangle")
+                }
+                .tint(WK.Palette.primaryText)
+                .disabled(outfit.garments.isEmpty)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 // **Aquí es donde se guarda.** Hasta este toque, nada de lo
@@ -598,6 +609,12 @@ private struct CanvasEditorScreen: View {
         switch which {
         case .more:
             moreSheet
+        case .tryOn:
+            // **Con su propio fondo.** Es la única hoja de aquí que no es un
+            // control del lienzo: enseña una foto tuya, y enseñarla sobre el
+            // lienzo transparente la dejaba flotando entre las prendas.
+            TryOnSheet(outfit: outfit)
+                .presentationBackground(WK.Palette.canvas)
         case .place:
             PlaceSearchSheet(title: "¿Dónde?") { picked in
                 appEnvironment.weather.use(picked)

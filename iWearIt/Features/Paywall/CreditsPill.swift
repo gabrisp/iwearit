@@ -1,3 +1,4 @@
+import RevenueCat
 import SwiftUI
 import WKDesign
 
@@ -30,9 +31,13 @@ struct CreditsPill: View {
                 }
             }
         }
-        .padding(.horizontal, WK.Spacing.m)
-        .padding(.vertical, WK.Spacing.s)
-        .adaptiveGlassInteractive(in: .capsule)
+        // **Sin cristal detrás.** En la barra ya hay un botón con su píldora a
+        // la izquierda; otra al lado convertía la barra en una fila de
+        // pastillas. Los dos números con su icono se leen igual de bien y la
+        // barra respira.
+        .padding(.horizontal, WK.Spacing.xs)
+        .padding(.vertical, WK.Spacing.xs)
+        .contentShape(.capsule)
         .fixedSize()
         .animation(WKAnimation.content, value: store.balances)
     }
@@ -48,8 +53,17 @@ struct CreditsPill: View {
 /// registro de esta app: qué pidió y cuándo.
 struct CreditsHistoryScreen: View {
     let store: Store
+    /// Si ya paga: quien no tiene plan verá el paywall y quien lo tiene, los
+    /// paquetes sueltos.
+    let isPro: Bool
 
     @Environment(\.dismiss) private var dismiss
+    @State private var isShowingPaywall = false
+
+    /// Si se ha quedado sin nada que gastar.
+    private var isEmptyHanded: Bool {
+        StoreIDs.Currency.allCases.allSatisfy { store.balance(of: $0) == 0 }
+    }
 
     private static let stamp: DateFormatter = {
         let formatter = DateFormatter()
@@ -72,6 +86,49 @@ struct CreditsHistoryScreen: View {
                 Button { dismiss() } label: { Image(systemName: "xmark") }
                     .tint(WK.Palette.primaryText)
             }
+        }
+        // **La salida cuando no queda nada.**
+        //
+        // Sin monedas y sin plan, la pantalla decía "0" y ahí se acababa. El
+        // botón es la respuesta a "¿y ahora qué?": suscribirse si no tienes
+        // plan, o comprar un puñado si ya lo tienes y te has quedado seco.
+        .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+        // El paywall se presenta **desde aquí** y no desde la raíz: la raíz ya
+        // tiene su hoja puesta —esta— y dos en la misma vista dejan muda a una.
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallSheet(feature: nil)
+        }
+    }
+
+    @ViewBuilder
+    private var bottom: some View {
+        if !isPro {
+            VStack(spacing: WK.Spacing.xs) {
+                WKPrimaryButton("Conseguir monedas") { isShowingPaywall = true }
+                Text("Con cualquier plan entran monedas cada renovación.")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.bottom, WK.Spacing.xs)
+        } else if !store.coinPacks.isEmpty {
+            VStack(spacing: WK.Spacing.s) {
+                if isEmptyHanded {
+                    Text("Te has quedado sin monedas.")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                }
+                ForEach(store.coinPacks, id: \.identifier) { pack in
+                    WKPrimaryButton(
+                        "\(pack.storeProduct.localizedTitle) · \(pack.storeProduct.localizedPriceString)"
+                    ) {
+                        Task { _ = await store.purchase(pack) }
+                    }
+                    .disabled(store.isWorking)
+                }
+            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.bottom, WK.Spacing.xs)
         }
     }
 

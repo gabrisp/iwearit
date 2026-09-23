@@ -438,6 +438,7 @@ struct InspoScreen: View {
         outfit.isFavorite = true
         try? modelContext.save()
         feed.remember(outfit, for: look)
+        feed.record(.liked, for: look)
         saved.insert(look.id)
     }
 
@@ -457,6 +458,9 @@ struct InspoScreen: View {
         outfit.plannedDay = day
         try? modelContext.save()
         feed.remember(outfit, for: look)
+        // Ponerle fecha es la señal más fuerte que hay: no es "me gusta", es
+        // "me lo pongo". Ver `StyleVerdict.Kind`.
+        feed.record(.planned, for: look)
     }
 
     /// Doble toque o pulsación larga: se abre en el editor con sus prendas ya

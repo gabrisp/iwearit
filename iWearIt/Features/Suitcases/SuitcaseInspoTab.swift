@@ -303,6 +303,7 @@ struct SuitcaseInspoTab: View {
     private func addToTrip(_ look: StylistLook) {
         guard materialise(look, isFavorite: false, inTrip: true) != nil else { return }
         try? modelContext.save()
+        feed?.record(.packed, for: look, source: .suitcase)
         saved.insert(look.id)
     }
 

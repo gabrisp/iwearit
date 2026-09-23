@@ -42,6 +42,43 @@ public extension ModelContext {
             .map(\.stylistValue)
     }
 
+    /// **Lo que has dicho de lo que te propusieron**, resumido en un peso por
+    /// prenda.
+    ///
+    /// Positivo si la guardas, la planeas o te la llevas; negativo si la
+    /// tiras. Es lo que convierte "me gusta" y "no me gusta" en algo que el
+    /// estilista sabe leer, y lo que hace que dos semanas de deslizar a los
+    /// lados se noten en lo que te propone.
+    ///
+    /// ## Por qué reparte el peso entre las prendas
+    ///
+    /// Porque lo que opinas es del conjunto, no de la camiseta: tirar un
+    /// conjunto de cinco piezas no es tirar cinco prendas. Repartido, hacen
+    /// falta varios descartes con la misma prenda dentro para que esa prenda
+    /// empiece a pesar — que es exactamente lo que se quiere decir con "esta
+    /// no me la pongo".
+    ///
+    /// - Parameter days: cuánto se mira hacia atrás. Lo de hace un año dice
+    ///   poco de lo que te apetece hoy.
+    func styleWeights(days: Int = 120, from date: Date = Date()) -> [UUID: Double] {
+        let floor = Calendar.current.date(byAdding: .day, value: -days, to: date) ?? .distantPast
+        let verdicts = (try? fetch(FetchDescriptor<StyleVerdict>.recentVerdicts())) ?? []
+
+        var weights: [UUID: Double] = [:]
+        for verdict in verdicts where verdict.createdAt >= floor {
+            guard !verdict.garmentIDs.isEmpty else { continue }
+            let share = verdict.verdict.weight / Double(verdict.garmentIDs.count)
+            // Lo reciente pesa entero y lo viejo se va apagando: media vida de
+            // un mes, que es lo que dura un cambio de estación.
+            let age = date.timeIntervalSince(verdict.createdAt) / (30 * 86_400)
+            let fade = pow(0.5, max(0, age))
+            for id in verdict.garmentIDs {
+                weights[id, default: 0] += share * fade
+            }
+        }
+        return weights
+    }
+
     /// Qué te pusiste estos días atrás, según el planificador.
     ///
     /// Esto es lo que permite decir "el vaquero de ayer no". No se mira

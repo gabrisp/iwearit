@@ -145,6 +145,31 @@ public actor RemoteClothingResolver: ClothingResolving {
         return data
     }
 
+    public func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data {
+        await acquireSlot()
+        defer { releaseSlot() }
+        try await ensureSession()
+
+        let start = ContinuousClock.now
+        let body = TryOnPayload(
+            action: "tryon",
+            personBase64: personJPEG.base64EncodedString(),
+            garmentsBase64: garmentsPNG.map { $0.base64EncodedString() }
+        )
+        // Lo más lento que pide la app: varias imágenes de entrada y una de
+        // salida.
+        let answer: RestyleAnswer = try await execute(body: body, timeout: 180)
+
+        guard let data = Data(base64Encoded: answer.imageBase64) else {
+            throw ClothingResolverError.badResponse("la imagen no venía en base64")
+        }
+        DiagnosticsLog.record(
+            "PROBADOR",
+            "generada en \(start.duration(to: .now)) · \(data.count / 1024) KB"
+        )
+        return data
+    }
+
     /// El sobre de Appwrite, que es el mismo para las dos acciones.
     private func execute<Body: Encodable, Answer: Decodable>(
         body: Body,
@@ -258,6 +283,12 @@ public actor RemoteClothingResolver: ClothingResolving {
         let subcategory: String?
         let dominantColor: String?
         let brandCandidates: [String]
+    }
+
+    private struct TryOnPayload: Encodable {
+        let action: String
+        let personBase64: String
+        let garmentsBase64: [String]
     }
 
     private struct RestylePayload: Encodable {

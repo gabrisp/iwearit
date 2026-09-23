@@ -122,16 +122,42 @@ final class InspoFeed {
         updatedAt = Date()
     }
 
+    /// **Anota lo que has dicho de un conjunto.**
+    ///
+    /// Con su contexto: qué prendas, cómo se llamaba, por qué se propuso, de
+    /// dónde salió y qué tiempo hacía. Eso es lo que convierte un gesto en un
+    /// dato del que se puede aprender — y lo que permite, más adelante,
+    /// contestar preguntas que hoy no se pueden ni formular. Ver
+    /// `StyleVerdict`.
+    func record(
+        _ kind: StyleVerdict.Kind,
+        for look: StylistLook,
+        source: StyleVerdict.Source = .inspo
+    ) {
+        let verdict = StyleVerdict(
+            verdict: kind,
+            garmentIDs: look.garmentIDs,
+            headline: look.headline,
+            reason: look.reason,
+            source: source,
+            temperature: forecast.map { ($0.highCelsius + $0.lowCelsius) / 2 },
+            weather: forecast?.condition.rawValue
+        )
+        let context = container.mainContext
+        context.insert(verdict)
+        try? context.save()
+        // Y que la siguiente tanda ya lo tenga en cuenta.
+        affinityReadAt = nil
+        DiagnosticsLog.record("GUSTOS", "\(kind.rawValue) · \(look.garmentIDs.count) prenda(s)")
+    }
+
     /// Fuera este **y anotado**: sus prendas pesan menos a partir de ahora.
     ///
     /// Tirar un conjunto a la izquierda no es solo quitarlo de en medio: es lo
     /// más parecido a enseñarle algo al estilista que hay en esta pantalla, y
     /// si no se guarda en ningún sitio, al rato vuelve lo mismo.
     func dislike(_ look: StylistLook) {
-        for id in look.garmentIDs {
-            dislikes[id, default: 0] += 0.5
-        }
-        saveDislikes()
+        record(.disliked, for: look)
         dismiss(look)
     }
 
@@ -284,7 +310,7 @@ final class InspoFeed {
             date: Date(),
             weather: forecast,
             pinned: anchors,
-            discouraged: dislikes,
+            affinity: affinity(),
             recentlyWorn: recentlyWorn(),
             seed: seed == 0 ? Self.seedForNow() : seed
         )
@@ -300,6 +326,25 @@ final class InspoFeed {
     /// dato de la prenda, es una opinión sobre lo que te propuso este
     /// teléfono—, y meterlo en el modelo obligaría a migrar el esquema y a
     /// sincronizar un número que solo sirve para ordenar sugerencias.
+    /// Lo que has dicho de cada prenda, con signo.
+    ///
+    /// Sale de los veredictos guardados —estructurados, con su contexto y
+    /// sincronizados— y no de un diccionario suelto en los ajustes. Ver
+    /// `StyleVerdict`. Con memoria corta, como el armario: esto se lee en cada
+    /// tanda y no cambia mientras pasas conjuntos.
+    func affinity() -> [UUID: Double] {
+        if let stamp = affinityReadAt, Date().timeIntervalSince(stamp) < 30 { return cachedAffinity }
+        cachedAffinity = container.mainContext.styleWeights()
+        affinityReadAt = Date()
+        return cachedAffinity
+    }
+
+    private var cachedAffinity: [UUID: Double] = [:]
+    private var affinityReadAt: Date?
+
+    /// Lo de antes, en `UserDefaults`: medio punto en contra por descarte y sin
+    /// contexto ninguno. Se queda para no perder lo que ya hubiera anotado
+    /// quien viene de una versión anterior.
     private(set) var dislikes: [UUID: Double] = [:]
 
     private static let dislikesKey = "inspo.dislikes"

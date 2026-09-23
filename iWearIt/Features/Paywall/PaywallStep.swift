@@ -28,7 +28,7 @@ struct PaywallStep: View {
     @State private var picked: Package?
 
     private var store: Store { appEnvironment.store }
-    private var packages: [Package] { store.packages }
+    private var packages: [Package] { store.plans }
 
     /// Los de ejemplo, **solo** para cuando no hay tienda. Los de verdad los
     /// pone la App Store a través de RevenueCat, y son los que mandan.

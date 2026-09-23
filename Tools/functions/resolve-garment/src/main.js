@@ -75,6 +75,101 @@ PRESENTACIÓN — PLANA SIEMPRE:
 - "No la gires" se refiere solo a frente o espalda: si la original se ve por delante, la reconstrucción también. Que esté puesta no es una vista que haya que conservar.
 - Prenda entera, centrada, sin recortar por ningún borde, con iluminación de estudio uniforme y sin arrugas de estar colgada.`;
 
+/**
+ * Lo que se le pide para **probarse** un outfit.
+ *
+ * El equilibrio es distinto al de "mejorar": allí lo sagrado es la prenda y la
+ * persona sobra; aquí lo sagrado es **la persona** —su cara, su cuerpo, su
+ * postura— y lo que cambia es la ropa. Si el modelo se toma libertades con la
+ * cara, el resultado no es "yo con esa camiseta", es otra persona con esa
+ * camiseta, y eso no sirve para decidir si te la pones.
+ */
+const TRYON_PROMPT = `Vísteme con estas prendas. La primera imagen soy yo; las siguientes son prendas.
+
+LA PERSONA NO SE TOCA — OBLIGATORIO:
+- Misma cara, mismo peinado, mismo tono de piel, misma complexión, misma postura y mismo encuadre.
+- No la adelgaces, no la estilices, no le cambies la edad ni la expresión. Es la misma persona, vestida de otra manera.
+- No añadas ni quites personas.
+
+LA ROPA — OBLIGATORIO:
+- Pon EXACTAMENTE las prendas de las imágenes: mismo color, mismo estampado, mismo corte, mismo largo, mismas mangas.
+- Quita la ropa que llevara puesta en las zonas que ocupan las prendas nuevas; el resto se queda.
+- Que caigan como caería la tela de verdad sobre ese cuerpo, con sus arrugas y sus sombras.
+- No inventes logotipos, bolsillos, cinturones ni accesorios que no estén en las imágenes.
+
+LA FOTO:
+- Fotografía realista, misma luz y mismo fondo que la original.
+- Nada de collage, ni de recortes pegados, ni de marcas de agua.`;
+
+/**
+ * Prueba un outfit sobre una foto de la persona.
+ *
+ * ## Por qué no se verifica como "mejorar"
+ *
+ * Porque no hay nada que verificar contra un original: el resultado es una foto
+ * que no existía. Lo que sí se comprueba es que **haya** imagen y que el modelo
+ * no se haya negado — y el resto lo juzga quien la mira, que para eso es su
+ * cara.
+ *
+ * ## Lo que sale del teléfono
+ *
+ * Una foto de cuerpo entero de una persona y unos recortes de ropa. Es el dato
+ * más sensible que maneja la app, así que la app **pide permiso expreso antes
+ * de la primera vez** y aquí no se guarda nada: se manda, se recibe y se
+ * devuelve. Ver `TryOnConsent` en la app.
+ */
+async function tryOn(person, garments, key, log, error) {
+  const content = [
+    { type: 'text', text: TRYON_PROMPT },
+    { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } },
+  ];
+  for (const garment of garments) {
+    content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${garment}` } });
+  }
+
+  const response = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`,
+      'HTTP-Referer': 'https://iwearit.app',
+      'X-Title': 'iWearIt',
+    },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      modalities: ['image', 'text'],
+      messages: [{ role: 'user', content }],
+    }),
+    // Más margen que una prenda suelta: son varias imágenes de entrada.
+    signal: AbortSignal.timeout(120000),
+  });
+
+  if (response.status === 429) return { status: 429, body: { error: 'rate_limited' } };
+  if (!response.ok) {
+    error(`OpenRouter ${response.status}: ${(await response.text()).slice(0, 400)}`);
+    return { status: 502, body: { error: 'upstream_error' } };
+  }
+
+  const completion = await response.json();
+  const message = completion?.choices?.[0]?.message;
+  const url = message?.images?.[0]?.image_url?.url;
+  if (!url || !url.startsWith('data:image')) {
+    const reason = message?.refusal || String(message?.content || '').slice(0, 200) || 'sin images[]';
+    error(`probador sin imagen: ${reason}`);
+    return { status: 502, body: { error: 'no_image', reason } };
+  }
+
+  const usage = completion?.usage || {};
+  log(`probado con ${garments.length} prenda(s) · tokens ${usage.completion_tokens ?? '?'}`);
+  return {
+    status: 200,
+    body: {
+      imageBase64: url.slice(url.indexOf(',') + 1),
+      tokens: usage.completion_tokens ?? null,
+    },
+  };
+}
+
 /** Pide la versión de catálogo y devuelve la imagen en base64. */
 async function restyle(image, key, log, error) {
   const response = await fetch(ENDPOINT, {
@@ -320,6 +415,27 @@ export default async ({ req, res, log, error }) => {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   } catch {
     return res.json({ error: 'bad_request' }, 400);
+  }
+
+  // **El probador va primero**: es el único que no manda `imageBase64`, sino
+  // una persona y varias prendas.
+  if (body?.action === 'tryon') {
+    const person = body?.personBase64;
+    const garments = Array.isArray(body?.garmentsBase64) ? body.garmentsBase64 : [];
+    if (!person || typeof person !== 'string') {
+      return res.json({ error: 'missing_person' }, 400);
+    }
+    if (!garments.length || garments.length > 6) {
+      return res.json({ error: 'bad_garments' }, 400);
+    }
+    // La foto de la persona llega a 1024 de lado en JPEG: unos cientos de kB.
+    // Cuatro megabytes de entrada significan que alguien manda otra cosa.
+    const total = person.length + garments.reduce((sum, item) => sum + (item?.length || 0), 0);
+    if (total > 6000000) {
+      return res.json({ error: 'image_too_large' }, 413);
+    }
+    const result = await tryOn(person, garments, key, log, error);
+    return res.json(result.body, result.status);
   }
 
   const image = body?.imageBase64;

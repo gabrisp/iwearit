@@ -37,6 +37,29 @@ public protocol ClothingResolving: Sendable {
     /// - Parameter imageJPEG: el recorte ya normalizado.
     /// - Returns: la imagen generada, en los bytes que devuelva el modelo.
     func restyle(_ imageJPEG: Data) async throws -> Data
+
+    /// **Probarse un outfit**: la persona con esa ropa puesta.
+    ///
+    /// ## Qué se manda y qué no
+    ///
+    /// Una foto de la persona y los recortes de las prendas. Nada más: ni
+    /// nombre, ni armario, ni identificador. Y no se manda sola — es lo más
+    /// sensible que sale de este teléfono, así que la app pide permiso expreso
+    /// la primera vez y lo guarda (ver `TryOnConsent`).
+    ///
+    /// ## Por qué no se hace en el dispositivo
+    ///
+    /// Porque los modelos que saben hacer esto son de difusión clase SDXL: dos
+    /// gigas en disco y picos de tres de memoria, cuarenta segundos por imagen
+    /// en el mejor iPhone y solo en los de más memoria. Lo que se puede hacer
+    /// aquí es el collage plano, que es lo que se enseña cuando esto falla o
+    /// no hay red.
+    ///
+    /// - Parameters:
+    ///   - personJPEG: la foto de cuerpo entero, ya reducida.
+    ///   - garmentsPNG: los recortes con alfa, de arriba abajo.
+    /// - Returns: la imagen generada, en los bytes que devuelva el modelo.
+    func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data
 }
 
 /// Lo que se manda a resolver.

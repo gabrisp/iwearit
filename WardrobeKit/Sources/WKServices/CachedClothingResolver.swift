@@ -49,6 +49,12 @@ public struct CachedClothingResolver: ClothingResolving {
     /// `ImageStore`, como una variante más de la prenda. Meter imágenes en esta
     /// caché sería tener dos sitios donde vive la misma imagen, y dos sitios
     /// que limpiar al borrar una prenda.
+    /// Pasa de largo, y aquí con más motivo: cada probado es una foto
+    /// distinta de una persona, así que dos llamadas nunca son la misma.
+    public func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data {
+        try await base.tryOn(personJPEG: personJPEG, garmentsPNG: garmentsPNG)
+    }
+
     public func restyle(_ imageJPEG: Data) async throws -> Data {
         let data = try await base.restyle(imageJPEG)
         // Solo si ha llegado: lo que falla no se cobra.

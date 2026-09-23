@@ -30,6 +30,9 @@ public enum WardrobeSchemaV1: VersionedSchema {
             Suitcase.self,
             PackingEntry.self,
             BodyProfile.self,
+            // Lo que te gusta y lo que no, con su contexto. Va sincronizado:
+            // tus gustos son tuyos, no de este teléfono. Ver `StyleVerdict`.
+            StyleVerdict.self,
             GarmentImageBlob.self,
             SyncDevice.self,
             WebShortcut.self,
