@@ -31,9 +31,16 @@ struct ShelfSection: View, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.data == rhs.data }
 
     /// El hueco delante de una prenda, según por dónde va el arrastre.
+    /// El aire entre prendas colgadas.
+    ///
+    /// Cuatro puntos más que el espaciado normal: una balda llena se lee mejor
+    /// con las perchas algo más separadas, y el hueco que se abre al arrastrar
+    /// cuenta desde aquí para no descuadrarse.
+    static let garmentGap = WK.Spacing.m + 4
+
     private func gap(before id: UUID) -> CGFloat {
         guard drag.target == .before(id) else { return 0 }
-        return drag.isLanding ? WK.Shelf.garmentWidth + WK.Spacing.m : WK.Spacing.xl
+        return drag.isLanding ? WK.Shelf.garmentWidth + Self.garmentGap : WK.Spacing.xl
     }
 
     var body: some View {
@@ -75,7 +82,7 @@ struct ShelfSection: View, Equatable {
                             // tocaba.
                             .opacity(drag.dragged?.id == garment.id ? 0 : 1)
                             .frame(width: drag.dragged?.id == garment.id ? 0 : nil)
-                            .padding(.trailing, drag.dragged?.id == garment.id ? 0 : WK.Spacing.m)
+                            .padding(.trailing, drag.dragged?.id == garment.id ? 0 : Self.garmentGap)
                             .animation(ShelfDragModel.lift, value: drag.dragged?.id == garment.id)
                             // El hueco que se abre delante de donde va a caer,
                             // **del ancho de una prenda de verdad**: se ve que
