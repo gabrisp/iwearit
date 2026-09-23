@@ -54,20 +54,17 @@ struct InspoScreen: View {
 
     private enum Sheet: Identifiable {
         /// Qué baldas entran en las propuestas.
-        case shelves
+        case filters
         /// Qué día te pones este conjunto.
         case day(StylistLook)
         /// Dónde estás, para saber qué tiempo hace.
         case place
-        /// Con qué prendas quieres que monte.
-        case anchors
 
         var id: String {
             switch self {
-            case .shelves: "shelves"
+            case .filters: "filters"
             case let .day(look): "day-\(look.id)"
             case .place: "place"
-            case .anchors: "anchors"
             }
         }
     }
@@ -75,6 +72,8 @@ struct InspoScreen: View {
     @State private var pageHeight: CGFloat = 0
     /// Mientras se montan los siguientes.
     @State private var isGenerating = false
+    /// Si el gesto de los lados ya se ha enseñado alguna vez.
+    @State private var hasHintedSwipe = true
     /// El conjunto que se está abriendo en el editor.
     @State private var editingOutfit: Outfit?
     /// De qué propuesta salió el editor, para devolverle lo editado.
@@ -148,8 +147,18 @@ struct InspoScreen: View {
                 }
                 .sheet(item: $sheet) { which in
                     switch which {
-                    case .shelves:
-                        InspoShelvesSheet()
+                    case .filters:
+                        InspoFiltersSheet(
+                            anchors: Binding(
+                                get: { feed.anchors },
+                                set: { picked in
+                                    withAnimation(WKAnimation.content) {
+                                        feed.setAnchors(picked)
+                                        scrolled = feed.looks.first?.id
+                                    }
+                                }
+                            )
+                        )
                     case let .day(look):
                         InspoDayPicker { date in
                             plan(look, on: date)
@@ -160,20 +169,11 @@ struct InspoScreen: View {
                             appEnvironment.weather.use(place)
                             Task { await feed.loadWeather() }
                         }
-                    case .anchors:
-                        GarmentPickerSheet(
-                            title: "Con estas prendas",
-                            initial: feed.anchors
-                        ) { picked in
-                            withAnimation(WKAnimation.content) {
-                                feed.setAnchors(picked)
-                                scrolled = feed.looks.first?.id
-                            }
-                        }
                     }
                 }
         }
         .task {
+            hasHintedSwipe = appEnvironment.tips.hasSeen(.swipeLook)
             // **El permiso, aquí y no al arrancar.** Es donde el motivo está
             // delante: esta pantalla viste según los grados que haga. Si ya se
             // ha contestado —sí o no— no se vuelve a preguntar.
@@ -241,19 +241,17 @@ struct InspoScreen: View {
         }
 
         ToolbarItem(placement: .topBarLeading) {
-            // Qué baldas entran. La ropa de disfraces sigue en el armario,
-            // pero no tiene por qué salir propuesta para un martes.
-            Button { sheet = .shelves } label: {
-                Image(systemName: "line.3.horizontal.decrease")
-            }
-            .tint(WK.Palette.primaryText)
-        }
-        ToolbarItem(placement: .topBarLeading) {
-            // Con qué prendas montar. Marcadas, el botón se rellena: es la
-            // única señal de que lo que estás viendo no sale de todo el
-            // armario.
-            Button { sheet = .anchors } label: {
-                Image(systemName: feed.anchors.isEmpty ? "tshirt" : "tshirt.fill")
+            // **Un solo botón a este lado.** De qué se tira para montar
+            // —prendas de partida y baldas— es una sola pregunta, y estaba
+            // repartida en dos iconos pegados que abrían dos hojas. Relleno
+            // cuando hay prendas puestas: es la única señal de que lo que ves
+            // no sale del armario entero.
+            Button { sheet = .filters } label: {
+                Image(
+                    systemName: feed.anchors.isEmpty
+                        ? "line.3.horizontal.decrease"
+                        : "line.3.horizontal.decrease.circle.fill"
+                )
             }
             .tint(feed.anchors.isEmpty ? WK.Palette.primaryText : WK.Palette.accent)
         }
@@ -294,7 +292,9 @@ struct InspoScreen: View {
                             onEdit: { edit(look) },
                             onDismiss: { withAnimation(WKAnimation.content) { discard(look) } },
                             onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
-                            swipe: swipe
+                            swipe: swipe,
+                            showsHint: look.id == shown.first?.id && !hasHintedSwipe,
+                            onHintShown: { appEnvironment.tips.complete(.swipeLook) }
                         )
                         .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
                         // Once doceavos del alto: el conjunto manda en la
@@ -480,6 +480,9 @@ struct InspoLookCard: View {
     /// Dónde se apunta el arrastre para que lo lea la píldora. La tarjeta
     /// **escribe** aquí y no lo lee: así apuntarlo no la reevalúa a ella.
     let swipe: InspoSwipe
+    /// Si esta tarjeta tiene que enseñar el gesto la primera vez.
+    var showsHint = false
+    var onHintShown: () -> Void = {}
 
     /// Lo que se ha arrastrado de lado ahora mismo.
     @State private var drag: CGFloat = 0
@@ -542,12 +545,37 @@ struct InspoLookCard: View {
             // El golpecito al cruzar el umbral, en los dos sentidos: es cómo
             // se sabe que ya vale sin mirar cuánto llevas arrastrado.
             .sensoryFeedback(.impact(weight: .medium), trigger: isCommitted) { _, new in new }
+            // **El gesto, enseñado una vez.**
+            //
+            // Arrastrar a los lados no se ve: no hay botón que lo insinúe y
+            // quien no lo pruebe no lo descubre nunca. La primera vez, la
+            // tarjeta se asoma sola a un lado y al otro —con su icono— y se
+            // queda quieta. Es lo que haría alguien enseñándotelo.
+            .task {
+                guard showsHint else { return }
+                await demonstrate()
+                onHintShown()
+            }
             // **Doble toque o pulsación larga para editarlo**, los mismos dos
             // gestos que abren cualquier otro lienzo de la app. Un toque
             // simple no: pasando conjuntos con el pulgar se toca sin querer, y
             // abrir el editor por error saca de la pantalla en la que estabas.
             .onTapGesture(count: 2, perform: onEdit)
             .onLongPressGesture(perform: onEdit)
+    }
+
+    /// Enseña el gesto: a la derecha y a la izquierda, sin llegar a decidir.
+    @MainActor
+    private func demonstrate() async {
+        try? await Task.sleep(for: .milliseconds(700))
+        for step in [Self.threshold * 0.8, 0, -Self.threshold * 0.8, 0] {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
+                drag = step
+                swipe.amount = step
+            }
+            try? await Task.sleep(for: .milliseconds(650))
+        }
+        swipe.amount = 0
     }
 
     /// El arrastre: a la derecha se guarda, a la izquierda se descarta.

@@ -23,6 +23,8 @@ public enum WKTip: String, CaseIterable, Sendable {
     case bulkImport
     /// Tocar una tarjeta para editar la prenda antes de guardarla.
     case reviewCard
+    /// Arrastrar un conjunto de inspiración a un lado o al otro.
+    case swipeLook
 
     public var title: String {
         switch self {
@@ -30,6 +32,7 @@ public enum WKTip: String, CaseIterable, Sendable {
         case .dragGarment: "Mueve tu ropa"
         case .bulkImport: "Varias a la vez"
         case .reviewCard: "Toca para ajustar"
+        case .swipeLook: "Dilo con el dedo"
         }
     }
 
@@ -43,6 +46,8 @@ public enum WKTip: String, CaseIterable, Sendable {
             "Puedes elegir varias fotos de golpe: se analizan una detrás de otra."
         case .reviewCard:
             "Toca una prenda para cambiar su tipo, su color o recortarla otra vez."
+        case .swipeLook:
+            "Arrastra a la derecha lo que te guste y a la izquierda lo que no: lo que descartes pesa menos en lo que venga."
         }
     }
 
@@ -53,6 +58,7 @@ public enum WKTip: String, CaseIterable, Sendable {
         case .dragGarment: .drag
         case .bulkImport: .stack
         case .reviewCard: .tap
+        case .swipeLook: .drag
         }
     }
 }

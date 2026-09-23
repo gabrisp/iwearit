@@ -104,7 +104,29 @@ struct SuitcaseInspoTab: View {
                             .scaleEffect(phase.isIdentity ? 1 : 0.88)
                     }
                 }
+
+
+                // La misma tarjeta del final que en la pestaña: tirar de ella
+                // trae otros tantos. Ver `InspoMoreCard`.
+                InspoMoreCard(count: InspoFeed.capacity, isWorking: false)
+                    .containerRelativeFrame(
+                        .vertical, count: 12, span: 11, spacing: WK.Spacing.m
+                    )
+                    .scrollTransition(.interactive, axis: .vertical) { content, phase in
+                        content
+                            .opacity(phase.isIdentity ? 1 : 0.35)
+                            .scaleEffect(phase.isIdentity ? 1 : 0.88)
+                    }
+                    .onScrollVisibilityChange(threshold: 0.6) { isVisible in
+                        guard isVisible else { return }
+                        withAnimation(WKAnimation.content) { feed?.extend() }
+                    }
             }
+            // **Los mismos márgenes que en la pestaña.** La maleta ignora el
+            // área segura, así que aquí el margen lateral se pone a mano: sin
+            // él las tarjetas llegaban al borde de la pantalla y la
+            // inspiración de la maleta parecía otra pantalla distinta.
+            .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.vertical, pageHeight / 24)
             .scrollTargetLayout()
         }

@@ -431,10 +431,14 @@ private struct SuitcaseTabContent: View {
         case .inspo:
             // Con lo que te llevas y para los días de este viaje. Ver
             // `SuitcaseInspoTab`.
+            // Los huecos de arriba y de abajo los pone la pantalla: la maleta
+            // ignora el área segura a propósito —el lienzo llega a los dos
+            // bordes— así que aquí hay que contar a mano lo que tapan la barra
+            // de navegación y la de pestañas de la maleta.
             SuitcaseInspoTab(
                 suitcase: suitcase,
-                topInset: WK.Spacing.xl,
-                bottomInset: WKTabBarMetrics.barHeight + WK.Spacing.xl
+                topInset: 64,
+                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l
             )
         }
     }
