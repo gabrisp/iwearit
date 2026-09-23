@@ -88,6 +88,10 @@ struct RootTabView: View {
         .sheet(item: $router.garment) { garment in
             GarmentDetailLoader(persistentID: garment.persistentID)
         }
+        // **La inspiración, también desde aquí.** Ver `AppRouter`.
+        .sheet(isPresented: $router.isShowingInspo) {
+            InspoSheet(feed: appEnvironment.inspo)
+        }
         .ignoresSafeArea(.keyboard)
         // .environment(chrome)
         .featureGatePaywall(appEnvironment.gate)
@@ -141,7 +145,7 @@ extension View {
         _ tab: RootTab,
         selection: Binding<RootTab>,
         isHidden: Bool = false,
-        onAssistant: @escaping () -> Void = {},
+        onAssistant: (() -> Void)? = nil,
         onPlus: @escaping () -> Void
     ) -> some View {
         modifier(
@@ -173,8 +177,14 @@ private struct RootTabBarSlot: ViewModifier {
     let tab: RootTab
     @Binding var selection: RootTab
     var isHidden = false
-    let onAssistant: () -> Void
+    /// Qué hace el botón de la derecha. `nil` = lo de siempre, abrir la
+    /// inspiración; una pantalla puede quedárselo para otra cosa sin que haya
+    /// que tocar la barra.
+    let onAssistant: (() -> Void)?
     let onPlus: () -> Void
+
+    /// Quién presenta la hoja. Ver `AppRouter`.
+    @Environment(AppRouter.self) private var router
 
     /// `morphingBottomBar` de Lockty: la barra a la izquierda y los dos
     /// círculos —la carita y el "+"— a la derecha.
@@ -187,6 +197,17 @@ private struct RootTabBarSlot: ViewModifier {
                     Color.clear.frame(height: 0)
                 } else {
                 HStack(alignment: .bottom, spacing: 12) {
+                    // **El hueco del botón, a la izquierda.** Sin él, la barra
+                    // se iría hacia la izquierda justo lo que ocupa el círculo
+                    // de la derecha: con el hueco, la barra queda centrada en
+                    // la pantalla y el botón en el borde, que es donde estaba
+                    // en Lockty.
+                    Color.clear
+                        .frame(width: 52, height: 1)
+                        .allowsHitTesting(false)
+
+                    Spacer(minLength: 0)
+
                     WKLocktyTabBar(tabs: [RootTab.closet, .planner], home: tab, selection: $selection) { tab in
                         switch tab {
                         case .closet: "cabinet"
@@ -195,8 +216,19 @@ private struct RootTabBarSlot: ViewModifier {
                         }
                     }
                     .sensoryFeedback(.selection, trigger: selection)
-                    // Centrada y sola: los dos círculos se quedan comentados.
-                    // .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 0)
+
+                    // El de Lockty, en su sitio de siempre: abre la
+                    // inspiración. La carita se queda comentada por si vuelve.
+                    Button { (onAssistant ?? router.openInspo)() } label: {
+                        Image(systemName: "sparkles")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .frame(width: 52, height: 52)
+                            .contentShape(Circle())
+                    }
+                    .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
 
                     // Button(action: onAssistant) {
                     //     Text("🙂")

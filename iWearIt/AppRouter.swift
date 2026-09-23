@@ -19,11 +19,23 @@ final class AppRouter {
     /// La prenda cuya ficha está abierta.
     var garment: GarmentRef?
 
+    /// La hoja de inspiración.
+    ///
+    /// Aquí arriba y no en el armario: se abre desde la barra de pestañas, que
+    /// está en las dos pantallas raíz, y presentarla desde cada una daría dos
+    /// hojas distintas con dos hilos de chat distintos según por dónde
+    /// entraste.
+    var isShowingInspo = false
+
     func open(_ garment: GarmentRef) {
         self.garment = garment
     }
 
     func closeGarment() {
         garment = nil
+    }
+
+    func openInspo() {
+        isShowingInspo = true
     }
 }

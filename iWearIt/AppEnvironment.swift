@@ -117,6 +117,13 @@ public final class AppEnvironment {
     /// Qué sabe la app de iCloud. Ver `CloudSync`.
     let sync: CloudSync
 
+    /// Los conjuntos de inspiración, que se rehacen solos cada cierto tiempo.
+    ///
+    /// Vive aquí y no en la hoja que los enseña: si naciera con la hoja,
+    /// abrirla sería esperar a que se montaran, y cerrarla los tiraría. Ver
+    /// `InspoFeed`.
+    let inspo: InspoFeed
+
     private init(
         modelSource: ModelSource,
         container: ModelContainer,
@@ -147,6 +154,7 @@ public final class AppEnvironment {
             entitlements: Self.makeEntitlements(),
             container: container
         )
+        self.inspo = InspoFeed(container: container, weather: weather)
     }
 
     /// Quién decide si el usuario es Pro.

@@ -1,0 +1,222 @@
+import Foundation
+
+/// Entiende lo que se le pide al estilista **escrito a mano**.
+///
+/// ## Por qué esto no es un modelo de lenguaje
+///
+/// Porque lo que se le dice a un armario cabe en cuatro cosas: un color, una
+/// ocasión, el frío que hace y una prenda concreta que quieres ponerte o no
+/// volver a ver. Reconocer eso son listas de palabras y un poco de cuidado con
+/// las negaciones; mandarlo a un servidor para que devuelva lo mismo sería
+/// pagar y esperar por lo que ya está aquí. Y cuando no entiende algo, **lo
+/// dice**, en vez de inventarse una respuesta convincente.
+public enum StylistPhrase {
+
+    /// Lo que se ha entendido de una frase.
+    public struct Reading: Sendable {
+        /// El encargo, con lo dicho ya aplicado encima del anterior.
+        public var brief: StylistBrief
+        /// Lo que se ha reconocido, en palabras, para poder confirmarlo.
+        public var understood: [String]
+        /// `true` si de toda la frase no se sacó nada.
+        public var isBlank: Bool { understood.isEmpty }
+    }
+
+    /// Aplica una frase sobre el encargo que hubiera.
+    public static func read(
+        _ text: String,
+        wardrobe: [StylistGarment],
+        base: StylistBrief
+    ) -> Reading {
+        var brief = base
+        brief.note = text
+        // Cada frase nueva pide conjuntos nuevos, aunque diga lo mismo.
+        brief.seed = UInt64(truncatingIfNeeded: text.hashValue) ^ UInt64(Date().timeIntervalSince1970)
+        var understood: [String] = []
+
+        for clause in clauses(of: text) {
+            let negated = clause.isNegated
+            let words = clause.words
+
+            for (family, synonyms) in colorWords {
+                guard words.contains(where: { synonyms.contains($0) }) else { continue }
+                if negated {
+                    brief.avoidedColors.append(family)
+                    brief.preferredColors.removeAll { $0 == family }
+                    understood.append("sin \(family)")
+                } else {
+                    brief.preferredColors.append(family)
+                    brief.avoidedColors.removeAll { $0 == family }
+                    understood.append("con \(family)")
+                }
+            }
+
+            for (tag, synonyms) in occasionWords where words.contains(where: { synonyms.contains($0) }) {
+                if !negated, !brief.requiredTags.contains(tag) {
+                    brief.requiredTags.append(tag)
+                    understood.append(tag.lowercased())
+                }
+            }
+
+            if words.contains(where: { coldWords.contains($0) }) {
+                brief.warmth = .winter
+                understood.append("para frío")
+            } else if words.contains(where: { heatWords.contains($0) }) {
+                brief.warmth = .summer
+                understood.append("para calor")
+            } else if words.contains(where: { midWords.contains($0) }) {
+                brief.warmth = .midSeason
+                understood.append("de entretiempo")
+            }
+
+            // Una prenda nombrada: "con los vaqueros negros", "el jersey no".
+            for garment in matches(in: words, wardrobe: wardrobe) {
+                if negated {
+                    brief.banned.insert(garment.id)
+                    brief.pinned.remove(garment.id)
+                    understood.append("sin \(garment.name.lowercasedFirst)")
+                } else {
+                    brief.pinned.insert(garment.id)
+                    brief.banned.remove(garment.id)
+                    understood.append("con \(garment.name.lowercasedFirst)")
+                }
+            }
+        }
+
+        let folded = fold(text)
+        if repeatWords.contains(where: { folded.contains($0) }) {
+            understood.append("sin repetir lo de estos días")
+        }
+
+        return Reading(brief: brief, understood: uniqued(understood))
+    }
+
+    /// Cómo contesta el estilista cuando ha entendido algo.
+    public static func acknowledgement(_ reading: Reading, lookCount: Int) -> String {
+        guard !reading.isBlank else {
+            return lookCount > 0
+                ? "No he pillado del todo lo que buscas, pero mira estos."
+                : "No he pillado lo que buscas. Prueba con un color, una ocasión o una prenda: «algo azul para el trabajo», «sin negro», «con las zapatillas blancas»."
+        }
+        let asked = reading.understood.joined(separator: ", ")
+        guard lookCount > 0 else {
+            return "\(asked.capitalizedFirst): con eso no me sale nada del armario. Prueba a pedir menos cosas a la vez."
+        }
+        return "\(asked.capitalizedFirst). Aquí van \(lookCount == 1 ? "uno" : "\(lookCount)")."
+    }
+
+    // MARK: Las palabras
+
+    /// Una parte de la frase con su propio signo.
+    ///
+    /// Hace falta partirla porque "algo azul pero sin negro" tiene una cosa
+    /// pedida y otra prohibida: mirar la frase entera daría las dos al mismo
+    /// saco y acabaría proponiendo justo lo que no querías.
+    private struct Clause {
+        let words: [String]
+        let isNegated: Bool
+    }
+
+    private static func clauses(of text: String) -> [Clause] {
+        let folded = fold(text)
+        let separators = CharacterSet(charactersIn: ",.;")
+        var chunks: [String] = []
+        for raw in folded.components(separatedBy: separators) {
+            var current = raw
+            for connector in [" pero ", " aunque ", " y sin ", " sin ", " nada de ", " menos "] {
+                if let range = current.range(of: connector) {
+                    chunks.append(String(current[..<range.lowerBound]))
+                    current = connector.trimmingCharacters(in: .whitespaces) + " "
+                        + String(current[range.upperBound...])
+                }
+            }
+            chunks.append(current)
+        }
+        return chunks.compactMap { chunk in
+            let words = chunk.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+            guard !words.isEmpty else { return nil }
+            return Clause(words: words, isNegated: words.contains { negationWords.contains($0) })
+        }
+    }
+
+    private static let negationWords: Set<String> = [
+        "sin", "no", "nada", "menos", "excepto", "salvo", "evita", "quita", "fuera", "odio",
+    ]
+
+    private static let repeatWords = [
+        "no repet", "sin repet", "repetir", "otra cosa", "algo distinto", "algo diferente", "cambia",
+    ]
+
+    private static let coldWords: Set<String> = [
+        "frio", "abrigo", "abrigar", "invierno", "nieve", "helada", "gelido",
+    ]
+    private static let heatWords: Set<String> = ["calor", "verano", "playa", "fresquito", "fresco"]
+    private static let midWords: Set<String> = ["entretiempo", "primavera", "otono", "templado"]
+
+    /// Ocasiones → etiquetas de uso. Las etiquetas son las del armario, no un
+    /// vocabulario nuevo: si aquí se inventara "Boda", no casaría con nada.
+    private static let occasionWords: [(String, Set<String>)] = [
+        ("Deporte", ["deporte", "gym", "gimnasio", "correr", "entrenar", "padel", "futbol", "running"]),
+        ("Trabajo", ["trabajo", "oficina", "curro", "reunion", "trabajar"]),
+        ("Formal", ["formal", "boda", "bautizo", "comunion", "ceremonia", "elegante", "traje", "cena"]),
+        ("Fiesta", ["fiesta", "salir", "discoteca", "copas", "cumple", "cumpleanos"]),
+        ("Playa", ["playa", "piscina", "mar"]),
+        ("Viaje", ["viaje", "viajar", "avion", "vuelo", "aeropuerto"]),
+        ("Casa", ["casa", "comodo", "sofa", "tirado"]),
+        ("Diario", ["diario", "normal", "cualquier", "calle", "paseo"]),
+    ]
+
+    /// Colores en las palabras con las que se piden, no en las de la tabla de
+    /// ciento y pico: nadie escribe "azul acero".
+    private static let colorWords: [(String, Set<String>)] = [
+        ("negro", ["negro", "negros", "negra", "negras"]),
+        ("blanco", ["blanco", "blancos", "blanca", "blancas"]),
+        ("gris", ["gris", "grises"]),
+        ("azul", ["azul", "azules", "vaquero", "denim", "marino"]),
+        ("verde", ["verde", "verdes", "caqui", "oliva"]),
+        ("rojo", ["rojo", "rojos", "roja", "rojas", "granate", "burdeos"]),
+        ("rosa", ["rosa", "rosas", "rosado"]),
+        ("amarillo", ["amarillo", "amarilla", "mostaza"]),
+        ("naranja", ["naranja", "naranjas"]),
+        ("morado", ["morado", "morada", "lila", "violeta"]),
+        ("tierra", ["marron", "beige", "camel", "arena", "tierra", "crema"]),
+    ]
+
+    /// Las prendas del armario nombradas en la frase.
+    ///
+    /// Se exige **más de una palabra en común** —"vaqueros" y "negros"— o una
+    /// que solo tenga esa prenda. Con una palabra suelta, "zapatillas" casaría
+    /// con las seis que tienes y elegiría una al azar, que es peor que no
+    /// entenderlo.
+    private static func matches(in words: [String], wardrobe: [StylistGarment]) -> [StylistGarment] {
+        let phrase = Set(words.filter { $0.count > 3 })
+        guard !phrase.isEmpty else { return [] }
+
+        var scored: [(StylistGarment, Int)] = []
+        for garment in wardrobe {
+            let garmentWords = Set(
+                garment.searchText.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                    .map(String.init)
+                    .filter { $0.count > 3 }
+            )
+            let shared = garmentWords.intersection(phrase)
+            guard shared.count >= 2 else { continue }
+            scored.append((garment, shared.count))
+        }
+        guard !scored.isEmpty else { return [] }
+        let best = scored.map(\.1).max() ?? 0
+        // Solo las que empatan en lo más específico, y como mucho dos: si la
+        // frase señala a media docena, no señalaba a ninguna.
+        let winners = scored.filter { $0.1 == best }.map(\.0)
+        return winners.count <= 2 ? winners : []
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+    }
+
+    private static func uniqued(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
+    }
+}

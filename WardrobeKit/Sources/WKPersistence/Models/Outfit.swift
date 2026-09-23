@@ -31,6 +31,22 @@ public final class Outfit {
     /// casi todos los outfits, y así no ocupa ni un byte.
     public var drawingData: Data?
 
+    /// Guardado a favoritos.
+    ///
+    /// Vale tanto para un conjunto tuyo como para uno que venía de
+    /// inspiración: en cuanto lo guardas es tuyo y se edita igual que
+    /// cualquier otro. Por eso no hay dos listas ni dos modelos — lo que
+    /// cambia es de dónde salió, que es `originRaw`, y eso solo sirve para
+    /// contarlo.
+    public var isFavorite: Bool = false
+
+    /// De dónde salió: `nil` lo montaste tú, `inspo` lo propuso el estilista.
+    ///
+    /// Como cadena y no como enum en el modelo, igual que el resto: un valor
+    /// que llegue de un dispositivo con una versión más nueva no rompe nada,
+    /// simplemente no se reconoce.
+    public var originRaw: String?
+
     /// Imán opcional a la retícula. **Apagado por defecto**: el requisito es
     /// conservar 32,56° exactos, y un snap silencioso los destruiría.
     public var snapToGrid: Bool = false
@@ -81,6 +97,33 @@ public final class Outfit {
 
     public var lowestZIndex: Double {
         (items.map(\.zIndex).min() ?? 0) - 1
+    }
+
+    /// Las prendas del conjunto, sin huecos ni stickers.
+    public var garments: [Garment] {
+        items.compactMap(\.garment).filter { $0.deletedAt == nil }
+    }
+}
+
+/// De dónde salió un outfit.
+public enum OutfitOrigin: String, Sendable {
+    case inspo
+}
+
+public extension FetchDescriptor where T == Outfit {
+
+    /// Los guardados, de lo último a lo primero.
+    ///
+    /// Sin los borrados y sin los que pertenecen a un día o a una maleta: esos
+    /// ya tienen su sitio donde se ven. Favoritos es la estantería de los que
+    /// no están en ningún calendario.
+    static func favouriteOutfits() -> FetchDescriptor<Outfit> {
+        var descriptor = FetchDescriptor<Outfit>(
+            predicate: #Predicate { $0.isFavorite && $0.deletedAt == nil },
+            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 200
+        return descriptor
     }
 }
 
