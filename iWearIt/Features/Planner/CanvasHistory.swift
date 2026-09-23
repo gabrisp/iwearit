@@ -121,7 +121,14 @@ struct CanvasSnapshot: Equatable {
         // Ordenadas por id: el orden en que SwiftData devuelve la relación no
         // está garantizado, y sin ordenar dos instantáneas idénticas podrían
         // compararse distintas y apuntar un paso que no existió.
-        items = outfit.visibleItems
+        // **Todas las piezas, no solo las que se ven.**
+        //
+        // `visibleItems` deja fuera lo que cuelga de una prenda borrada, y con
+        // ese filtro la instantánea no las tenía; `restore` borra lo que no
+        // está en la instantánea, así que el primer deshacer se las llevaba
+        // por delante de verdad. Eran esas prendas que desaparecían solas al
+        // editar. Lo que se enseña se filtra al pintar, no al recordar.
+        items = outfit.items
             .map { item in
                 Item(
                     id: item.id,
@@ -179,6 +186,17 @@ struct CanvasSnapshot: Equatable {
             // no, y asignar uno de otro contexto es lo que revienta.
             if let id = snapshot.garment {
                 item.garment = context.model(for: id) as? Garment
+            } else if item.garment != nil, snapshot.stickerKindRaw == nil {
+                // **Y una pieza con prenda no se queda sin ella.**
+                //
+                // Nada en el editor vacía ese campo: se borra la pieza entera
+                // o no se toca. Así que un `nil` aquí solo puede venir de una
+                // instantánea tomada en un momento en que la relación todavía
+                // no estaba resuelta, y obedecerla sería borrar la prenda del
+                // lienzo por un fallo de sincronía.
+                DiagnosticsLog.record(
+                    "EDITOR", "instantánea sin prenda para una pieza que la tiene: se conserva"
+                )
             } else {
                 item.garment = nil
             }

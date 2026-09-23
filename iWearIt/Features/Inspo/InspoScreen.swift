@@ -60,8 +60,13 @@ struct InspoScreen: View {
     /// Cuánto se está arrastrando la tarjeta de encima, **fuera del cuerpo de
     /// la pantalla**. Ver `InspoSwipe`.
     @State private var swipe = InspoSwipe()
+    /// De dónde sale el editor al abrirse: de la propia tarjeta.
+    @Namespace private var zoom
 
     private var shown: [StylistLook] { feed.looks }
+
+    /// El id de la transición cuando no se sabe de qué tarjeta se salió.
+    private static let noLookZoomID = UUID()
 
     private var byID: [UUID: Garment] {
         Dictionary(garments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -86,6 +91,18 @@ struct InspoScreen: View {
                         // había antes de entrar era una propuesta, no algo
                         // tuyo. Y la tarjeta vuelve a enseñar la propuesta.
                         isNew: true
+                    )
+                    // **El editor sale de la tarjeta que has abierto**, como
+                    // en el plan. Sin el destino, la pantalla entra deslizando
+                    // desde el lado y el conjunto que estabas mirando se
+                    // queda sin relación con el que aparece.
+                    .adaptiveZoomDestination(
+                        // El de la tarjeta de la que salió. El de repuesto es
+                        // una constante y no un `UUID()` nuevo: uno nuevo en
+                        // cada pasada cambiaría de identidad entre fotogramas
+                        // y la transición se quedaría sin destino.
+                        id: AnyHashable(editedLook?.id ?? Self.noLookZoomID),
+                        in: zoom
                     )
                 }
                 .sheet(item: $datingLook) { look in
@@ -159,6 +176,7 @@ struct InspoScreen: View {
                             onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
                             swipe: swipe
                         )
+                        .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
                         // Once doceavos del alto: el conjunto manda en la
                         // pantalla y el siguiente asoma lo justo para contar
                         // que hay más, sin gastar ni un punto en decirlo.

@@ -56,7 +56,16 @@ struct DayPage: View {
         _days = Query(filter: #Predicate<PlannedDay> { $0.dayStart == dayStart })
     }
 
-    private var outfits: [Outfit] { days.first?.orderedOutfits ?? [] }
+    /// Los outfits del día que **tienen algo dentro**.
+    ///
+    /// Un outfit vacío —el que queda si se abre "crear" y se cierra sin poner
+    /// nada— se pintaba como una página más, y como está vacío enseñaba el
+    /// cartel de "Planea tu outfit": el día parecía sin planear y justo
+    /// debajo estaba el conjunto puesto. No se borra —puede estar a medias de
+    /// crearse ahora mismo—, simplemente no ocupa página.
+    private var outfits: [Outfit] {
+        (days.first?.orderedOutfits ?? []).filter { !$0.visibleItems.isEmpty }
+    }
 
     /// Cuál de los lienzos del día.
     ///
@@ -68,7 +77,13 @@ struct DayPage: View {
     /// **devolvía el foco al primer outfit**. De ahí que el botón se quedara en
     /// "Editar" por mucho que bajaras.
     private enum Page: Hashable {
-        case outfit(PersistentIdentifier)
+        // **Por el identificador estable y no por el de SwiftData.**
+        //
+        // El de SwiftData es temporal hasta que el contexto guarda, y al
+        // guardar cambia: la página cambiaba de identidad debajo del dedo y el
+        // scroll paginado daba el salto que se veía como un glitch. Ver
+        // `Outfit.stableID`.
+        case outfit(UUID)
         /// El lienzo en blanco del final, que sí existe y sí tiene identidad.
         case new
     }
@@ -87,7 +102,7 @@ struct DayPage: View {
                 ForEach(outfits) { outfit in
                     DayCanvas(date: date, outfit: outfit, onEdit: onEdit)
                         .containerRelativeFrame(.vertical)
-                        .id(Page.outfit(outfit.persistentModelID))
+                        .id(Page.outfit(outfit.stableID))
                 }
 
                 // El hueco **solo cuando el día está vacío**.
@@ -193,7 +208,7 @@ struct DayPage: View {
     /// Si esa página sigue estando en el layout.
     private func exists(_ page: Page) -> Bool {
         switch page {
-        case let .outfit(id): outfits.contains { $0.persistentModelID == id }
+        case let .outfit(id): outfits.contains { $0.stableID == id }
         case .new: outfits.isEmpty
         }
     }
@@ -201,7 +216,7 @@ struct DayPage: View {
     /// Dónde ponerse cuando no hay sitio válido: el último outfit, o el hueco
     /// si el día está vacío.
     private var fallbackPage: Page {
-        outfits.last.map { Page.outfit($0.persistentModelID) } ?? .new
+        outfits.last.map { Page.outfit($0.stableID) } ?? .new
     }
 
     /// Qué outfit está a la vista, o ninguno si es el hueco.
@@ -212,7 +227,7 @@ struct DayPage: View {
     private func report(_ page: Page?) {
         switch page {
         case let .outfit(id):
-            onFocus(date, outfits.first { $0.persistentModelID == id })
+            onFocus(date, outfits.first { $0.stableID == id })
         case .new, nil:
             onFocus(date, nil)
         }

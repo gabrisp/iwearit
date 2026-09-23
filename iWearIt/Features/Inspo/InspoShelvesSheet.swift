@@ -17,9 +17,13 @@ import WKPersistence
 ///
 /// Lo excluido sigue en el armario, se busca, se abre y se puede poner a mano
 /// en cualquier outfit. Lo único que cambia es que el estilista no lo propone.
+///
+/// ## Y se elige con píldoras
+///
+/// Como el resto de la app —tipo, material, calidez, etiquetas—: una fila de
+/// píldoras que se encienden. Una lista de interruptores era otro control
+/// distinto para la misma pregunta, y encima ocupaba una fila por balda.
 struct InspoShelvesSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
     @Query(
         filter: #Predicate<GarmentCategory> { !$0.isHidden && $0.deletedAt == nil },
         sort: [SortDescriptor(\GarmentCategory.sortOrder)]
@@ -31,53 +35,26 @@ struct InspoShelvesSheet: View {
     /// `ClosetScreen`.
     private var shelves: [GarmentCategory] {
         var seen = Set<String>()
-        return categories.filter { seen.insert($0.slug).inserted }
+        return categories.filter { seen.insert($0.slug).inserted && !$0.visibleGarments.isEmpty }
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(shelves) { shelf in
-                        InspoShelfRow(shelf: shelf)
+        WKChipSheet(
+            title: "Qué entra",
+            subtitle: "Lo que apagues sigue en el armario: solo deja de salir propuesto",
+            options: shelves.map { .init(id: $0.slug, label: $0.name) },
+            selection: Binding(
+                get: { Set(shelves.filter { !$0.isExcludedFromInspo }.map(\.slug)) },
+                set: { included in
+                    for shelf in shelves {
+                        shelf.isExcludedFromInspo = !included.contains(shelf.slug)
                     }
-                } footer: {
-                    Text("Lo que dejes fuera sigue en el armario: solo deja de aparecer en las propuestas.")
                 }
-            }
-            .navigationTitle("Qué entra")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: { Image(systemName: "checkmark") }
-                        .tint(WK.Palette.primaryText)
-                        .adaptiveProminentButton()
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-/// Una balda con su interruptor. Vista propia para que marcar una no
-/// reevalúe la lista entera.
-private struct InspoShelfRow: View {
-    @Bindable var shelf: GarmentCategory
-
-    var body: some View {
-        Toggle(
-            isOn: Binding(
-                get: { !shelf.isExcludedFromInspo },
-                set: { shelf.isExcludedFromInspo = !$0 }
-            )
-        ) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(shelf.name)
-                    .foregroundStyle(WK.Palette.primaryText)
-                Text("\(shelf.visibleGarments.count) prendas")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-            }
-        }
+            ),
+            // Sin tope y pudiendo quedarse sin ninguna: apagarlas todas es una
+            // respuesta válida —aunque entonces no haya nada que proponer— y
+            // fingir que no lo es obliga a dejar una encendida a la fuerza.
+            allowsEmpty: true
+        )
     }
 }
