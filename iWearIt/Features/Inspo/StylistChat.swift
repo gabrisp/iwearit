@@ -53,4 +53,10 @@ struct StylistMessage: Identifiable, Hashable {
     let id = UUID()
     let role: Role
     let text: String
+    /// Las prendas que iban con él.
+    ///
+    /// El mensaje enviado las enseña: sin eso, adjuntar tres prendas y
+    /// escribir "algo para el trabajo" dejaba en el hilo una frase suelta, y
+    /// dos preguntas después ya no se sabía con qué se había pedido.
+    var attachments: [UUID] = []
 }

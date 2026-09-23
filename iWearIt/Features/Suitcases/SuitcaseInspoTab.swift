@@ -55,6 +55,36 @@ struct SuitcaseInspoTab: View {
 
     private var looks: [StylistLook] { feed?.looks ?? [] }
 
+    /// **Lo que mide una tarjeta, medido a mano.**
+    ///
+    /// En la pestaña de inspiración el alto sale de `containerRelativeFrame`,
+    /// que mide el contenedor del scroll. Aquí no vale: la maleta ignora el
+    /// área segura, así que el contenedor es la pantalla entera y las mismas
+    /// once doceavas partes salían mucho más grandes que allí. Se resta a mano
+    /// lo que tapan las dos barras y se reparte igual.
+    private var cardHeight: CGFloat {
+        let usable = max(0, pageHeight - topInset - bottomInset)
+        return max(320, usable * 11 / 12)
+    }
+
+    /// **El papel es el de la maleta.**
+    ///
+    /// Dentro de un viaje el color no es decoración: es lo que distingue esta
+    /// maleta de la otra, y por eso lo llevan también sus lienzos. Los colores
+    /// rotatorios de la inspiración del armario aquí sobran — dirían que cada
+    /// conjunto es de un sitio distinto.
+    private var suitcaseColour: Color {
+        guard
+            let raw = suitcase.colorRaw,
+            let tint = SuitcaseTint(rawValue: raw)
+        else { return WK.Palette.canvas }
+        return WK.Palette.canvasTint(
+            red: tint.components.red,
+            green: tint.components.green,
+            blue: tint.components.blue
+        )
+    }
+
     var body: some View {
         Group {
             if packed.count < 3 {
@@ -87,7 +117,7 @@ struct SuitcaseInspoTab: View {
                         garments: look.garmentIDs.compactMap { byID[$0] },
                         outfit: nil,
                         store: appEnvironment.imageStore,
-                        backdrop: InspoPalette.backdrop(for: look),
+                        backdrop: suitcaseColour,
                         isSaved: saved.contains(look.id),
                         onSave: { save(look) },
                         onPlan: { datingLook = look },
@@ -97,7 +127,7 @@ struct SuitcaseInspoTab: View {
                         onDislike: { withAnimation(WKAnimation.content) { feed?.dislike(look) } },
                         swipe: swipe
                     )
-                    .containerRelativeFrame(.vertical, count: 12, span: 11, spacing: WK.Spacing.m)
+                    .frame(height: cardHeight)
                     .scrollTransition(.interactive, axis: .vertical) { content, phase in
                         content
                             .opacity(phase.isIdentity ? 1 : 0.35)
@@ -109,9 +139,7 @@ struct SuitcaseInspoTab: View {
                 // La misma tarjeta del final que en la pestaña: tirar de ella
                 // trae otros tantos. Ver `InspoMoreCard`.
                 InspoMoreCard(count: InspoFeed.capacity, isWorking: false)
-                    .containerRelativeFrame(
-                        .vertical, count: 12, span: 11, spacing: WK.Spacing.m
-                    )
+                    .frame(height: cardHeight)
                     .scrollTransition(.interactive, axis: .vertical) { content, phase in
                         content
                             .opacity(phase.isIdentity ? 1 : 0.35)
@@ -137,6 +165,10 @@ struct SuitcaseInspoTab: View {
         .safeAreaPadding(.top, topInset)
         .safeAreaPadding(.bottom, bottomInset)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
+        // Y la página, del color de siempre: el de la maleta es el de las
+        // tarjetas, no el del fondo. Con el tinte detrás **y** delante, las
+        // tarjetas se perdían dentro de su propio color.
+        .background(WK.Palette.canvas.ignoresSafeArea())
     }
 
     // MARK: Acciones
@@ -197,7 +229,9 @@ struct SuitcaseInspoTab: View {
             name: look.headline,
             origin: .inspo,
             isFavorite: isFavorite,
-            backdropRaw: InspoPalette.backdrop(for: look).rawValue,
+            // Sin color propio: dentro de la maleta lo pone ella. Ver
+            // `AdvancedCanvasScreen.backdropColor`.
+            backdropRaw: inTrip ? nil : InspoPalette.backdrop(for: look).rawValue,
             context: modelContext,
             seed: InspoPalette.seed(for: look)
         )

@@ -48,6 +48,8 @@ private struct SuitcaseContent: View {
     @State private var layout: PlannerLayout = .book
     @State private var dayIndex = 0
     @State private var isPresentingStyle = false
+    /// La hoja de a dónde vas, que da también el tiempo del viaje.
+    @State private var isPickingDestination = false
     /// El "+" de la barra, **solo en Equipaje**: añadir prendas sueltas a la
     /// maleta. Lo atiende `PackingChecklistTab`.
     @State private var isPickingForNew = false
@@ -224,6 +226,14 @@ private struct SuitcaseContent: View {
                     .tint(WK.Palette.primaryText)
                 }
             }
+            // **El tiempo del destino, en el centro.** Como en la pestaña de
+            // inspiración, solo que aquí el sitio es el de la maleta: tocarlo
+            // cambia a dónde vas, no dónde vives.
+            if tab == .inspo {
+                ToolbarItem(placement: .principal) {
+                    SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
+                }
+            }
             if tab == .outfits, let dayCount = suitcase.tripDayCount {
                 ToolbarItem(placement: .principal) {
                     TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex, isCompact: true)
@@ -247,6 +257,11 @@ private struct SuitcaseContent: View {
         }
         .animation(WKAnimation.content, value: tab)
 
+        .sheet(isPresented: $isPickingDestination) {
+            PlaceSearchSheet(title: "¿A dónde vas?") { place in
+                suitcase.destination = place
+            }
+        }
         .sheet(isPresented: $isPresentingStyle) {
             SuitcaseStyleSheet(suitcase: suitcase)
         }
@@ -498,5 +513,56 @@ private struct PackingProgress: View {
                     .tint(WK.Palette.accent)
             }
         }
+    }
+}
+
+
+/// El tiempo del destino, en píldora, como en la pestaña de inspiración.
+///
+/// Con el sitio puesto dice a dónde vas y qué hace allí el primer día; sin él,
+/// es el sitio donde ponerlo. Editarlo cambia el destino de **esta maleta**:
+/// el tiempo de un viaje no tiene nada que ver con el de casa.
+private struct SuitcaseWeatherPill: View {
+    let suitcase: Suitcase
+    let onTap: () -> Void
+
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var forecast: WeatherSnapshot?
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: WK.Spacing.xs) {
+                Image(systemName: forecast?.condition.symbolName ?? "location")
+                Text(title)
+            }
+            .font(WK.Font.callout)
+            .foregroundStyle(WK.Palette.primaryText)
+            .fixedSize()
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.xs)
+            .adaptiveGlassInteractive(in: .capsule)
+        }
+        .tint(WK.Palette.primaryText)
+        .task(id: suitcase.destinationName) { await load() }
+    }
+
+    private var title: String {
+        guard let destination = suitcase.destination else { return "Elegir destino" }
+        // Solo la ciudad: el país repetido no cabe en la barra.
+        let city = destination.name.split(separator: ",").first.map(String.init)
+            ?? destination.name
+        guard let forecast else { return city }
+        return "\(city), \(Int(forecast.highCelsius.rounded()))°"
+    }
+
+    private func load() async {
+        guard let destination = suitcase.destination else {
+            forecast = nil
+            return
+        }
+        // El primer día del viaje, que es el que se está preparando; sin
+        // fechas, hoy.
+        let date = suitcase.date(forDayIndex: 0) ?? Date()
+        forecast = await appEnvironment.weather.snapshot(for: date, at: destination)
     }
 }

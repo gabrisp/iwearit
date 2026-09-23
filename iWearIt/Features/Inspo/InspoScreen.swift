@@ -68,8 +68,9 @@ struct InspoScreen: View {
             }
         }
     }
-    /// Lo que mide el feed, para poder centrar el conjunto enfocado.
-    @State private var pageHeight: CGFloat = 0
+    /// Lo que mide el feed: para centrar el conjunto enfocado y para saber si
+    /// la pantalla está tumbada.
+    @State private var pageSize: CGSize = .zero
     /// Mientras se montan los siguientes.
     @State private var isGenerating = false
     /// Si el gesto de los lados ya se ha enseñado alguna vez.
@@ -275,84 +276,96 @@ struct InspoScreen: View {
     private var feedView: some View {
         if shown.isEmpty {
             InspoEmptyState(hasGarments: !garments.isEmpty)
+        } else if isWide {
+            // **Tumbado, se pasa de lado.**
+            //
+            // En un iPad en horizontal la pantalla es más ancha que alta: un
+            // conjunto por página deja dos palmos de vacío a cada lado, y el
+            // gesto que pide esa forma es el del dedo cruzando, no el de
+            // subir. De pie —el iPhone siempre, el iPad en vertical— se queda
+            // como estaba.
+            wideFeed
         } else {
-            ScrollView(.vertical) {
-                LazyVStack(spacing: WK.Spacing.m) {
-                    ForEach(shown) { look in
-                        InspoLookCard(
-                            look: look,
-                            garments: look.garmentIDs.compactMap { byID[$0] },
-                            outfit: outfit(for: look),
-                            store: appEnvironment.imageStore,
-                            backdrop: InspoPalette.backdrop(for: look),
-                            isSaved: saved.contains(look.id),
-                            onSave: { save(look) },
-                            onPlan: { sheet = .day(look) },
-                            onRegenerate: { regenerate(look) },
-                            onEdit: { edit(look) },
-                            onDismiss: { withAnimation(WKAnimation.content) { discard(look) } },
-                            onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
-                            swipe: swipe,
-                            showsHint: look.id == shown.first?.id && !hasHintedSwipe,
-                            onHintShown: { appEnvironment.tips.complete(.swipeLook) }
-                        )
-                        .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
-                        // Once doceavos del alto: el conjunto manda en la
-                        // pantalla y el siguiente asoma lo justo para contar
-                        // que hay más, sin gastar ni un punto en decirlo.
-                        .containerRelativeFrame(
-                            .vertical, count: 12, span: 11, spacing: WK.Spacing.m
-                        )
-                        // El del centro, entero. Los de los lados, atrás.
-                        .scrollTransition(.interactive, axis: .vertical) { content, phase in
-                            content
-                                .opacity(phase.isIdentity ? 1 : 0.35)
-                                .scaleEffect(phase.isIdentity ? 1 : 0.88)
-                        }
-
-                    }
-
-                    // **Y una tarjeta más al final.**
-                    //
-                    // En vez de una píldora flotando sobre el borde, la última
-                    // tarjeta de la pila es la que trae más: cuesta subirla
-                    // —hay que tirar del final— y cuando sube, se llena. El
-                    // gesto es el mismo que para pasar de conjunto, así que no
-                    // hay nada nuevo que aprender.
-                    InspoMoreCard(count: InspoFeed.capacity, isWorking: isGenerating)
-                        .containerRelativeFrame(
-                            .vertical, count: 12, span: 11, spacing: WK.Spacing.m
-                        )
-                        .scrollTransition(.interactive, axis: .vertical) { content, phase in
-                            content
-                                .opacity(phase.isIdentity ? 1 : 0.35)
-                                .scaleEffect(phase.isIdentity ? 1 : 0.88)
-                        }
-                        .id(Self.moreCardID)
-                        // Al asomar de verdad —más de la mitad— se pone a
-                        // montar. Antes de eso no: rozarla al pasar de
-                        // conjunto no es pedir ocho más.
-                        .onScrollVisibilityChange(threshold: 0.6) { isVisible in
-                            guard isVisible else { return }
-                            generateMore()
-                        }
-                }
-                // **El aire de centrado, por dentro.**
-                //
-                // Como `safeAreaPadding` del scroll, además de centrar las
-                // tarjetas subía todo lo que se dibuje encima del scroll —la
-                // píldora del tirón entre ello—, que es por lo que quedaba a
-                // media pantalla en vez de justo encima de la barra.
-                .padding(.vertical, pageHeight / 24)
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $scrolled)
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.always, axes: .vertical)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
+            tallFeed
         }
     }
+
+    private var tallFeed: some View {
+        ScrollView(.vertical) {
+            LazyVStack(spacing: WK.Spacing.m) {
+                cards(axis: .vertical)
+            }
+            .padding(.vertical, pageSize.height / 24)
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $scrolled)
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.always, axes: .vertical)
+        .overlay { InspoVerdictPill(swipe: swipe) }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
+    }
+
+    private var wideFeed: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: WK.Spacing.m) {
+                cards(axis: .horizontal)
+            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $scrolled)
+        .scrollIndicators(.hidden)
+        .scrollBounceBehavior(.always, axes: .horizontal)
+        .overlay { InspoVerdictPill(swipe: swipe) }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
+    }
+
+    /// Las tarjetas, que son las mismas se pasen como se pasen.
+    @ViewBuilder
+    private func cards(axis: Axis) -> some View {
+        ForEach(shown) { look in
+            InspoLookCard(
+                look: look,
+                garments: look.garmentIDs.compactMap { byID[$0] },
+                outfit: outfit(for: look),
+                store: appEnvironment.imageStore,
+                backdrop: InspoPalette.color(InspoPalette.backdrop(for: look)),
+                isSaved: saved.contains(look.id),
+                onSave: { save(look) },
+                onPlan: { sheet = .day(look) },
+                onRegenerate: { regenerate(look) },
+                onEdit: { edit(look) },
+                onDismiss: { withAnimation(WKAnimation.content) { discard(look) } },
+                onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
+                swipe: swipe,
+                showsHint: look.id == shown.first?.id && !hasHintedSwipe,
+                onHintShown: { appEnvironment.tips.complete(.swipeLook) }
+            )
+            .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
+            .modifier(InspoCardSize(axis: axis, page: pageSize))
+        }
+
+        // **Y una tarjeta más al final.**
+        //
+        // En vez de una píldora flotando sobre el borde, la última tarjeta de
+        // la pila es la que trae más: cuesta subirla —hay que tirar del
+        // final— y cuando sube, se llena. El gesto es el mismo que para pasar
+        // de conjunto, así que no hay nada nuevo que aprender.
+        InspoMoreCard(count: InspoFeed.capacity, isWorking: isGenerating)
+            .modifier(InspoCardSize(axis: axis, page: pageSize))
+            .id(Self.moreCardID)
+            // Al asomar de verdad —más de la mitad— se pone a montar. Antes de
+            // eso no: rozarla al pasar de conjunto no es pedir ocho más.
+            .onScrollVisibilityChange(threshold: 0.6) { isVisible in
+                guard isVisible else { return }
+                generateMore()
+            }
+    }
+
+    /// Si la pantalla es más ancha que alta.
+    private var isWide: Bool { pageSize.width > pageSize.height }
 
     // MARK: Acciones
 
@@ -467,8 +480,10 @@ struct InspoLookCard: View {
     /// El outfit de verdad, si esta propuesta ya se convirtió en uno.
     let outfit: Outfit?
     let store: ImageStore
-    /// El color del papel. Ver `InspoPalette`.
-    let backdrop: OutfitBackdrop
+    /// El color del papel. En la inspiración lo pone la paleta —ver
+    /// `InspoPalette`—; dentro de una maleta lo pone la maleta, que es lo que
+    /// la identifica entre varias.
+    let backdrop: Color
     let isSaved: Bool
     let onSave: () -> Void
     let onPlan: () -> Void
@@ -522,7 +537,7 @@ struct InspoLookCard: View {
         LookCanvasView(
             garments: garments,
             store: store,
-            backdrop: InspoPalette.color(backdrop),
+            backdrop: backdrop,
             outfit: outfit,
             showsBorder: true
         )
@@ -838,5 +853,43 @@ struct InspoMoreCard: View {
                 }
             }
             .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
+    }
+}
+
+/// Lo que mide una tarjeta, y cómo entra y sale, según por dónde se pasen.
+///
+/// De pie, once doceavas partes del alto: la siguiente asoma por abajo. En
+/// horizontal manda el alto —una tarjeta es más alta que ancha— y el ancho
+/// sale de su proporción, así que entran dos y pico y el resto asoma por el
+/// lado. En los dos casos el enfocado se ve entero y el resto acompaña.
+private struct InspoCardSize: ViewModifier {
+    let axis: Axis
+    let page: CGSize
+
+    func body(content: Content) -> some View {
+        switch axis {
+        case .vertical:
+            content
+                .containerRelativeFrame(
+                    .vertical, count: 12, span: 11, spacing: WK.Spacing.m
+                )
+                .scrollTransition(.interactive, axis: .vertical) { view, phase in
+                    view
+                        .opacity(phase.isIdentity ? 1 : 0.35)
+                        .scaleEffect(phase.isIdentity ? 1 : 0.88)
+                }
+        case .horizontal:
+            let height = max(240, page.height * 0.88)
+            content
+                .frame(
+                    width: height * (CanvasSpace.width / CanvasSpace.height),
+                    height: height
+                )
+                .scrollTransition(.interactive, axis: .horizontal) { view, phase in
+                    view
+                        .opacity(phase.isIdentity ? 1 : 0.35)
+                        .scaleEffect(phase.isIdentity ? 1 : 0.88)
+                }
+        }
     }
 }

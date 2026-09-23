@@ -113,8 +113,12 @@ struct StylistChatSheet: View {
                 }
 
                 ForEach(chat.thread) { message in
-                    StylistBubble(message: message)
-                        .padding(.horizontal, WK.Spacing.screenInset)
+                    StylistBubble(
+                        message: message,
+                        garments: message.attachments.compactMap { byID[$0] },
+                        store: appEnvironment.imageStore
+                    )
+                    .padding(.horizontal, WK.Spacing.screenInset)
                 }
 
                 if chat.isThinking {
@@ -272,7 +276,9 @@ struct StylistChatSheet: View {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         chat.draft = ""
-        chat.thread.append(StylistMessage(role: .user, text: text))
+        chat.thread.append(
+            StylistMessage(role: .user, text: text, attachments: Array(chat.attached))
+        )
 
         var base = chat.brief ?? feed.baseBrief()
         // Lo adjuntado **manda**: son las prendas que has señalado, y van
@@ -357,22 +363,46 @@ struct StylistChatSheet: View {
 
 private struct StylistBubble: View {
     let message: StylistMessage
+    /// Lo que iba adjunto, si iba algo.
+    var garments: [Garment] = []
+    var store: ImageStore?
 
     var body: some View {
         HStack {
             if message.role == .user { Spacer(minLength: WK.Spacing.xl) }
-            Text(message.text)
-                .font(WK.Font.body)
-                .foregroundStyle(
-                    message.role == .user ? WK.Palette.primaryText : WK.Palette.secondaryText
-                )
-                .padding(.horizontal, message.role == .user ? WK.Spacing.m : 0)
-                .padding(.vertical, message.role == .user ? WK.Spacing.s : 0)
-                .background {
-                    if message.role == .user {
-                        Capsule().fill(WK.Palette.ink(0.08))
+
+            VStack(alignment: message.role == .user ? .trailing : .leading, spacing: WK.Spacing.xs) {
+                // Las prendas con las que se pidió, encima de lo que se dijo:
+                // es el orden en que se hizo.
+                if !garments.isEmpty, let store {
+                    HStack(spacing: WK.Spacing.xs) {
+                        ForEach(garments, id: \.persistentModelID) { garment in
+                            StoredImage(
+                                key: garment.normalizedImageKey,
+                                variant: .thumb,
+                                store: store
+                            )
+                            .frame(width: 36, height: 36)
+                            .padding(WK.Spacing.xs)
+                            .background(WK.Palette.ink(0.06), in: .circle)
+                        }
                     }
                 }
+
+                Text(message.text)
+                    .font(WK.Font.body)
+                    .foregroundStyle(
+                        message.role == .user ? WK.Palette.primaryText : WK.Palette.secondaryText
+                    )
+                    .padding(.horizontal, message.role == .user ? WK.Spacing.m : 0)
+                    .padding(.vertical, message.role == .user ? WK.Spacing.s : 0)
+                    .background {
+                        if message.role == .user {
+                            Capsule().fill(WK.Palette.ink(0.08))
+                        }
+                    }
+            }
+
             if message.role == .stylist { Spacer(minLength: WK.Spacing.xl) }
         }
     }
