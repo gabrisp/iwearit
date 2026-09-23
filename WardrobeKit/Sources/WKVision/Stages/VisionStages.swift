@@ -206,8 +206,18 @@ public enum VisionStages {
     // MARK: - Articulaciones
 
     private static func landmarks(from pose: HumanBodyPoseObservation) -> BodyLandmarks? {
+        // **Todas de una vez, y no una por una.**
+        //
+        // `joint(for:)` no existe en iOS 18: es de iOS 26. Compilaba —el SDK
+        // es el 26— y el enlazador no dice nada, así que el fallo salía en el
+        // sitio más caro posible: al **arrancar** en un iPhone con iOS 18, con
+        // dyld matando el proceso por símbolo ausente antes de pintar nada.
+        // Un diccionario con todas las articulaciones es la forma que sí está
+        // en las dos versiones, y de paso se lee una vez en vez de seis.
+        let all = pose.allJoints()
+
         func averageY(_ names: [HumanBodyPoseObservation.JointName]) -> (Double, Double)? {
-            let joints = names.compactMap { pose.joint(for: $0) }.filter { $0.confidence > 0.2 }
+            let joints = names.compactMap { all[$0] }.filter { $0.confidence > 0.2 }
             guard !joints.isEmpty else { return nil }
             let y = joints.reduce(0.0) { $0 + $1.location.y } / Double(joints.count)
             let confidence = joints.reduce(0.0) { $0 + Double($1.confidence) } / Double(joints.count)
