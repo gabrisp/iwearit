@@ -101,7 +101,11 @@ struct RootTabView: View {
             case let .garment(garment):
                 GarmentDetailLoader(persistentID: garment.persistentID)
             case .stylist:
-                StylistChatSheet(feed: appEnvironment.inspo, chat: appEnvironment.stylistChat)
+                StylistChatSheet(
+                    feed: appEnvironment.inspo,
+                    chat: appEnvironment.stylistChat,
+                    onEdit: { router.editFromStylist($0) }
+                )
             }
         }
         .ignoresSafeArea(.keyboard)

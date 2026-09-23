@@ -65,9 +65,19 @@ final class AppRouter {
 
     /// Cierra el estilista, abre el editor y deja dicho que hay que volver.
     func editFromStylist(_ outfit: Outfit) {
-        editRequest = OutfitRef(id: outfit.stableID, persistentID: outfit.persistentModelID)
+        let ref = OutfitRef(id: outfit.stableID, persistentID: outfit.persistentModelID)
         reopensStylist = true
         sheet = nil
+        // **Primero se cierra la hoja y después se empuja.**
+        //
+        // Las dos cosas en el mismo turno no funcionaban: la pantalla de abajo
+        // recibía el aviso mientras la hoja todavía se estaba cerrando y el
+        // empujón se perdía por el camino —tocabas el lápiz en el estilista y
+        // no pasaba nada—. Un respiro basta: lo que tarda la hoja en irse.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(320))
+            editRequest = ref
+        }
     }
 
     /// El editor se ha cerrado: si venía del estilista, se vuelve a él.

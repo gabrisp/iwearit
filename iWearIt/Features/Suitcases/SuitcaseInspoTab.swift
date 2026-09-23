@@ -148,7 +148,13 @@ struct SuitcaseInspoTab: View {
                         store: appEnvironment.imageStore,
                         backdrop: suitcaseColour,
                         isSaved: saved.contains(look.id),
-                        onSave: { save(look) },
+                        // Aquí no hay corazón: el corazón es de tu armario, y
+                        // esto es un viaje. El "+" lo mete en los outfits de
+                        // esta maleta, y el calendario solo aparece si el
+                        // viaje tiene días.
+                        keep: .trip,
+                        showsPlan: suitcase.tripDayCount != nil,
+                        onSave: { addToTrip(look) },
                         onPlan: { datingLook = look },
                         onRegenerate: { regenerate(look) },
                         onEdit: { edit(look) },
@@ -199,7 +205,7 @@ struct SuitcaseInspoTab: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
-        .overlay { InspoVerdictPill(swipe: swipe) }
+        .overlay { InspoVerdictPill(swipe: swipe, savedSymbol: "plus") }
         // **Lo que da de sí la maleta, a la vista.** Con lo justo para un par
         // de conjuntos la inspiración se repite y parece rota; decir cuántos
         // salen —y qué prenda los doblaría— convierte eso en algo que puedes
@@ -280,10 +286,16 @@ struct SuitcaseInspoTab: View {
         }
     }
 
-    /// El corazón guarda **fuera**: es tuyo, no del viaje.
-    private func save(_ look: StylistLook) {
-        guard let outfit = materialise(look, isFavorite: true, inTrip: false) else { return }
-        _ = outfit
+    /// **Meterlo en la maleta**, que es lo que se hace con un conjunto en un
+    /// viaje.
+    ///
+    /// Antes esto era el corazón, y guardaba fuera: en favoritos, con el resto
+    /// de tu armario. Pero un conjunto montado con lo que te llevas a Lisboa
+    /// no es un favorito tuyo, es un outfit **de esta maleta** —y acababa en
+    /// una lista donde no pintaba nada—. Ahora entra en los outfits del viaje,
+    /// como preparado; ponerle día es lo otro, y es el calendario.
+    private func addToTrip(_ look: StylistLook) {
+        guard materialise(look, isFavorite: false, inTrip: true) != nil else { return }
         try? modelContext.save()
         saved.insert(look.id)
     }

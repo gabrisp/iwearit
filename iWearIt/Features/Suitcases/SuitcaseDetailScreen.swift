@@ -537,7 +537,10 @@ private struct SuitcaseWeatherPill: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: WK.Spacing.xs) {
+                // En color, como en la pestaña de inspiración: el parte del
+                // destino se lee de un vistazo.
                 Image(systemName: forecast?.condition.symbolName ?? "location")
+                    .symbolRenderingMode(.multicolor)
                 Text(title)
             }
             .font(WK.Font.callout)

@@ -42,6 +42,13 @@ struct StylistChatSheet: View {
     /// es de la app y la hoja solo lo enseña. Ver `StylistChat`.
     @Bindable var chat: StylistChat
 
+    /// **Quién abre el editor.**
+    ///
+    /// Lo pide quien presenta esta hoja, en vez de buscarlo en el entorno: el
+    /// lápiz de una propuesta no hacía nada, y era esto —dentro de la hoja, el
+    /// router no siempre llega—. Quien la presenta sí lo tiene en la mano.
+    var onEdit: ((Outfit) -> Void)?
+
     /// **Una sola hoja encima de esta**, con un enum: tres `.sheet` en la
     /// misma vista dejan mudos a dos. Ver `AppRouter`.
     @State private var sheet: Sheet?
@@ -403,7 +410,11 @@ struct StylistChatSheet: View {
         guard let outfit = materialise(look, isFavorite: false) else { return }
         try? modelContext.save()
         chat.saved.insert(look.id)
-        router?.editFromStylist(outfit)
+        if let onEdit {
+            onEdit(outfit)
+        } else {
+            router?.editFromStylist(outfit)
+        }
     }
 
     /// No me gusta: fuera de aquí y anotado para lo que venga.

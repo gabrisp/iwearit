@@ -199,7 +199,12 @@ struct InspoScreen: View {
         // que es la de debajo. Ver `AppRouter.editFromStylist`.
         .onChange(of: router?.editRequest) { _, request in
             guard let request else { return }
+            // `registeredModel` solo devuelve lo que este contexto ya tenga
+            // en la mano, y un outfit recién creado dentro de la hoja puede no
+            // estarlo: entonces devolvía nada y el lápiz del estilista no
+            // hacía nada. `model(for:)` lo trae igualmente.
             editingOutfit = modelContext.registeredModel(for: request.persistentID)
+                ?? modelContext.model(for: request.persistentID) as? Outfit
         }
         // Al volver del editor: si el outfit sigue existiendo, se quedó lo
         // editado y la tarjeta lo enseña; si no —descartaste— se olvida y
@@ -233,7 +238,13 @@ struct InspoScreen: View {
                 // barra se queda solo con el icono, y "31°" sin el número no
                 // dice nada.
                 HStack(spacing: WK.Spacing.xs) {
+                    // **El icono del tiempo, en color.** Un sol y una nube
+                    // en negro sobre cristal son dos manchas iguales; en
+                    // multicolor el sol es amarillo y la lluvia azul, y el
+                    // parte se lee sin leer. El texto sigue en tinta: ahí lo
+                    // que importa es el número.
                     Image(systemName: weatherSymbol)
+                        .symbolRenderingMode(.multicolor)
                     Text(weatherTitle)
                 }
                 .font(WK.Font.callout)
@@ -256,14 +267,15 @@ struct InspoScreen: View {
             // repartida en dos iconos pegados que abrían dos hojas. Relleno
             // cuando hay prendas puestas: es la única señal de que lo que ves
             // no sale del armario entero.
+            // **El icono no cambia; cambia el botón.** Con prendas puestas
+            // pasaba a la versión rellena del símbolo, y un icono que se
+            // transforma se lee como otro botón distinto. Lo que dice que hay
+            // algo puesto es el propio botón: de cristal a cristal destacado.
             Button { sheet = .filters } label: {
-                Image(
-                    systemName: feed.anchors.isEmpty
-                        ? "line.3.horizontal.decrease"
-                        : "line.3.horizontal.decrease.circle.fill"
-                )
+                Image(systemName: "line.3.horizontal.decrease")
             }
-            .tint(feed.anchors.isEmpty ? WK.Palette.primaryText : WK.Palette.accent)
+            .tint(WK.Palette.primaryText)
+            .modifier(ProminentWhenActive(isActive: !feed.anchors.isEmpty))
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button { shuffle() } label: {
@@ -569,6 +581,17 @@ struct InspoLookCard: View {
     /// la identifica entre varias.
     let backdrop: Color
     let isSaved: Bool
+    /// **Qué significa guardar aquí.**
+    ///
+    /// En la inspiración del armario, el corazón: pasa a favoritos y es tuyo.
+    /// Dentro de una maleta eso no es lo que quieres —favorito es de tu
+    /// armario, no del viaje—, así que ahí es un "+" que lo mete en los
+    /// outfits de esa maleta.
+    var keep: Keep = .favourite
+    /// Si se puede poner fecha. En una maleta sin fechas no hay días a los que
+    /// asignar nada, y un calendario que abre una lista vacía es un botón que
+    /// no lleva a ninguna parte.
+    var showsPlan = true
     let onSave: () -> Void
     let onPlan: () -> Void
     let onRegenerate: () -> Void
@@ -582,6 +605,16 @@ struct InspoLookCard: View {
     /// Si esta tarjeta tiene que enseñar el gesto la primera vez.
     var showsHint = false
     var onHintShown: () -> Void = {}
+
+    enum Keep {
+        /// A favoritos.
+        case favourite
+        /// A los outfits de esta maleta.
+        case trip
+
+        var symbol: String { self == .favourite ? "heart" : "plus" }
+        var doneSymbol: String { self == .favourite ? "heart.fill" : "checkmark" }
+    }
 
     /// Lo que se ha arrastrado de lado ahora mismo.
     @State private var drag: CGFloat = 0
@@ -734,9 +767,9 @@ struct InspoLookCard: View {
 
     private var actions: some View {
         VStack(spacing: WK.Spacing.xs) {
-            circle(isSaved ? "heart.fill" : "heart", action: onSave)
+            circle(isSaved ? keep.doneSymbol : keep.symbol, action: onSave)
                 .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
-            circle("calendar", action: onPlan)
+            if showsPlan { circle("calendar", action: onPlan) }
             // **El lápiz hace lo mismo que el doble toque.** Los dos gestos
             // están bien para quien los conoce; el botón está para quien no.
             circle("pencil", action: onEdit)
@@ -881,6 +914,9 @@ final class InspoSwipe {
 /// cuando peor se leía.
 struct InspoVerdictPill: View {
     let swipe: InspoSwipe
+    /// Qué pasa al tirar a la derecha: un corazón en la inspiración, un "+"
+    /// dentro de una maleta.
+    var savedSymbol = "heart.fill"
 
     /// Lo mismo que le cuesta a la tarjeta comprometerse. Ver
     /// `InspoLookCard.threshold`.
@@ -894,7 +930,7 @@ struct InspoVerdictPill: View {
             // cuando lo estás mirando para decidir, y a medio arrastre se leía
             // media palabra. Un corazón o un pulgar dicen lo mismo de un
             // vistazo y dejan ver la ropa por detrás.
-            Image(systemName: goesRight ? "heart.fill" : "hand.thumbsdown.fill")
+            Image(systemName: goesRight ? savedSymbol : "hand.thumbsdown.fill")
                 .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(goesRight ? WK.Palette.accent : WK.Palette.primaryText)
                 .frame(width: 76, height: 76)
@@ -967,31 +1003,50 @@ struct InspoMoreCard: View {
 private struct ShuffleGlow: View {
     let pull: CGFloat
 
+    /// Lo que mide el aura del todo. Igual que el botón: lo que crece dentro
+    /// de un botón redondo tiene que ser redondo.
+    private static let size: CGFloat = 34
+
     var body: some View {
-        Image(systemName: "shuffle")
-            .foregroundStyle(WK.Palette.primaryText)
-            .frame(width: 30, height: 30)
-            .background {
-                Circle()
-                    .fill(WK.Palette.accent.opacity(0.9))
-                    .frame(width: 46, height: 46)
-                    .scaleEffect(pull)
-                    .opacity(pull)
-                    .blur(radius: 6)
-            }
-            .overlay {
-                // El mismo icono en blanco, recortado por el aura: donde llega
-                // el círculo, el símbolo ya es blanco.
-                Image(systemName: "shuffle")
-                    .foregroundStyle(.white)
-                    .frame(width: 30, height: 30)
-                    .mask {
-                        Circle()
-                            .frame(width: 46, height: 46)
-                            .scaleEffect(pull * 1.1)
-                    }
-            }
-            .animation(.smooth(duration: 0.18), value: pull)
+        ZStack {
+            // **Un círculo que crece, recortado en círculo.** Antes era un
+            // círculo desenfocado detrás del símbolo, y el desenfoque se salía
+            // de la caja del botón: lo que se veía crecer era una mancha
+            // cuadrada. Con todo dentro de un `ZStack` recortado en círculo no
+            // hay forma de que salga una esquina.
+            Circle()
+                .fill(WK.Palette.accent)
+                .scaleEffect(max(0.001, pull))
+                .opacity(pull)
+
+            Image(systemName: "shuffle")
+                .foregroundStyle(WK.Palette.primaryText)
+
+            // El mismo símbolo en blanco, recortado por el aura: donde llega
+            // el círculo, el símbolo ya es blanco.
+            Image(systemName: "shuffle")
+                .foregroundStyle(.white)
+                .mask {
+                    Circle().scaleEffect(max(0.001, pull))
+                }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .clipShape(.circle)
+        .animation(.smooth(duration: 0.18), value: pull)
+    }
+}
+
+/// Destacado cuando hay algo puesto, de cristal cuando no.
+private struct ProminentWhenActive: ViewModifier {
+    let isActive: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isActive {
+            content.adaptiveProminentButton()
+        } else {
+            content
+        }
     }
 }
 
