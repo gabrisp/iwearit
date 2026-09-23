@@ -26,7 +26,28 @@ struct LookCanvasView: View {
     /// tiene que mandar—, y sin borde un conjunto flota sin que se sepa cuánto
     /// papel ocupa ni dónde acaba uno y empieza el siguiente.
     var showsBorder = false
+    /// Tocar una prenda para ver **qué prenda es**.
+    ///
+    /// Sin esto, la tarjeta enseña un conjunto y no dice de qué está hecho: la
+    /// chaqueta que te gusta es una silueta a la que no le puedes preguntar
+    /// nada —ni cuál de las tres parecidas es, ni de qué marca—. Con esto, la
+    /// tarjeta es el armario visto desde otro sitio.
+    ///
+    /// Opcional a propósito: donde el lienzo es una miniatura —una celda de
+    /// rejilla, una tarjeta de chat— no hay sitio para acertar una prenda con
+    /// el dedo, y el toque solo estorbaría al scroll.
+    var onSelectGarment: ((Garment) -> Void)?
+    /// Qué hace el doble toque **sobre una prenda**.
+    ///
+    /// Hay que pasarlo aquí y no dejarlo en la tarjeta de fuera: en cuanto la
+    /// prenda escucha el toque simple, el doble toque de la tarjeta ya no
+    /// llega a lo que hay pintado, solo al papel de alrededor.
+    var onDoubleTap: (() -> Void)?
 
+    /// Las siluetas para acertar el toque. Solo si hay algo que tocar: con el
+    /// lienzo mudo es trabajo —decodificar cada prenda y recorrerla— para
+    /// nada.
+    @State private var masks: MaskCache?
     /// Dónde cae cada prenda. Se calcula una vez por conjunto y no por
     /// fotograma: es aritmética barata, pero dentro del `body` se repetiría en
     /// cada scroll.
@@ -55,12 +76,23 @@ struct LookCanvasView: View {
                     .opacity(0.5)
 
                 ForEach(placed, id: \.garment.id) { entry in
-                    LookGarmentImage(garment: entry.garment, transform: entry.transform, store: store)
+                    LookGarmentImage(
+                        garment: entry.garment,
+                        transform: entry.transform,
+                        store: store,
+                        masks: masks,
+                        onSelect: onSelectGarment.map { select in { select(entry.garment) } },
+                        onDoubleTap: onDoubleTap
+                    )
                 }
             }
             .frame(width: CanvasSpace.width, height: CanvasSpace.height)
             .scaleEffect(scale)
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+        }
+        .task {
+            guard onSelectGarment != nil, masks == nil else { return }
+            masks = MaskCache(store: store)
         }
         .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
         .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
@@ -79,6 +111,9 @@ private struct LookGarmentImage: View {
     let garment: Garment
     let transform: ItemTransform
     let store: ImageStore
+    var masks: MaskCache?
+    var onSelect: (() -> Void)?
+    var onDoubleTap: (() -> Void)?
 
     var body: some View {
         StoredImage(
@@ -88,9 +123,43 @@ private struct LookGarmentImage: View {
             shadow: .init(opacity: 0.5, radius: 18, y: 11)
         )
         .frame(width: transform.baseWidth, height: transform.baseHeight)
+        // **El área de toque es la silueta, no el rectángulo.** Una chaqueta
+        // recortada tiene media esquina transparente: por bounding box, tocar
+        // el hueco de al lado del cuello abriría la chaqueta en vez de la
+        // camiseta que se ve debajo. Es la misma pieza que usa el editor.
+        //
+        // Antes de escalar y girar: así la silueta se transforma con la
+        // prenda en lugar de quedarse quieta sobre ella.
+        .modifier(GarmentTouchArea(mask: masks?.mask(for: garment.normalizedImageKey), isActive: onSelect != nil))
         .scaleEffect(transform.scale)
         .rotationEffect(.radians(transform.rotation))
         .position(x: transform.x, y: transform.y)
         .zIndex(transform.zIndex)
+        .task(id: garment.normalizedImageKey) {
+            guard onSelect != nil else { return }
+            masks?.load(key: garment.normalizedImageKey)
+        }
+        // El doble toque primero: puesto después, el toque simple se lo come y
+        // entrar a editar desde una prenda dejaría de funcionar.
+        .onTapGesture(count: 2) { onDoubleTap?() }
+        .onTapGesture { onSelect?() }
+    }
+}
+
+/// El área de toque de una prenda: su silueta, o nada si el lienzo es mudo.
+///
+/// En un modificador y no suelto en la cadena porque `contentShape` **siempre**
+/// define un área —también la vacía—, y aplicarlo donde no se escucha ningún
+/// toque le robaría los gestos a lo que haya debajo.
+private struct GarmentTouchArea: ViewModifier {
+    let mask: AlphaMask?
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.contentShape(AnyShape(AlphaShape(mask: mask)))
+        } else {
+            content
+        }
     }
 }

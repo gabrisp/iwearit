@@ -59,12 +59,15 @@ struct InspoScreen: View {
         case day(StylistLook)
         /// Dónde estás, para saber qué tiempo hace.
         case place
+        /// Qué prenda es esa: la has tocado en el lienzo.
+        case garment(Garment)
 
         var id: String {
             switch self {
             case .filters: "filters"
             case let .day(look): "day-\(look.id)"
             case .place: "place"
+            case let .garment(garment): "garment-\(garment.id)"
             }
         }
     }
@@ -181,6 +184,11 @@ struct InspoScreen: View {
                             appEnvironment.weather.use(place)
                             Task { await feed.loadWeather() }
                         }
+                    case let .garment(garment):
+                        // La misma hoja que al tocar la prenda colgada en su
+                        // balda. Aquí no hay nada que saber que allí no: es la
+                        // prenda, y desde ella se llega a todo lo suyo.
+                        GarmentSheet(garment: garment)
                     }
                 }
         }
@@ -382,7 +390,8 @@ struct InspoScreen: View {
                 onDislike: { withAnimation(WKAnimation.content) { dislike(look) } },
                 swipe: swipe,
                 showsHint: look.id == shown.first?.id && !hasHintedSwipe,
-                onHintShown: { appEnvironment.tips.complete(.swipeLook) }
+                onHintShown: { appEnvironment.tips.complete(.swipeLook) },
+                onSelectGarment: { sheet = .garment($0) }
             )
             .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
             .modifier(InspoCardSize(axis: axis, page: pageSize))
@@ -612,6 +621,8 @@ struct InspoLookCard: View {
     /// Si esta tarjeta tiene que enseñar el gesto la primera vez.
     var showsHint = false
     var onHintShown: () -> Void = {}
+    /// Tocar una prenda del conjunto para ver cuál es. Ver `LookCanvasView`.
+    var onSelectGarment: ((Garment) -> Void)?
 
     enum Keep {
         /// A favoritos.
@@ -660,7 +671,11 @@ struct InspoLookCard: View {
             store: store,
             backdrop: backdrop,
             outfit: outfit,
-            showsBorder: true
+            showsBorder: true,
+            onSelectGarment: onSelectGarment,
+            // El doble toque tiene que bajar hasta la prenda: en cuanto ella
+            // escucha el toque simple, el de la tarjeta solo llega al papel.
+            onDoubleTap: onEdit
         )
         // **La ropa se cambia, la tarjeta se queda.** Con la identidad puesta
         // en lo que hay dentro, al barajar se funde el contenido y el marco ni
