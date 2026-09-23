@@ -687,7 +687,10 @@ struct InspoLookCard: View {
             circle("arrow.triangle.2.circlepath", action: onRegenerate)
             circle("xmark", action: onDismiss)
         }
-        .padding(WK.Spacing.s)
+        // Separados del canto: pegados al borde parecen a punto de salirse de
+        // la tarjeta, y en una pantalla estrecha el pulgar los roza al pasar
+        // de conjunto.
+        .padding(WK.Spacing.m)
     }
 
     private func circle(_ symbol: String, action: @escaping () -> Void) -> some View {

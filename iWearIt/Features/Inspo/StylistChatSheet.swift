@@ -509,7 +509,9 @@ private struct StylistResultCard: View {
                         // botón está para quien no.
                         circle("pencil", action: onEdit)
                     }
-                    .padding(WK.Spacing.xs)
+                    // El mismo aire que en la inspiración: pegados al canto se
+                    // leen como si se salieran de la tarjeta.
+                    .padding(WK.Spacing.s)
                 }
                 .contentShape(.rect)
                 .onTapGesture(count: 2, perform: onEdit)

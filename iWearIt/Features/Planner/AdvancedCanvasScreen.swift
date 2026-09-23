@@ -88,9 +88,26 @@ final class CanvasEditingSession {
     /// a cerrar: un "¿seguro?" cuando no has tocado nada enseña a confirmar
     /// sin leer.
     ///
-    /// Un outfit recién creado cuenta **siempre** como algo que perder: aunque
-    /// no hayas movido nada, salir sin querer lo dejaría puesto en el día.
-    var hasChanges: Bool { isNew || context.hasChanges }
+    /// **Solo lo tocado cuenta.** Antes un outfit recién creado contaba
+    /// siempre, con el argumento de que salir sin querer lo dejaría puesto en
+    /// el día. Pero desde la inspiración y el estilista el outfit se crea
+    /// **para abrir el editor**: mirarlo y cerrar sin tocar nada preguntaba
+    /// "¿descartar los cambios?" sin que hubiera ninguno. Y no hace falta que
+    /// pregunte para no dejar basura: cerrar sin cambios se lleva el outfit
+    /// recién creado por su cuenta. Ver `closeWithoutChanges`.
+    var hasChanges: Bool { context.hasChanges }
+
+    /// Cerrar sin haber tocado nada.
+    ///
+    /// Lo que se creó para esta sesión se va con ella —era una propuesta, no
+    /// algo tuyo— y lo que ya existía se queda como estaba.
+    func closeWithoutChanges() {
+        if isNew {
+            context.delete(outfit)
+            try? context.save()
+        }
+        context.autosaveEnabled = true
+    }
 
     /// Lo hecho aquí pasa a ser lo que hay. **Una escritura, no cincuenta.**
     func commit() {
@@ -330,6 +347,8 @@ private struct CanvasEditorScreen: View {
         if session.hasChanges {
             isConfirmingDiscard = true
         } else {
+            session.closeWithoutChanges()
+            closeEverything()
             dismiss()
         }
     }
