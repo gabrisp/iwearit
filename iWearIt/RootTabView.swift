@@ -44,7 +44,11 @@ struct RootTabView: View {
                     .toolbarVisibility(.hidden, for: .tabBar)
             }
             Tab(value: RootTab.planner) {
-                PlannerScreen(tab: $selection)
+                // **El plan, en revista como la inspiración.** La pantalla
+                // vieja —librito con paso de página, tira de días y rejilla por
+                // día— sigue en el repositorio y sin tocar: volver es cambiar
+                // esta línea por `PlannerScreen(tab: $selection)`.
+                PlanFeedScreen(tab: $selection)
                     .toolbarVisibility(.hidden, for: .tabBar)
             }
             // **La inspiración es pestaña.** Estaba detrás del botón de la
