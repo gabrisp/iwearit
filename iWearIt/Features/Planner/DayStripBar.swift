@@ -13,14 +13,14 @@ struct DayStripBar: View {
     let layoutSymbol: String
     let onToggleLayout: () -> Void
 
-    /// Cuántos días a cada lado se materializan. Suficiente para que el scroll
-    /// nunca llegue al borde, sin construir un calendario infinito.
-    private static let radius = 180
-    private var offsets: [Int] { Array(-Self.radius...Self.radius) }
-
     var body: some View {
         HStack(spacing: WK.Spacing.s) {
-            capsule
+            DayStripCapsule(
+                anchorDay: anchorDay,
+                selectedOffset: $selectedOffset,
+                onOpenCalendar: onOpenCalendar
+            )
+            .padding(.leading, WK.Spacing.m)
             // **Un círculo, no un óvalo.** Tenía el alto de la cápsula de al
             // lado y el ancho de un icono, así que salía estirado: dos formas
             // distintas fingiendo ser la misma. Con el lado igual al alto es
@@ -38,8 +38,26 @@ struct DayStripBar: View {
             .padding(.trailing, WK.Spacing.m)
         }
     }
+}
 
-    private var capsule: some View {
+/// La cápsula de la tira: el calendario, los días y el taco de hoy.
+///
+/// Suelta del botón de revista/rejilla porque no siempre van juntos: flotando
+/// sobre el lienzo son una sola pieza, y dentro de una barra son dos elementos
+/// hermanos, cada uno con el fondo que la barra les dé.
+struct DayStripCapsule: View {
+    let anchorDay: Date
+    @Binding var selectedOffset: Int
+    let onOpenCalendar: () -> Void
+    /// Si se pinta su propio cristal. Apagado dentro de una barra.
+    var hasBackground = true
+
+    /// Cuántos días a cada lado se materializan. Suficiente para que el scroll
+    /// nunca llegue al borde, sin construir un calendario infinito.
+    private static let radius = 180
+    private var offsets: [Int] { Array(-Self.radius...Self.radius) }
+
+    var body: some View {
         // Una cápsula flotando **sobre** el lienzo, no una barra que lo corta.
         // El papel de puntos tiene que seguir por debajo: en cuanto la tira
         // ocupa todo el ancho con su propio fondo, la pantalla deja de ser una
@@ -102,15 +120,31 @@ struct DayStripBar: View {
         .clipShape(.capsule)
         // Cristal interactivo: flota sobre el lienzo y lo deja verse por
         // debajo. Una cápsula opaca sobre papel de puntos corta el papel.
-        .adaptiveGlassInteractive(in: .capsule)
-        .padding(.leading, WK.Spacing.m)
+        // El cristal, solo cuando flota sobre el lienzo. Dentro de una
+        // barra lo pone la barra, y dos cristales uno encima de otro se ven
+        // como un parche más oscuro con forma de cápsula.
+        .modifier(StripBackground(isOn: hasBackground))
     }
+
 
     /// Hoy es el ancla: la tira se indexa por desplazamiento respecto a él.
     private var today: Date { anchorDay }
 
     private func date(for offset: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: offset, to: anchorDay) ?? anchorDay
+    }
+}
+
+/// El cristal de la cápsula, o nada.
+private struct StripBackground: ViewModifier {
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.adaptiveGlassInteractive(in: .capsule)
+        } else {
+            content
+        }
     }
 }
 

@@ -92,17 +92,44 @@ struct PlanFeedScreen: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
-                pager
-                // **La tira de días de siempre.** Es el mismo componente que
-                // llevaba el plan: calendario a la izquierda, los días
-                // deslizándose, el taco de hoy y el botón de revista/rejilla.
-                // No se ha tocado; solo vive aquí. Ver `DayStripBar`.
-                strip
-            }
+            pager
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarVisibility(.hidden, for: .navigationBar)
+            // **En la barra, no flotando.**
+            //
+            // Es la misma tira de siempre, pero puesta donde van las cosas de
+            // la pantalla: así el sistema le da el mismo fondo, el mismo alto
+            // y el mismo sitio que a cualquier otra barra, y el scroll de
+            // debajo sabe que está ahí sin tener que descontarla a mano.
+            //
+            // Dos elementos hermanos y no una pieza con un botón pegado: el
+            // calendario con los días es uno, el cambio de modo es el otro, y
+            // los dos los pinta la barra igual.
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    DayStripCapsule(
+                        anchorDay: anchor,
+                        selectedOffset: selectedOffset,
+                        onOpenCalendar: { isPickingDay = true },
+                        hasBackground: false
+                    )
+                    // Los días necesitan ancho: sin decirlo, el scroll pide
+                    // todo el que hay y echa al botón de al lado fuera de la
+                    // barra.
+                    .frame(width: max(180, pageSize.width - Self.toolbarButtonSpace))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(WKAnimation.content) {
+                            layout = layout == .feed ? .grid : .feed
+                        }
+                    } label: {
+                        Image(systemName: layout == .feed ? "square.grid.2x2" : "rectangle.portrait")
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
+            }
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
             .navigationDestination(item: $editingOutfit) { outfit in
                 AdvancedCanvasScreen(
@@ -154,29 +181,18 @@ struct PlanFeedScreen: View {
         }
     }
 
-    /// La tira: el calendario, los días y el cambio de modo. Todo dentro,
-    /// como estaba.
-    private var strip: some View {
-        DayStripBar(
-            anchorDay: anchor,
-            selectedOffset: Binding(
-                get: { offset(of: day ?? anchor) },
-                set: { newValue in
-                    withAnimation(WKAnimation.content) { day = date(atOffset: newValue) }
-                }
-            ),
-            onOpenCalendar: { isPickingDay = true },
-            layoutSymbol: layout == .feed ? "square.grid.2x2" : "rectangle.portrait",
-            onToggleLayout: {
-                withAnimation(WKAnimation.content) {
-                    layout = layout == .feed ? .grid : .feed
-                }
+    /// Qué día se mira, como desplazamiento desde hoy: es como habla la tira.
+    private var selectedOffset: Binding<Int> {
+        Binding(
+            get: { offset(of: day ?? anchor) },
+            set: { newValue in
+                withAnimation(WKAnimation.content) { day = date(atOffset: newValue) }
             }
         )
     }
 
-    /// Lo que mide la tira con su aire. Ver `DayStripBar`.
-    private static let stripHeight: CGFloat = 64
+    /// Lo que se le deja al botón de la derecha, con su aire.
+    private static let toolbarButtonSpace: CGFloat = 96
 
     /// **Lo que mide un hueco, descontando lo que tapan las barras.**
     ///
@@ -185,10 +201,11 @@ struct PlanFeedScreen: View {
     /// barra de navegación y la de pestañas, y aquí la de arriba está
     /// escondida —manda la tira— así que hay que restarlas a mano.
     private var stride: CGFloat {
-        // Solo la tira: la barra de pestañas ya se ha descontado sola —va como
-        // `adaptiveSafeAreaBar`, así que el scroll no la ve— y restarla otra
-        // vez dejaba las tarjetas más pequeñas que las de inspiración.
-        max(320, pageSize.height - Self.stripHeight)
+        // **Ya no se resta nada.** Con la tira dentro de la barra de
+        // navegación, el contenedor del scroll llega recortado por arriba y
+        // por abajo igual que en inspiración, que es de donde tiene que salir
+        // el tamaño de las tarjetas.
+        max(320, pageSize.height)
     }
 
     /// Hoy, que es desde donde se cuentan los días de la tira.
@@ -229,11 +246,9 @@ struct PlanFeedScreen: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $day)
         .scrollIndicators(.hidden)
-        // **Debajo de la tira.** La tira flota sobre el lienzo —así el papel de
-        // puntos sigue por debajo y la pantalla es una hoja y no dos zonas— y
-        // sin este hueco los botones de la tarjeta caían justo detrás del botón
-        // de rejilla.
-        .safeAreaPadding(.top, Self.stripHeight)
+        // Sin hueco a mano: la tira va en la barra y el área segura ya la
+        // tiene en cuenta. El hueco que había aquí, con la barra puesta, se
+        // sumaba al suyo y dejaba las tarjetas hundidas.
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
