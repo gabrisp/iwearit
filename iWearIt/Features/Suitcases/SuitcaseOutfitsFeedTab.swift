@@ -101,36 +101,20 @@ struct SuitcaseOutfitsFeedTab: View {
     }
 
     private func feed(ofDay index: Int) -> some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: 0) {
-                ForEach(outfits(ofDay: index), id: \.stableID) { outfit in
-                    SuitcaseFeedCard(
-                        outfit: outfit,
-                        suitcase: suitcase,
-                        store: appEnvironment.imageStore,
-                        onEdit: { onEdit(outfit, false) },
-                        onMove: { movingOutfit = outfit }
-                    )
-                    .matchedGeometryEffect(id: outfit.stableID, in: morph)
-                    .modifier(PlanCardSize(page: pageSize))
-                }
-
-                // Asomarse es crear, como en el plan.
-                PlanCreateCard(title: "Añadir un outfit")
-                    .matchedGeometryEffect(id: "create-\(index)", in: morph)
-                    .modifier(PlanCardSize(page: pageSize))
-                    // Solo si había outfits detrás: ver `PlanFeedScreen`.
-                    .onScrollVisibilityChange(threshold: 0.55) { isVisible in
-                        guard isVisible, !isPicking else { return }
-                        guard !outfits(ofDay: index).isEmpty else { return }
-                        isPicking = true
-                    }
-                    .onTapGesture { isPicking = true }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.viewAligned)
-        .scrollIndicators(.hidden)
+        // Con su propio scroll, como en el plan: el sitio por donde va es del
+        // día, no de la pestaña. Ver `PlanDayFeed`.
+        SuitcaseDayFeed(
+            outfits: outfits(ofDay: index),
+            suitcase: suitcase,
+            store: appEnvironment.imageStore,
+            pageSize: pageSize,
+            morph: morph,
+            createID: "create-\(index)",
+            isPicking: isPicking,
+            onEdit: { onEdit($0, false) },
+            onMove: { movingOutfit = $0 },
+            onCreate: { isPicking = true }
+        )
     }
 
     private func grid(ofDay index: Int) -> some View {
@@ -213,6 +197,65 @@ struct SuitcaseOutfitsFeedTab: View {
         if suitcase.tripDayCount != nil { outfit.suitcaseDayIndex = page ?? dayIndex }
         try? modelContext.save()
         onEdit(outfit, true)
+    }
+}
+
+/// Los outfits de un día del viaje, uno por pantalla.
+private struct SuitcaseDayFeed: View {
+    let outfits: [Outfit]
+    let suitcase: Suitcase
+    let store: ImageStore
+    let pageSize: CGSize
+    let morph: Namespace.ID
+    let createID: String
+    let isPicking: Bool
+    let onEdit: (Outfit) -> Void
+    let onMove: (Outfit) -> Void
+    let onCreate: () -> Void
+
+    @State private var anchor: AnyHashable?
+
+    var body: some View {
+        ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                ForEach(outfits, id: \.stableID) { outfit in
+                    SuitcaseFeedCard(
+                        outfit: outfit,
+                        suitcase: suitcase,
+                        store: store,
+                        onEdit: { onEdit(outfit) },
+                        onMove: { onMove(outfit) }
+                    )
+                    .matchedGeometryEffect(id: outfit.stableID, in: morph)
+                    .modifier(PlanCardSize(page: pageSize))
+                    .id(AnyHashable(outfit.stableID))
+                }
+
+                // Asomarse es crear, y no quedarse: en cuanto asoma, el scroll
+                // vuelve al último outfit y el selector se abre encima. Ver
+                // `PlanDayFeed`.
+                PlanCreateCard(title: "Añadir un outfit")
+                    .matchedGeometryEffect(id: createID, in: morph)
+                    .modifier(PlanCardSize(page: pageSize))
+                    .onScrollVisibilityChange(threshold: 0.4) { isVisible in
+                        guard isVisible, !isPicking else { return }
+                        guard let last = outfits.last else { return }
+                        onCreate()
+                        withAnimation(WKAnimation.content) {
+                            anchor = AnyHashable(last.stableID)
+                        }
+                    }
+                    .onTapGesture { onCreate() }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $anchor, anchor: .center)
+        .scrollIndicators(.hidden)
+        .onChange(of: isPicking) { _, isOpen in
+            guard !isOpen, let last = outfits.last else { return }
+            withAnimation(WKAnimation.content) { anchor = AnyHashable(last.stableID) }
+        }
     }
 }
 

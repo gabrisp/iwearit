@@ -44,6 +44,8 @@ struct LookCanvasView: View {
     /// llega a lo que hay pintado, solo al papel de alrededor.
     var onDoubleTap: (() -> Void)?
 
+    /// La última escala con la que se pintó de verdad. Ver el cuerpo.
+    @State private var lastScale: CGFloat = 1
     /// Las siluetas para acertar el toque. Solo si hay algo que tocar: con el
     /// lienzo mudo es trabajo —decodificar cada prenda y recorrerla— para
     /// nada.
@@ -69,7 +71,16 @@ struct LookCanvasView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let scale = CanvasSpace.scaleToFit(in: proxy.size)
+            // **El último tamaño bueno manda.**
+            //
+            // Un hueco de cero puntos —que es lo que se propone durante un
+            // cambio de tamaño en el iPad, o mientras una transición coloca la
+            // tarjeta— da escala cero, y a escala cero el lienzo entero
+            // desaparece: fondo, papel y prendas. Quedarse con la escala
+            // anterior mientras dura ese fotograma es la diferencia entre una
+            // tarjeta que parpadea y una que se queda en blanco.
+            let measured = CanvasSpace.scaleToFit(in: proxy.size)
+            let scale = measured > 0 ? measured : lastScale
             ZStack {
                 backdrop
                 DotGridBackground(spacing: CanvasSpace.gridSpacing * 3)
@@ -89,6 +100,10 @@ struct LookCanvasView: View {
             .frame(width: CanvasSpace.width, height: CanvasSpace.height)
             .scaleEffect(scale)
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+            .onChange(of: measured, initial: true) { _, newValue in
+                guard newValue > 0, newValue != lastScale else { return }
+                lastScale = newValue
+            }
         }
         .task {
             guard onSelectGarment != nil, masks == nil else { return }
@@ -139,10 +154,17 @@ private struct LookGarmentImage: View {
             guard onSelect != nil else { return }
             masks?.load(key: garment.normalizedImageKey)
         }
-        // El doble toque primero: puesto después, el toque simple se lo come y
-        // entrar a editar desde una prenda dejaría de funcionar.
-        .onTapGesture(count: 2) { onDoubleTap?() }
-        .onTapGesture { onSelect?() }
+        // **El doble toque gana, y el simple espera.**
+        //
+        // Con dos `onTapGesture` encadenados no basta: el de un toque se lleva
+        // el primer contacto y el doble no llega a formarse nunca, así que
+        // desde una prenda no se podía entrar a editar. Un gesto exclusivo lo
+        // dice de verdad — primero se intenta el de dos toques y el de uno
+        // solo se resuelve cuando aquel ha fallado.
+        .gesture(
+            TapGesture(count: 2).onEnded { onDoubleTap?() }
+                .exclusively(before: TapGesture().onEnded { onSelect?() })
+        )
     }
 }
 

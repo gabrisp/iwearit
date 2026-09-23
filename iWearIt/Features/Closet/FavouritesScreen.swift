@@ -316,12 +316,13 @@ private struct FavouriteOutfitCell: View {
             }
         }
         .contentShape(.rect)
-        // **El doble toque va antes que el simple.** Los dos conviven en la
-        // misma tarjeta —uno marca mientras eliges, el otro abre—, y SwiftUI
-        // resuelve primero el que pide más toques si está puesto antes.
-        .onTapGesture(count: 2) { if !isSelecting { onOpen() } }
-        // Un toque marca mientras se está eligiendo; fuera de eso, nada.
-        .onTapGesture { if isSelecting { onToggle() } }
+        // **El doble toque gana, y el simple espera.** Encadenar dos
+        // `onTapGesture` no vale: el de un toque se lleva el primer contacto
+        // y el doble no se forma. Ver `LookGarmentImage`.
+        .gesture(
+            TapGesture(count: 2).onEnded { if !isSelecting { onOpen() } }
+                .exclusively(before: TapGesture().onEnded { if isSelecting { onToggle() } })
+        )
         // La pulsación larga no vuelve: abría el editor, y este descarta el
         // outfit al cerrarse con la equis.
         // .onLongPressGesture { if !isSelecting { onOpen() } }

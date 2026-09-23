@@ -397,6 +397,8 @@ struct InspoScreen: View {
                 swipe: swipe,
                 showsHint: look.id == shown.first?.id && !hasHintedSwipe,
                 onHintShown: { appEnvironment.tips.complete(.swipeLook) },
+                // De lado solo cuando de lado no significa ya otra cosa.
+                isSwipeEnabled: axis == .vertical,
                 onSelectGarment: { sheet = .garment($0) }
             )
             .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
@@ -636,8 +638,17 @@ struct InspoLookCard: View {
     /// Si esta tarjeta tiene que enseñar el gesto la primera vez.
     var showsHint = false
     var onHintShown: () -> Void = {}
+    /// Si el arrastre a los lados es de la tarjeta.
+    ///
+    /// **En horizontal no.** Tumbado —un iPad en apaisado— los conjuntos se
+    /// pasan de lado, así que el mismo gesto significaría dos cosas a la vez:
+    /// el dedo cruzando la pantalla sería pasar de conjunto y descartarlo. Ahí
+    /// el gesto se apaga y las dos decisiones se toman con sus botones, que
+    /// están siempre.
+    var isSwipeEnabled = true
     /// Tocar una prenda del conjunto para ver cuál es. Ver `LookCanvasView`.
     var onSelectGarment: ((Garment) -> Void)?
+
 
     enum Keep {
         /// A favoritos.
@@ -707,11 +718,13 @@ struct InspoLookCard: View {
             // SwiftUI aquí se quedaba con el dedo aunque no hiciera nada, y el
             // scroll solo funcionaba arrastrando por fuera de la tarjeta. Ver
             // `SideSwipeGesture`.
-            .gesture(
-                SideSwipeGesture(
-                    onChange: { track($0) },
-                    onEnd: { distance, velocity in finish(distance, velocity: velocity) }
-                )
+            .modifier(
+                SideSwipeArbitration(isOn: isSwipeEnabled) { phase in
+                    switch phase {
+                    case let .change(amount): track(amount)
+                    case let .end(distance, velocity): finish(distance, velocity: velocity)
+                    }
+                }
             )
             // El golpecito al cruzar el umbral, en los dos sentidos: es cómo
             // se sabe que ya vale sin mirar cuánto llevas arrastrado.
@@ -723,7 +736,8 @@ struct InspoLookCard: View {
             // tarjeta se asoma sola a un lado y al otro —con su icono— y se
             // queda quieta. Es lo que haría alguien enseñándotelo.
             .task {
-                guard showsHint else { return }
+                // Y sin gesto no hay nada que enseñar.
+                guard showsHint, isSwipeEnabled else { return }
                 await demonstrate()
                 onHintShown()
             }
@@ -794,10 +808,16 @@ struct InspoLookCard: View {
             return
         }
 
-        // Y el descarte se va del todo. **Sin devolver el arrastre a cero**:
-        // ponerlo a cero antes de que la lista cambie devolvía la tarjeta al
-        // centro durante un fotograma —el parpadeo— y desde ahí se desvanecía.
-        // La tarjeta sale de pantalla, y cuando ya no se ve, se va de la lista.
+        dislikeAway()
+    }
+
+    /// Descartar: la tarjeta se va por la izquierda y, cuando ya no se ve, se
+    /// va de la lista.
+    ///
+    /// **Sin devolver el arrastre a cero**: ponerlo a cero antes de que la
+    /// lista cambie devolvía la tarjeta al centro durante un fotograma —el
+    /// parpadeo— y desde ahí se desvanecía.
+    private func dislikeAway() {
         withAnimation(.easeOut(duration: 0.24)) { drag = -900 }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(240))
@@ -814,15 +834,22 @@ struct InspoLookCard: View {
             // están bien para quien los conoce; el botón está para quien no.
             circle("pencil", action: onEdit)
 
-            // **Y tres, no cinco.**
+            // **Y el descarte, también botón.**
             //
-            // Descartar y volver a montar estaban aquí además de en el gesto:
-            // arrastrar a la izquierda descarta y tirar de arriba rehace la
-            // tanda. Cinco botones en el borde de cada tarjeta son cinco
-            // decisiones cada vez que pasas una, y tres de ellas repetidas.
+            // Estaba solo en el gesto —arrastrar a la izquierda—, y un gesto
+            // que no se ve deja media decisión sin contar: quien no lo conoce
+            // no dice nunca que algo no le gusta, y el estilista se queda sin
+            // la mitad de lo que necesita saber. Tumbado, además, el gesto no
+            // existe: es este botón o nada.
+            //
+            // Hace exactamente lo mismo que tirar a la izquierda, animación
+            // incluida, porque es lo mismo.
+            circle("hand.thumbsdown", action: dislikeAway)
+
+            // Volver a montar sigue fuera: tirar de arriba rehace la tanda, y
+            // repetirlo aquí serían dos botones para lo mismo en cada tarjeta.
             //
             // circle("arrow.triangle.2.circlepath", action: onRegenerate)
-            // circle("xmark", action: onDismiss)
         }
         // Separados del canto: pegados al borde parecen a punto de salirse de
         // la tarjeta, y en una pantalla estrecha el pulgar los roza al pasar

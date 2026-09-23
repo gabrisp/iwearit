@@ -452,10 +452,16 @@ private struct PlanDayFeed: View {
                     // sería abrir el selector nada más llegar al día. Con
                     // outfits detrás, llegar hasta aquí es un tirón hacia
                     // arriba —una decisión— y entonces sí.
-                    .onScrollVisibilityChange(threshold: 0.55) { isVisible in
+                    // **Y no llega a centrarse.** Es un tope, no una página:
+                    // en cuanto asoma, el scroll vuelve al último outfit y el
+                    // selector se abre encima. Quedarse ahí parado —con el
+                    // lienzo del día ya fuera de pantalla— era estar en un
+                    // sitio que no existe.
+                    .onScrollVisibilityChange(threshold: 0.4) { isVisible in
                         guard isVisible, !isPicking, !isEditing else { return }
-                        guard !entries.isEmpty else { return }
+                        guard let last = entries.last else { return }
                         onCreate()
+                        withAnimation(WKAnimation.content) { anchor = AnyHashable(last.id) }
                     }
                     .onTapGesture { onCreate() }
                     .id(Self.createAnchor)

@@ -147,6 +147,18 @@ struct StylistChatSheet: View {
                     }
                 }
         }
+        // **En el iPad, una página y no una tarjeta flotando.**
+        //
+        // Una hoja de formulario en el centro de un iPad son 540 puntos de
+        // ancho para un chat con seis lienzos por respuesta: los conjuntos
+        // salen del tamaño de un sello y alrededor queda la pantalla entera
+        // apagada. `presentationSizing(.page)` es lo que el sistema llama a
+        // esto mismo —una página, con su barra de navegación—, así que el
+        // estilista ocupa lo que ocupa una pantalla y el archivo se empuja
+        // dentro como en cualquier otra pila.
+        //
+        // En el iPhone no cambia nada: ahí una hoja ya es la pantalla.
+        .presentationSizing(.page)
     }
 
     private var content: some View {

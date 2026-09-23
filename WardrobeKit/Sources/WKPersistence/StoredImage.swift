@@ -149,7 +149,27 @@ public struct StoredImage: View {
         return shadow.y * 0.12
     }
 
+    /// Carga, y **si no sale, vuelve a intentarlo**.
+    ///
+    /// El caso real: en un iPad que cambia de tamaño —girarlo, arrastrar el
+    /// borde de la ventana— las vistas se rehacen a ráfagas y alguna lectura
+    /// se queda por el camino. Con un solo intento eso dejaba la prenda en
+    /// blanco **para siempre**: la clave no ha cambiado, así que `task(id:)`
+    /// no vuelve a dispararse y no hay nada que la despierte hasta que la
+    /// celda se recicla. Dos intentos más, muy seguidos, y el hueco vacío deja
+    /// de ser permanente.
     private func load() async {
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                try? await Task.sleep(for: .milliseconds(120 * attempt))
+                guard !Task.isCancelled else { return }
+            }
+            await attemptLoad()
+            if image != nil { return }
+        }
+    }
+
+    private func attemptLoad() async {
         let resolved = await resolvedVariant()
         // La de catálogo mide 1024 y pesa lo que pesa un PNG con alfa. Cuando
         // lo que se pedía era una miniatura, se decodifica al tamaño de la

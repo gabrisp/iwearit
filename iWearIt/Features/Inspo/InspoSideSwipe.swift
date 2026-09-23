@@ -72,3 +72,31 @@ struct SideSwipeGesture: UIGestureRecognizerRepresentable {
         }
     }
 }
+
+/// Pone —o no— el arrastre a los lados sobre una tarjeta.
+///
+/// En un modificador y no en un `if` dentro del cuerpo porque cambiar de rama
+/// destruiría la tarjeta y volvería a construirla al girar el iPad: lo que se
+/// quita es el gesto, no la vista.
+struct SideSwipeArbitration: ViewModifier {
+    enum Phase {
+        case change(CGFloat)
+        case end(CGFloat, CGFloat)
+    }
+
+    let isOn: Bool
+    let onPhase: (Phase) -> Void
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.gesture(
+                SideSwipeGesture(
+                    onChange: { onPhase(.change($0)) },
+                    onEnd: { distance, velocity in onPhase(.end(distance, velocity)) }
+                )
+            )
+        } else {
+            content
+        }
+    }
+}
