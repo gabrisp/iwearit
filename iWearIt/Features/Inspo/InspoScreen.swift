@@ -461,7 +461,7 @@ struct InspoScreen: View {
 }
 
 /// Una propuesta a pantalla completa, con lo que se puede hacer con ella.
-private struct InspoLookCard: View {
+struct InspoLookCard: View {
     let look: StylistLook
     let garments: [Garment]
     /// El outfit de verdad, si esta propuesta ya se convirtió en uno.
@@ -747,7 +747,7 @@ final class InspoSwipe {
 /// **Quieta en el centro de la pantalla**, no pegada a la tarjeta. Pegada se
 /// iba con ella —y girada—, así que justo cuando más falta hace leerla era
 /// cuando peor se leía.
-private struct InspoVerdictPill: View {
+struct InspoVerdictPill: View {
     let swipe: InspoSwipe
 
     /// Lo mismo que le cuesta a la tarjeta comprometerse. Ver
@@ -781,7 +781,7 @@ private struct InspoVerdictPill: View {
 /// Tiene la pinta de un conjunto vacío —el mismo papel, el mismo borde— para
 /// que al subir se lea como "aquí va a haber algo", y no como un botón que
 /// alguien dejó suelto al final de la lista.
-private struct InspoMoreCard: View {
+struct InspoMoreCard: View {
     let count: Int
     let isWorking: Bool
 

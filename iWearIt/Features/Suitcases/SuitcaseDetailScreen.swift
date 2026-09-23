@@ -26,7 +26,7 @@ struct SuitcaseDetailScreen: View {
 }
 
 private enum SuitcaseTab: Hashable {
-    case outfits, packing
+    case outfits, packing, inspo
 }
 
 /// Qué se está viendo: la pestaña y, dentro de Outfits, el modo.
@@ -161,10 +161,11 @@ private struct SuitcaseContent: View {
         // entera.
         .overlay(alignment: .bottom) {
             HStack(spacing: 12) {
-                WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing], selection: $tab) { tab in
+                WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing, .inspo], selection: $tab) { tab in
                     switch tab {
                     case .outfits: "Outfits"
                     case .packing: "Equipaje"
+                    case .inspo: "Inspo"
                     }
                 }
                 Button { isPresentingStyle = true } label: {
@@ -427,6 +428,14 @@ private struct SuitcaseTabContent: View {
             )
         case .packing:
             PackingChecklistTab(suitcase: suitcase, isPresentingTray: $isPickingForPacking)
+        case .inspo:
+            // Con lo que te llevas y para los días de este viaje. Ver
+            // `SuitcaseInspoTab`.
+            SuitcaseInspoTab(
+                suitcase: suitcase,
+                topInset: WK.Spacing.xl,
+                bottomInset: WKTabBarMetrics.barHeight + WK.Spacing.xl
+            )
         }
     }
 }

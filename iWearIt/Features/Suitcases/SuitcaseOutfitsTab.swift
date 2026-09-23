@@ -406,7 +406,14 @@ struct TripDayPage: View {
         // Lo que se meta en un outfit del viaje entra solo en el checklist:
         // preparar el look y hacer la maleta son la misma tarea.
         .onChange(of: outfits.reduce(0) { $0 + $1.items.count }) { syncPacking() }
-        .task(id: dayIndex) { await addWeatherIfPossible() }
+        // **El sticker del tiempo lo pone el usuario.** Se ponía solo al abrir
+        // el día del viaje, y aparecía en el lienzo sin que nadie lo hubiera
+        // pedido: un elemento que hay que mover o borrar y que además se
+        // colaba en el historial del editor como si lo hubieras puesto tú.
+        // Está a un toque en la bandeja de stickers, que es donde se ponen las
+        // cosas en un lienzo.
+        //
+        // .task(id: dayIndex) { await addWeatherIfPossible() }
     }
 
     /// Un outfit más para este día, con las prendas elegidas colocadas.
@@ -458,6 +465,11 @@ struct TripDayPage: View {
     //     }
     // }
 
+    /// Pega el tiempo del día, si se puede saber. **Sin usar**: se conserva
+    /// porque el cálculo —destino, fecha dentro del pronóstico— es el mismo
+    /// que hará falta el día que el sticker se ofrezca desde la bandeja del
+    /// viaje. Ver arriba por qué ya no se llama sola.
+    ///
     /// Pega el tiempo del día, si se puede saber.
     ///
     /// **Solo con destino puesto y solo si la fecha cae dentro del

@@ -318,8 +318,16 @@ final class InspoFeed {
         SyncedStore.setValue(raw, forKey: Self.dislikesKey)
     }
 
+    /// **Solo estas prendas**, si se limita.
+    ///
+    /// Es lo que separa la inspiración del armario entero de la de una maleta:
+    /// allí lo que hay que combinar es lo que te llevas, no lo que tienes.
+    var restrictedTo: Set<UUID>?
+
     func wardrobe() -> [StylistGarment] {
-        container.mainContext.stylistWardrobe()
+        let all = container.mainContext.stylistWardrobe()
+        guard let restrictedTo else { return all }
+        return all.filter { restrictedTo.contains($0.id) }
     }
 
     /// Conjuntos para una petición concreta del chat.
