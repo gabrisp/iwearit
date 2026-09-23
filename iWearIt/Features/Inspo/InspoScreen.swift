@@ -362,12 +362,17 @@ struct InspoScreen: View {
 
     private var wideFeed: some View {
         ScrollView(.horizontal) {
-            LazyHStack(spacing: WK.Spacing.m) {
+            LazyHStack(spacing: InspoCardSize.wideSpacing) {
                 cards(axis: .horizontal)
             }
-            .padding(.horizontal, WK.Spacing.screenInset)
             .scrollTargetLayout()
         }
+        // **El hueco de los lados es el que centra.** Sin él, la primera
+        // tarjeta no puede llegar al medio de la pantalla —no hay nada que
+        // poner a su izquierda— y el scroll la deja pegada al borde por mucho
+        // que el ancla diga centro. Con él, la enfocada cae en el centro y
+        // queda una entera a cada lado.
+        .safeAreaPadding(.horizontal, InspoCardSize.wideInset(page: pageSize))
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
@@ -1118,6 +1123,34 @@ private struct ProminentWhenActive: ViewModifier {
 /// sale de su proporción, así que entran dos y pico y el resto asoma por el
 /// lado. En los dos casos el enfocado se ve entero y el resto acompaña.
 struct InspoCardSize: ViewModifier {
+    /// El aire entre tarjetas tumbadas. Aquí y no suelto en la pila: el ancho
+    /// de una tarjeta depende de él, así que tienen que ser el mismo número.
+    static let wideSpacing = WK.Spacing.m
+
+    /// Lo que mide una tarjeta tumbada: **tres a lo ancho**.
+    ///
+    /// Antes el ancho salía del alto —la tarjeta ocupaba casi toda la pantalla
+    /// de arriba abajo y el ancho lo ponía su proporción—, y entraban dos y
+    /// pico: la enfocada en el centro, una entera a un lado y media al otro.
+    /// Tres es lo que hace que el centro sea de verdad el centro, con una a
+    /// cada lado.
+    ///
+    /// Se coge el menor de dos: lo que dan tres huecos a lo ancho, y lo que
+    /// cabe de alto. Sin lo segundo, en una ventana baja —el iPad partido— la
+    /// tarjeta pediría más alto del que hay y se saldría por abajo.
+    static func wideWidth(page: CGSize) -> CGFloat {
+        let ratio = CanvasSpace.width / CanvasSpace.height
+        let byWidth = (page.width - 2 * wideSpacing) / 3
+        let byHeight = max(240, page.height * 0.92) * ratio
+        return max(200, min(byWidth, byHeight))
+    }
+
+    /// Lo que hay que dejar a los lados para que la tarjeta enfocada caiga en
+    /// el centro **y** las de al lado se vean enteras.
+    static func wideInset(page: CGSize) -> CGFloat {
+        max(WK.Spacing.screenInset, (page.width - wideWidth(page: page)) / 2)
+    }
+
     let axis: Axis
     let page: CGSize
     /// Cuánto mide un hueco, si no lo pone el contenedor.
@@ -1144,11 +1177,11 @@ struct InspoCardSize: ViewModifier {
                         .scaleEffect(phase.isIdentity ? 1 : 0.88)
                 }
         case .horizontal:
-            let height = max(240, page.height * 0.88)
+            let width = Self.wideWidth(page: page)
             content
                 .frame(
-                    width: height * (CanvasSpace.width / CanvasSpace.height),
-                    height: height
+                    width: width,
+                    height: width / (CanvasSpace.width / CanvasSpace.height)
                 )
                 .scrollTransition(.interactive, axis: .horizontal) { view, phase in
                     view
