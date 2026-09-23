@@ -192,6 +192,13 @@ struct InspoScreen: View {
 
                     }
                 }
+                // **El aire de centrado, por dentro.**
+                //
+                // Como `safeAreaPadding` del scroll, además de centrar las
+                // tarjetas subía todo lo que se dibuje encima del scroll —la
+                // píldora del tirón entre ello—, que es por lo que quedaba a
+                // media pantalla en vez de justo encima de la barra.
+                .padding(.vertical, pageHeight / 24)
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.viewAligned)
@@ -214,9 +221,6 @@ struct InspoScreen: View {
             ) {
                 withAnimation(WKAnimation.content) { feed.extend() }
             }
-            // Lo que sobra, repartido arriba y abajo: así el conjunto
-            // enfocado queda **centrado de verdad** y no pegado al borde.
-            .safeAreaPadding(.vertical, pageHeight / 24)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
         }
     }
@@ -343,6 +347,18 @@ private struct InspoLookCard: View {
     /// con el pulgar, lo bastante poco para hacerlo sin recolocar la mano.
     private static let threshold: CGFloat = 120
 
+    /// El recorrido de la tarjeta para un arrastre dado.
+    ///
+    /// Hasta el umbral va casi con el dedo; pasado, se frena. Así el gesto se
+    /// siente firme y la tarjeta no acaba en la otra punta de la pantalla por
+    /// un arrastre largo.
+    static func eased(_ value: CGFloat) -> CGFloat {
+        let sign: CGFloat = value < 0 ? -1 : 1
+        let magnitude = abs(value)
+        guard magnitude > threshold else { return value * 0.9 }
+        return sign * (threshold * 0.9 + (magnitude - threshold) * 0.35)
+    }
+
     var body: some View {
         LookCanvasView(
             garments: garments,
@@ -352,8 +368,13 @@ private struct InspoLookCard: View {
             showsBorder: true
         )
             .overlay(alignment: .topTrailing) { actions }
-            .offset(x: drag)
-            .rotationEffect(.degrees(drag / 28), anchor: .bottom)
+            // **Con freno.** La tarjeta sigue al dedo de cerca al principio y
+            // se va quedando: arrastrarla a la misma velocidad que el dedo la
+            // hacía parecer suelta, y girándola desde abajo se caía de lado
+            // como una carta que se te escapa.
+            .offset(x: Self.eased(drag))
+            .rotationEffect(.degrees(drag / 60))
+            .scaleEffect(1 - min(0.03, abs(drag) / 3000))
             .contentShape(.rect)
             // **Simultáneo con el scroll y no por encima.** Con un gesto
             // propio que se lo comía, cada arrastre tenía que ganarle primero
@@ -556,18 +577,20 @@ private struct InspoVerdictPill: View {
         let progress = min(1, abs(swipe.amount) / Self.threshold)
         if progress > 0.05 {
             let goesRight = swipe.amount > 0
-            Label(
-                goesRight ? "Guardar" : "No me gusta",
-                systemImage: goesRight ? "heart.fill" : "hand.thumbsdown.fill"
-            )
-            .font(WK.Font.headline)
-            .foregroundStyle(WK.Palette.primaryText)
-            .padding(.horizontal, WK.Spacing.m)
-            .padding(.vertical, WK.Spacing.s)
-            .adaptiveGlass(in: .capsule)
-            .opacity(progress)
-            .scaleEffect(0.92 + progress * 0.08)
-            .allowsHitTesting(false)
+            // **Un icono y ya.** El cartel con letra tapaba el conjunto justo
+            // cuando lo estás mirando para decidir, y a medio arrastre se leía
+            // media palabra. Un corazón o un pulgar dicen lo mismo de un
+            // vistazo y dejan ver la ropa por detrás.
+            Image(systemName: goesRight ? "heart.fill" : "hand.thumbsdown.fill")
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(goesRight ? WK.Palette.accent : WK.Palette.primaryText)
+                .frame(width: 76, height: 76)
+                .adaptiveGlass(in: .circle)
+                // Crece y se asienta con el arrastre: a medio camino se ve que
+                // falta, y al llegar se planta.
+                .opacity(0.25 + progress * 0.75)
+                .scaleEffect(0.7 + progress * 0.3)
+                .allowsHitTesting(false)
         }
     }
 }
