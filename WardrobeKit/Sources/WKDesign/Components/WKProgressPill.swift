@@ -70,28 +70,10 @@ public struct WKProgressPill: View {
 
     public var body: some View {
         Button(action: action) {
-            label(WK.Palette.primaryText)
-                .background {
-                    GeometryReader { proxy in
-                        ZStack(alignment: .leading) {
-                            WK.Palette.ink(0.07)
-                            WK.Palette.accent
-                                .frame(width: proxy.size.width * progress)
-                        }
-                    }
-                }
-                .overlay {
-                    // El mismo texto, en el color de encima del relleno y
-                    // recortado por él: la palabra cambia de color por donde
-                    // ya ha pasado.
-                    GeometryReader { proxy in
-                        label(WK.Palette.onAccent)
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .mask(alignment: .leading) {
-                                Color.black.frame(width: proxy.size.width * progress)
-                            }
-                    }
-                }
+            // El relleno y el texto que se invierte, compartidos con el resto
+            // de la app. Ver `WKProgressFill`.
+            WKProgressFill(progress: progress) { color in label(color) }
+                .background(WK.Palette.ink(0.07))
                 .clipShape(.capsule)
                 .contentShape(.capsule)
         }

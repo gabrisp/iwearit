@@ -1022,33 +1022,16 @@ private struct ShuffleGlow: View {
     private static let size: CGFloat = 34
 
     var body: some View {
-        ZStack {
-            // **Un círculo que crece, recortado en círculo.** Antes era un
-            // círculo desenfocado detrás del símbolo, y el desenfoque se salía
-            // de la caja del botón: lo que se veía crecer era una mancha
-            // cuadrada. Con todo dentro de un `ZStack` recortado en círculo no
-            // hay forma de que salga una esquina.
-            Circle()
-                .fill(WK.Palette.accent)
-                .scaleEffect(max(0.001, pull))
-                .opacity(pull)
-                // Difuminado, que es lo que lo hace aura y no pegatina. El
-                // recorte de fuera es lo que impide que el desenfoque se
-                // escape por las esquinas y parezca un cuadrado.
-                .blur(radius: 5)
-
+        // **El mismo relleno que el resto.** Tirar para barajar, tirar para
+        // crear un outfit y esperar a que una prenda se reconstruya son el
+        // mismo "va por aquí", así que se cuentan igual: de izquierda a
+        // derecha, con el símbolo invirtiéndose por donde ya ha pasado. Ver
+        // `WKProgressFill`.
+        WKProgressFill(progress: pull) { color in
             Image(systemName: "shuffle")
-                .foregroundStyle(WK.Palette.primaryText)
-
-            // El mismo símbolo en blanco, recortado por el aura: donde llega
-            // el círculo, el símbolo ya es blanco.
-            Image(systemName: "shuffle")
-                .foregroundStyle(.white)
-                .mask {
-                    Circle().scaleEffect(max(0.001, pull))
-                }
+                .foregroundStyle(color)
+                .frame(width: Self.size, height: Self.size)
         }
-        .frame(width: Self.size, height: Self.size)
         .clipShape(.circle)
         .animation(.smooth(duration: 0.18), value: pull)
     }

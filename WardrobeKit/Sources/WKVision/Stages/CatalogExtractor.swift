@@ -38,16 +38,19 @@ public enum CatalogExtractor {
         // posible es el suyo y cualquier cosa que hagamos aquí solo puede
         // estropearlo.
         var cut = alphaCutout(image)
-        // Si vino opaca, el croma: hubo una época en que se pedía magenta puro
-        // y todavía puede llegar alguna así —o un fondo plano que el croma
-        // reconoce—. Se queda porque no estorba y salva el caso de la camiseta
-        // blanca, donde levantar el sujeto sobre blanco no tiene nada que
-        // separar.
-        if cut == nil { cut = ChromaKey.cutout(image) }
-        // Y si tampoco —fondo blanco de estudio, que es lo que devuelven los
-        // modelos que no saben hacer alfa— se cae a levantar el sujeto, que
-        // sigue siendo mejor que entregar un rectángulo de fondo.
+        // **Y si no, levantar el sujeto.**
+        //
+        // Ya no se pide magenta. La idea era buena —un color que no existe en
+        // la ropa se quita por comparación y no por adivinar— y en la práctica
+        // dejaba un filete rosado que había que ir puliendo, y una prenda
+        // teñida de rosa cuando el modelo se pasaba de intenso. Ahora se pide
+        // un gris liso de estudio y lo recorta Vision, que es semántico: sabe
+        // qué es la prenda en vez de comparar colores, así que una camiseta
+        // blanca sobre gris claro no le da ningún problema.
         if cut == nil { cut = await subject(of: image) }
+        // El croma se queda **el último**, por si llega alguna imagen vieja de
+        // las de fondo magenta —o si algún día el modelo decide pintar uno—.
+        if cut == nil { cut = ChromaKey.cutout(image) }
 
         guard let cut else {
             DiagnosticsLog.record(

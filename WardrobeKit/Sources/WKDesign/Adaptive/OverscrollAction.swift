@@ -112,6 +112,8 @@ private struct OverscrollAction: ViewModifier {
     /// primer color, que es lo que hacía aparecer la píldora rellena un
     /// instante.
     @ViewBuilder
+    /// El aura de antes. **Ya no se usa** —ver `indicator`— y se queda por si
+    /// algún día hace falta teñir algo sin marcar una frontera.
     static func aura(to progress: CGFloat, of color: Color) -> some View {
         if progress <= 0 {
             Color.clear
@@ -222,33 +224,17 @@ private struct OverscrollAction: ViewModifier {
     private var indicator: some View {
         let isFull = progress == 1
 
-        return pillContent
-            .foregroundStyle(WK.Palette.primaryText)
-            // **Un aura que avanza, no una barra que se rellena.**
-            //
-            // El corte recto de una barra de progreso marca una frontera, y
-            // una frontera pide leerse: la mitad rellena y la mitad vacía
-            // parecían dos píldoras pegadas. Con el borde difuminado lo que se
-            // ve es una sola superficie tiñéndose, que es lo que hace el gesto.
-            //
-            // Sin `GeometryReader`: el degradado ocupa la píldora entera y lo
-            // que se mueve con el progreso son sus paradas, así que no hace
-            // falta medir nada y el borde no da saltos de píxel.
-            .background {
-                Self.aura(to: progress, of: Self.fill)
-                    .clipShape(.capsule)
-            }
-            // **La letra no cambia de color: le pasa el aura por debajo.**
-            //
-            // Encima va la misma pieza con el aura **inversa** —el color
-            // contrario, con el mismo borde difuminado y en la misma
-            // posición— y enmascarada con las propias letras. Así cada letra
-            // se va invirtiendo según la alcanza, con el mismo desvanecido que
-            // el fondo, en vez de cambiar de golpe al pasar un umbral.
-            .overlay {
-                Self.aura(to: progress, of: Self.fillInk)
-                    .mask { pillContent }
-            }
+        // **El mismo relleno que el botón de mejorar.**
+        //
+        // Antes esto se teñía con un aura difusa creciendo desde el centro y
+        // el botón de mejorar se rellenaba de izquierda a derecha: dos formas
+        // de decir lo mismo en la misma app. Gana el relleno recto, que además
+        // dice **cuánto** queda para disparar, que es lo único que se quiere
+        // saber mientras tiras. Ver `WKProgressFill`.
+        return WKProgressFill(progress: progress, fill: Self.fill, ink: Self.fillInk) { color in
+            pillContent.foregroundStyle(color)
+        }
+            .clipShape(.capsule)
             .adaptiveGlass(in: .capsule)
             // Aparece **donde está**, sin subir desde ningún sitio: la píldora
             // ya estaba ahí con opacidad cero, y el cristal se encarga de que
