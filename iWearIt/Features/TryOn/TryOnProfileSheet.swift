@@ -7,18 +7,21 @@ import WKPersistence
 
 /// Quién se prueba la ropa.
 ///
-/// ## Por qué un perfil no es una foto
+/// ## Por qué la foto es obligatoria
 ///
-/// Porque una foto tuya de cuerpo entero, de frente y con buena luz no la tiene
-/// casi nadie a mano, y pedirla antes de dejarte probar nada cierra la puerta
-/// en el primer paso. Lo que hace falta para ver cómo cae una camisa es la
-/// forma: estatura, complexión, cómo vistes. Con eso se dibuja a alguien con tu
-/// forma llevando tu ropa, que es lo que se venía a ver.
+/// Porque sin ella el probador no prueba nada: dibuja a **alguien** con tu
+/// estatura y tu complexión llevando tu ropa, y eso se mira una vez y no se
+/// vuelve. Lo que se viene a ver es cómo te queda a ti, y para eso hace falta
+/// tu cara y tu cuerpo. Un perfil sin foto era una promesa a medias que además
+/// competía con la buena.
 ///
-/// La foto sigue siendo la versión buena cuando la hay —es tu cara y tu
-/// cuerpo—, así que se puede añadir, y entonces manda ella. Los dos caminos
-/// conviven porque resuelven dos momentos distintos: el de "a ver qué tal me
-/// queda" y el de "quiero verme yo".
+/// Los datos de al lado no sobran por eso. La foto dice quién eres; la
+/// estatura, la complexión y el resto dicen **cómo encuadrar la escena** —de
+/// cuerpo entero, con las proporciones que te tocan— y son lo que evita que la
+/// prenda salga a una talla que no es la tuya.
+///
+/// Y por eso se pide arriba y a tamaño de foto, no en una fila de lista: es lo
+/// primero que hay que dar, así que es lo primero que se ve.
 struct TryOnProfileSheet: View {
     /// El que se edita. `nil` = uno nuevo.
     var profile: BodyProfile?
@@ -40,6 +43,8 @@ struct TryOnProfileSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: WK.Spacing.l) {
+                    photoWell
+
                     WKSection("Nombre") {
                         WKRow(showsSeparator: false) {
                             TextField("Yo", text: $name)
@@ -76,7 +81,6 @@ struct TryOnProfileSheet: View {
                         }
                     }
 
-                    photoSection
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.bottom, WK.Spacing.xxl)
@@ -94,6 +98,10 @@ struct TryOnProfileSheet: View {
                     Button { save() } label: { Image(systemName: "checkmark") }
                         .tint(WK.Palette.primaryText)
                         .adaptiveProminentButton()
+                        // Sin foto no hay perfil que guardar. Apagado y no
+                        // escondido: el botón sigue donde estará cuando se
+                        // pueda tocar, y el hueco de arriba dice qué falta.
+                        .disabled(imageKey.isEmpty)
                 }
             }
             .task { load() }
@@ -121,48 +129,91 @@ struct TryOnProfileSheet: View {
         )
     }
 
+    /// La foto, a tamaño de foto.
+    ///
+    /// Es el primer hueco de la hoja y ocupa lo que ocupa una persona de
+    /// cuerpo entero, porque es lo que se pide. Vacío enseña la silueta y lo
+    /// que hace falta —entera, de frente, con luz—; lleno enseña la foto y se
+    /// aparta.
     @ViewBuilder
-    private var photoSection: some View {
-        WKSection(
-            "Tu foto",
-            footer: imageKey.isEmpty
-                ? "Opcional. Con una foto tuya de cuerpo entero, te dibuja a ti; sin ella, a alguien con tu forma."
-                : "Se procesa fuera del teléfono al probarte. Quitarla lo revoca."
-        ) {
-            if imageKey.isEmpty {
-                PhotosPicker(selection: $picked, matching: .images) {
-                    WKRow(showsSeparator: false) {
-                        Text("Añadir una foto")
-                            .font(WK.Font.rowTitle)
-                            .foregroundStyle(WK.Palette.primaryText)
-                    } trailing: {
-                        Image(systemName: "photo")
-                            .font(.caption)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                    }
-                }
-            } else {
-                WKRow(showsSeparator: false) {
-                    removePhoto()
-                } leading: {
-                    HStack(spacing: WK.Spacing.m) {
-                        StoredImage(
-                            key: imageKey,
-                            variant: .thumb,
-                            store: appEnvironment.imageStore
-                        )
-                        .frame(width: 34, height: 44)
-                        .clipShape(.rect(cornerRadius: 6, style: .continuous))
-                        Text("Quitar la foto")
-                            .font(WK.Font.rowTitle)
-                            .foregroundStyle(WK.Palette.primaryText)
-                    }
-                } trailing: {
-                    Image(systemName: "trash")
-                        .font(.caption)
+    private var photoWell: some View {
+        if imageKey.isEmpty {
+            PhotosPicker(selection: $picked, matching: .images) {
+                VStack(spacing: WK.Spacing.s) {
+                    Image(systemName: "figure.stand")
+                        .font(.system(size: 44, weight: .light))
                         .foregroundStyle(WK.Palette.secondaryText)
+                    Text("Tu foto de cuerpo entero")
+                        .font(WK.Font.rowTitle)
+                        .foregroundStyle(WK.Palette.primaryText)
+                    Text("De frente, entera y con buena luz.")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                .background {
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(WK.Palette.ink(0.04))
+                        .overlay {
+                            // Un trazo discontinuo: dice "aquí va algo que
+                            // todavía no está" sin necesidad de un cartel.
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .strokeBorder(
+                                    WK.Palette.ink(0.14),
+                                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
+                                )
+                        }
                 }
             }
+            .buttonStyle(WKPressStyle())
+        } else {
+            StoredImage(
+                key: imageKey,
+                variant: .display,
+                store: appEnvironment.imageStore
+            )
+            .aspectRatio(3.0 / 4.0, contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .clipShape(.rect(cornerRadius: 24, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                HStack(spacing: WK.Spacing.xs) {
+                    PhotosPicker(selection: $picked, matching: .images) {
+                        // La misma pieza que los botones de los lienzos, para
+                        // que un botón redondo sobre una imagen sea siempre el
+                        // mismo botón redondo. En su propia `View` porque la
+                        // etiqueta del selector no está en el actor principal
+                        // y el cristal sí.
+                        GlassCircleLabel(symbol: "arrow.trianglehead.2.clockwise")
+                    }
+                    .buttonStyle(WKPressStyle())
+                    WKCircleButton("trash", size: .compact) { removePhoto() }
+                        .tint(WK.Palette.primaryText)
+                }
+                .padding(WK.Spacing.m)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Text("Se procesa fuera del teléfono al probarte. Quitarla lo revoca.")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.onAccent.opacity(0.9))
+                    .padding(WK.Spacing.m)
+                    .frame(maxWidth: 220, alignment: .leading)
+            }
+        }
+    }
+
+    /// Un icono redondo de cristal, del tamaño de los de los lienzos.
+    private struct GlassCircleLabel: View {
+        let symbol: String
+
+        var body: some View {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(WK.Palette.primaryText)
+                .frame(width: 34, height: 34)
+                .contentShape(.circle)
+                .adaptiveGlassInteractive(in: .circle)
         }
     }
 
