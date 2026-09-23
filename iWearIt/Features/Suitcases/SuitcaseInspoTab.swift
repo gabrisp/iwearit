@@ -38,12 +38,17 @@ struct SuitcaseInspoTab: View {
     @State private var editingOutfit: Outfit?
     @State private var scrolled: UUID?
     @State private var pageHeight: CGFloat = 0
+    @State private var pageWidth: CGFloat = 0
     /// Si el estilista ya ha dado su primera vuelta.
     ///
     /// Sin esto la pantalla no sabía distinguir "todavía no ha montado nada"
     /// de "no hay con qué montarlo", y las dos se veían igual: una rueda
     /// girando para siempre.
     @State private var hasRun = false
+    /// Si hay una tanda montándose ahora mismo.
+    @State private var isGenerating = false
+    /// Si la maleta ya ha dado todo lo que tenía.
+    @State private var isExhausted = false
     /// Cuántas tandas han entrado, para el golpecito. Ver `InspoScreen`.
     @State private var batches = 0
 
@@ -81,9 +86,8 @@ struct SuitcaseInspoTab: View {
     /// área segura, así que el contenedor es la pantalla entera y las mismas
     /// once doceavas partes salían mucho más grandes que allí. Se resta a mano
     /// lo que tapan las dos barras y se reparte igual.
-    private var cardHeight: CGFloat {
-        let usable = max(0, pageHeight - topInset - bottomInset)
-        return max(320, usable * 11 / 12)
+    private var pageStride: CGFloat {
+        max(320, pageHeight - topInset - bottomInset)
     }
 
     /// **El papel es el de la maleta.**
@@ -135,7 +139,7 @@ struct SuitcaseInspoTab: View {
 
     private var list: some View {
         ScrollView(.vertical) {
-            LazyVStack(spacing: WK.Spacing.m) {
+            LazyVStack(spacing: 0) {
                 ForEach(looks) { look in
                     InspoLookCard(
                         look: look,
@@ -152,39 +156,44 @@ struct SuitcaseInspoTab: View {
                         onDislike: { withAnimation(WKAnimation.content) { feed?.dislike(look) } },
                         swipe: swipe
                     )
-                    .frame(height: cardHeight)
-                    .scrollTransition(.interactive, axis: .vertical) { content, phase in
-                        content
-                            .opacity(phase.isIdentity ? 1 : 0.35)
-                            .scaleEffect(phase.isIdentity ? 1 : 0.88)
-                    }
+                    // **La misma medida que en la pestaña de inspiración.**
+                    // La tenía calculada aparte y las tarjetas salían un pelín
+                    // más grandes aquí, que es lo que se notaba al pasar de una
+                    // pantalla a la otra. Ver `InspoCardSize`.
+                    .modifier(
+                        InspoCardSize(
+                            axis: .vertical,
+                            page: CGSize(width: pageWidth, height: pageStride),
+                            stride: pageStride
+                        )
+                    )
                 }
 
 
                 // La misma tarjeta del final que en la pestaña: tirar de ella
                 // trae otros tantos. Ver `InspoMoreCard`.
-                InspoMoreCard(count: InspoFeed.capacity, isWorking: false)
-                    .frame(height: cardHeight)
-                    .scrollTransition(.interactive, axis: .vertical) { content, phase in
-                        content
-                            .opacity(phase.isIdentity ? 1 : 0.35)
-                            .scaleEffect(phase.isIdentity ? 1 : 0.88)
-                    }
-                    .onScrollVisibilityChange(threshold: 0.6) { isVisible in
-                        guard isVisible, let feed else { return }
-                        let before = feed.looks.count
-                        withAnimation(WKAnimation.content) { feed.extend() }
-                        // El mismo golpecito que en la pestaña, y solo si ha
-                        // llegado algo.
-                        if feed.looks.count > before { batches += 1 }
-                    }
+                InspoMoreCard(
+                    count: InspoFeed.capacity,
+                    isWorking: isGenerating,
+                    isExhausted: isExhausted
+                )
+                .modifier(
+                    InspoCardSize(
+                        axis: .vertical,
+                        page: CGSize(width: pageWidth, height: pageStride),
+                        stride: pageStride
+                    )
+                )
+                .id(Self.moreCardID)
+                .onScrollVisibilityChange(threshold: 0.6) { isVisible in
+                    guard isVisible else { return }
+                    generateMore()
+                }
             }
             // **Los mismos márgenes que en la pestaña.** La maleta ignora el
             // área segura, así que aquí el margen lateral se pone a mano: sin
             // él las tarjetas llegaban al borde de la pantalla y la
             // inspiración de la maleta parecía otra pantalla distinta.
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.vertical, pageHeight / 24)
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
@@ -204,7 +213,10 @@ struct SuitcaseInspoTab: View {
         .sensoryFeedback(.impact(weight: .medium), trigger: batches)
         .safeAreaPadding(.top, topInset)
         .safeAreaPadding(.bottom, bottomInset)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: {
+            pageHeight = $0.height
+            pageWidth = $0.width
+        }
         // Y la página, del color de siempre: el de la maleta es el de las
         // tarjetas, no el del fondo. Con el tinte detrás **y** delante, las
         // tarjetas se perdían dentro de su propio color.
@@ -220,6 +232,8 @@ struct SuitcaseInspoTab: View {
             weather: appEnvironment.weather
         )
         made.restrictedTo = packed
+        // Si cambia lo que llevas, vuelve a haber de dónde sacar.
+        isExhausted = false
         if feed == nil {
             feed = made
             // **Primero montar, luego el tiempo.** Al revés —que es como
@@ -233,6 +247,36 @@ struct SuitcaseInspoTab: View {
         } else {
             made.shuffle()
             hasRun = true
+        }
+    }
+
+    private static let moreCardID = UUID()
+
+    /// **Más conjuntos, igual que en la pestaña.**
+    ///
+    /// Antes esto llamaba a `extend()` a pelo: si la maleta ya no daba más
+    /// combinaciones distintas no pasaba nada de nada —ni tanda, ni aviso—, y
+    /// tirar de la última tarjeta parecía roto. Ahora, cuando no llega nada,
+    /// la tarjeta del final lo dice.
+    private func generateMore() {
+        guard let feed, !isGenerating else { return }
+        isGenerating = true
+        let before = Set(feed.looks.map(\.id))
+        withAnimation(WKAnimation.content) { feed.extend() }
+        let fresh = feed.looks.first { !before.contains($0.id) }
+
+        guard let fresh else {
+            withAnimation(WKAnimation.content) { isExhausted = true }
+            isGenerating = false
+            return
+        }
+        batches += 1
+        // Después, no ahora: moverlo con el dedo todavía tirando de la tarjeta
+        // del final se ve como un corte. Ver `InspoScreen.generateMore`.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(220))
+            withAnimation(WKAnimation.content) { scrolled = fresh.id }
+            isGenerating = false
         }
     }
 

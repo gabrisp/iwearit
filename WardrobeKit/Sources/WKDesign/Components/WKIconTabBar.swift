@@ -58,6 +58,27 @@ public enum WKTabBarMetrics {
         barHeight + 2 * WK.Spacing.xs + WK.Spacing.m + windowBottomInset
     }
 
+    /// Y lo que tapa **arriba**, por el mismo motivo.
+    ///
+    /// El corte de la pantalla —isla, muesca o nada— más el alto de la barra
+    /// de navegación. Una pantalla que ignora el área segura tiene que contar
+    /// los dos a mano si quiere colocar algo justo debajo de la barra: con un
+    /// número puesto a ojo, lo de dentro salía más grande en unos sitios que
+    /// en otros y se notaba al pasar de pantalla.
+    @MainActor
+    public static var topClearance: CGFloat {
+        windowTopInset + 44
+    }
+
+    @MainActor
+    private static var windowTopInset: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }?
+            .safeAreaInsets.top ?? 0
+    }
+
     @MainActor
     private static var windowBottomInset: CGFloat {
         UIApplication.shared.connectedScenes

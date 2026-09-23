@@ -267,20 +267,16 @@ struct InspoScreen: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button { shuffle() } label: {
-                Image(systemName: "shuffle")
-                    // **El botón se enciende mientras tiras.**
-                    //
-                    // Tirar hacia abajo desde arriba baraja, y un gesto que no
-                    // dice qué va a hacer no se descubre: el mismo aura que la
-                    // píldora del final, creciendo en el botón que hace eso
-                    // mismo, cuenta el gesto y su destino a la vez.
-                    .scaleEffect(1 + pull * 0.45)
-                    .background {
-                        WKAura(progress: pull, color: WK.Palette.accent.opacity(0.75))
-                            .frame(width: 64, height: 64)
-                            .blur(radius: 4)
-                    }
-                    .animation(.smooth(duration: 0.18), value: pull)
+                // **El botón se enciende mientras tiras.**
+                //
+                // Tirar hacia abajo desde arriba baraja, y un gesto que no
+                // dice qué va a hacer no se descubre. Lo que crece es el
+                // aura —redonda, como el botón—, no el icono: un símbolo que
+                // se hincha dentro de una barra que no cambia de alto se ve
+                // como un fallo de medidas. Y lo que va quedando dentro del
+                // aura se lee en blanco, así que el icono se enciende por
+                // dentro en vez de moverse.
+                ShuffleGlow(pull: pull)
             }
             .tint(WK.Palette.primaryText)
             .sensoryFeedback(.impact(weight: .light), trigger: pull >= 1)
@@ -307,10 +303,16 @@ struct InspoScreen: View {
 
     private var tallFeed: some View {
         ScrollView(.vertical) {
-            LazyVStack(spacing: WK.Spacing.m) {
+            // **Sin separación ni márgenes aquí.** El aire entre tarjetas va
+            // dentro de cada hueco —ver `InspoCardSize`—, de modo que cada
+            // elemento de la lista mide exactamente una pantalla. Con el aire
+            // fuera, el sitio donde engancha `viewAligned` y el centro de la
+            // pantalla no eran el mismo punto, y al pasar de conjunto la
+            // tarjeta quedaba un pelín alta o un pelín baja según por dónde
+            // fueras.
+            LazyVStack(spacing: 0) {
                 cards(axis: .vertical)
             }
-            .padding(.vertical, pageSize.height / 24)
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
@@ -401,7 +403,11 @@ struct InspoScreen: View {
         guard let scrolled else { return }
         guard scrolled != Self.moreCardID else { return }
         guard !shown.contains(where: { $0.id == scrolled }) else { return }
-        self.scrolled = shown.first?.id
+        // **Se suelta, no se manda a ningún sitio.** Apuntarlo al primero era
+        // un salto arriba del todo en cuanto descartabas algo; dejarlo en nada
+        // desatasca el scroll igual y la lista se queda donde está, que es
+        // donde la dejó el dedo.
+        self.scrolled = nil
     }
 
     // MARK: Acciones
@@ -469,12 +475,16 @@ struct InspoScreen: View {
         feed.dismiss(look)
     }
 
-    /// Deja el scroll apuntando al siguiente antes de que este se vaya.
+    /// Suelta el ancla antes de que el conjunto al que apunta desaparezca.
+    ///
+    /// Antes apuntaba al siguiente, y eso era un scroll programado de una
+    /// pantalla entera **mientras** la tarjeta descartada seguía ocupando
+    /// sitio: se movía una pantalla y, al colapsar el hueco, volvía. Soltando
+    /// el ancla, el hueco se cierra y el siguiente sube a su sitio solo, que
+    /// es lo que se espera al tirar una carta de encima de la pila.
     private func moveAnchor(off look: StylistLook) {
         guard scrolled == look.id else { return }
-        let index = shown.firstIndex { $0.id == look.id }
-        let next = index.flatMap { shown.indices.contains($0 + 1) ? shown[$0 + 1] : nil }
-        scrolled = next?.id ?? shown.first { $0.id != look.id }?.id
+        scrolled = nil
     }
 
     /// Baraja la tanda entera y sube arriba del todo.
@@ -578,14 +588,11 @@ struct InspoLookCard: View {
     /// Si el arrastre ya ha pasado del punto de no retorno. Cambia una vez por
     /// cruce, que es lo que dispara el golpecito.
     @State private var isCommitted = false
-    /// **Hacia dónde va este gesto, decidido una sola vez.**
-    ///
-    /// Mirar en cada aviso si el movimiento es más horizontal que vertical
-    /// dejaba la tarjeta a medias: bastaba que el dedo subiera un poco para
-    /// que el aviso se ignorara y se quedara clavada donde estuviera, sin
-    /// volver y sin irse. Se decide al empezar y se respeta hasta que se
-    /// levanta el dedo.
-    @State private var axis: Axis?
+    // **Hacia dónde va el gesto ya no se decide aquí.** Se decidía mirando
+    // el primer aviso de arrastre y guardándolo en un `Axis?`, que es tarde:
+    // para entonces el gesto ya le había quitado el dedo al scroll. Ahora lo
+    // contesta UIKit antes de empezar. Ver `SideSwipeGesture`.
+    // @State private var axis: Axis?
 
     /// Cuánto hay que tirar para que cuente.
     ///
@@ -626,11 +633,16 @@ struct InspoLookCard: View {
             .rotationEffect(.degrees(drag / 60))
             .scaleEffect(1 - min(0.03, abs(drag) / 3000))
             .contentShape(.rect)
-            // **Simultáneo con el scroll y no por encima.** Con un gesto
-            // propio que se lo comía, cada arrastre tenía que ganarle primero
-            // la partida al scroll: eso era el tirón que se notaba al empezar
-            // a mover, tanto de lado como al pasar de conjunto.
-            .simultaneousGesture(sideSwipe)
+            // **Y el gesto de lado lo arbitra UIKit.** Un `DragGesture` de
+            // SwiftUI aquí se quedaba con el dedo aunque no hiciera nada, y el
+            // scroll solo funcionaba arrastrando por fuera de la tarjeta. Ver
+            // `SideSwipeGesture`.
+            .gesture(
+                SideSwipeGesture(
+                    onChange: { track($0) },
+                    onEnd: { distance, velocity in finish(distance, velocity: velocity) }
+                )
+            )
             // El golpecito al cruzar el umbral, en los dos sentidos: es cómo
             // se sabe que ya vale sin mirar cuánto llevas arrastrado.
             .sensoryFeedback(.impact(weight: .medium), trigger: isCommitted) { _, new in new }
@@ -667,65 +679,57 @@ struct InspoLookCard: View {
         swipe.amount = 0
     }
 
-    /// El arrastre: a la derecha se guarda, a la izquierda se descarta.
-    private var sideSwipe: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                if axis == nil {
-                    // La primera dirección manda: si el gesto empezó subiendo,
-                    // es scroll y esta tarjeta no se entera.
-                    axis = abs(value.translation.width) > abs(value.translation.height)
-                        ? .horizontal
-                        : .vertical
-                }
-                guard axis == .horizontal else { return }
+    /// El dedo, mientras arrastra.
+    private func track(_ amount: CGFloat) {
+        drag = Self.tracked(amount)
+        // Lo que lee la píldora, que vive fuera de la tarjeta.
+        swipe.amount = drag
+        let crossed = abs(drag) >= Self.threshold
+        if crossed != isCommitted { isCommitted = crossed }
+    }
 
-                drag = Self.tracked(value.translation.width)
-                // Lo que lee la píldora, que vive fuera de la tarjeta.
-                swipe.amount = drag
-                let crossed = abs(drag) >= Self.threshold
-                if crossed != isCommitted { isCommitted = crossed }
-            }
-            .onEnded { value in
-                // **Pase lo que pase, la tarjeta vuelve o se va.** El gesto
-                // termina aquí incluso si acabó siendo vertical, así que aquí
-                // es donde se garantiza que no se queda a medias.
-                let wasHorizontal = axis == .horizontal
-                axis = nil
-                isCommitted = false
-                swipe.amount = 0
-                guard wasHorizontal else {
-                    if drag != 0 {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { drag = 0 }
-                    }
-                    return
-                }
+    /// Al soltar: **a la derecha se queda, a la izquierda se va.**
+    ///
+    /// ## Por qué no se van las dos
+    ///
+    /// Porque no pasa lo mismo con las dos. Descartar saca el conjunto de la
+    /// lista, así que la tarjeta se va y detrás viene otra. Guardar no lo saca
+    /// de ningún sitio —sigue ahí, ahora con el corazón lleno—, así que
+    /// tirarla fuera de pantalla para volver a pintarla en el sitio era ese
+    /// parpadeo: la tarjeta se iba, la lista no cambiaba y volvía de golpe.
+    /// Un me gusta devuelve la tarjeta a su sitio con un muelle, que es lo que
+    /// hace cualquier cosa que has empujado y no se ha caído.
+    private func finish(_ distance: CGFloat, velocity: CGFloat) {
+        isCommitted = false
+        swipe.amount = 0
 
-                let distance = value.translation.width
-                // **Y cuánta fuerza llevaba.** Un arrastre corto pero rápido
-                // es tan decidido como uno largo y lento; medir solo la
-                // distancia obliga a arrastrar media pantalla para algo que ya
-                // habías decidido.
-                let projected = distance + value.predictedEndTranslation.width * 0.35
+        // La velocidad cuenta: un arrastre corto pero rápido está tan decidido
+        // como uno largo y lento.
+        let projected = distance + velocity * 0.12
 
-                guard abs(projected) >= Self.threshold else {
-                    // Vuelve a su sitio con un muelle: soltarla a medias tiene
-                    // que devolverla, no dejarla torcida.
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { drag = 0 }
-                    return
-                }
-                let goesRight = projected > 0
-                withAnimation(.easeOut(duration: 0.22)) {
-                    drag = goesRight ? 900 : -900
-                }
-                // Después de irse, no antes: la tarjeta sale de pantalla y
-                // entonces cambia la lista.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(200))
-                    drag = 0
-                    if goesRight { onSave() } else { onDislike() }
-                }
-            }
+        guard abs(projected) >= Self.threshold else {
+            // Vuelve a su sitio con un muelle: soltarla a medias tiene que
+            // devolverla, no dejarla torcida.
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { drag = 0 }
+            return
+        }
+
+        guard projected < 0 else {
+            // Me gusta: vuelve al centro y se queda, con el corazón ya lleno.
+            onSave()
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) { drag = 0 }
+            return
+        }
+
+        // Y el descarte se va del todo. **Sin devolver el arrastre a cero**:
+        // ponerlo a cero antes de que la lista cambie devolvía la tarjeta al
+        // centro durante un fotograma —el parpadeo— y desde ahí se desvanecía.
+        // La tarjeta sale de pantalla, y cuando ya no se ve, se va de la lista.
+        withAnimation(.easeOut(duration: 0.24)) { drag = -900 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(240))
+            onDislike()
+        }
     }
 
     private var actions: some View {
@@ -912,6 +916,12 @@ struct InspoVerdictPill: View {
 struct InspoMoreCard: View {
     let count: Int
     let isWorking: Bool
+    /// Cuando el armario —o la maleta— ya no da más combinaciones distintas.
+    ///
+    /// Decirlo es mejor que dejar la tarjeta prometiendo ocho más que no van
+    /// a llegar: tirar de ella tres veces sin que pase nada parece roto, y lo
+    /// que pasa es que ya están todas.
+    var isExhausted = false
 
     var body: some View {
         RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
@@ -928,16 +938,60 @@ struct InspoMoreCard: View {
                     if isWorking {
                         ProgressView()
                     } else {
-                        Image(systemName: "wand.and.stars")
+                        Image(systemName: isExhausted ? "checkmark.circle" : "wand.and.stars")
                             .font(.system(size: 26))
                             .foregroundStyle(WK.Palette.secondaryText)
                     }
-                    Text(isWorking ? "Montando…" : "Generar \(count) más")
+                    Text(headline)
                         .font(WK.Font.headline)
                         .foregroundStyle(WK.Palette.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, WK.Spacing.l)
                 }
             }
             .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
+    }
+
+    private var headline: String {
+        if isWorking { return "Montando…" }
+        if isExhausted { return "Ya están todos los que salen con esto" }
+        return "Generar \(count) más"
+    }
+}
+
+/// El botón de barajar mientras se tira de la pantalla hacia abajo.
+///
+/// El aura es un círculo —el mismo que el botón— que crece desde el centro, y
+/// **lo que queda dentro se pinta en blanco**: el icono no se mueve ni cambia
+/// de tamaño, se enciende. Ver `WKAura`.
+private struct ShuffleGlow: View {
+    let pull: CGFloat
+
+    var body: some View {
+        Image(systemName: "shuffle")
+            .foregroundStyle(WK.Palette.primaryText)
+            .frame(width: 30, height: 30)
+            .background {
+                Circle()
+                    .fill(WK.Palette.accent.opacity(0.9))
+                    .frame(width: 46, height: 46)
+                    .scaleEffect(pull)
+                    .opacity(pull)
+                    .blur(radius: 6)
+            }
+            .overlay {
+                // El mismo icono en blanco, recortado por el aura: donde llega
+                // el círculo, el símbolo ya es blanco.
+                Image(systemName: "shuffle")
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .mask {
+                        Circle()
+                            .frame(width: 46, height: 46)
+                            .scaleEffect(pull * 1.1)
+                    }
+            }
+            .animation(.smooth(duration: 0.18), value: pull)
     }
 }
 
@@ -947,17 +1001,27 @@ struct InspoMoreCard: View {
 /// horizontal manda el alto —una tarjeta es más alta que ancha— y el ancho
 /// sale de su proporción, así que entran dos y pico y el resto asoma por el
 /// lado. En los dos casos el enfocado se ve entero y el resto acompaña.
-private struct InspoCardSize: ViewModifier {
+struct InspoCardSize: ViewModifier {
     let axis: Axis
     let page: CGSize
+    /// Cuánto mide un hueco, si no lo pone el contenedor.
+    ///
+    /// Dentro de una maleta el contenedor del scroll es la pantalla entera
+    /// —la maleta ignora el área segura— y `containerRelativeFrame` daría
+    /// tarjetas más grandes que en la pestaña. Pasándole a mano lo que queda
+    /// entre las dos barras, las dos pantallas miden igual.
+    var stride: CGFloat?
 
     func body(content: Content) -> some View {
         switch axis {
         case .vertical:
+            // El hueco mide una pantalla y la tarjeta respira dentro: así el
+            // enganche cae siempre en el mismo sitio y el conjunto enfocado
+            // queda centrado por construcción.
+            let stride = stride ?? page.height
             content
-                .containerRelativeFrame(
-                    .vertical, count: 12, span: 11, spacing: WK.Spacing.m
-                )
+                .padding(.vertical, max(WK.Spacing.xs, stride / 24))
+                .modifier(InspoCardSlot(stride: self.stride))
                 .scrollTransition(.interactive, axis: .vertical) { view, phase in
                     view
                         .opacity(phase.isIdentity ? 1 : 0.35)
@@ -975,6 +1039,20 @@ private struct InspoCardSize: ViewModifier {
                         .opacity(phase.isIdentity ? 1 : 0.35)
                         .scaleEffect(phase.isIdentity ? 1 : 0.88)
                 }
+        }
+    }
+}
+
+/// El alto de un hueco: el del contenedor, o el que le digan.
+private struct InspoCardSlot: ViewModifier {
+    let stride: CGFloat?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let stride {
+            content.frame(height: stride)
+        } else {
+            content.containerRelativeFrame(.vertical)
         }
     }
 }

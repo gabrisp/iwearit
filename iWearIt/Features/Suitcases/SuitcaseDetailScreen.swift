@@ -452,7 +452,12 @@ private struct SuitcaseTabContent: View {
             // de navegación y la de pestañas de la maleta.
             SuitcaseInspoTab(
                 suitcase: suitcase,
-                topInset: 64,
+                // Lo que mide de verdad la barra de arriba en esta pantalla
+                // —el corte de la pantalla más la propia barra—, y no un 64
+                // puesto a ojo: con el número corto, las tarjetas de la maleta
+                // salían más grandes que las de la pestaña de inspiración y al
+                // pasar de una a otra se notaba el salto.
+                topInset: WKTabBarMetrics.topClearance,
                 bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l
             )
         }
