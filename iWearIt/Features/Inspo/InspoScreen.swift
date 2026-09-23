@@ -314,7 +314,11 @@ struct InspoScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $scrolled)
+        // **Anclado al centro.** Por defecto el identificador se alinea con el
+        // borde de arriba, así que al llevar la vista a un conjunto —al
+        // barajar, o al traer más— quedaba pegado al techo y con un palmo de
+        // aire debajo, que es justo lo contrario de lo que hace el gesto.
+        .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
         .overlay { InspoVerdictPill(swipe: swipe) }
@@ -334,7 +338,7 @@ struct InspoScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $scrolled)
+        .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .horizontal)
         .overlay { InspoVerdictPill(swipe: swipe) }
@@ -495,13 +499,26 @@ struct InspoScreen: View {
         let before = Set(feed.looks.map(\.id))
         withAnimation(WKAnimation.content) { feed.extend() }
         let fresh = feed.looks.first { !before.contains($0.id) }
-        if let fresh {
-            withAnimation(WKAnimation.content) { scrolled = fresh.id }
-            // Solo cuando de verdad ha llegado algo: si el armario ya no da
-            // para más combinaciones distintas, un golpecito diría que sí.
-            batches += 1
+
+        guard let fresh else {
+            isGenerating = false
+            return
         }
-        isGenerating = false
+        // Solo cuando de verdad ha llegado algo: si el armario ya no da para
+        // más combinaciones distintas, un golpecito diría que sí.
+        batches += 1
+
+        // **Y la vista se lleva al primero de los nuevos después, no ahora.**
+        //
+        // Esto se dispara con el dedo todavía tirando de la tarjeta del final:
+        // mover el scroll en ese momento pelea con el gesto que lo ha pedido y
+        // se ve como un corte. Un suspiro más tarde el scroll ya ha parado y
+        // el movimiento se lee como la respuesta a lo que pediste.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(220))
+            withAnimation(WKAnimation.content) { scrolled = fresh.id }
+            isGenerating = false
+        }
     }
 
     /// Tirado a la izquierda: fuera, y sus prendas pesan menos a partir de

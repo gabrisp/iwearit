@@ -38,6 +38,12 @@ struct SuitcaseInspoTab: View {
     @State private var editingOutfit: Outfit?
     @State private var scrolled: UUID?
     @State private var pageHeight: CGFloat = 0
+    /// Si el estilista ya ha dado su primera vuelta.
+    ///
+    /// Sin esto la pantalla no sabía distinguir "todavía no ha montado nada"
+    /// de "no hay con qué montarlo", y las dos se veían igual: una rueda
+    /// girando para siempre.
+    @State private var hasRun = false
     /// Cuántas tandas han entrado, para el golpecito. Ver `InspoScreen`.
     @State private var batches = 0
 
@@ -56,6 +62,17 @@ struct SuitcaseInspoTab: View {
     }
 
     private var looks: [StylistLook] { feed?.looks ?? [] }
+
+    /// **Qué da de sí lo que llevas.**
+    ///
+    /// Un conjunto necesita algo de arriba y algo de abajo —o un vestido, que
+    /// es las dos cosas—. Con uno de cada sale **un** conjunto, y un conjunto
+    /// no es inspiración: es el que ya tenías pensado. Para que vayan
+    /// cambiando hace falta que haya con qué variar, y eso se multiplica, no
+    /// se suma: dos y dos son cuatro conjuntos; tres y dos, seis.
+    private var readiness: InspoReadiness {
+        InspoReadiness(garments: packed.compactMap { byID[$0] })
+    }
 
     /// **Lo que mide una tarjeta, medido a mano.**
     ///
@@ -89,10 +106,16 @@ struct SuitcaseInspoTab: View {
 
     var body: some View {
         Group {
-            if packed.count < 3 {
-                SuitcaseInspoEmpty(count: packed.count)
+            if !readiness.canGenerate {
+                SuitcaseInspoGate(readiness: readiness)
             } else if looks.isEmpty {
-                ProgressView()
+                // Ya ha dado la vuelta y no ha sacado nada: se dice, en vez de
+                // dejar la rueda girando.
+                if hasRun {
+                    SuitcaseInspoGate(readiness: readiness)
+                } else {
+                    ProgressView()
+                }
             } else {
                 list
             }
@@ -165,9 +188,19 @@ struct SuitcaseInspoTab: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $scrolled)
+        .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
         .overlay { InspoVerdictPill(swipe: swipe) }
+        // **Lo que da de sí la maleta, a la vista.** Con lo justo para un par
+        // de conjuntos la inspiración se repite y parece rota; decir cuántos
+        // salen —y qué prenda los doblaría— convierte eso en algo que puedes
+        // arreglar antes de cerrar la maleta.
+        .overlay(alignment: .top) {
+            if !readiness.rotates {
+                InspoReadinessPill(readiness: readiness)
+                    .padding(.top, topInset + WK.Spacing.xs)
+            }
+        }
         .sensoryFeedback(.impact(weight: .medium), trigger: batches)
         .safeAreaPadding(.top, topInset)
         .safeAreaPadding(.bottom, bottomInset)
@@ -189,10 +222,17 @@ struct SuitcaseInspoTab: View {
         made.restrictedTo = packed
         if feed == nil {
             feed = made
-            await made.loadWeather()
+            // **Primero montar, luego el tiempo.** Al revés —que es como
+            // estaba— la pestaña se quedaba en la rueda hasta que contestara
+            // el parte del destino, y si no había red no contestaba nunca. El
+            // parte llega después y rehace la tanda él solo: ver
+            // `InspoFeed.loadWeather`.
             made.start()
+            hasRun = true
+            await made.loadWeather()
         } else {
             made.shuffle()
+            hasRun = true
         }
     }
 
@@ -294,18 +334,141 @@ private struct SuitcaseDayPicker: View {
     }
 }
 
-private struct SuitcaseInspoEmpty: View {
-    let count: Int
+/// **Lo que hace falta para que haya inspiración**, dicho con números.
+///
+/// No es un mínimo inventado: es el que impone montar un conjunto. Hace falta
+/// algo de arriba y algo de abajo —o un vestido— y, para que las propuestas
+/// vayan cambiando, más de uno de alguno de los dos.
+struct InspoReadiness {
+    /// Camisetas, camisas, jerséis… y los vestidos, que cuentan por arriba.
+    let tops: Int
+    /// Y los vestidos aparte, porque no necesitan pantalón.
+    let dresses: Int
+    let bottoms: Int
+    let shoes: Int
+
+    init(garments: [Garment]) {
+        var tops = 0, dresses = 0, bottoms = 0, shoes = 0
+        for garment in garments {
+            switch garment.kind {
+            case .upperBody: tops += 1
+            case .wholeBody: dresses += 1; tops += 1
+            case .lowerBody: bottoms += 1
+            case .feet: shoes += 1
+            case .outerLayer, .head, .bag, .other: break
+            }
+        }
+        self.tops = tops
+        self.dresses = dresses
+        self.bottoms = bottoms
+        self.shoes = shoes
+    }
+
+    /// Cuántas prendas cuentan para un conjunto.
+    var counted: Int { tops + bottoms + shoes }
+
+    /// Los de arriba que necesitan pantalón.
+    private var pairables: Int { max(0, tops - dresses) }
+
+    /// **Cuántos conjuntos distintos salen.** Arriba por abajo, más los
+    /// vestidos, por el calzado que haya.
+    var combinations: Int {
+        let bases = pairables * bottoms + dresses
+        return bases * max(1, shoes)
+    }
+
+    /// Con uno ya se puede enseñar algo.
+    var canGenerate: Bool { combinations > 0 }
+
+    /// **Y con cuatro empiezan a cambiar.** Por debajo, pasar tarjetas es ver
+    /// la misma ropa recolocada, que es peor que no ofrecer nada.
+    static let rotationThreshold = 4
+    var rotates: Bool { combinations >= Self.rotationThreshold }
+
+    /// Qué falta, en una frase corta. Lo primero que más multiplica.
+    var missing: String {
+        if tops == 0 { return "Falta algo de arriba: una camiseta, una camisa o un vestido." }
+        if bottoms == 0, dresses == 0 { return "Falta algo de abajo: un pantalón, una falda o un vestido." }
+        if pairables > 0, bottoms == 1 { return "Con otro pantalón saldrían \(combinations * 2)." }
+        if bottoms > 0, pairables == 1 { return "Con otra prenda de arriba saldrían \(combinations * 2)." }
+        if shoes == 0 { return "Con unos zapatos los conjuntos quedan completos." }
+        return "Mete alguna prenda más y saldrán más combinaciones."
+    }
+}
+
+/// La puerta: **lo que falta para que esto tenga algo que enseñar**.
+private struct SuitcaseInspoGate: View {
+    let readiness: InspoReadiness
 
     var body: some View {
         ContentUnavailableView {
             Label("Todavía no hay con qué", systemImage: "suitcase")
         } description: {
-            Text(
-                count == 0
-                    ? "Mete ropa en el equipaje y aquí verás qué conjuntos salen con ella."
-                    : "Con \(count) prendas no salen conjuntos distintos. Mete alguna más."
-            )
+            VStack(spacing: WK.Spacing.m) {
+                Text(
+                    readiness.counted == 0
+                        ? "Mete ropa en el equipaje y aquí verás qué conjuntos salen con ella."
+                        : readiness.missing
+                )
+
+                // El mínimo, dicho con lo que llevas puesto al lado: así no es
+                // una regla abstracta, es lo que te falta.
+                HStack(spacing: WK.Spacing.l) {
+                    tally("Arriba", count: readiness.tops, needs: 2, symbol: "tshirt")
+                    tally("Abajo", count: readiness.bottoms + readiness.dresses, needs: 2, symbol: "rectangle.portrait")
+                    tally("Calzado", count: readiness.shoes, needs: 1, symbol: "shoe")
+                }
+                .padding(.top, WK.Spacing.xs)
+
+                Text("Con 2 de arriba y 2 de abajo ya van cambiando.")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
         }
+    }
+
+    private func tally(_ title: String, count: Int, needs: Int, symbol: String) -> some View {
+        VStack(spacing: WK.Spacing.xs) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(count >= needs ? WK.Palette.accent : WK.Palette.secondaryText)
+            Text("\(count)/\(needs)")
+                .font(WK.Font.caption.weight(.semibold))
+                .foregroundStyle(count >= needs ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                .monospacedDigit()
+            Text(title)
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+        }
+    }
+}
+
+/// Cuántos conjuntos salen con lo que llevas, cuando salen pocos.
+private struct InspoReadinessPill: View {
+    let readiness: InspoReadiness
+
+    var body: some View {
+        HStack(spacing: WK.Spacing.xs) {
+            Image(systemName: "sparkles")
+                .font(.caption2)
+                .foregroundStyle(WK.Palette.secondaryText)
+            Text(count)
+                .font(WK.Font.caption.weight(.medium))
+                .foregroundStyle(WK.Palette.primaryText)
+            Text("·")
+                .foregroundStyle(WK.Palette.secondaryText)
+            Text(readiness.missing)
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, WK.Spacing.m)
+        .padding(.vertical, WK.Spacing.xs)
+        .adaptiveGlass(in: .capsule)
+        .fixedSize()
+    }
+
+    private var count: String {
+        readiness.combinations == 1 ? "1 conjunto" : "\(readiness.combinations) conjuntos"
     }
 }

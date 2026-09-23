@@ -70,7 +70,10 @@ public struct StylistBrief: Sendable, Equatable {
 }
 
 /// Un conjunto propuesto.
-public struct StylistLook: Sendable, Identifiable, Hashable {
+/// **Y se puede guardar tal cual.** El archivo del estilista conserva las
+/// conversaciones enteras, y una conversación sin lo que propuso es media
+/// conversación: `Codable` sobre cuatro campos de valor sale gratis.
+public struct StylistLook: Sendable, Identifiable, Hashable, Codable {
     public let id: UUID
     /// Las prendas, de arriba abajo. Sin transformadas: dónde se coloca cada
     /// una lo decide el lienzo por su tipo, igual que al montarlo a mano.

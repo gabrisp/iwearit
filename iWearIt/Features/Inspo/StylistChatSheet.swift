@@ -51,18 +51,22 @@ struct StylistChatSheet: View {
         case picker
         /// Qué día te pones este conjunto.
         case day(StylistLook)
-        /// Lo guardado: el archivo.
-        case archive
+        // **El archivo ya no es una hoja.** Era una tercera capa encima de la
+        // hoja del estilista, y una conversación abierta desde ahí se veía a
+        // dos alturas de donde se escribe. Ahora se empuja en la pila de esta
+        // misma hoja, que es lo que hace cualquier archivo: entras y vuelves.
+        // case archive
 
         var id: String {
             switch self {
             case .picker: "picker"
             case let .day(look): "day-\(look.id)"
-            case .archive: "archive"
             }
         }
     }
     @FocusState private var isWriting: Bool
+    /// Si está abierto el archivo, **en esta misma pila**.
+    @State private var isShowingArchive = false
 
     /// Lo adjuntado, resuelto a prendas y en un orden estable.
     private var attachedGarments: [Garment] {
@@ -83,15 +87,30 @@ struct StylistChatSheet: View {
                         Button { dismiss() } label: { Image(systemName: "xmark") }
                             .tint(WK.Palette.primaryText)
                     }
-                    // **El archivo.** Lo que el estilista ha propuesto y tú has
-                    // guardado no se queda en el hilo —se va a favoritos— y
-                    // desde aquí se llega sin salir de la conversación.
+                    // **Otra conversación.** Sin esto el estilista es un
+                    // hilo infinito: lo de la semana pasada sigue arriba y lo
+                    // que pediste para hoy va detrás de todo.
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button { sheet = .archive } label: {
+                        Button {
+                            withAnimation(WKAnimation.content) { chat.startNew() }
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                        }
+                        .tint(WK.Palette.primaryText)
+                        .disabled(chat.isEmpty)
+                    }
+                    // **El archivo son los chats.** Lo hablado con el
+                    // estilista no se pierde al cerrar ni al empezar otro: se
+                    // queda aquí, con los conjuntos que propuso dentro.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { isShowingArchive = true } label: {
                             Image(systemName: "archivebox")
                         }
                         .tint(WK.Palette.primaryText)
                     }
+                }
+                .navigationDestination(isPresented: $isShowingArchive) {
+                    StylistArchiveScreen(chat: chat)
                 }
                 .adaptiveSafeAreaBar(edge: .bottom) { bottom }
                 .sheet(item: $sheet) { which in
@@ -118,11 +137,6 @@ struct StylistChatSheet: View {
                             plan(look, on: date)
                             sheet = nil
                         }
-                    case .archive:
-                        // **El archivo es lo guardado**, que es donde acaban
-                        // los conjuntos que te gustan: no hace falta un sitio
-                        // nuevo para ellos, hace falta llegar desde aquí.
-                        NavigationStack { FavouritesScreen(isModal: true) }
                     }
                 }
         }
@@ -147,27 +161,46 @@ struct StylistChatSheet: View {
                         store: appEnvironment.imageStore
                     )
                     .padding(.horizontal, WK.Spacing.screenInset)
+                    .id(message.id)
+
+                    // **Y los conjuntos, ahí mismo.** Debajo de la respuesta
+                    // que los trajo y encima de lo que preguntaste después:
+                    // seis tarjetas que se pasan de lado y se quedan en el
+                    // hilo para siempre. Antes vivían en una tira al final que
+                    // se vaciaba con cada pregunta, así que pedir otra cosa
+                    // borraba lo anterior aunque todavía lo estuvieras
+                    // mirando.
+                    if !message.looks.isEmpty {
+                        looksStrip(message.looks)
+                    }
                 }
 
                 if chat.isThinking {
                     ProgressView()
                         .padding(.horizontal, WK.Spacing.screenInset)
+                        .id(Self.bottomID)
                 }
 
-                if !chat.results.isEmpty {
-                    resultsStrip
-                }
+                Color.clear
+                    .frame(height: 1)
+                    .id(Self.bottomID)
             }
             .padding(.vertical, WK.Spacing.m)
         }
         .scrollDismissesKeyboard(.interactively)
+        // Lo último, a la vista: una respuesta que llega debajo del borde es
+        // una respuesta que no ha llegado.
+        .defaultScrollAnchor(.bottom)
     }
 
-    /// Lo que ha propuesto, para mirarlo de lado.
-    private var resultsStrip: some View {
+    /// El identificador del final del hilo, para bajar hasta ahí.
+    private static let bottomID = "bottom"
+
+    /// Lo que propuso en una respuesta, para mirarlo de lado.
+    private func looksStrip(_ looks: [StylistLook]) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.m) {
-                ForEach(chat.results) { look in
+                ForEach(looks) { look in
                     StylistResultCard(
                         garments: look.garmentIDs.compactMap { byID[$0] },
                         store: appEnvironment.imageStore,
@@ -186,6 +219,7 @@ struct StylistChatSheet: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollIndicators(.hidden)
         .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
+        .scrollClipDisabled()
     }
 
     /// Abajo: lo adjuntado y el campo.
@@ -308,7 +342,7 @@ struct StylistChatSheet: View {
         guard !text.isEmpty else { return }
         chat.draft = ""
         let sent = Array(chat.attached)
-        chat.thread.append(StylistMessage(role: .user, text: text, attachments: sent))
+        chat.append(StylistMessage(role: .user, text: text, attachments: sent))
 
         var base = chat.brief ?? feed.baseBrief()
         // Lo adjuntado **manda**: son las prendas que has señalado, y van
@@ -328,14 +362,13 @@ struct StylistChatSheet: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(320))
             let fresh = feed.looks(for: reading.brief, count: 6)
+            let reply = StylistMessage(
+                role: .stylist,
+                text: StylistPhrase.acknowledgement(reading, lookCount: fresh.count),
+                looks: fresh
+            )
             withAnimation(WKAnimation.content) {
-                chat.results = fresh
-                chat.thread.append(
-                    StylistMessage(
-                        role: .stylist,
-                        text: StylistPhrase.acknowledgement(reading, lookCount: fresh.count)
-                    )
-                )
+                chat.append(reply)
                 chat.isThinking = false
             }
         }
@@ -376,9 +409,7 @@ struct StylistChatSheet: View {
     /// No me gusta: fuera de aquí y anotado para lo que venga.
     private func dislike(_ look: StylistLook) {
         feed.dislike(look)
-        withAnimation(WKAnimation.content) {
-            chat.results.removeAll { $0.id == look.id }
-        }
+        withAnimation(WKAnimation.content) { chat.removeLook(look.id) }
     }
 
     private func materialise(_ look: StylistLook, isFavorite: Bool) -> Outfit? {
