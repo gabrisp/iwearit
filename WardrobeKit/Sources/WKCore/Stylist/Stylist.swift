@@ -154,7 +154,7 @@ public struct Stylist: Sendable {
                     // la semilla, no un dado— se le baja el listón.
                     let favoursOuter = (brief.seed % 3) == 0
                     if let outer = bestAddition(
-                        from: pool[.outer, default: []],
+                        from: Self.layerable(over: top, from: pool[.outer, default: []]),
                         to: pieces,
                         brief: brief,
                         margin: favoursOuter ? -0.2 : 0.08
@@ -335,6 +335,35 @@ public struct Stylist: Sendable {
         case 3, 4, 5: return [.spring]
         case 6, 7, 8: return [.spring, .summer]
         default: return [.autumn]
+        }
+    }
+
+    /// Qué puede ir **encima** de lo que hay arriba.
+    ///
+    /// ## El jersey sobre el jersey
+    ///
+    /// El detector manda a "capa exterior" todo lo que se lleva encima, y ahí
+    /// caben tanto una cazadora como un jersey de punto. Combinando por huecos
+    /// sin mirar qué son, salía un jersey de manga larga encima de otro jersey
+    /// de manga larga y sin nada debajo: cada pieza en su sitio y el conjunto
+    /// entero sin sentido.
+    ///
+    /// La regla es la que usaría cualquiera al vestirse: encima de un punto
+    /// solo va un abrigo de verdad, y nunca dos prendas del mismo tipo.
+    static func layerable(
+        over top: StylistGarment,
+        from options: [StylistGarment]
+    ) -> [StylistGarment] {
+        options.filter { option in
+            if option.isKnit, top.isKnit { return false }
+            if option.isKnit, !option.isTrueOuter, top.isKnit { return false }
+            // Ni dos veces lo mismo: "Jersey" con "Jersey", "Chaqueta" con
+            // "Chaqueta".
+            if let a = option.subcategory, let b = top.subcategory,
+               fold(a) == fold(b) {
+                return false
+            }
+            return true
         }
     }
 

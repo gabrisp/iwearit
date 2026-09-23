@@ -349,6 +349,14 @@ private struct InspoLookCard: View {
     /// Si el arrastre ya ha pasado del punto de no retorno. Cambia una vez por
     /// cruce, que es lo que dispara el golpecito.
     @State private var isCommitted = false
+    /// **Hacia dónde va este gesto, decidido una sola vez.**
+    ///
+    /// Mirar en cada aviso si el movimiento es más horizontal que vertical
+    /// dejaba la tarjeta a medias: bastaba que el dedo subiera un poco para
+    /// que el aviso se ignorara y se quedara clavada donde estuviera, sin
+    /// volver y sin irse. Se decide al empezar y se respeta hasta que se
+    /// levanta el dedo.
+    @State private var axis: Axis?
 
     /// Cuánto hay que tirar para que cuente.
     ///
@@ -358,14 +366,16 @@ private struct InspoLookCard: View {
 
     /// El recorrido de la tarjeta para un arrastre dado.
     ///
-    /// Hasta el umbral va casi con el dedo; pasado, se frena. Así el gesto se
-    /// siente firme y la tarjeta no acaba en la otra punta de la pantalla por
-    /// un arrastre largo.
-    static func eased(_ value: CGFloat) -> CGFloat {
+    /// **Punto por punto con el dedo** mientras se decide: cualquier freno
+    /// ahí se nota como que la tarjeta se resiste y no la llevas tú. Solo
+    /// frena pasado el doble del umbral, cuando ya está medio fuera y lo único
+    /// que queda por decir es que está decidido.
+    static func tracked(_ value: CGFloat) -> CGFloat {
+        let limit = threshold * 2
         let sign: CGFloat = value < 0 ? -1 : 1
         let magnitude = abs(value)
-        guard magnitude > threshold else { return value * 0.9 }
-        return sign * (threshold * 0.9 + (magnitude - threshold) * 0.35)
+        guard magnitude > limit else { return value }
+        return sign * (limit + (magnitude - limit) * 0.4)
     }
 
     var body: some View {
@@ -383,11 +393,7 @@ private struct InspoLookCard: View {
         .id(look.garmentIDs)
         .transition(.opacity)
             .overlay(alignment: .topTrailing) { actions }
-            // **Con freno.** La tarjeta sigue al dedo de cerca al principio y
-            // se va quedando: arrastrarla a la misma velocidad que el dedo la
-            // hacía parecer suelta, y girándola desde abajo se caía de lado
-            // como una carta que se te escapa.
-            .offset(x: Self.eased(drag))
+            .offset(x: drag)
             .rotationEffect(.degrees(drag / 60))
             .scaleEffect(1 - min(0.03, abs(drag) / 3000))
             .contentShape(.rect)
@@ -409,29 +415,49 @@ private struct InspoLookCard: View {
 
     /// El arrastre: a la derecha se guarda, a la izquierda se descarta.
     private var sideSwipe: some Gesture {
-        DragGesture(minimumDistance: 24)
+        DragGesture(minimumDistance: 12)
             .onChanged { value in
-                // Solo horizontal: el vertical es pasar de conjunto, y
-                // competir con él haría los dos peor.
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                drag = value.translation.width
+                if axis == nil {
+                    // La primera dirección manda: si el gesto empezó subiendo,
+                    // es scroll y esta tarjeta no se entera.
+                    axis = abs(value.translation.width) > abs(value.translation.height)
+                        ? .horizontal
+                        : .vertical
+                }
+                guard axis == .horizontal else { return }
+
+                drag = Self.tracked(value.translation.width)
                 // Lo que lee la píldora, que vive fuera de la tarjeta.
                 swipe.amount = drag
                 let crossed = abs(drag) >= Self.threshold
                 if crossed != isCommitted { isCommitted = crossed }
             }
             .onEnded { value in
+                // **Pase lo que pase, la tarjeta vuelve o se va.** El gesto
+                // termina aquí incluso si acabó siendo vertical, así que aquí
+                // es donde se garantiza que no se queda a medias.
+                let wasHorizontal = axis == .horizontal
+                axis = nil
+                isCommitted = false
+                swipe.amount = 0
+                guard wasHorizontal else {
+                    if drag != 0 {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { drag = 0 }
+                    }
+                    return
+                }
+
                 let distance = value.translation.width
                 // **Y cuánta fuerza llevaba.** Un arrastre corto pero rápido
                 // es tan decidido como uno largo y lento; medir solo la
                 // distancia obliga a arrastrar media pantalla para algo que ya
                 // habías decidido.
                 let projected = distance + value.predictedEndTranslation.width * 0.35
-                isCommitted = false
-                swipe.amount = 0
 
                 guard abs(projected) >= Self.threshold else {
-                    withAnimation(WKAnimation.arrival) { drag = 0 }
+                    // Vuelve a su sitio con un muelle: soltarla a medias tiene
+                    // que devolverla, no dejarla torcida.
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { drag = 0 }
                     return
                 }
                 let goesRight = projected > 0

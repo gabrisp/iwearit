@@ -60,6 +60,31 @@ public struct StylistGarment: Sendable, Identifiable, Hashable {
     /// El papel que juega en el conjunto.
     public var role: StylistRole { StylistRole(kind) }
 
+    /// Punto grueso: un jersey, una sudadera, un cárdigan.
+    ///
+    /// Hace falta porque el detector manda muchos de estos a "capa exterior"
+    /// —y con razón: se llevan encima— pero **no se llevan encima de otro
+    /// igual**. Dos jerséis en el mismo conjunto no es una forma de vestir, es
+    /// un fallo de la máquina.
+    var isKnit: Bool {
+        let words = Self.fold([name, subcategory ?? "", material ?? ""].joined(separator: " "))
+        return ["jersey", "sudadera", "cardigan", "punto", "hoodie", "sueter", "chaleco"]
+            .contains { words.contains($0) }
+    }
+
+    /// Abrigo de verdad: lo que sí se pone encima de cualquier cosa.
+    var isTrueOuter: Bool {
+        let words = Self.fold([name, subcategory ?? ""].joined(separator: " "))
+        return [
+            "chaqueta", "abrigo", "cazadora", "gabardina", "blazer", "plumifero",
+            "chubasquero", "parka", "trench", "vaquera", "cuero", "bomber",
+        ].contains { words.contains($0) }
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+    }
+
     /// Cómo se llama en una frase: "los vaqueros azules".
     public var searchText: String {
         ([name, subcategory ?? "", material ?? "", tone.familyName] + tags)
