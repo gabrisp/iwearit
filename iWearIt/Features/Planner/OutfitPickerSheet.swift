@@ -246,6 +246,10 @@ struct OutfitPickerSheet: View {
                 .disabled(picked.isEmpty)
                 .opacity(picked.isEmpty ? 0.4 : 1)
                 .animation(WKAnimation.selection, value: picked.isEmpty)
+                // **El botón se queda entero pase lo que pase.** Reparte el
+                // ancho antes que la tira de miniaturas: con tipografía grande
+                // o en pantallas estrechas, lo que se encoge es la tira.
+                .layoutPriority(1)
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
@@ -458,13 +462,34 @@ private struct PickedStrip: View {
     let flying: PersistentIdentifier?
     @Environment(\.modelContext) private var modelContext
 
+    /// Cuántas miniaturas se enseñan. Cinco caben en el teléfono más estrecho
+    /// dejando sitio al botón de confirmar; la sexta lo empujaba fuera de la
+    /// pantalla, que es lo que rompía la barra al marcar más de diez prendas.
+    private static let visible = 5
+
+    /// Las últimas, no las primeras: la que acaba de volar hasta aquí tiene
+    /// que verse aterrizar, y es siempre la última.
+    private var shown: [PersistentIdentifier] { Array(ids.suffix(Self.visible)) }
+    private var hidden: Int { max(0, ids.count - Self.visible) }
+
     var body: some View {
         HStack(spacing: WK.Spacing.xs) {
-            ForEach(ids, id: \.self) { id in
+            // Las que no caben se cuentan. Un número dice "hay más" sin
+            // ocupar lo que ocupan, y el total sigue estando a la vista.
+            if hidden > 0 {
+                Text("+\(hidden)")
+                    .font(WK.Font.captionMedium)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .padding(.leading, WK.Spacing.xs)
+            }
+            ForEach(shown, id: \.self) { id in
                 if let garment = modelContext.model(for: id) as? Garment {
                     StoredImage(key: garment.normalizedImageKey, variant: .thumb, store: store)
                         .frame(width: 34, height: 40)
                         .matchedGeometryEffect(id: id, in: picking, isSource: flying != id)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
         }
