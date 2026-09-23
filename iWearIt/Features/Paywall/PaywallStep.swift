@@ -23,7 +23,7 @@ struct PaywallStep: View {
     let onFinish: () -> Void
 
     @Environment(AppEnvironment.self) private var appEnvironment
-    @State private var plan: Plan = .yearly
+    @State private var plan: Plan = .sixMonth
     /// Cuál de los paquetes de verdad está elegido.
     @State private var picked: Package?
 
@@ -32,13 +32,21 @@ struct PaywallStep: View {
 
     /// Los de ejemplo, **solo** para cuando no hay tienda. Los de verdad los
     /// pone la App Store a través de RevenueCat, y son los que mandan.
+    /// **Seis meses en vez de un año.**
+    ///
+    /// Un anual a 44,99 € sale a 3,75 € al mes: un tercio de lo que cuesta el
+    /// mensual, así que solo puede pagar un tercio de imágenes — y quedaba el
+    /// plan más caro de comprar dando menos monedas al mes que el mensual, que
+    /// es justo lo contrario de lo que promete. A seis meses, el mismo precio
+    /// sale a 7,50 € al mes: sigue siendo un 37% más barato **y** ya da para
+    /// tantas monedas como el mensual, todas de golpe.
     enum Plan: String, CaseIterable, Identifiable {
-        case yearly, monthly, weekly
+        case sixMonth, monthly, weekly
         var id: String { rawValue }
 
         var title: String {
             switch self {
-            case .yearly: "Anual"
+            case .sixMonth: "Seis meses"
             case .monthly: "Mensual"
             case .weekly: "Semanal"
             }
@@ -46,7 +54,7 @@ struct PaywallStep: View {
 
         var price: String {
             switch self {
-            case .yearly: "44,99 €/año"
+            case .sixMonth: "44,99 €"
             case .monthly: "11,99 €/mes"
             case .weekly: "4,99 €/semana"
             }
@@ -54,7 +62,7 @@ struct PaywallStep: View {
 
         var detail: String? {
             switch self {
-            case .yearly: "7 días gratis · 3,75 €/mes"
+            case .sixMonth: "7,50 €/mes · ahorras un 37%"
             case .monthly: nil
             case .weekly: "Para probarlo un viaje"
             }
@@ -147,7 +155,11 @@ struct PaywallStep: View {
         .task {
             // Por si se abre antes de que el arranque haya traído la oferta.
             if packages.isEmpty { await store.load() }
-            picked = picked ?? packages.first { $0.packageType == .annual } ?? packages.first
+            // El de seis meses primero, que es el que sale a cuenta.
+            picked = picked
+                ?? packages.first { $0.packageType == .sixMonth }
+                ?? packages.first { $0.packageType == .annual }
+                ?? packages.first
         }
     }
 
@@ -253,7 +265,8 @@ private extension Package {
         if let intro = storeProduct.introductoryDiscount, intro.price == 0 {
             parts.append("\(intro.subscriptionPeriod.localizedDescription) gratis")
         }
-        if packageType == .annual, let monthly = storeProduct.pricePerMonth {
+        if packageType == .annual || packageType == .sixMonth,
+           let monthly = storeProduct.pricePerMonth {
             let formatter = NumberFormatter()
             formatter.numberStyle = .currency
             formatter.currencyCode = storeProduct.currencyCode
