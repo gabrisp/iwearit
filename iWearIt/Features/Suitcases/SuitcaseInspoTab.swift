@@ -38,6 +38,8 @@ struct SuitcaseInspoTab: View {
     @State private var editingOutfit: Outfit?
     @State private var scrolled: UUID?
     @State private var pageHeight: CGFloat = 0
+    /// Cuántas tandas han entrado, para el golpecito. Ver `InspoScreen`.
+    @State private var batches = 0
 
     /// Lo que va en la maleta: las prendas del equipaje y las que ya están
     /// puestas en algún conjunto del viaje.
@@ -146,8 +148,12 @@ struct SuitcaseInspoTab: View {
                             .scaleEffect(phase.isIdentity ? 1 : 0.88)
                     }
                     .onScrollVisibilityChange(threshold: 0.6) { isVisible in
-                        guard isVisible else { return }
-                        withAnimation(WKAnimation.content) { feed?.extend() }
+                        guard isVisible, let feed else { return }
+                        let before = feed.looks.count
+                        withAnimation(WKAnimation.content) { feed.extend() }
+                        // El mismo golpecito que en la pestaña, y solo si ha
+                        // llegado algo.
+                        if feed.looks.count > before { batches += 1 }
                     }
             }
             // **Los mismos márgenes que en la pestaña.** La maleta ignora el
@@ -162,6 +168,7 @@ struct SuitcaseInspoTab: View {
         .scrollPosition(id: $scrolled)
         .scrollIndicators(.hidden)
         .overlay { InspoVerdictPill(swipe: swipe) }
+        .sensoryFeedback(.impact(weight: .medium), trigger: batches)
         .safeAreaPadding(.top, topInset)
         .safeAreaPadding(.bottom, bottomInset)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { pageHeight = $0 }

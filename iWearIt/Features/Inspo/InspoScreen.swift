@@ -73,6 +73,10 @@ struct InspoScreen: View {
     @State private var pageSize: CGSize = .zero
     /// Mientras se montan los siguientes.
     @State private var isGenerating = false
+    /// Cuántas tandas se han traído. Solo sirve para dar el golpecito: sube
+    /// una vez por tanda de verdad, así que no hay forma de que suene dos
+    /// veces ni de que suene cuando no ha llegado nada.
+    @State private var batches = 0
     /// Si el gesto de los lados ya se ha enseñado alguna vez.
     @State private var hasHintedSwipe = true
     /// Cuánto se está tirando desde arriba, de 0 a 1. Ver `pullToShuffle`.
@@ -313,6 +317,9 @@ struct InspoScreen: View {
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
         .overlay { InspoVerdictPill(swipe: swipe) }
+        // El golpecito al traer más, como el del tirón de arriba: la tarjeta
+        // del final se llena, y eso se nota en la mano además de verse.
+        .sensoryFeedback(.impact(weight: .medium), trigger: batches)
         .modifier(PullToShuffle(pull: $pull, isArmed: $isPullArmed, action: shuffle))
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
@@ -330,6 +337,7 @@ struct InspoScreen: View {
         .scrollIndicators(.hidden)
         .scrollBounceBehavior(.always, axes: .horizontal)
         .overlay { InspoVerdictPill(swipe: swipe) }
+        .sensoryFeedback(.impact(weight: .medium), trigger: batches)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
@@ -466,6 +474,9 @@ struct InspoScreen: View {
         let fresh = feed.looks.first { !before.contains($0.id) }
         if let fresh {
             withAnimation(WKAnimation.content) { scrolled = fresh.id }
+            // Solo cuando de verdad ha llegado algo: si el armario ya no da
+            // para más combinaciones distintas, un golpecito diría que sí.
+            batches += 1
         }
         isGenerating = false
     }
