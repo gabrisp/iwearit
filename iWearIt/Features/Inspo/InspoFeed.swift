@@ -45,7 +45,8 @@ final class InspoFeed {
     private let container: ModelContainer
     private let weather: WeatherProvider
     private var ticker: Task<Void, Never>?
-    private var forecast: WeatherSnapshot?
+    /// El parte de hoy, para enseñarlo y para vestir en consecuencia.
+    private(set) var forecast: WeatherSnapshot?
     /// Para no pedir más conjuntos dos veces a la vez al llegar al final.
     private var isExtending = false
     private let stylist = Stylist()
@@ -231,17 +232,47 @@ final class InspoFeed {
     /// Se pide una vez y se guarda: el proveedor ya cachea por día, y aquí lo
     /// que importa es no pedirlo dentro del bucle de montar conjuntos.
     func loadWeather() async {
-        forecast = await weather.snapshot(for: Date())
+        let fresh = await weather.snapshot(for: Date())
+        let changed = fresh != forecast
+        forecast = fresh
+        // **Y si el tiempo llega tarde, se rehace.** El parte tarda en venir
+        // —hay que preguntar fuera— y para cuando llega la tanda ya está
+        // montada sin él: se quedaban propuestas de entretiempo para un día de
+        // ocho grados. Rehacerlas es instantáneo; esperar a tenerlo antes de
+        // enseñar nada sería dejar la pestaña en blanco por una consulta de
+        // red.
+        if changed, fresh != nil, !looks.isEmpty {
+            DiagnosticsLog.record("INSPO", "llegó el parte: se rehacen las propuestas")
+            shuffle()
+        }
     }
 
     /// El encargo de base: hoy, con el tiempo de hoy y sin lo de estos días.
     ///
     /// Público porque el chat parte de aquí: una pregunta escrita no empieza
     /// de cero, empieza de lo que ya se sabe del día.
+    // MARK: Prendas de partida
+
+    /// Las prendas alrededor de las que se monta todo.
+    ///
+    /// Es lo mismo que decirle al estilista "quiero ponerme estas
+    /// zapatillas", pero sin escribirlo: se eligen dos o tres del armario y
+    /// todos los conjuntos las llevan. Vacío = con todo el armario.
+    private(set) var anchors: Set<UUID> = []
+
+    /// Cambia las prendas de partida y rehace las propuestas con ellas.
+    func setAnchors(_ ids: Set<UUID>) {
+        guard ids != anchors else { return }
+        anchors = ids
+        dismissed.removeAll()
+        shuffle()
+    }
+
     func baseBrief(seed: UInt64 = 0) -> StylistBrief {
         StylistBrief(
             date: Date(),
             weather: forecast,
+            pinned: anchors,
             discouraged: dislikes,
             recentlyWorn: container.mainContext.recentlyWornGarments(),
             seed: seed == 0 ? Self.seedForNow() : seed

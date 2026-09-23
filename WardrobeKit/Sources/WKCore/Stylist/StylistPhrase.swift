@@ -122,7 +122,9 @@ public enum StylistPhrase {
         guard lookCount > 0 else {
             return "\(asked.capitalizedFirst): con eso no me sale nada del armario. Prueba a pedir menos cosas a la vez."
         }
-        return "\(asked.capitalizedFirst). Aquí van \(lookCount == 1 ? "uno" : "\(lookCount)")."
+        // "Aquí van uno" no lo dice nadie.
+        let tail = lookCount == 1 ? "Aquí va uno." : "Aquí van \(lookCount)."
+        return "\(asked.capitalizedFirst). \(tail)"
     }
 
     // MARK: Las palabras

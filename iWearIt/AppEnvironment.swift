@@ -110,9 +110,12 @@ public final class AppEnvironment {
     /// cruce a este actor son DTOs; vuelven `PersistentIdentifier`.
     public let wardrobe: WardrobeActor
 
-    /// El tiempo, para los stickers. Sin ubicación del dispositivo: el sitio
-    /// se elige a mano, que para un viaje es además el correcto.
+    /// El tiempo, para los stickers y para vestir.
     public let weather = WeatherProvider()
+
+    /// Dónde estás, si lo permites. Se pide cuando sirve —al abrir la
+    /// inspiración— y nunca al arrancar. Ver `LocationProvider`.
+    public let location = LocationProvider()
 
     /// Qué sabe la app de iCloud. Ver `CloudSync`.
     let sync: CloudSync

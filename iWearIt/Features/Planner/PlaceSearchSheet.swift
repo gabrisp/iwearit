@@ -13,6 +13,8 @@ struct PlaceSearchSheet: View {
     let onPick: (GeoPlace) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @State private var isLocating = false
     @State private var query = ""
     @State private var results: [GeoPlace] = []
     @State private var isSearching = false
@@ -41,6 +43,21 @@ struct PlaceSearchSheet: View {
                 RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
                     .stroke(WK.Palette.ink(0.07), lineWidth: 1)
             )
+
+            // **Y lo primero, dónde estás.** Escribir la ciudad funciona, pero
+            // es un paso que casi nadie da: sin él la app viste por el mes del
+            // calendario en vez de por los grados que hace. El permiso se pide
+            // aquí, con el motivo delante.
+            WKSection {
+                WKRow(showsSeparator: false, action: { Task { await locate() } }) {
+                    HStack {
+                        Label("Usar mi ubicación", systemImage: "location.fill")
+                            .foregroundStyle(WK.Palette.primaryText)
+                        Spacer()
+                        if isLocating { ProgressView().controlSize(.small) }
+                    }
+                }
+            }
 
             if let message {
                 Text(message)
@@ -80,6 +97,20 @@ struct PlaceSearchSheet: View {
             guard !Task.isCancelled else { return }
             await search()
         }
+    }
+
+    /// Pregunta al sistema dónde estamos y lo usa como sitio.
+    private func locate() async {
+        isLocating = true
+        defer { isLocating = false }
+        guard let place = await appEnvironment.location.current() else {
+            message = appEnvironment.location.isDenied
+                ? "Sin permiso de ubicación. Puedes escribir la ciudad o dárselo en Ajustes."
+                : "No se pudo saber dónde estás. Prueba a escribir la ciudad."
+            return
+        }
+        onPick(place)
+        dismiss()
     }
 
     private func search() async {

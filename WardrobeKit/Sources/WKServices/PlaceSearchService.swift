@@ -34,7 +34,10 @@ public struct PlaceSearchService: Sendable {
                 places.append(place)
             }
         }
-        if !places.isEmpty { return Array(places.prefix(12)) }
+        // Veinticinco y no doce: escribir "Santiago" o "San Juan" devuelve
+        // una lista larga de sitios reales, y cortarla por la mitad deja fuera
+        // justo el que buscas cuando no vives en la capital.
+        if !places.isEmpty { return Array(places.prefix(25)) }
 
         let placemarks = try await CLGeocoder().geocodeAddressString(trimmed)
         return placemarks.compactMap { placemark in

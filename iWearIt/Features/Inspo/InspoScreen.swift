@@ -4,6 +4,7 @@ import WKCanvas
 import WKCore
 import WKDesign
 import WKPersistence
+import WKServices
 
 /// Inspiración: conjuntos ya montados con **tu ropa**, y un sitio donde
 /// pedirlos a medida.
@@ -47,14 +48,33 @@ struct InspoScreen: View {
     private var garments: [Garment]
 
     @State private var saved: Set<UUID> = []
-    /// Si está puesta la hoja de qué baldas entran en la inspiración.
-    @State private var isChoosingShelves = false
+    /// Qué hoja está puesta, en **un solo sitio**: con un `.sheet` por cada
+    /// una, SwiftUI atiende a uno y deja mudos los demás. Ver `AppRouter`.
+    @State private var sheet: Sheet?
+
+    private enum Sheet: Identifiable {
+        /// Qué baldas entran en las propuestas.
+        case shelves
+        /// Qué día te pones este conjunto.
+        case day(StylistLook)
+        /// Dónde estás, para saber qué tiempo hace.
+        case place
+        /// Con qué prendas quieres que monte.
+        case anchors
+
+        var id: String {
+            switch self {
+            case .shelves: "shelves"
+            case let .day(look): "day-\(look.id)"
+            case .place: "place"
+            case .anchors: "anchors"
+            }
+        }
+    }
     /// Lo que mide el feed, para poder centrar el conjunto enfocado.
     @State private var pageHeight: CGFloat = 0
     /// El conjunto que se está abriendo en el editor.
     @State private var editingOutfit: Outfit?
-    /// El conjunto al que se le está eligiendo día.
-    @State private var datingLook: StylistLook?
     /// De qué propuesta salió el editor, para devolverle lo editado.
     @State private var editedLook: StylistLook?
     /// Cuánto se está arrastrando la tarjeta de encima, **fuera del cuerpo de
@@ -70,6 +90,21 @@ struct InspoScreen: View {
     /// El id de la transición cuando no se sabe de qué tarjeta se salió.
     private static let noLookZoomID = UUID()
 
+    /// Qué pone arriba: el sitio y los grados de hoy.
+    private var weatherTitle: String {
+        guard let forecast = feed.forecast else { return "Elegir sitio" }
+        let degrees = Int(forecast.highCelsius.rounded())
+        guard let place = forecast.place, !place.isEmpty else { return "\(degrees)°" }
+        // Solo la ciudad: "Madrid, España, 33°" es el país repetido en la
+        // barra más estrecha de la pantalla.
+        let city = place.split(separator: ",").first.map(String.init) ?? place
+        return "\(city), \(degrees)°"
+    }
+
+    private var weatherSymbol: String {
+        feed.forecast?.condition.symbolName ?? "location"
+    }
+
     private var byID: [UUID: Garment] {
         Dictionary(garments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
@@ -78,7 +113,6 @@ struct InspoScreen: View {
         NavigationStack {
             feedView
                 .background(WK.Palette.canvas.ignoresSafeArea())
-                .navigationTitle("Inspiración")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 // **El estilista, solo aquí.** Preguntarle por un look es
@@ -107,17 +141,39 @@ struct InspoScreen: View {
                         in: zoom
                     )
                 }
-                .sheet(item: $datingLook) { look in
-                    InspoDayPicker { date in
-                        plan(look, on: date)
-                        datingLook = nil
+                .sheet(item: $sheet) { which in
+                    switch which {
+                    case .shelves:
+                        InspoShelvesSheet()
+                    case let .day(look):
+                        InspoDayPicker { date in
+                            plan(look, on: date)
+                            sheet = nil
+                        }
+                    case .place:
+                        PlaceSearchSheet(title: "¿Dónde estás?") { place in
+                            appEnvironment.weather.use(place)
+                            Task { await feed.loadWeather() }
+                        }
+                    case .anchors:
+                        InspoAnchorSheet(initial: feed.anchors) { picked in
+                            withAnimation(WKAnimation.content) {
+                                feed.setAnchors(picked)
+                                scrolled = feed.looks.first?.id
+                            }
+                        }
                     }
-                }
-                .sheet(isPresented: $isChoosingShelves) {
-                    InspoShelvesSheet()
                 }
         }
         .task {
+            // **El permiso, aquí y no al arrancar.** Es donde el motivo está
+            // delante: esta pantalla viste según los grados que haga. Si ya se
+            // ha contestado —sí o no— no se vuelve a preguntar.
+            if appEnvironment.weather.place == nil, !appEnvironment.location.hasBeenAsked {
+                if let place = await appEnvironment.location.current() {
+                    appEnvironment.weather.use(place)
+                }
+            }
             await feed.loadWeather()
             feed.start()
         }
@@ -137,13 +193,51 @@ struct InspoScreen: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        // **Arriba va el tiempo, no la palabra "Inspiración".**
+        //
+        // El título decía dónde estás, que ya lo sabes: has tocado la varita.
+        // Lo que no sabes —y es lo que explica por qué hoy propone abrigo— es
+        // que hacen ocho grados y llueve. Y si no hay sitio elegido, ese hueco
+        // es justo donde pedirlo.
+        ToolbarItem(placement: .principal) {
+            Button { sheet = .place } label: {
+                // Icono **y** texto, escritos a mano: un `Label` dentro de una
+                // barra se queda solo con el icono, y "31°" sin el número no
+                // dice nada.
+                HStack(spacing: WK.Spacing.xs) {
+                    Image(systemName: weatherSymbol)
+                    Text(weatherTitle)
+                }
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.primaryText)
+                // Para que la barra no lo estreche a puntos suspensivos.
+                .fixedSize()
+                // En su píldora de cristal, como los demás botones de la
+                // barra: sin ella se lee como un título y no como algo que se
+                // puede tocar — y esto se toca, para cambiar de sitio.
+                .padding(.horizontal, WK.Spacing.m)
+                .padding(.vertical, WK.Spacing.xs)
+                .adaptiveGlassInteractive(in: .capsule)
+            }
+            .tint(WK.Palette.primaryText)
+        }
+
         ToolbarItem(placement: .topBarLeading) {
             // Qué baldas entran. La ropa de disfraces sigue en el armario,
             // pero no tiene por qué salir propuesta para un martes.
-            Button { isChoosingShelves = true } label: {
+            Button { sheet = .shelves } label: {
                 Image(systemName: "line.3.horizontal.decrease")
             }
             .tint(WK.Palette.primaryText)
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            // Con qué prendas montar. Marcadas, el botón se rellena: es la
+            // única señal de que lo que estás viendo no sale de todo el
+            // armario.
+            Button { sheet = .anchors } label: {
+                Image(systemName: feed.anchors.isEmpty ? "tshirt" : "tshirt.fill")
+            }
+            .tint(feed.anchors.isEmpty ? WK.Palette.primaryText : WK.Palette.accent)
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -177,7 +271,7 @@ struct InspoScreen: View {
                             backdrop: InspoPalette.backdrop(for: look),
                             isSaved: saved.contains(look.id),
                             onSave: { save(look) },
-                            onPlan: { datingLook = look },
+                            onPlan: { sheet = .day(look) },
                             onRegenerate: { regenerate(look) },
                             onEdit: { edit(look) },
                             onDismiss: { withAnimation(WKAnimation.content) { discard(look) } },

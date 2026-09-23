@@ -177,33 +177,64 @@ public struct Stylist: Sendable {
         // Los mejores primero, pero **sin gemelos**: dos conjuntos que solo se
         // diferencian en los zapatos son un conjunto enseñado dos veces.
         scored.sort { $0.look.score > $1.look.score }
+
+        // **Y que no salga la misma chaqueta en media pantalla.**
+        //
+        // La puntuación premia a la prenda que mejor combina, así que la
+        // favorita del armario ganaba en casi todas las combinaciones y
+        // aparecía en cuatro conjuntos de ocho: el resto cambiaba alrededor de
+        // ella y la tanda entera se leía como un solo conjunto con variantes.
+        // Con un tope por prenda, la segunda mejor también sale — que es de lo
+        // que va esto.
+        let quota = max(1, Int((Double(count) / 3).rounded(.up)))
+
         var chosen: [StylistLook] = []
         var used: [Set<UUID>] = []
         var takenNames = Set<String>()
-        for entry in scored {
-            guard chosen.count < count else { break }
-            let tooSimilar = used.contains { existing in
-                let shared = existing.intersection(entry.ids).subtracting(brief.pinned)
-                return shared.count >= max(1, entry.ids.subtracting(brief.pinned).count - 1)
-            }
-            guard !tooSimilar else { continue }
+        var usage: [UUID: Int] = [:]
 
-            // **Sin dos que se llamen igual.** Ver `headlineCandidates`.
-            let candidates = headlineCandidates(for: entry.pieces)
-            let name = candidates.first { !takenNames.contains($0) }
-                ?? Self.distinguish(candidates.first ?? entry.look.headline, taken: takenNames)
-            takenNames.insert(name)
+        // Dos vueltas: la primera con el tope puesto y la segunda sin él. Con
+        // un armario corto puede no haber ocho conjuntos que cumplan la cuota,
+        // y devolver tres en vez de ocho sería peor que repetir una prenda.
+        for pass in 0..<2 {
+            for entry in scored {
+                guard chosen.count < count else { break }
+                guard !chosen.contains(where: { $0.id == entry.look.id }) else { continue }
 
-            chosen.append(
-                StylistLook(
-                    id: entry.look.id,
-                    garmentIDs: entry.look.garmentIDs,
-                    headline: name,
-                    reason: entry.look.reason,
-                    score: entry.look.score
+                let ownGarments = entry.ids.subtracting(brief.pinned)
+
+                if pass == 0 {
+                    let overused = ownGarments.contains { usage[$0, default: 0] >= quota }
+                    guard !overused else { continue }
+                }
+
+                // Y que dos conjuntos no sean el mismo con otros zapatos:
+                // compartir la mitad de las piezas ya es repetirse.
+                let tooSimilar = used.contains { existing in
+                    let shared = existing.intersection(entry.ids).subtracting(brief.pinned)
+                    return shared.count * 2 >= max(2, ownGarments.count)
+                }
+                guard !tooSimilar else { continue }
+
+                // **Sin dos que se llamen igual.** Ver `headlineCandidates`.
+                let candidates = headlineCandidates(for: entry.pieces)
+                let name = candidates.first { !takenNames.contains($0) }
+                    ?? Self.distinguish(candidates.first ?? entry.look.headline, taken: takenNames)
+                takenNames.insert(name)
+
+                chosen.append(
+                    StylistLook(
+                        id: entry.look.id,
+                        garmentIDs: entry.look.garmentIDs,
+                        headline: name,
+                        reason: entry.look.reason,
+                        score: entry.look.score
+                    )
                 )
-            )
-            used.append(entry.ids)
+                used.append(entry.ids)
+                for id in ownGarments { usage[id, default: 0] += 1 }
+            }
+            if chosen.count >= count { break }
         }
         return chosen
     }
@@ -298,6 +329,29 @@ public struct Stylist: Sendable {
             // siempre y el armario se va encogiendo solo.
             if let dislike = brief.discouraged[garment.id] {
                 score -= min(1.5, dislike)
+            }
+
+            // **Y el tiempo que hace hoy, prenda a prenda.**
+            //
+            // La estación ya filtra por temporada, pero "primavera" cabe entre
+            // los seis y los veinticinco grados: con ocho grados y lloviendo,
+            // una camiseta de tirantes cumple la temporada y no sirve. Los
+            // grados de verdad deciden lo que la etiqueta no puede.
+            if let weather = brief.weather {
+                let average = (weather.highCelsius + weather.lowCelsius) / 2
+                if average < 12 {
+                    if garment.isWarm { score += 0.8 }
+                    if garment.isAiry { score -= 1.0 }
+                } else if average > 24 {
+                    if garment.isWarm { score -= 1.0 }
+                    if garment.isAiry { score += 0.6 }
+                }
+                // Con agua, lo que se moja pesa menos: el ante y la tela
+                // vaquera clara acaban en el radiador.
+                if weather.condition == .rain || weather.condition == .storm {
+                    let words = garment.searchText
+                    if words.contains("ante") || words.contains("lino") { score -= 0.5 }
+                }
             }
 
             if garment.isFavorite { score += 0.25 }

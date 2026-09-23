@@ -14,6 +14,7 @@ public extension Garment {
             tags: tags,
             subcategory: subcategory,
             material: material,
+            cut: cut,
             lastWornAt: lastWornAt,
             wearCount: wearCount,
             isFavorite: isFavorite,

@@ -18,6 +18,8 @@ public struct StylistGarment: Sendable, Identifiable, Hashable {
     public let tags: [String]
     public let subcategory: String?
     public let material: String?
+    /// La manga o el largo: lo que decide si una prenda abriga de verdad.
+    public let cut: String?
     public let lastWornAt: Date?
     public let wearCount: Int
     public let isFavorite: Bool
@@ -33,6 +35,7 @@ public struct StylistGarment: Sendable, Identifiable, Hashable {
         tags: [String] = [],
         subcategory: String? = nil,
         material: String? = nil,
+        cut: String? = nil,
         lastWornAt: Date? = nil,
         wearCount: Int = 0,
         isFavorite: Bool = false,
@@ -46,6 +49,7 @@ public struct StylistGarment: Sendable, Identifiable, Hashable {
         self.tags = tags
         self.subcategory = subcategory
         self.material = material
+        self.cut = cut
         self.lastWornAt = lastWornAt
         self.wearCount = wearCount
         self.isFavorite = isFavorite
@@ -59,6 +63,20 @@ public struct StylistGarment: Sendable, Identifiable, Hashable {
 
     /// El papel que juega en el conjunto.
     public var role: StylistRole { StylistRole(kind) }
+
+    /// Abriga de verdad: punto, lana, plumas, pana.
+    var isWarm: Bool {
+        let words = Self.fold([subcategory ?? "", material ?? "", name].joined(separator: " "))
+        return ["lana", "punto", "plumas", "plumifero", "pana", "cachemir", "polar", "abrigo", "jersey", "sudadera"]
+            .contains { words.contains($0) }
+    }
+
+    /// Es de ir fresco: manga corta, sin manga, pantalón corto, lino.
+    var isAiry: Bool {
+        let words = Self.fold([cut ?? "", subcategory ?? "", material ?? ""].joined(separator: " "))
+        return ["sin manga", "manga corta", "corto", "corta", "short", "banador", "lino", "sandalias", "tirantes"]
+            .contains { words.contains($0) }
+    }
 
     /// Punto grueso: un jersey, una sudadera, un cárdigan.
     ///
