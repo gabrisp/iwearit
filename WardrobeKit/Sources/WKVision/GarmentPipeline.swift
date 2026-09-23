@@ -901,12 +901,16 @@ public actor GarmentPipeline {
         original: CGImage
     ) async -> [DetectedGarment]? {
         guard
-            // **La máscara se pide sobre la foto grande.** Pedida sobre la
-            // copia de trabajo —1100 px— y aplicada luego sobre la de detalle,
-            // el borde se amplía y sale dentado: eso era lo pixelado. Vision
-            // la calcula a la resolución de la foto que se le da, así que
-            // dándole la buena el canto sale como el de "copiar sujeto".
-            let observation = try? await VisionStages.foregroundInstances(in: original),
+            // **La máscara se pide sobre la misma imagen que se le pasa
+            // al aplicarla.** Aquí estaba el recorte raro: se pedía sobre la
+            // foto original —doce megapíxeles— y se aplicaba con un manejador
+            // de `detail`, que es una copia a 2400. Vision devuelve la máscara
+            // en los píxeles de la imagen que analizó, así que al aplicarla
+            // sobre otra más pequeña cubría solo el trozo de arriba a la
+            // izquierda: de ahí el cuadrado desplazado en vez de la prenda. Con
+            // las dos en la misma imagen, el canto sigue siendo fino —2400 px
+            // son de sobra— y además se tarda menos.
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             !observation.allInstances.isEmpty,
             let map = try? await segmenter.classMap(for: image)
         else { return nil }
@@ -1519,8 +1523,9 @@ public actor GarmentPipeline {
         appliedTo detail: CGImage
     ) async -> CGImage? {
         guard
-            // Sobre la grande: ver `extractFromSubjects`.
-            let observation = try? await VisionStages.foregroundInstances(in: original),
+            // Sobre la misma que se le pasa al aplicarla: ver
+            // `extractFromSubjects`.
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             !observation.allInstances.isEmpty,
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
@@ -1540,7 +1545,9 @@ public actor GarmentPipeline {
         detail: CGImage
     ) async -> (normalized: ImmutableImage, rawCrop: ImmutableImage)? {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: original),
+            // La misma imagen para pedir la máscara y para aplicarla: ver
+            // `extractFromSubjects`.
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
                 imageFrom: ImageRequestHandler(detail),
@@ -1559,7 +1566,9 @@ public actor GarmentPipeline {
 
     private func extractSingleSubject(from original: CGImage, detail: CGImage) async -> [DetectedGarment] {
         guard
-            let observation = try? await VisionStages.foregroundInstances(in: original),
+            // La misma imagen para pedir la máscara y para aplicarla: ver
+            // `extractFromSubjects`.
+            let observation = try? await VisionStages.foregroundInstances(in: detail),
             let buffer = try? observation.generateMaskedImage(
                 for: observation.allInstances,
                 imageFrom: ImageRequestHandler(detail),
