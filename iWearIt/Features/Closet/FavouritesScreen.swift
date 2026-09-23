@@ -316,13 +316,14 @@ private struct FavouriteOutfitCell: View {
             }
         }
         .contentShape(.rect)
-        // Un toque marca mientras se está eligiendo; fuera de eso, la tarjeta
-        // se abre como siempre.
+        // **El doble toque va antes que el simple.** Los dos conviven en la
+        // misma tarjeta —uno marca mientras eliges, el otro abre—, y SwiftUI
+        // resuelve primero el que pide más toques si está puesto antes.
+        .onTapGesture(count: 2) { if !isSelecting { onOpen() } }
+        // Un toque marca mientras se está eligiendo; fuera de eso, nada.
         .onTapGesture { if isSelecting { onToggle() } }
-        // Sin doble toque ni pulsación larga: ver `InspoLookCard`. Aquí
-        // además abrían el editor, que descarta el outfit al cerrarse con la
-        // equis — dos toques sin querer y el favorito se iba.
-        // .onTapGesture(count: 2) { if !isSelecting { onOpen() } }
+        // La pulsación larga no vuelve: abría el editor, y este descarta el
+        // outfit al cerrarse con la equis.
         // .onLongPressGesture { if !isSelecting { onOpen() } }
     }
 

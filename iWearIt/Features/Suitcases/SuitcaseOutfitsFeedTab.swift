@@ -224,8 +224,14 @@ private struct SuitcaseFeedCard: View {
                     .tint(WK.Palette.primaryText)
                 }
             }
-            .padding(isCompact ? WK.Spacing.xs : WK.Spacing.m)
+            // Con aire en las dos medidas: pegados al canto, en una celda de
+            // rejilla el pulgar los roza al arrancar el scroll.
+            .padding(isCompact ? WK.Spacing.s : WK.Spacing.m)
         }
+        .contentShape(.rect)
+        // Doble toque para editar, igual que en el plan y en el resto de
+        // lienzos. Un toque simple no: compite con el scroll.
+        .onTapGesture(count: 2, perform: onEdit)
     }
 
     /// El papel de la maleta, que es lo que la distingue de las demás.

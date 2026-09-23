@@ -48,6 +48,8 @@ struct PlanFeedScreen: View {
     @State private var editingIsNew = false
     @State private var movingOutfit: Outfit?
     @State private var isPicking = false
+    /// Dónde está el scroll vertical del día que se ve.
+    @State private var anchorCard: AnyHashable?
 
     /// Para que cada lienzo viaje a su sitio al cambiar de modo.
     @Namespace private var morph
@@ -122,6 +124,15 @@ struct PlanFeedScreen: View {
                     create(with: picked)
                 }
             }
+            // **De la tarjeta de crear no te quedas colgado.**
+            //
+            // Es un botón, no un sitio: si cierras el selector sin elegir
+            // nada, la vista vuelve al último outfit. Solo se puede estar ahí
+            // cuando el día está vacío, porque entonces no hay otro sitio.
+            .onChange(of: isPicking) { _, isOpen in
+                guard !isOpen, let last = entries(of: day ?? anchor).last else { return }
+                withAnimation(WKAnimation.content) { anchorCard = AnyHashable(last.id) }
+            }
             // El calendario de siempre, ahora desde la barra. Ver
             // `CalendarJumpSheet`.
             .sheet(isPresented: $isPickingDay) {
@@ -166,6 +177,19 @@ struct PlanFeedScreen: View {
 
     /// Lo que mide la tira con su aire. Ver `DayStripBar`.
     private static let stripHeight: CGFloat = 64
+
+    /// **Lo que mide un hueco, descontando lo que tapan las barras.**
+    ///
+    /// Sin esto las tarjetas del plan salían más grandes que las de
+    /// inspiración: allí el contenedor del scroll ya viene recortado por la
+    /// barra de navegación y la de pestañas, y aquí la de arriba está
+    /// escondida —manda la tira— así que hay que restarlas a mano.
+    private var stride: CGFloat {
+        // Solo la tira: la barra de pestañas ya se ha descontado sola —va como
+        // `adaptiveSafeAreaBar`, así que el scroll no la ve— y restarla otra
+        // vez dejaba las tarjetas más pequeñas que las de inspiración.
+        max(320, pageSize.height - Self.stripHeight)
+    }
 
     /// Hoy, que es desde donde se cuentan los días de la tira.
     private var anchor: Date { Calendar.current.startOfDay(for: Date()) }
@@ -227,7 +251,7 @@ struct PlanFeedScreen: View {
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
                     .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
-                    .modifier(PlanCardSize(page: pageSize))
+                    .modifier(PlanCardSize(page: pageSize, stride: stride))
                     .id(AnyHashable(entry.id))
                 }
 
@@ -237,7 +261,7 @@ struct PlanFeedScreen: View {
                 // mismo gesto que trae más propuestas en inspiración.
                 PlanCreateCard()
                     .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
-                    .modifier(PlanCardSize(page: pageSize))
+                    .modifier(PlanCardSize(page: pageSize, stride: stride))
                     // **Solo si había algo antes.** Con el día vacío, esta
                     // tarjeta es lo único en pantalla: dispararse al verse
                     // sería abrir el selector nada más llegar al día. Con
@@ -253,6 +277,7 @@ struct PlanFeedScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $anchorCard, anchor: .center)
         .scrollIndicators(.hidden)
     }
 
@@ -330,6 +355,19 @@ struct PlanFeedScreen: View {
         edit(outfit, isNew: true)
     }
 
+    /// El papel de un outfit: el suyo, o el de la app si no tiene.
+    static func backdrop(of outfit: Outfit) -> Color {
+        guard
+            let raw = outfit.backdropRaw,
+            let components = OutfitBackdrop(rawValue: raw)?.components
+        else { return WK.Palette.canvas }
+        return WK.Palette.canvasTint(
+            red: components.red,
+            green: components.green,
+            blue: components.blue
+        )
+    }
+
     static func dayLabel(for date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Hoy" }
@@ -345,11 +383,13 @@ struct PlanFeedScreen: View {
 /// `InspoCardSize`.
 struct PlanCardSize: ViewModifier {
     let page: CGSize
+    /// Lo que mide un hueco. Si no se dice, el del contenedor.
+    var stride: CGFloat?
 
     func body(content: Content) -> some View {
         content
-            .padding(.vertical, max(WK.Spacing.xs, page.height / 24))
-            .containerRelativeFrame(.vertical)
+            .padding(.vertical, max(WK.Spacing.xs, (stride ?? page.height) / 24))
+            .frame(height: stride)
             .scrollTransition(.interactive, axis: .vertical) { view, phase in
                 view
                     .opacity(phase.isIdentity ? 1 : 0.35)
@@ -393,19 +433,12 @@ private struct PlanFeedCard: View {
             }
             .padding(WK.Spacing.m)
         }
+        .contentShape(.rect)
+        // Doble toque para entrar a editar, como en cualquier otro lienzo.
+        .onTapGesture(count: 2, perform: onEdit)
     }
 
-    private var backdrop: Color {
-        guard
-            let raw = entry.outfit.backdropRaw,
-            let components = OutfitBackdrop(rawValue: raw)?.components
-        else { return WK.Palette.canvas }
-        return WK.Palette.canvasTint(
-            red: components.red,
-            green: components.green,
-            blue: components.blue
-        )
-    }
+    private var backdrop: Color { PlanFeedScreen.backdrop(of: entry.outfit) }
 }
 
 /// El mismo outfit, en la rejilla.
@@ -416,14 +449,18 @@ private struct PlanGridCell: View {
     let onMove: () -> Void
 
     var body: some View {
+        // **El mismo lienzo que a pantalla completa.** Con su papel: el color
+        // es del outfit, no del tamaño con el que se mire, y en la rejilla
+        // salían todos grises mientras en grande cada uno tenía el suyo.
         LookCanvasView(
             garments: entry.outfit.garments,
             store: store,
+            backdrop: PlanFeedScreen.backdrop(of: entry.outfit),
             outfit: entry.outfit,
             showsBorder: true
         )
         .overlay(alignment: .topTrailing) {
-            HStack(spacing: WK.Spacing.xs) {
+            VStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
                     .tint(WK.Palette.primaryText)
                 WKCircleButton(
@@ -433,8 +470,15 @@ private struct PlanGridCell: View {
                 )
                 .tint(WK.Palette.primaryText)
             }
-            .padding(WK.Spacing.xs)
+            // Separados del canto, como en grande: pegados al borde se leen
+            // como si se salieran de la tarjeta, y en una celda pequeña el
+            // pulgar los rozaba al pasar.
+            .padding(WK.Spacing.s)
         }
+        .contentShape(.rect)
+        // El mismo doble toque que en grande. Un toque simple no: en una
+        // rejilla se toca sin querer al arrancar el scroll.
+        .onTapGesture(count: 2, perform: onEdit)
     }
 }
 

@@ -701,10 +701,10 @@ struct InspoLookCard: View {
             // gestos que abren cualquier otro lienzo de la app. Un toque
             // simple no: pasando conjuntos con el pulgar se toca sin querer, y
             // abrir el editor por error saca de la pantalla en la que estabas.
-            // **Sin doble toque ni pulsación larga.** El lápiz de la esquina
-            // abre el editor y se ve; estos dos no se veían y se disparaban
-            // solos al pasar tarjetas con el pulgar.
-            // .onTapGesture(count: 2, perform: onEdit)
+            // **El doble toque, de vuelta.** El lápiz de la esquina sigue
+            // ahí para quien no lo conozca. La pulsación larga no vuelve: esa
+            // sí se disparaba sola al apoyar el dedo pasando tarjetas.
+            .onTapGesture(count: 2, perform: onEdit)
             // .onLongPressGesture(perform: onEdit)
     }
 

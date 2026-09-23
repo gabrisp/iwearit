@@ -532,14 +532,13 @@ private struct TripDayCanvas: View {
             if let outfit, !outfit.visibleItems.isEmpty {
                 FreeformCanvas(outfit: outfit, store: appEnvironment.imageStore, selection: selection)
                     .allowsHitTesting(false)
-                    // **Sin doble toque ni pulsación larga para editar.**
-                    //
-                    // Cada lienzo tiene ya su lápiz, que es un botón que se ve.
-                    // Los dos gestos estaban para quien los conociera, y a
-                    // cambio hacían que tocar dos veces sin querer —o apoyar el
-                    // dedo mientras pasas— te sacara de donde estabas. Se
-                    // quedan comentados: revivirlos es quitar dos barras.
-                    // .onTapGesture(count: 2) { onEdit(outfit, false) }
+                    // **Vuelve el doble toque.** Solo el doble toque: la
+                    // pulsación larga se queda comentada, porque esa era la
+                    // que se disparaba sola —apoyar el dedo mientras pasas de
+                    // página es un gesto que se hace sin querer— mientras que
+                    // tocar dos veces seguidas en el mismo sitio no se hace
+                    // por accidente.
+                    .onTapGesture(count: 2) { onEdit(outfit, false) }
                     // .onLongPressGesture(minimumDuration: 0.4) { onEdit(outfit, false) }
                     // En todo el lienzo: sin esto el gesto solo existe donde
                     // hay una prenda pintada, y el hueco entre ellas —que es
