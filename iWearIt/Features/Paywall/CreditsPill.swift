@@ -49,6 +49,8 @@ struct CreditsPill: View {
 struct CreditsHistoryScreen: View {
     let store: Store
 
+    @Environment(\.dismiss) private var dismiss
+
     private static let stamp: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -71,6 +73,12 @@ struct CreditsHistoryScreen: View {
         .background(WK.Palette.canvas.ignoresSafeArea())
         .navigationTitle("Gastos")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: { Image(systemName: "xmark") }
+                    .tint(WK.Palette.primaryText)
+            }
+        }
     }
 
     private var list: some View {

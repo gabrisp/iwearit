@@ -11,6 +11,8 @@ import WKPersistence
 /// comporta distinto en cada versión de iOS.
 struct ProfileScreen: View {
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// Si el historial de gastos está abierto.
+    @State private var isShowingCredits = false
 
     var body: some View {
         // **Sin `NavigationStack` propia.** Ajustes es ahora una pantalla que
@@ -45,22 +47,23 @@ struct ProfileScreen: View {
         .toolbar {
             if appEnvironment.store.isReady {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(value: CreditsRoute.history) {
+                    Button { isShowingCredits = true } label: {
                         CreditsPill(store: appEnvironment.store)
                     }
                     .buttonStyle(WKPressStyle())
                 }
             }
         }
-        .navigationDestination(for: CreditsRoute.self) { _ in
-            CreditsHistoryScreen(store: appEnvironment.store)
+        // **Hoja y no una pantalla empujada.** Mirar en qué se fue el saldo es
+        // un paréntesis: se abre, se mira y se cierra. Empujada, dejaba Ajustes
+        // dos atrás y había que volver por donde se vino.
+        .sheet(isPresented: $isShowingCredits) {
+            NavigationStack {
+                CreditsHistoryScreen(store: appEnvironment.store)
+            }
         }
     }
 }
-
-/// A dónde lleva la píldora. Un enum con un caso porque `navigationDestination`
-/// necesita un tipo, no un booleano.
-enum CreditsRoute: Hashable { case history }
 
 /// Qué pasa con iCloud.
 ///
