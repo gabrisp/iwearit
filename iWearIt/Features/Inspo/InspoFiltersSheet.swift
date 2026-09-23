@@ -16,6 +16,9 @@ struct InspoFiltersSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
 
+    /// Qué hacer cuando cambian las baldas que entran: rehacer lo propuesto.
+    var onShelvesChanged: () -> Void = {}
+
     /// Las prendas alrededor de las que montar. Vacío = todo el armario.
     @Binding var anchors: Set<UUID>
 
@@ -149,6 +152,10 @@ struct InspoFiltersSheet: View {
                 withAnimation(WKAnimation.selection) {
                     shelf.isExcludedFromInspo.toggle()
                 }
+                // Y que se entere quien monta: si no, apagar una balda no
+                // cambiaba nada hasta pasado medio minuto. Ver
+                // `InspoFeed.wardrobeChanged`.
+                onShelvesChanged()
             }
         }
     }

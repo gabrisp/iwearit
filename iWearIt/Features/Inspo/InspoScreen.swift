@@ -158,6 +158,9 @@ struct InspoScreen: View {
                     switch which {
                     case .filters:
                         InspoFiltersSheet(
+                            onShelvesChanged: {
+                                withAnimation(WKAnimation.content) { feed.wardrobeChanged() }
+                            },
                             anchors: Binding(
                                 get: { feed.anchors },
                                 set: { picked in
@@ -255,7 +258,7 @@ struct InspoScreen: View {
                 // barra: sin ella se lee como un título y no como algo que se
                 // puede tocar — y esto se toca, para cambiar de sitio.
                 .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.xs)
+                .padding(.vertical, WK.Spacing.s)
                 .adaptiveGlassInteractive(in: .capsule)
             }
             .tint(WK.Palette.primaryText)
@@ -844,15 +847,26 @@ private struct InspoEmptyState: View {
     let hasGarments: Bool
 
     var body: some View {
-        ContentUnavailableView {
-            Label("Todavía no hay nada que proponer", systemImage: "sparkles")
-        } description: {
-            Text(
-                hasGarments
-                    ? "Hace falta al menos algo de arriba y algo de abajo para montar un conjunto."
-                    : "Añade algunas prendas al armario y aquí aparecerán conjuntos hechos con ellas."
-            )
-        }
+        // **Una tarjeta a medio hacer, no un cartel.**
+        //
+        // Lo de antes era un `ContentUnavailableView` con su título y su
+        // explicación, y aparecía también en el medio segundo que tarda la
+        // primera tanda en montarse: la pantalla se abría con un aviso de que
+        // no hay nada, y acto seguido había ocho. Ver `InspoPlaceholderCard`.
+        //
+        // ContentUnavailableView {
+        //     Label("Todavía no hay nada que proponer", systemImage: "sparkles")
+        // } description: {
+        //     Text(
+        //         hasGarments
+        //             ? "Hace falta al menos algo de arriba y algo de abajo para montar un conjunto."
+        //             : "Añade algunas prendas al armario y aquí aparecerán conjuntos hechos con ellas."
+        //     )
+        // }
+        InspoPlaceholderCard()
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.vertical, WK.Spacing.xl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -1018,6 +1032,10 @@ private struct ShuffleGlow: View {
                 .fill(WK.Palette.accent)
                 .scaleEffect(max(0.001, pull))
                 .opacity(pull)
+                // Difuminado, que es lo que lo hace aura y no pegatina. El
+                // recorte de fuera es lo que impide que el desenfoque se
+                // escape por las esquinas y parezca un cuadrado.
+                .blur(radius: 5)
 
             Image(systemName: "shuffle")
                 .foregroundStyle(WK.Palette.primaryText)

@@ -110,6 +110,12 @@ struct SuitcaseInspoTab: View {
 
     var body: some View {
         Group {
+            // **Aquí sí se dice lo que falta, con todas las letras.**
+            //
+            // La tarjeta con brillo es de la pestaña de inspiración, donde no
+            // hay nada que puedas hacer más que añadir ropa al armario. En una
+            // maleta sí lo hay —meter un pantalón más— y merece el recuento
+            // entero: cuántas llevas de arriba, de abajo y de calzado.
             if !readiness.canGenerate {
                 SuitcaseInspoGate(readiness: readiness)
             } else if looks.isEmpty {
@@ -525,6 +531,10 @@ private struct InspoReadinessPill: View {
     }
 
     private var count: String {
-        readiness.combinations == 1 ? "1 conjunto" : "\(readiness.combinations) conjuntos"
+        switch readiness.combinations {
+        case 0: "Sin conjuntos"
+        case 1: "1 conjunto"
+        default: "\(readiness.combinations) conjuntos"
+        }
     }
 }

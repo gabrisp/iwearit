@@ -345,6 +345,20 @@ final class InspoFeed {
         return all.filter { restrictedTo.contains($0.id) }
     }
 
+    /// **El armario ha cambiado: olvida lo que sabías.**
+    ///
+    /// Apagar una balda en los filtros cambia de qué se tira para montar, pero
+    /// aquí no se notaba nada: la lectura del armario está cacheada medio
+    /// minuto y las propuestas ya montadas seguían puestas. Se apagaba
+    /// "Camisetas" y la pantalla seguía enseñando camisetas.
+    func wardrobeChanged() {
+        cachedWardrobe = []
+        wardrobeReadAt = nil
+        reserve.removeAll()
+        dismissed.removeAll()
+        shuffle()
+    }
+
     private var cachedWardrobe: [StylistGarment] = []
     private var wardrobeReadAt: Date?
     private var cachedWorn: [UUID: Date] = [:]

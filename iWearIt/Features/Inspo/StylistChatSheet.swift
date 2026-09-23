@@ -210,6 +210,11 @@ struct StylistChatSheet: View {
                 ForEach(looks) { look in
                     StylistResultCard(
                         garments: look.garmentIDs.compactMap { byID[$0] },
+                        // **Lo editado se queda en su tarjeta.** Si abriste
+                        // esta propuesta en el editor y moviste cosas, lo que
+                        // se ve aquí es eso, no la propuesta de antes. Igual
+                        // que en la pestaña de inspiración.
+                        outfit: outfit(for: look),
                         store: appEnvironment.imageStore,
                         reason: look.reason,
                         isSaved: chat.saved.contains(look.id),
@@ -382,14 +387,20 @@ struct StylistChatSheet: View {
     }
 
     private func save(_ look: StylistLook) {
-        guard let outfit = materialise(look, isFavorite: true) else { return }
-        _ = outfit
+        // El de siempre si ya existe —lo editaste y lo estás guardando—, y uno
+        // nuevo si no. Crear otro dejaría dos: el que tocaste y el que se
+        // guarda.
+        let outfit = outfit(for: look) ?? materialise(look, isFavorite: true)
+        guard let outfit else { return }
+        outfit.isFavorite = true
         try? modelContext.save()
+        feed.remember(outfit, for: look)
         chat.saved.insert(look.id)
     }
 
     private func plan(_ look: StylistLook, on date: Date) {
-        guard let outfit = materialise(look, isFavorite: false) else { return }
+        let existingOutfit = outfit(for: look) ?? materialise(look, isFavorite: false)
+        guard let outfit = existingOutfit else { return }
         let dayStart = Calendar.current.startOfDay(for: date)
         let existing = try? modelContext.fetch(
             FetchDescriptor<PlannedDay>(predicate: #Predicate { $0.dayStart == dayStart })
@@ -407,9 +418,15 @@ struct StylistChatSheet: View {
     /// Abre el conjunto en el editor: se cierra el estilista, se empuja el
     /// editor y al volver la conversación sigue donde estaba.
     private func edit(_ look: StylistLook) {
-        guard let outfit = materialise(look, isFavorite: false) else { return }
+        let existing = outfit(for: look) ?? materialise(look, isFavorite: false)
+        guard let outfit = existing else { return }
         try? modelContext.save()
-        chat.saved.insert(look.id)
+        // **Se apunta cuál es el suyo.** Sin esto, lo que hicieras en el
+        // editor no volvía a ninguna parte: la tarjeta seguía enseñando la
+        // propuesta original y el outfit editado se quedaba sin sitio —ni en
+        // favoritos, ni en un día, ni en el chat—. Ahora la tarjeta lo enseña,
+        // y guardarlo o ponerle fecha guarda **ese**.
+        feed.remember(outfit, for: look)
         if let onEdit {
             onEdit(outfit)
         } else {
@@ -421,6 +438,15 @@ struct StylistChatSheet: View {
     private func dislike(_ look: StylistLook) {
         feed.dislike(look)
         withAnimation(WKAnimation.content) { chat.removeLook(look.id) }
+    }
+
+    /// El outfit de verdad de una propuesta, si ya se hizo uno y sigue vivo.
+    private func outfit(for look: StylistLook) -> Outfit? {
+        guard let id = feed.outfitID(for: look) else { return nil }
+        guard let outfit: Outfit = modelContext.registeredModel(for: id) else { return nil }
+        // Descartado en el editor: vuelve a enseñarse la propuesta.
+        guard outfit.deletedAt == nil, outfit.modelContext != nil else { return nil }
+        return outfit
     }
 
     private func materialise(_ look: StylistLook, isFavorite: Bool) -> Outfit? {
@@ -537,6 +563,8 @@ private struct StylistPrompts: View {
 /// Un conjunto propuesto en el chat: se mira, se guarda o se le pone día.
 private struct StylistResultCard: View {
     let garments: [Garment]
+    /// El outfit de verdad, si esta propuesta ya se convirtió en uno.
+    var outfit: Outfit?
     let store: ImageStore
     let reason: String
     let isSaved: Bool
@@ -547,7 +575,7 @@ private struct StylistResultCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-            LookCanvasView(garments: garments, store: store, showsBorder: true)
+            LookCanvasView(garments: garments, store: store, outfit: outfit, showsBorder: true)
                 .overlay(alignment: .topTrailing) {
                     HStack(spacing: WK.Spacing.xs) {
                         circle(isSaved ? "heart.fill" : "heart", action: onSave)
