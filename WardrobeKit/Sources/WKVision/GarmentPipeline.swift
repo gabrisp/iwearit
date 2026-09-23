@@ -743,6 +743,96 @@ public actor GarmentPipeline {
     /// No es 1: el segmentador llama "pantalón" al bajo de muchas camisetas.
     static let subjectDominantShare = 0.6
 
+    /// Cuánto tiene que medir un sujeto, comparado con el mayor, para contar
+    /// como prenda propia y no como un trozo del otro.
+    ///
+    /// Un tercio: una capucha, un cordón o un bolsillo suelto no llegan; una
+    /// camiseta al lado de un pantalón, sí. Por debajo se junta, que es lo que
+    /// protege al caso de siempre —una foto, una prenda—.
+    static let separateSubjectShare = 0.33
+    /// Y cuánto puede solaparse con él. Lo que cae dentro del otro es parte
+    /// del otro, por grande que sea.
+    static let sameSubjectOverlap = 0.35
+
+    /// Junta los sujetos que son trozos de la misma prenda y deja sueltos los
+    /// que son prendas distintas.
+    ///
+    /// La medida es tonta a propósito —área y solape de recuadros— porque la
+    /// pregunta lo es: ¿esto de aquí es un pedazo de aquello, o es otra cosa
+    /// que está al lado? Nada de esto necesita un modelo, y meterlo haría
+    /// impredecible el caso que ya funcionaba.
+    static func groupedInstances(
+        _ instances: [Int],
+        observation: InstanceMaskObservation,
+        handler: ImageRequestHandler,
+        map: ClassMap
+    ) async -> [IndexSet] {
+        guard instances.count > 1 else { return [IndexSet(instances)] }
+
+        struct Piece {
+            let instance: Int
+            let bounds: CGRect
+            let area: Double
+            let clothing: Double
+        }
+
+        var pieces: [Piece] = []
+        for instance in instances {
+            guard
+                let buffer = try? observation.generateMaskedImage(
+                    for: IndexSet(integer: instance),
+                    imageFrom: handler,
+                    croppedToInstancesExtent: false
+                ),
+                let masked = Self.cgImage(from: buffer),
+                let bounds = CropNormalizer.opaqueBounds(of: masked),
+                let tally = Self.tally(of: masked, in: map)
+            else { continue }
+            pieces.append(
+                Piece(
+                    instance: instance,
+                    bounds: bounds,
+                    area: tally.area,
+                    clothing: tally.clothing
+                )
+            )
+        }
+        guard let largest = pieces.max(by: { $0.area < $1.area }) else {
+            return [IndexSet(instances)]
+        }
+
+        // Cada pieza empieza sola; las que no se sostienen se pegan a la
+        // mayor con la que se solapan.
+        var groups: [IndexSet] = []
+        var attachedToLargest = IndexSet(integer: largest.instance)
+        for piece in pieces where piece.instance != largest.instance {
+            let isBigEnough = piece.area >= largest.area * separateSubjectShare
+            let isClothing = piece.clothing >= subjectClothingFloor
+            let overlap = Self.overlapFraction(piece.bounds, inside: largest.bounds)
+            if isBigEnough, isClothing, overlap < sameSubjectOverlap {
+                groups.append(IndexSet(integer: piece.instance))
+                DiagnosticsLog.record(
+                    "SUJETO",
+                    String(
+                        format: "sujeto %d va suelto: %.0f%% del mayor, solape %.0f%%",
+                        piece.instance, piece.area / max(largest.area, 0.0001) * 100, overlap * 100
+                    )
+                )
+            } else {
+                attachedToLargest.insert(piece.instance)
+            }
+        }
+        groups.insert(attachedToLargest, at: 0)
+        return groups
+    }
+
+    /// Cuánto de un recuadro cae dentro de otro, de 0 a 1.
+    static func overlapFraction(_ rect: CGRect, inside other: CGRect) -> Double {
+        let intersection = rect.intersection(other)
+        guard !intersection.isNull, rect.width > 0, rect.height > 0 else { return 0 }
+        return (intersection.width * intersection.height) / (rect.width * rect.height)
+    }
+
     static func tally(of masked: CGImage, in map: ClassMap) -> SubjectTally? {
         guard
             let buffer = PixelBuffer(width: map.width, height: map.height),
@@ -828,12 +918,21 @@ public actor GarmentPipeline {
         }
 
         var subjects: [Subject] = []
-        // **Una foto, una prenda.** Al añadir a mano, el usuario está
-        // fotografiando **una** cosa: si iOS la parte en dos sujetos —la
-        // chaqueta y su capucha, el zapato y su cordón— quedarse con uno sería
-        // recortarle un trozo a la prenda. Con el escaneo de la galería sí se
-        // separan: ahí puede haber dos camisetas sobre la cama.
-        let merged = splitsInstances ? instances.map { IndexSet(integer: $0) } : [IndexSet(instances)]
+        // **Lo que decide si dos sujetos son una prenda o dos es la foto, no
+        // un interruptor.**
+        //
+        // Antes, al añadir a mano se juntaban **todos** los sujetos en uno:
+        // partía de que el usuario fotografía una cosa, y con la chaqueta y su
+        // capucha —o el zapato y su cordón— acertaba. Pero con dos prendas en
+        // la misma foto daba una sola prenda hecha de las dos, que es lo que
+        // nunca debería pasar: se ve a simple vista que son dos.
+        //
+        // Ahora se mira: un sujeto pequeño o metido dentro de otro es un trozo
+        // suyo y se junta; un sujeto grande, con su ropa dentro y en su sitio
+        // de la foto, es otra prenda. Ver `groupedInstances`.
+        let merged = splitsInstances
+            ? instances.map { IndexSet(integer: $0) }
+            : await Self.groupedInstances(instances, observation: observation, handler: handler, map: map)
         for group in merged {
             let instance = group.first ?? 0
             guard

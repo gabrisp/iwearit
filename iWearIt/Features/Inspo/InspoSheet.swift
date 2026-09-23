@@ -40,6 +40,8 @@ struct InspoSheet: View {
     @State private var brief: StylistBrief?
     @State private var saved: Set<UUID> = []
     @State private var isThinking = false
+    /// Lo que mide el carrusel, para poder centrar la tarjeta enfocada.
+    @State private var carouselWidth: CGFloat = 0
     @FocusState private var isWriting: Bool
 
     private var shown: [StylistLook] { results ?? feed.looks }
@@ -129,18 +131,41 @@ struct InspoSheet: View {
                         onPlan: { plan(look) },
                         onDismiss: { withAnimation(WKAnimation.content) { discard(look) } }
                     )
-                    .containerRelativeFrame(.horizontal, count: 1, spacing: WK.Spacing.m)
+                    // **Todos en escena.** Tres cuartos de ancho para que los
+                    // de al lado asomen: un conjunto solo en pantalla no deja
+                    // ver que hay más, y la flecha o el punto que lo contaría
+                    // es un adorno que ocupa sitio. Se ven, y se ve que hay
+                    // otros esperando.
+                    .containerRelativeFrame(
+                        .horizontal, count: 4, span: 3, spacing: WK.Spacing.m
+                    )
+                    // El del medio, entero; los de los lados, atrás. Igual que
+                    // las prendas: lo que está en el centro es lo que estás
+                    // mirando, y el resto acompaña.
+                    .scrollTransition(.interactive, axis: .horizontal) { content, phase in
+                        content
+                            .opacity(phase.isIdentity ? 1 : 0.45)
+                            .scaleEffect(phase.isIdentity ? 1 : 0.86)
+                    }
                 }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
         .scrollIndicators(.hidden)
-        // **El margen, como inserción del scroll y no como relleno del
-        // contenido.** `containerRelativeFrame` mide el contenedor, así que
-        // con el relleno por dentro cada tarjeta medía el ancho entero y se
-        // salía por la derecha: los botones quedaban cortados por el borde.
-        .safeAreaPadding(.horizontal, WK.Spacing.screenInset)
+        // **El conjunto que miras, en el centro.**
+        //
+        // La tarjeta ocupa tres cuartos del ancho, así que el cuarto que sobra
+        // se reparte a los dos lados: el que está enfocado queda centrado y
+        // los vecinos asoman por igual a izquierda y derecha. Con el margen
+        // fijo de pantalla, el primero se quedaba pegado al borde izquierdo y
+        // la escena estaba descuadrada.
+        //
+        // Como inserción del scroll y no como relleno del contenido:
+        // `containerRelativeFrame` mide el contenedor, así que el relleno por
+        // dentro daba tarjetas del ancho entero que se salían por la derecha.
+        .safeAreaPadding(.horizontal, max(WK.Spacing.screenInset, carouselWidth / 8))
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { carouselWidth = $0 }
     }
 
     /// Donde se escribe. Pegado al teclado, como cualquier chat.
@@ -301,25 +326,16 @@ private struct InspoLookCard: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            // **Con tope de alto.** Un lienzo es alto —mil por mil
-            // cuatrocientos— y a ancho completo se comía la pantalla entera:
-            // el conjunto se veía, pero ni el motivo ni el chat cabían debajo,
-            // y esta pantalla es las dos cosas.
-            LookCanvasView(garments: garments, store: store)
-                .frame(maxHeight: 420)
-                .overlay(alignment: .topTrailing) { actions }
-
-            Text(look.headline)
-                .font(WK.Font.headline)
-                .foregroundStyle(WK.Palette.primaryText)
-            // El motivo, siempre visible: una propuesta sin porqué es ropa
-            // sacada al azar.
-            Text(look.reason)
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.secondaryText)
-                .lineLimit(2)
-        }
+        // **Sin títulos ni explicaciones debajo.** Lo que se mira aquí es la
+        // ropa; el nombre y el porqué eran dos líneas de letra pequeña
+        // compitiendo con el conjunto. El nombre sigue existiendo —es el que
+        // se guarda— y el motivo lo cuenta el chat cuando se pregunta.
+        //
+        // El texto de antes se queda comentado:
+        // Text(look.headline)
+        // Text(look.reason)
+        LookCanvasView(garments: garments, store: store)
+            .overlay(alignment: .topTrailing) { actions }
     }
 
     private var actions: some View {
