@@ -124,10 +124,27 @@ struct OutfitPickerSheet: View {
         // aparecer la selección de abajo y había que reservarle hueco. En la
         // barra de verdad el título se queda quieto pase lo que pase debajo, y
         // los dos botones caen donde el sistema los pone en toda la app.
-        .navigationTitle(title)
+        // **En iPad, el título a la izquierda.** Centrado en una hoja ancha
+        // queda flotando en medio de nada, lejos de lo que titula; el sistema
+        // lo centra porque en un iPhone la barra es estrecha y ahí sí manda el
+        // centro.
+        .navigationTitle(isWide ? "" : title)
         .navigationBarTitleDisplayMode(.inline)
-        .wkNavigationSubtitle(subtitle)
+        .wkNavigationSubtitle(isWide ? "" : subtitle)
         .toolbar {
+            if isWide {
+                ToolbarItem(placement: .topBarLeading) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(title)
+                            .font(WK.Font.headline)
+                            .foregroundStyle(WK.Palette.primaryText)
+                        Text(subtitle)
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { capture = .camera } label: { Image(systemName: "plus") }
                     .tint(WK.Palette.primaryText)
@@ -239,6 +256,10 @@ struct OutfitPickerSheet: View {
     }
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    /// iPad —o iPhone en apaisado—: la barra es ancha.
+    private var isWide: Bool { horizontalSizeClass == .regular }
 
     private func confirm() {
         let garments = picked.compactMap { modelContext.model(for: $0) as? Garment }
@@ -384,13 +405,16 @@ private struct PickerCell: View {
                     }
                 }
 
-                Text(ref.name)
-                    .font(WK.Font.garmentName)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(width: WK.Shelf.garmentWidth)
-                    .padding(.bottom, WK.Shelf.labelBottomInset)
+                // **Sin nombre debajo**, como en el armario: la foto ya dice cuál
+                // es cada prenda, y treinta nombres compuestos son treinta
+                // líneas cortadas que no distinguen nada.
+                //
+                // Text(ref.name)
+                //     .font(WK.Font.garmentName)
+                //     .foregroundStyle(WK.Palette.secondaryText)
+                //     .lineLimit(1)
+                //     .truncationMode(.tail)
+                //     .frame(width: WK.Shelf.garmentWidth)
             }
             .frame(height: WK.Shelf.height, alignment: .bottom)
             .contentShape(.rect)

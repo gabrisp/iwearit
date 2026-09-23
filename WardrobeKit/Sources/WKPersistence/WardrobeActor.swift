@@ -28,15 +28,20 @@ public actor WardrobeActor {
     public nonisolated static func makeOffMainThread(modelContainer: ModelContainer) -> WardrobeActor {
         guard Thread.isMainThread else { return WardrobeActor(modelContainer: modelContainer) }
 
+        // **En una cola de verdad, no en un `Thread` suelto.**
+        //
+        // El contexto de SwiftData hereda el ejecutor de donde se crea, y un
+        // `Thread` que arranca, crea el contexto y **termina** deja al actor
+        // con un ejecutor muerto: todo iba bien hasta que se escribía de
+        // verdad, y entonces la app se cerraba. Guardar una importación era
+        // justo eso. Una cola global sigue viva mientras viva el proceso.
         final class Box: @unchecked Sendable { var actor: WardrobeActor? }
         let box = Box()
         let done = DispatchSemaphore(value: 0)
-        let thread = Thread {
+        DispatchQueue.global(qos: .userInitiated).async {
             box.actor = WardrobeActor(modelContainer: modelContainer)
             done.signal()
         }
-        thread.qualityOfService = .userInitiated
-        thread.start()
         done.wait()
         return box.actor!
     }
@@ -178,8 +183,11 @@ public actor WardrobeActor {
     /// Se descartan las prendas sin embedding: no son comparables, y un `nil`
     /// no se parece a nada.
     public func knownEmbeddings() throws -> [DuplicateDetector.Known] {
+        // **Y sin las borradas.** "Ya tienes una parecida" señalaba prendas que
+        // el usuario había tirado: el parecido es con algo que ya no está en el
+        // armario, así que no es un aviso, es ruido.
         var descriptor = FetchDescriptor<Garment>(
-            predicate: #Predicate { $0.embedding != nil }
+            predicate: #Predicate { $0.embedding != nil && $0.deletedAt == nil }
         )
         descriptor.propertiesToFetch = [\.name, \.embedding]
         return try modelContext.fetch(descriptor).compactMap { garment in
@@ -196,7 +204,19 @@ public actor WardrobeActor {
         guard !drafts.isEmpty else { return [] }
 
         let categories = try modelContext.fetch(FetchDescriptor<GarmentCategory>())
-        let bySlug = Dictionary(uniqueKeysWithValues: categories.map { ($0.slug, $0) })
+        // **Sin `uniqueKeysWithValues`.** Dos baldas con el mismo slug es lo
+        // normal mientras iCloud junta dos dispositivos, y ese inicializador
+        // **revienta el proceso** si encuentra una clave repetida: guardar una
+        // importación cerraba la app con "Duplicate values for key: zapatos".
+        // Se queda la viva y, entre vivas, la primera; juntarlas de verdad es
+        // trabajo de `reconcileDuplicates`.
+        let bySlug = Dictionary(
+            categories.map { ($0.slug, $0) },
+            uniquingKeysWith: { first, second in
+                if first.deletedAt != nil, second.deletedAt == nil { return second }
+                return first
+            }
+        )
 
         var identifiers: [PersistentIdentifier] = []
         identifiers.reserveCapacity(drafts.count)
