@@ -23,6 +23,9 @@ struct HangingGarmentView: View {
     @State private var isPresentingDetail = false
     /// Para viajar a la rejilla de edición en bloque. Ver `ClosetBulkEdit`.
     @Environment(\.closetMatchNamespace) private var matchNamespace
+    /// Quién presenta la ficha. Opcional: la misma percha se usa en hojas que
+    /// viven fuera de la raíz. Ver `AppRouter`.
+    @Environment(AppRouter.self) private var router: AppRouter?
     /// Se pidió borrar desde la ficha: se borra al cerrarse. Ver `GarmentSheet`.
     @State private var deletesOnDismiss = false
     @Environment(\.modelContext) private var modelContext
@@ -34,7 +37,15 @@ struct HangingGarmentView: View {
         Button {
             // El toque que cae al soltar un arrastre no abre nada.
             guard drag?.ignoresTaps != true else { return }
-            if isSelecting { onToggleSelection?() } else { isPresentingDetail = true }
+            if isSelecting {
+                onToggleSelection?()
+            } else if let router {
+                router.open(garment)
+            } else {
+                // Sin router —dentro de una hoja— la presenta la propia
+                // percha, que es lo que había antes.
+                isPresentingDetail = true
+            }
         } label: {
             VStack(spacing: 2) {
                 StoredImage(
@@ -109,7 +120,7 @@ struct HangingGarmentView: View {
 ///
 /// Una búsqueda por identificador al tocar es más barata que mantener todas las
 /// celdas de todas las baldas suscritas al objeto entero.
-private struct GarmentDetailLoader: View {
+struct GarmentDetailLoader: View {
     let persistentID: PersistentIdentifier
     var onDelete: (() -> Void)?
     @Environment(\.modelContext) private var modelContext

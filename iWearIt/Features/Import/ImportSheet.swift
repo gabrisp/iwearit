@@ -258,7 +258,17 @@ struct ImportSheet: View {
         let wardrobe = appEnvironment.wardrobe
         let toasts = toasts
         Task.detached(priority: .userInitiated) {
-            let saved = (try? await model.save(imageStore: imageStore, wardrobe: wardrobe)) ?? 0
+            let saved: Int
+            do {
+                saved = try await model.save(imageStore: imageStore, wardrobe: wardrobe)
+            } catch {
+                // Que un fallo al guardar **no** se lleve la app por delante:
+                // queda anotado y el usuario conserva la sesión para reintentar.
+                await MainActor.run {
+                    DiagnosticsLog.record("GUARDA", "falló: \(error)", isProblem: true)
+                }
+                return
+            }
             guard saved > 0 else { return }
             await MainActor.run {
                 toasts.show(WKToast(saved == 1 ? "Prenda guardada" : "\(saved) prendas guardadas"))

@@ -16,6 +16,8 @@ struct RootTabView: View {
 
     /// Selección de pestaña.
     @State private var selection: RootTab = .initialFromLaunchArguments
+    /// Quién presenta las hojas. Ver `AppRouter`.
+    @State private var router = AppRouter()
     /// Qué raíces de pestaña están en pantalla, para saber si la barra se ve.
     // @State private var chrome = TabBarChrome()
 
@@ -80,6 +82,12 @@ struct RootTabView: View {
         //     }
         // }
         // .animation(.smooth(duration: 0.25), value: chrome.visibleRoots.contains(selection))
+        .environment(router)
+        // **La ficha de una prenda, aquí.** Presentada por su percha se iba con
+        // ella en cuanto la prenda salía de la lista. Ver `AppRouter`.
+        .sheet(item: $router.garment) { garment in
+            GarmentDetailLoader(persistentID: garment.persistentID)
+        }
         .ignoresSafeArea(.keyboard)
         // .environment(chrome)
         .featureGatePaywall(appEnvironment.gate)

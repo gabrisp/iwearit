@@ -896,9 +896,19 @@ final class ImportModel {
         var drafts: [GarmentDraft] = []
         drafts.reserveCapacity(kept.count)
 
-        for candidate in kept {
-            let key = try await imageStore.store(candidate.cutout.cgImage)
-            let rawKey = try? await imageStore.store(candidate.detected.rawCrop.cgImage)
+        DiagnosticsLog.record("GUARDA", "\(kept.count) prenda(s) por guardar")
+
+        for (position, candidate) in kept.enumerated() {
+            let cutout = candidate.cutout.cgImage
+            DiagnosticsLog.record(
+                "GUARDA",
+                "\(position + 1)/\(kept.count) recorte \(cutout.width)×\(cutout.height)"
+            )
+            let key = try await imageStore.store(cutout)
+            // El recorte en bruto es **opcional**: si falla —o si no cabe en
+            // memoria— la prenda se guarda igual con el suyo normalizado.
+            let raw = candidate.detected.rawCrop.cgImage
+            let rawKey = try? await imageStore.store(raw)
             // Bajo **la misma clave** que el recorte: es la misma prenda vista
             // de otra manera, así que borrarla se lleva las dos.
             if let catalog = candidate.catalogImage {
@@ -930,7 +940,9 @@ final class ImportModel {
             )
         }
 
+        DiagnosticsLog.record("GUARDA", "escritas las imágenes; se dan de alta \(drafts.count)")
         try await wardrobe.insert(drafts)
+        DiagnosticsLog.record("GUARDA", "\(drafts.count) prenda(s) guardadas")
         return drafts.count
     }
 }
