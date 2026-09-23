@@ -16,6 +16,12 @@ import WKPersistence
 /// Aquí hay una sola: subes, y lo que viene es lo siguiente que te vas a
 /// poner, con su día escrito encima.
 ///
+/// **Un día cada vez, y de lado se cambia de día.** Arriba y abajo, los outfits
+/// de ese día; a izquierda y derecha, los días — que es lo que ya hacía la
+/// rejilla y lo que espera cualquiera delante de un calendario. Y para irse
+/// lejos, el calendario de siempre en la barra: pasar veinte días de uno en uno
+/// no es navegar, es remar.
+///
 /// Y al final de la fila, la tarjeta de crear — la misma que remata la rejilla,
 /// con la misma identidad, así que al cambiar de modo viaja a su sitio en vez
 /// de aparecer de la nada.
@@ -31,6 +37,10 @@ struct PlanFeedScreen: View {
 
     @Query(sort: \PlannedDay.dayStart) private var days: [PlannedDay]
 
+    /// Qué día se está mirando. Lo escribe el scroll de lado y lo puede
+    /// cambiar el calendario.
+    @State private var day: Date? = Calendar.current.startOfDay(for: Date())
+    @State private var isPickingDay = false
     @State private var layout: Layout = .feed
     @State private var scrolled: AnyHashable?
     @State private var pageSize: CGSize = .zero
@@ -50,19 +60,26 @@ struct PlanFeedScreen: View {
     /// que hace que sea **la misma tarjeta** y no dos parecidas.
     private static let createID = "plan.create"
 
-    /// Lo planeado de hoy en adelante, en orden.
+    /// Lo planeado para un día.
+    private func entries(of date: Date) -> [Entry] {
+        days
+            .first { $0.dayStart == date }?
+            .orderedOutfits
+            .filter { !$0.garments.isEmpty }
+            .map { Entry(outfit: $0, day: date) }
+            ?? []
+    }
+
+    /// Los días por los que se puede pasar de lado.
     ///
-    /// Lo de ayer no se enseña: el plan es lo que viene. Lo que ya pasó está en
-    /// el armario, en el recuento de veces que te lo has puesto.
-    private var entries: [Entry] {
-        let today = Calendar.current.startOfDay(for: Date())
-        return days
-            .filter { $0.dayStart >= today }
-            .flatMap { day in
-                day.orderedOutfits
-                    .filter { !$0.garments.isEmpty }
-                    .map { Entry(outfit: $0, day: day.dayStart) }
-            }
+    /// Una semana hacia atrás y tres meses hacia delante: lo de ayer se mira
+    /// alguna vez —"¿qué me puse?"— y lo de dentro de cuatro meses no lo
+    /// planea nadie. Para salirse de ahí está el calendario, que no tiene
+    /// límites.
+    private var window: [Date] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return (-7...90).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
     }
 
     struct Entry: Identifiable {
@@ -73,12 +90,7 @@ struct PlanFeedScreen: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch layout {
-                case .feed: feed
-                case .grid: grid
-                }
-            }
+            pager
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
@@ -103,12 +115,38 @@ struct PlanFeedScreen: View {
                     create(with: picked)
                 }
             }
+            // El calendario de siempre, ahora desde la barra. Ver
+            // `CalendarJumpSheet`.
+            .sheet(isPresented: $isPickingDay) {
+                CalendarJumpSheet(
+                    selection: Binding(
+                        get: { day ?? Calendar.current.startOfDay(for: Date()) },
+                        set: { picked in
+                            // Escribir el ancla del scroll **es** ir a ese día:
+                            // la lista de días ya existe, así que se desliza
+                            // hasta él en vez de recargar nada.
+                            withAnimation(WKAnimation.content) {
+                                day = Calendar.current.startOfDay(for: picked)
+                            }
+                        }
+                    )
+                )
+            }
             .animation(WKAnimation.content, value: layout)
         }
     }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        // **El calendario, arriba a la izquierda.** Es lo que cambia de día, y
+        // como tira ocupaba una franja entera de pantalla para enseñar siete
+        // días de los que se usan dos.
+        ToolbarItem(placement: .topBarLeading) {
+            Button { isPickingDay = true } label: {
+                Image(systemName: "calendar")
+            }
+            .tint(WK.Palette.primaryText)
+        }
         ToolbarItem(placement: .principal) {
             Text(title)
                 .font(WK.Font.callout)
@@ -128,24 +166,45 @@ struct PlanFeedScreen: View {
         }
     }
 
-    /// Qué día se está mirando, arriba. En rejilla, cuántos hay.
-    private var title: String {
-        guard layout == .feed else {
-            return entries.count == 1 ? "1 outfit" : "\(entries.count) outfits"
+    /// El día que se está mirando.
+    private var title: String { Self.dayLabel(for: day ?? Date()) }
+
+    // MARK: Los días, de lado
+
+    /// **De lado se cambia de día.**
+    ///
+    /// Un `ScrollView` horizontal con paginado y no el pager de UIKit del
+    /// planificador viejo: aquí dentro va otro scroll —el de los outfits del
+    /// día— y anidar el de SwiftUI dentro del de UIKit era pelearse por el
+    /// dedo en cada gesto diagonal.
+    private var pager: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(window, id: \.self) { date in
+                    Group {
+                        switch layout {
+                        case .feed: feed(of: date)
+                        case .grid: grid(of: date)
+                        }
+                    }
+                    .containerRelativeFrame(.horizontal)
+                    .id(date)
+                }
+            }
+            .scrollTargetLayout()
         }
-        guard
-            let id = scrolled as? UUID,
-            let entry = entries.first(where: { $0.id == id })
-        else { return "Plan" }
-        return Self.dayLabel(for: entry.day)
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $day)
+        .scrollIndicators(.hidden)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
     // MARK: Revista
 
-    private var feed: some View {
+    private func feed(of date: Date) -> some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
-                ForEach(entries) { entry in
+                ForEach(entries(of: date)) { entry in
                     PlanFeedCard(
                         entry: entry,
                         store: appEnvironment.imageStore,
@@ -158,29 +217,34 @@ struct PlanFeedScreen: View {
                     .id(AnyHashable(entry.id))
                 }
 
+                // **Asomarse ya es entrar.** Nadie quiere quedarse mirando una
+                // tarjeta que dice "crear": subir hasta ella *es* la decisión,
+                // así que en cuanto asoma de verdad se abre el selector. Es el
+                // mismo gesto que trae más propuestas en inspiración.
                 PlanCreateCard()
-                    .matchedGeometryEffect(id: Self.createID, in: morph)
+                    .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
                     .modifier(PlanCardSize(page: pageSize))
-                    .id(AnyHashable(Self.createID))
+                    .onScrollVisibilityChange(threshold: 0.55) { isVisible in
+                        guard isVisible, !isPicking, editingOutfit == nil else { return }
+                        isPicking = true
+                    }
                     .onTapGesture { isPicking = true }
             }
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { pageSize = $0 }
     }
 
     // MARK: Rejilla
 
-    private var grid: some View {
+    private func grid(of date: Date) -> some View {
         ScrollView {
             LazyVGrid(
                 columns: [GridItem(.adaptive(minimum: 150), spacing: WK.Spacing.m)],
                 spacing: WK.Spacing.m
             ) {
-                ForEach(entries) { entry in
+                ForEach(entries(of: date)) { entry in
                     PlanGridCell(
                         entry: entry,
                         store: appEnvironment.imageStore,
@@ -194,7 +258,7 @@ struct PlanFeedScreen: View {
                 // **La misma tarjeta de crear**, con la misma identidad: al
                 // cambiar de modo no aparece una nueva, viaja la que ya había.
                 PlanCreateCard()
-                    .matchedGeometryEffect(id: Self.createID, in: morph)
+                    .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
                     .onTapGesture { isPicking = true }
             }
@@ -233,10 +297,8 @@ struct PlanFeedScreen: View {
     private func create(with garments: [Garment]) {
         let outfit = Outfit()
         modelContext.insert(outfit)
-        let target = (scrolled as? UUID)
-            .flatMap { id in entries.first { $0.id == id }?.day }
-            ?? Calendar.current.startOfDay(for: Date())
-        move(outfit, to: target)
+        // Al día que se está mirando: es el que tienes delante.
+        move(outfit, to: day ?? Date())
 
         for garment in garments {
             let slot = OutfitSlot.slot(for: garment.kind)
