@@ -253,7 +253,16 @@ struct CanvasStylistField: View {
 
     var body: some View {
         HStack(spacing: WK.Spacing.s) {
-            Button(action: onCancel) {
+            // **La equis cierra el teclado además del campo.**
+            //
+            // Quitar el campo del árbol no siempre se lleva el teclado por
+            // delante: se quedaba el teclado puesto tapando media pantalla sin
+            // nada donde escribir. Se suelta el foco aquí, a mano, y el
+            // teclado baja con él.
+            Button {
+                isFocused = false
+                onCancel()
+            } label: {
                 Image(systemName: "xmark")
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.secondaryText)
@@ -266,12 +275,20 @@ struct CanvasStylistField: View {
                 .lineLimit(1...3)
                 .focused($isFocused)
                 .submitLabel(.send)
-                .onSubmit(onSend)
+                .onSubmit {
+                    isFocused = false
+                    onSend()
+                }
                 .padding(.horizontal, WK.Spacing.m)
                 .padding(.vertical, WK.Spacing.s)
                 .adaptiveGlass(in: .capsule)
 
-            Button(action: onSend) {
+            // Y al enviar, lo mismo: lo que hay que mirar ahora es el lienzo
+            // rehaciéndose, no el teclado.
+            Button {
+                isFocused = false
+                onSend()
+            } label: {
                 Image(systemName: "arrow.up")
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.primaryText)

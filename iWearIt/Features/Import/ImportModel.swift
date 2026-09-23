@@ -989,6 +989,8 @@ struct ImportCandidate: Identifiable {
     /// construye con ese color. Guardar la corrección aparte —en vez de pisar
     /// lo detectado— deja ver las dos cosas y permite volver atrás.
     var editedName: String?
+    /// El nombre que se le puso al detectarla. Ver `displayName`.
+    var resolvedName: String?
     var editedColorName: String?
     /// El color elegido a mano en el selector del sistema.
     var editedColor: NamedColor?
@@ -1028,22 +1030,38 @@ struct ImportCandidate: Identifiable {
     var seasons: SeasonSet { editedSeasons ?? detected.seasons }
     var material: String? { editedMaterial ?? detected.material }
 
+    /// El nombre de la tienda, si se leyó en la ficha del producto.
+    ///
+    /// **Se queda aunque corrijas el tipo o la balda.** Antes se tiraba en
+    /// cuanto tocabas cualquiera de las dos, con el argumento de que el título
+    /// de la tienda ya no describía la prenda; el efecto real era que mover
+    /// una prenda de balda le cambiaba el nombre por debajo. El nombre de una
+    /// prenda es suyo: se pone una vez.
+    ///
+    /// La condición de antes se queda comentada:
+    /// // editedSubcategory == nil && categorySlug == nil ? detected.productName : nil
+    var productName: String? { detected.productName }
+
     /// El nombre con el que se va a guardar.
-    /// El nombre de la tienda, mientras no se haya corregido qué prenda es:
-    /// si el usuario cambia el tipo, el título de la ficha ya no la describe.
-    var productName: String? {
-        editedSubcategory == nil && categorySlug == nil ? detected.productName : nil
+    ///
+    /// ## Se pone una vez y no se vuelve a tocar
+    ///
+    /// Se componía en cada lectura a partir del tipo, el material y el color,
+    /// así que corregir cualquiera de esos campos —o cambiar de balda, que
+    /// arrastra el tipo— reescribía el nombre delante del usuario. Y si lo
+    /// había escrito él, peor todavía: parecía que se lo pisábamos.
+    ///
+    /// Ahora se resuelve **al nacer el candidato** (`resolvedName`) y desde ahí
+    /// solo lo cambia quien escriba otro. La fórmula sigue estando, pero para
+    /// componerlo la primera vez y nada más.
+    var displayName: String {
+        editedName ?? resolvedName ?? composedName
     }
 
-    var displayName: String {
-        // **El nombre se compone con lo demás y no se pide.**
-        //
-        // "Polo Golden Goose" cuando se ha leído la marca, y "Polo algodón
-        // azul" cuando no: sale de los campos que ya están en la ficha, así
-        // que corregir el tipo o el material corrige el nombre. Y no se pinta
-        // en la balda —ahí se mira la prenda— sino en la hoja de la prenda,
-        // que es donde se lee.
-        editedName ?? productName ?? GarmentNaming.name(
+    /// El nombre compuesto con lo que se sabe ahora mismo. Solo se usa para
+    /// fijarlo la primera vez.
+    var composedName: String {
+        productName ?? GarmentNaming.name(
             kind: kind,
             subcategory: subcategory,
             material: material,
@@ -1076,6 +1094,9 @@ struct ImportCandidate: Identifiable {
         // Se marcan todas por defecto: es más rápido descartar una que marcar
         // cuatro, y lo normal es quedárselas casi todas.
         self.isKept = true
+        // **El nombre, aquí y para siempre.** Ver `displayName`: a partir de
+        // este momento solo lo cambia quien escriba otro.
+        self.resolvedName = composedName
     }
 
     /// El recuadro que vale: el corregido si lo hay, y si no el detectado.

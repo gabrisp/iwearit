@@ -108,7 +108,7 @@ public struct Stylist: Sendable {
 
         guard !pool[.top, default: []].isEmpty else { return [] }
 
-        var scored: [(look: StylistLook, ids: Set<UUID>)] = []
+        var scored: [(look: StylistLook, ids: Set<UUID>, pieces: [StylistGarment])] = []
         // Solo los mejores de cada hueco: con seis por hueco salen unas
         // doscientas combinaciones, que se puntúan en un parpadeo. Con el
         // armario entero serían decenas de miles y ninguna mejor.
@@ -146,7 +146,7 @@ public struct Stylist: Sendable {
 
                     guard brief.pinned.isSubset(of: Set(pieces.map(\.id))) else { continue }
                     let look = evaluate(pieces, brief: brief, random: &random)
-                    scored.append((look, Set(pieces.map(\.id))))
+                    scored.append((look, Set(pieces.map(\.id)), pieces))
                 }
             }
         }
@@ -156,6 +156,7 @@ public struct Stylist: Sendable {
         scored.sort { $0.look.score > $1.look.score }
         var chosen: [StylistLook] = []
         var used: [Set<UUID>] = []
+        var takenNames = Set<String>()
         for entry in scored {
             guard chosen.count < count else { break }
             let tooSimilar = used.contains { existing in
@@ -163,7 +164,22 @@ public struct Stylist: Sendable {
                 return shared.count >= max(1, entry.ids.subtracting(brief.pinned).count - 1)
             }
             guard !tooSimilar else { continue }
-            chosen.append(entry.look)
+
+            // **Sin dos que se llamen igual.** Ver `headlineCandidates`.
+            let candidates = headlineCandidates(for: entry.pieces)
+            let name = candidates.first { !takenNames.contains($0) }
+                ?? Self.distinguish(candidates.first ?? entry.look.headline, taken: takenNames)
+            takenNames.insert(name)
+
+            chosen.append(
+                StylistLook(
+                    id: entry.look.id,
+                    garmentIDs: entry.look.garmentIDs,
+                    headline: name,
+                    reason: entry.look.reason,
+                    score: entry.look.score
+                )
+            )
             used.append(entry.ids)
         }
         return chosen
@@ -332,7 +348,7 @@ public struct Stylist: Sendable {
 
         return StylistLook(
             garmentIDs: pieces.sorted { $0.role.sortOrder < $1.role.sortOrder }.map(\.id),
-            headline: headline(for: pieces),
+            headline: headlineCandidates(for: pieces).first ?? "Conjunto",
             reason: reason(
                 for: pieces,
                 brief: brief,
@@ -452,18 +468,93 @@ public struct Stylist: Sendable {
 
     // MARK: Cómo se cuenta
 
-    private func headline(for pieces: [StylistGarment]) -> String {
-        let colored = pieces.filter { !$0.tone.isNeutral }
+    /// Cómo se llama un conjunto, **con más de una forma de llamarlo**.
+    ///
+    /// Con una sola fórmula —color más "y neutros"— media pantalla se llamaba
+    /// igual: "Rojo y neutros", "Amarillo y neutros", otra vez "Rojo y
+    /// neutros". Y un nombre que se repite deja de nombrar: si dos tarjetas se
+    /// llaman igual, el nombre no ayuda a distinguirlas, que es lo único que
+    /// tiene que hacer.
+    ///
+    /// Así que se devuelven varios candidatos, de lo más específico a lo más
+    /// genérico, y quien monta la tanda se queda con el primero que no haya
+    /// usado ya (ver `looks(from:brief:count:)`). Cada uno mira algo distinto
+    /// del conjunto: los colores, la prenda que manda, el contraste, para qué
+    /// es.
+    private func headlineCandidates(for pieces: [StylistGarment]) -> [String] {
+        var candidates: [String] = []
+
+        let ordered = pieces.sorted { $0.role.sortOrder < $1.role.sortOrder }
+        let colored = ordered.filter { !$0.tone.isNeutral }
         let families = Self.uniqued(colored.map(\.tone.familyName))
-        switch families.count {
-        case 0:
-            let light = pieces.map(\.tone.lightness).reduce(0, +) / Double(max(1, pieces.count))
-            return light > 0.6 ? "Neutros claros" : "Neutros"
-        case 1:
-            return families[0].capitalizedFirst + " y neutros"
-        default:
-            return "\(families[0].capitalizedFirst) y \(families[1])"
+
+        // La prenda que manda: la de color si la hay, y si no el abrigo o lo
+        // de arriba. Es de lo que se acuerda uno al mirar el conjunto.
+        let hero = colored.first
+            ?? ordered.first { $0.role == .outer }
+            ?? ordered.first { $0.role == .top }
+        let heroType = hero.flatMap { GarmentVocabulary.displayType($0.subcategory) }?.lowercased()
+
+        if families.count >= 2 {
+            candidates.append("\(families[0].capitalizedFirst) y \(families[1])")
+            candidates.append("\(families[1].capitalizedFirst) con \(families[0])")
         }
+
+        if let heroType, let family = families.first {
+            candidates.append("\(heroType.capitalizedFirst) \(Self.agreeing(family, with: heroType))")
+        }
+        if let heroType, families.isEmpty {
+            candidates.append("\(heroType.capitalizedFirst) y neutros")
+        }
+
+        if let family = families.first, families.count == 1 {
+            candidates.append("\(family.capitalizedFirst) sobre neutros")
+            candidates.append("Un toque de \(family)")
+        }
+
+        // El contraste, cuando es lo que define al conjunto.
+        if
+            let top = ordered.first(where: { $0.role == .top }),
+            let bottom = ordered.first(where: { $0.role == .bottom })
+        {
+            let delta = top.tone.lightness - bottom.tone.lightness
+            if delta > 0.25 {
+                candidates.append("Claro arriba, oscuro abajo")
+            } else if delta < -0.25 {
+                candidates.append("Oscuro arriba, claro abajo")
+            }
+        }
+
+        // Para qué es, si todas las piezas que lo dicen dicen lo mismo.
+        let tags = ordered.flatMap(\.tags)
+        for tag in Self.uniqued(tags) where tags.count(where: { $0 == tag }) >= 2 {
+            switch tag {
+            case "Deporte": candidates.append("Para entrenar")
+            case "Trabajo": candidates.append("De oficina")
+            case "Formal": candidates.append("Para arreglarse")
+            case "Fiesta": candidates.append("Para salir")
+            case "Playa": candidates.append("De playa")
+            case "Viaje": candidates.append("De viaje")
+            case "Casa": candidates.append("De estar en casa")
+            default: break
+            }
+        }
+
+        if let outer = ordered.first(where: { $0.role == .outer }),
+           let type = GarmentVocabulary.displayType(outer.subcategory)?.lowercased() {
+            candidates.append("Con la \(type)")
+        }
+
+        // Y el de siempre, al final: cuando no hay nada más específico que
+        // decir, decir el color sigue siendo lo más útil.
+        if let family = families.first {
+            candidates.append("\(family.capitalizedFirst) y neutros")
+        } else {
+            let light = ordered.map(\.tone.lightness).reduce(0, +) / Double(max(1, ordered.count))
+            candidates.append(light > 0.6 ? "Neutros claros" : "Todo en neutros")
+        }
+
+        return Self.uniqued(candidates)
     }
 
     private func reason(
@@ -512,6 +603,52 @@ public struct Stylist: Sendable {
         }
 
         return parts.isEmpty ? "Combina bien con lo que tienes" : parts.joined(separator: " · ")
+    }
+
+    /// El color, concordado con la prenda: "camisa roja", "zapatillas azules".
+    ///
+    /// Escrito a mano y no con una tabla de géneros porque en español el
+    /// noventa por ciento cae con dos reglas: la prenda es femenina si acaba
+    /// en "a" y plural si acaba en "s", y el color solo cambia si acaba en
+    /// "o". Lo demás —azul, gris, marrón— solo hace plural. Sin esto los
+    /// títulos salían como "Camisa rojo", que se lee como un error de la app
+    /// antes que como un nombre.
+    static func agreeing(_ color: String, with type: String) -> String {
+        // Los compuestos —"azul marino", "gris oscuro"— no se tocan: se usan
+        // igual en singular y en plural.
+        guard !color.contains(" ") else { return color }
+
+        let lower = type.lowercased()
+        let isPlural = lower.hasSuffix("s")
+        let singular = isPlural ? String(lower.dropLast()) : lower
+        let isFeminine = singular.hasSuffix("a")
+
+        var word = color
+        if word.hasSuffix("o"), isFeminine {
+            word = String(word.dropLast()) + "a"
+        }
+        guard isPlural else { return word }
+
+        switch word.last {
+        case "l", "n", "r", "s", "d", "z":
+            // azul → azules, marrón → marrones (y sin tilde, que se pierde al
+            // crecer la palabra).
+            let base = word == "marrón" ? "marron" : word
+            return base.hasSuffix("s") ? base : base + "es"
+        default:
+            return word + "s"
+        }
+    }
+
+    /// Cuando hasta el último candidato está cogido: se numera.
+    ///
+    /// Feo, y a propósito: es la señal de que dos conjuntos se parecen tanto
+    /// que ni mirándolos por seis sitios distintos se les ocurre un nombre que
+    /// los separe. Antes eso mismo pasaba sin avisar.
+    private static func distinguish(_ name: String, taken: Set<String>) -> String {
+        var attempt = 2
+        while taken.contains("\(name) \(attempt)"), attempt < 20 { attempt += 1 }
+        return "\(name) \(attempt)"
     }
 
     private static func fold(_ text: String) -> String {
