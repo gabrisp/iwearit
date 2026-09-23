@@ -97,10 +97,14 @@ private struct SuitcaseContent: View {
                 }
             )
                 .transition(.wkContent)
-                // El cambio de modo también cambia la vista, así que entra en
-                // la identidad: sin esto, pasar de revista a rejilla no
-                // animaba nada, solo se sustituía.
-                .id(SuitcaseView(tab: tab, layout: layout))
+                // **Solo la pestaña.** El modo estaba aquí dentro porque la
+                // pestaña vieja cambiaba de vista entera al pasar de revista a
+                // rejilla. La nueva no: son las mismas tarjetas colocadas de
+                // otra manera, y viajan de un sitio a otro con la transición
+                // de geometría. Con el modo en la identidad se destruía todo y
+                // se volvía a construir, así que no viajaba nada y encima el
+                // scroll de cada día se perdía.
+                .id(tab)
                 .animation(WKAnimation.content, value: tab)
                 // **Más despacio que un cambio de pestaña.** Pasar de revista
                 // a rejilla es cambiar cómo se mira el viaje entero, y a la
@@ -437,6 +441,7 @@ private struct SuitcaseTabContent: View {
             SuitcaseOutfitsFeedTab(
                 suitcase: suitcase,
                 dayIndex: $dayIndex,
+                layout: layout,
                 topInset: WKTabBarMetrics.topClearance,
                 bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l,
                 onEdit: onEdit

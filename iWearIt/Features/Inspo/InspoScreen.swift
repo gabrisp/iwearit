@@ -76,6 +76,10 @@ struct InspoScreen: View {
     @State private var pageSize: CGSize = .zero
     /// Mientras se montan los siguientes.
     @State private var isGenerating = false
+    /// Si el armario ya no da más combinaciones distintas. Lo dice la última
+    /// tanda que no trajo nada: la tarjeta del final deja de prometer ocho
+    /// más y dice que se acabó.
+    @State private var isExhausted = false
     /// Cuántas tandas se han traído. Solo sirve para dar el golpecito: sube
     /// una vez por tanda de verdad, así que no hay forma de que suene dos
     /// veces ni de que suene cuando no ha llegado nada.
@@ -162,12 +166,14 @@ struct InspoScreen: View {
                     case .filters:
                         InspoFiltersSheet(
                             onShelvesChanged: {
+                                isExhausted = false
                                 withAnimation(WKAnimation.content) { feed.wardrobeChanged() }
                             },
                             anchors: Binding(
                                 get: { feed.anchors },
                                 set: { picked in
                                     withAnimation(WKAnimation.content) {
+                                        isExhausted = false
                                         feed.setAnchors(picked)
                                         scrolled = feed.looks.first?.id
                                     }
@@ -403,7 +409,11 @@ struct InspoScreen: View {
         // la pila es la que trae más: cuesta subirla —hay que tirar del
         // final— y cuando sube, se llena. El gesto es el mismo que para pasar
         // de conjunto, así que no hay nada nuevo que aprender.
-        InspoMoreCard(count: InspoFeed.capacity, isWorking: isGenerating)
+        InspoMoreCard(
+            count: InspoFeed.capacity,
+            isWorking: isGenerating,
+            isExhausted: isExhausted
+        )
             .modifier(InspoCardSize(axis: axis, page: pageSize))
             .id(Self.moreCardID)
             // Al asomar de verdad —más de la mitad— se pone a montar. Antes de
@@ -521,6 +531,7 @@ struct InspoScreen: View {
     /// scroll sería mirar la quinta de una baraja que acaba de cambiar entera.
     private func shuffle() {
         withAnimation(WKAnimation.content) {
+            isExhausted = false
             feed.shuffle()
             scrolled = feed.looks.first?.id
         }
@@ -539,9 +550,13 @@ struct InspoScreen: View {
         let fresh = feed.looks.first { !before.contains($0.id) }
 
         guard let fresh else {
+            // No ha llegado nada: no es que haya fallado, es que ya están
+            // todas. La tarjeta lo dice a partir de ahora.
+            isExhausted = true
             isGenerating = false
             return
         }
+        isExhausted = false
         // Solo cuando de verdad ha llegado algo: si el armario ya no da para
         // más combinaciones distintas, un golpecito diría que sí.
         batches += 1
@@ -1022,7 +1037,7 @@ struct InspoMoreCard: View {
 
     private var headline: String {
         if isWorking { return "Montando…" }
-        if isExhausted { return "Ya están todos los que salen con esto" }
+        if isExhausted { return "Has llegado al final :)" }
         return "Generar \(count) más"
     }
 }

@@ -21,6 +21,11 @@ import WKPersistence
 struct SuitcaseOutfitsFeedTab: View {
     let suitcase: Suitcase
     @Binding var dayIndex: Int
+    /// Revista o rejilla. **Lo decide la pantalla**, no esta pestaña: el botón
+    /// vive en la barra de la maleta, junto a la tira de días, igual que en el
+    /// plan. Tenerlo aquí además del de la barra eran dos botones para lo
+    /// mismo que ni siquiera se ponían de acuerdo.
+    let layout: PlannerLayout
     /// Lo que tapan las barras de la maleta, que ignora el área segura.
     var topInset: CGFloat = 0
     var bottomInset: CGFloat = 0
@@ -29,15 +34,12 @@ struct SuitcaseOutfitsFeedTab: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
-    @State private var layout: Layout = .feed
     @State private var pageSize: CGSize = .zero
     @State private var movingOutfit: Outfit?
     @State private var isPicking = false
     @State private var page: Int?
 
     @Namespace private var morph
-
-    enum Layout { case feed, grid }
 
     /// Los días del viaje. Sin fechas, un solo hueco: lo preparado.
     private var dayCount: Int { suitcase.tripDayCount ?? 1 }
@@ -74,20 +76,6 @@ struct SuitcaseOutfitsFeedTab: View {
             }
             .task { page = dayIndex }
             .animation(WKAnimation.content, value: layout)
-            .overlay(alignment: .topTrailing) { layoutButton }
-    }
-
-    /// Cambiar de modo. Aquí y no en la barra de la pantalla: la barra es de la
-    /// maleta y esto es de esta pestaña.
-    private var layoutButton: some View {
-        WKCircleButton(layout == .feed ? "square.grid.2x2" : "rectangle.portrait") {
-            withAnimation(WKAnimation.content) {
-                layout = layout == .feed ? .grid : .feed
-            }
-        }
-        .tint(WK.Palette.primaryText)
-        .padding(.trailing, WK.Spacing.screenInset)
-        .padding(.top, WK.Spacing.s)
     }
 
     private var pager: some View {
@@ -96,7 +84,7 @@ struct SuitcaseOutfitsFeedTab: View {
                 ForEach(0..<dayCount, id: \.self) { index in
                     Group {
                         switch layout {
-                        case .feed: feed(ofDay: index)
+                        case .book: feed(ofDay: index)
                         case .grid: grid(ofDay: index)
                         }
                     }
@@ -161,6 +149,23 @@ struct SuitcaseOutfitsFeedTab: View {
                         onMove: { movingOutfit = outfit }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
+                    // El mismo menú que en la rejilla del plan: aquí se ven
+                    // varios a la vez y es cuando apetece copiar uno o
+                    // cambiarlo de día.
+                    .contextMenu {
+                        Button("Editar", systemImage: "pencil") { onEdit(outfit, false) }
+                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                            duplicate(outfit)
+                        }
+                        if suitcase.tripDayCount != nil {
+                            Button("Mover a otro día", systemImage: "calendar") {
+                                movingOutfit = outfit
+                            }
+                        }
+                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                            withAnimation(WKAnimation.content) { outfit.markDeleted() }
+                        }
+                    }
                 }
 
                 PlanCreateCard(title: "Añadir")
@@ -172,6 +177,25 @@ struct SuitcaseOutfitsFeedTab: View {
             .padding(.top, WK.Spacing.xl)
         }
         .scrollIndicators(.hidden)
+    }
+
+    /// Copiar uno para variarlo. Se queda en la misma maleta y en el mismo
+    /// día del viaje, que es de donde sale.
+    private func duplicate(_ outfit: Outfit) {
+        let copy = Outfit(name: outfit.name)
+        copy.backdropRaw = outfit.backdropRaw
+        modelContext.insert(copy)
+        copy.suitcase = suitcase
+        copy.suitcaseDayIndex = outfit.suitcaseDayIndex
+
+        for item in outfit.visibleItems {
+            let clone = CanvasItem(transform: item.transform, garment: item.garment)
+            if let sticker = item.sticker { clone.apply(sticker) }
+            clone.isFlipped = item.isFlipped
+            clone.outfit = copy
+            modelContext.insert(clone)
+        }
+        try? modelContext.save()
     }
 
     private func create(with garments: [Garment]) {
@@ -232,6 +256,9 @@ private struct SuitcaseFeedCard: View {
         // Doble toque para editar, igual que en el plan y en el resto de
         // lienzos. Un toque simple no: compite con el scroll.
         .onTapGesture(count: 2, perform: onEdit)
+        // Mantener pulsado, **solo en la revista**: en la rejilla esa
+        // pulsación saca el menú. Ver `PlanFeedCard`.
+        .modifier(LongPressToEdit(isOn: !isCompact, action: onEdit))
     }
 
     /// El papel de la maleta, que es lo que la distingue de las demás.
@@ -245,5 +272,19 @@ private struct SuitcaseFeedCard: View {
             green: tint.components.green,
             blue: tint.components.blue
         )
+    }
+}
+
+/// Mantener pulsado para editar, donde toca.
+private struct LongPressToEdit: ViewModifier {
+    let isOn: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.onLongPressGesture(perform: action)
+        } else {
+            content
+        }
     }
 }

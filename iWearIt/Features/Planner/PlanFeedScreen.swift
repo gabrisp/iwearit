@@ -48,8 +48,6 @@ struct PlanFeedScreen: View {
     @State private var editingIsNew = false
     @State private var movingOutfit: Outfit?
     @State private var isPicking = false
-    /// Dónde está el scroll vertical del día que se ve.
-    @State private var anchorCard: AnyHashable?
 
     /// Para que cada lienzo viaje a su sitio al cambiar de modo.
     @Namespace private var morph
@@ -115,8 +113,10 @@ struct PlanFeedScreen: View {
                     )
                     // Los días necesitan ancho: sin decirlo, el scroll pide
                     // todo el que hay y echa al botón de al lado fuera de la
-                    // barra.
-                    .frame(width: max(180, pageSize.width - Self.toolbarButtonSpace))
+                    // barra. Con tope por arriba: un elemento que pide más de
+                    // lo que la barra puede dar no se encoge, la barra lo
+                    // esconde entero.
+                    .frame(width: min(max(180, pageSize.width - Self.toolbarButtonSpace), 340))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -150,15 +150,6 @@ struct PlanFeedScreen: View {
                     guard !picked.isEmpty else { return }
                     create(with: picked)
                 }
-            }
-            // **De la tarjeta de crear no te quedas colgado.**
-            //
-            // Es un botón, no un sitio: si cierras el selector sin elegir
-            // nada, la vista vuelve al último outfit. Solo se puede estar ahí
-            // cuando el día está vacío, porque entonces no hay otro sitio.
-            .onChange(of: isPicking) { _, isOpen in
-                guard !isOpen, let last = entries(of: day ?? anchor).last else { return }
-                withAnimation(WKAnimation.content) { anchorCard = AnyHashable(last.id) }
             }
             // El calendario de siempre, ahora desde la barra. Ver
             // `CalendarJumpSheet`.
@@ -255,45 +246,25 @@ struct PlanFeedScreen: View {
     // MARK: Revista
 
     private func feed(of date: Date) -> some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: 0) {
-                ForEach(entries(of: date)) { entry in
-                    PlanFeedCard(
-                        entry: entry,
-                        store: appEnvironment.imageStore,
-                        onEdit: { edit(entry.outfit) },
-                        onMove: { movingOutfit = entry.outfit }
-                    )
-                    .matchedGeometryEffect(id: entry.id, in: morph)
-                    .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
-                    .modifier(PlanCardSize(page: pageSize, stride: stride))
-                    .id(AnyHashable(entry.id))
-                }
-
-                // **Asomarse ya es entrar.** Nadie quiere quedarse mirando una
-                // tarjeta que dice "crear": subir hasta ella *es* la decisión,
-                // así que en cuanto asoma de verdad se abre el selector. Es el
-                // mismo gesto que trae más propuestas en inspiración.
-                PlanCreateCard()
-                    .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
-                    .modifier(PlanCardSize(page: pageSize, stride: stride))
-                    // **Solo si había algo antes.** Con el día vacío, esta
-                    // tarjeta es lo único en pantalla: dispararse al verse
-                    // sería abrir el selector nada más llegar al día. Con
-                    // outfits detrás, llegar hasta aquí es un tirón hacia
-                    // arriba —una decisión— y entonces sí.
-                    .onScrollVisibilityChange(threshold: 0.55) { isVisible in
-                        guard isVisible, !isPicking, editingOutfit == nil else { return }
-                        guard !entries(of: date).isEmpty else { return }
-                        isPicking = true
-                    }
-                    .onTapGesture { isPicking = true }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.viewAligned)
-        .scrollPosition(id: $anchorCard, anchor: .center)
-        .scrollIndicators(.hidden)
+        // **Cada día con su propio scroll.** El sitio donde está el scroll es
+        // de ese día, no de la pantalla: con un solo estado compartido, el día
+        // que se ve escribía la posición y los otros cuatro del pager
+        // intentaban ir al mismo sitio —a una tarjeta que no es suya— y se
+        // volvían al principio.
+        PlanDayFeed(
+            entries: entries(of: date),
+            store: appEnvironment.imageStore,
+            pageSize: pageSize,
+            stride: stride,
+            morph: morph,
+            zoom: zoom,
+            createID: Self.createID + date.description,
+            isPicking: isPicking,
+            isEditing: editingOutfit != nil,
+            onEdit: { edit($0) },
+            onMove: { movingOutfit = $0 },
+            onCreate: { isPicking = true }
+        )
     }
 
     // MARK: Rejilla
@@ -313,6 +284,26 @@ struct PlanFeedScreen: View {
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
                     .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
+                    // **El menú, solo en la rejilla.** Es donde se ven varios
+                    // a la vez, que es justo cuando apetece reutilizar uno:
+                    // copiarlo para variarlo, mandarlo a otro día. En revista
+                    // solo ves uno y ahí manda el gesto de pasar. Ver
+                    // `PlannerGrid`, que ya lo hacía así.
+                    .contextMenu {
+                        Button("Editar", systemImage: "pencil") { edit(entry.outfit) }
+                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                            duplicate(entry.outfit)
+                        }
+                        Button("Mover a otro día", systemImage: "calendar") {
+                            movingOutfit = entry.outfit
+                        }
+                        // Destructivo y el último: lo que borra va abajo y en
+                        // rojo, para que el dedo no lo encuentre de camino a
+                        // otra cosa.
+                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                            withAnimation(WKAnimation.content) { entry.outfit.markDeleted() }
+                        }
+                    }
                 }
 
                 // **La misma tarjeta de crear**, con la misma identidad: al
@@ -353,6 +344,25 @@ struct PlanFeedScreen: View {
         DiagnosticsLog.record("PLAN", "outfit movido a \(Self.dayLabel(for: dayStart))")
     }
 
+    /// Copiar uno para variarlo sin perder el original. Se queda en el mismo
+    /// día: duplicar es "otro parecido para hoy", y si era para otro día está
+    /// mover al lado en el mismo menú.
+    private func duplicate(_ outfit: Outfit) {
+        let copy = Outfit(name: outfit.name)
+        copy.backdropRaw = outfit.backdropRaw
+        modelContext.insert(copy)
+        copy.plannedDay = outfit.plannedDay
+
+        for item in outfit.visibleItems {
+            let clone = CanvasItem(transform: item.transform, garment: item.garment)
+            if let sticker = item.sticker { clone.apply(sticker) }
+            clone.isFlipped = item.isFlipped
+            clone.outfit = copy
+            modelContext.insert(clone)
+        }
+        try? modelContext.save()
+    }
+
     /// Crear cuelga del día que estés mirando, y de hoy si no hay ninguno.
     private func create(with garments: [Garment]) {
         let outfit = Outfit()
@@ -389,6 +399,87 @@ struct PlanFeedScreen: View {
         if calendar.isDateInTomorrow(date) { return "Mañana" }
         return date.formatted(.dateTime.weekday(.wide).day().month())
     }
+}
+
+/// Los outfits de un día, uno por pantalla.
+///
+/// Vista propia y no un trozo de `body` porque tiene algo que es **suyo**: por
+/// dónde va su scroll. Cinco días viven a la vez en el pager y cada uno se
+/// acuerda de por dónde iba.
+private struct PlanDayFeed: View {
+    let entries: [PlanFeedScreen.Entry]
+    let store: ImageStore
+    let pageSize: CGSize
+    let stride: CGFloat
+    let morph: Namespace.ID
+    let zoom: Namespace.ID
+    let createID: String
+    /// Si el selector de prendas está puesto ahora mismo.
+    let isPicking: Bool
+    /// Si el editor está abierto encima.
+    let isEditing: Bool
+    let onEdit: (Outfit) -> Void
+    let onMove: (Outfit) -> Void
+    let onCreate: () -> Void
+
+    @State private var anchor: AnyHashable?
+
+    var body: some View {
+        ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                ForEach(entries) { entry in
+                    PlanFeedCard(
+                        entry: entry,
+                        store: store,
+                        onEdit: { onEdit(entry.outfit) },
+                        onMove: { onMove(entry.outfit) }
+                    )
+                    .matchedGeometryEffect(id: entry.id, in: morph)
+                    .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
+                    .modifier(PlanCardSize(page: pageSize, stride: stride))
+                    .id(AnyHashable(entry.id))
+                }
+
+                // **Asomarse ya es entrar.** Nadie quiere quedarse mirando una
+                // tarjeta que dice "crear": subir hasta ella *es* la decisión,
+                // así que en cuanto asoma de verdad se abre el selector. Es el
+                // mismo gesto que trae más propuestas en inspiración.
+                PlanCreateCard()
+                    .matchedGeometryEffect(id: createID, in: morph)
+                    .modifier(PlanCardSize(page: pageSize, stride: stride))
+                    // **Solo si había algo antes.** Con el día vacío, esta
+                    // tarjeta es lo único en pantalla: dispararse al verse
+                    // sería abrir el selector nada más llegar al día. Con
+                    // outfits detrás, llegar hasta aquí es un tirón hacia
+                    // arriba —una decisión— y entonces sí.
+                    .onScrollVisibilityChange(threshold: 0.55) { isVisible in
+                        guard isVisible, !isPicking, !isEditing else { return }
+                        guard !entries.isEmpty else { return }
+                        onCreate()
+                    }
+                    .onTapGesture { onCreate() }
+                    .id(Self.createAnchor)
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: $anchor, anchor: .center)
+        .scrollIndicators(.hidden)
+        // **De la tarjeta de crear no te quedas colgado.**
+        //
+        // Es un botón, no un sitio: al cerrarse el selector la vista vuelve al
+        // último outfit, así que nunca te quedas parado delante de una tarjeta
+        // que ya hizo lo suyo. Solo se puede estar ahí cuando el día está
+        // vacío, porque entonces no hay otro sitio al que volver.
+        .onChange(of: isPicking) { _, isOpen in
+            guard !isOpen, let last = entries.last else { return }
+            withAnimation(WKAnimation.content) { anchor = AnyHashable(last.id) }
+        }
+    }
+
+    /// La identidad de la tarjeta de crear dentro del scroll. Constante: el
+    /// scroll solo necesita distinguirla de los outfits.
+    private static let createAnchor = AnyHashable("plan.create.anchor")
 }
 
 /// Lo que mide una tarjeta del plan: una pantalla, con su aire dentro.
@@ -451,6 +542,11 @@ private struct PlanFeedCard: View {
         .contentShape(.rect)
         // Doble toque para entrar a editar, como en cualquier otro lienzo.
         .onTapGesture(count: 2, perform: onEdit)
+        // **Y aquí sí, mantener pulsado.** En la revista se ve un solo lienzo
+        // y no hay menú que sacar, así que la pulsación larga queda libre para
+        // lo único que se hace con el que tienes delante: abrirlo. En la
+        // rejilla no, porque ahí saca el menú.
+        .onLongPressGesture(perform: onEdit)
     }
 
     private var backdrop: Color { PlanFeedScreen.backdrop(of: entry.outfit) }
