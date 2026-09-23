@@ -145,7 +145,7 @@ public actor RemoteClothingResolver: ClothingResolving {
         return data
     }
 
-    public func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data {
+    public func tryOn(personJPEG: Data, garmentsPNG: [Data], scene: String) async throws -> Data {
         await acquireSlot()
         defer { releaseSlot() }
         try await ensureSession()
@@ -154,7 +154,8 @@ public actor RemoteClothingResolver: ClothingResolving {
         let body = TryOnPayload(
             action: "tryon",
             personBase64: personJPEG.base64EncodedString(),
-            garmentsBase64: garmentsPNG.map { $0.base64EncodedString() }
+            garmentsBase64: garmentsPNG.map { $0.base64EncodedString() },
+            scene: scene
         )
         // Lo más lento que pide la app: varias imágenes de entrada y una de
         // salida.
@@ -289,6 +290,7 @@ public actor RemoteClothingResolver: ClothingResolving {
         let action: String
         let personBase64: String
         let garmentsBase64: [String]
+        let scene: String
     }
 
     private struct RestylePayload: Encodable {

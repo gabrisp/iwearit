@@ -59,7 +59,10 @@ public protocol ClothingResolving: Sendable {
     ///   - personJPEG: la foto de cuerpo entero, ya reducida.
     ///   - garmentsPNG: los recortes con alfa, de arriba abajo.
     /// - Returns: la imagen generada, en los bytes que devuelva el modelo.
-    func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data
+    ///   - scene: dónde ponerte. El escenario va **en el encargo** y no se
+    ///     cambia después: pedir la ropa y luego pegar un fondo deja la luz de
+    ///     un sitio sobre una persona iluminada de otro.
+    func tryOn(personJPEG: Data, garmentsPNG: [Data], scene: String) async throws -> Data
 }
 
 /// Lo que se manda a resolver.

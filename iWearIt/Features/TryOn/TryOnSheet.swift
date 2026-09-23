@@ -25,9 +25,21 @@ struct TryOnSheet: View {
 
     @State private var model: TryOnModel?
     @State private var picked: PhotosPickerItem?
-    @State private var isAccepting = false
+    /// Cuál de tus perfiles está puesto.
+    ///
+    /// Por identificador y no por el objeto: el objeto puede irse —lo borras—
+    /// y una referencia colgando a un `@Model` borrado es una pantalla en
+    /// blanco.
+    @State private var selectedID: UUID?
+    /// Dónde ponerte. Ver `TryOnScene`.
+    @State private var scene: TryOnScene = .none
 
-    private var profile: BodyProfile? { profiles.first }
+    /// El perfil con el que se prueba: el elegido, o el primero que haya.
+    private var profile: BodyProfile? {
+        profiles.first { $0.id == selectedID } ?? profiles.first
+    }
+
+    private var canAddMore: Bool { profiles.count < BodyProfile.maximumProfiles }
 
     var body: some View {
         NavigationStack {
@@ -60,7 +72,8 @@ struct TryOnSheet: View {
         ScrollView {
             VStack(spacing: WK.Spacing.l) {
                 canvas
-                if profile == nil { explain }
+                if !profiles.isEmpty { strip }
+                scenes
                 if case let .failed(reason) = model?.state {
                     Text(reason)
                         .font(WK.Font.caption)
@@ -83,6 +96,10 @@ struct TryOnSheet: View {
                 Image(uiImage: result)
                     .resizable()
                     .scaledToFit()
+                    // Sobre el papel de la app: un PNG recortado sobre nada se
+                    // ve como un recorte flotando, y sobre el papel se ve como
+                    // lo que es.
+                    .background(scene == .none ? WK.Palette.canvas : .clear)
                     .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
             } else if let profile {
                 StoredImage(
@@ -110,22 +127,97 @@ struct TryOnSheet: View {
         .animation(WKAnimation.content, value: model?.state)
     }
 
-    /// El permiso, con todas las letras y antes de que nada salga de aquí.
-    private var explain: some View {
-        VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Tu foto sale del teléfono")
-                .font(WK.Font.headline)
-                .foregroundStyle(WK.Palette.primaryText)
-            Text(
-                "Para vestirte hace falta un servidor: no hay forma de hacerlo "
-                + "aquí dentro. Se manda tu foto y los recortes de la ropa, nada "
-                + "más — ni tu nombre, ni tu armario — y no se guarda al otro "
-                + "lado. Quitando la foto se acaba el permiso."
-            )
-            .font(WK.Font.caption)
-            .foregroundStyle(WK.Palette.secondaryText)
+    /// **Tus perfiles.**
+    ///
+    /// Hasta tres, porque probarse ropa no siempre es para uno: la foto de
+    /// cuerpo entero con buena luz, la del espejo del gimnasio y la de tu
+    /// pareja son tres perfiles distintos y elegir entre ellos es un toque.
+    /// Sin esto había que borrar la foto y subir otra cada vez, que es la
+    /// forma más rápida de que nadie use esto dos veces.
+    private var strip: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: WK.Spacing.m) {
+                ForEach(profiles) { item in
+                    Button { selectedID = item.id } label: {
+                        StoredImage(
+                            key: item.imageKey,
+                            variant: .thumb,
+                            store: appEnvironment.imageStore
+                        )
+                        .frame(width: 56, height: 72)
+                        .clipShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+                                .stroke(
+                                    item.id == profile?.id ? WK.Palette.accent : WK.Palette.ink(0.1),
+                                    lineWidth: item.id == profile?.id ? 2 : 1
+                                )
+                        }
+                        .opacity(item.id == profile?.id ? 1 : 0.6)
+                    }
+                    .buttonStyle(WKPressStyle())
+                    .contextMenu {
+                        Button(role: .destructive) { remove(item) } label: {
+                            Label("Quitar esta foto", systemImage: "trash")
+                        }
+                    }
+                }
+
+                if canAddMore {
+                    PhotosPicker(selection: $picked, matching: .images) {
+                        RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+                            .stroke(
+                                WK.Palette.ink(0.18),
+                                style: StrokeStyle(lineWidth: 1, dash: [6, 4])
+                            )
+                            .frame(width: 56, height: 72)
+                            .overlay {
+                                Image(systemName: "plus")
+                                    .font(.body)
+                                    .foregroundStyle(WK.Palette.secondaryText)
+                            }
+                    }
+                    .buttonStyle(WKPressStyle())
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .animation(WKAnimation.content, value: profiles.count)
+    }
+
+    /// Dónde te pones.
+    ///
+    /// El escenario va **antes** de generar y no después: pedir la ropa y
+    /// luego cambiar el fondo deja la luz de un sitio sobre una persona
+    /// iluminada de otro. "Sin fondo" devuelve un PNG recortado.
+    private var scenes: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: WK.Spacing.s) {
+                ForEach(TryOnScene.allCases) { option in
+                    Button { scene = option } label: {
+                        Label(option.label, systemImage: option.symbol)
+                            .font(WK.Font.caption)
+                            .foregroundStyle(
+                                scene == option ? WK.Palette.onAccent : WK.Palette.primaryText
+                            )
+                            .fixedSize()
+                            .padding(.horizontal, WK.Spacing.m)
+                            .padding(.vertical, WK.Spacing.s)
+                            .background {
+                                if scene == option {
+                                    Capsule().fill(WK.Palette.accent)
+                                }
+                            }
+                            .adaptiveGlass(in: .capsule)
+                    }
+                    .buttonStyle(WKPressStyle())
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        .scrollClipDisabled()
+        .animation(WKAnimation.selection, value: scene)
     }
 
     @ViewBuilder
@@ -143,18 +235,25 @@ struct TryOnSheet: View {
                 .tint(WK.Palette.primaryText)
             } else if profile?.canLeaveDevice != true {
                 WKPrimaryButton("Aceptar y probarme") { accept() }
-                Text("Solo se pregunta una vez.")
+                // Lo justo y en letra pequeña: el cartel de antes ocupaba media
+                // pantalla para decir esto mismo.
+                Text("Tu foto se procesa fuera del teléfono. Se pregunta una vez.")
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
+                    .multilineTextAlignment(.center)
             } else {
                 WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo") {
                     generate()
                 }
                 .disabled(model?.state == .working)
 
-                Button("Cambiar mi foto") { clearProfile() }
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
+                if canAddMore {
+                    PhotosPicker(selection: $picked, matching: .images) {
+                        Text("Añadir otra foto")
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                }
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
@@ -179,9 +278,13 @@ struct TryOnSheet: View {
               let image = UIImage(data: data)?.cgImage
         else { return }
         guard let key = try? await appEnvironment.imageStore.store(image) else { return }
-        let profile = BodyProfile(label: "Yo", imageKey: key)
+        // Tres y no más: son fotos de personas, y guardar sin tope una carpeta
+        // de fotos de cuerpo entero no es un favor que le hagamos a nadie.
+        guard profiles.count < BodyProfile.maximumProfiles else { picked = nil; return }
+        let profile = BodyProfile(label: Self.name(for: profiles.count), imageKey: key)
         modelContext.insert(profile)
         try? modelContext.save()
+        selectedID = profile.id
         picked = nil
     }
 
@@ -202,18 +305,27 @@ struct TryOnSheet: View {
             return
         }
         Task {
-            let done = await model.generate(for: profile, garments: outfit.garments)
+            let done = await model.generate(
+                for: profile,
+                garments: outfit.garments,
+                scene: scene
+            )
             if done { store.note(.generation, detail: outfit.name) }
         }
     }
 
+    private static func name(for index: Int) -> String {
+        index == 0 ? "Yo" : "Perfil \(index + 1)"
+    }
+
     /// Quitar la foto **es revocar el permiso**: se va la imagen y se va la
     /// fecha con ella.
-    private func clearProfile() {
-        guard let profile else { return }
+    private func remove(_ profile: BodyProfile) {
         let key = profile.imageKey
+        if selectedID == profile.id { selectedID = nil }
         modelContext.delete(profile)
         try? modelContext.save()
         Task { try? await appEnvironment.imageStore.delete(key: key) }
+        DiagnosticsLog.record("PROBADOR", "perfil quitado: se revoca el permiso")
     }
 }

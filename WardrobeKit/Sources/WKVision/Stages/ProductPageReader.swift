@@ -167,6 +167,8 @@ public enum ProductPageReader {
         (["gorro", "beanie"], "Gorro"),
         (["sombrero", "hat"], "Sombrero"),
         (["gafas de sol", "sunglasses"], "Gafas de sol"),
+        // Las de ver, que no son de sol: "gafas", "montura", "eyeglasses".
+        (["gafas", "montura", "eyeglasses", "glasses"], "Gafas"),
         (["mochila", "backpack"], "Mochila"),
         (["bandolera", "crossbody"], "Bandolera"),
         (["tote"], "Tote"),

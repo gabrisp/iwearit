@@ -51,8 +51,8 @@ public struct CachedClothingResolver: ClothingResolving {
     /// que limpiar al borrar una prenda.
     /// Pasa de largo, y aquí con más motivo: cada probado es una foto
     /// distinta de una persona, así que dos llamadas nunca son la misma.
-    public func tryOn(personJPEG: Data, garmentsPNG: [Data]) async throws -> Data {
-        try await base.tryOn(personJPEG: personJPEG, garmentsPNG: garmentsPNG)
+    public func tryOn(personJPEG: Data, garmentsPNG: [Data], scene: String) async throws -> Data {
+        try await base.tryOn(personJPEG: personJPEG, garmentsPNG: garmentsPNG, scene: scene)
     }
 
     public func restyle(_ imageJPEG: Data) async throws -> Data {

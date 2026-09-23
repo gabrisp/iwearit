@@ -55,7 +55,11 @@ final class TryOnModel {
     ///   - garments: las prendas del conjunto, de arriba abajo.
     /// - Returns: `true` si salió algo, para que quien llama apunte el gasto.
     @discardableResult
-    func generate(for profile: BodyProfile, garments: [Garment]) async -> Bool {
+    func generate(
+        for profile: BodyProfile,
+        garments: [Garment],
+        scene: TryOnScene = .none
+    ) async -> Bool {
         guard let resolver else {
             state = .failed("Esto necesita conexión con el servidor.")
             return false
@@ -98,12 +102,24 @@ final class TryOnModel {
         }
 
         do {
-            let data = try await resolver.tryOn(personJPEG: personJPEG, garmentsPNG: pieces)
-            guard let image = UIImage(data: data) else {
+            let data = try await resolver.tryOn(
+                personJPEG: personJPEG,
+                garmentsPNG: pieces,
+                scene: scene.rawValue
+            )
+            guard let generated = UIImage(data: data)?.cgImage else {
                 state = .failed("El servidor devolvió algo que no es una imagen.")
                 return false
             }
-            result = image
+            // **La transparencia la pone el teléfono.**
+            //
+            // Un modelo de imagen no devuelve canal alfa — devuelve píxeles, y
+            // cuando le pides "fondo transparente" lo que pinta es el tablero
+            // de cuadros. Así que se le pide un fondo liso y aquí se levanta
+            // el sujeto, que es la única forma de tener un PNG de verdad. Ver
+            // `SubjectCutout`.
+            let final = scene == .none ? (await SubjectCutout.lift(generated) ?? generated) : generated
+            result = UIImage(cgImage: final)
             state = .done
             DiagnosticsLog.record("PROBADOR", "listo · \(pieces.count) prenda(s)")
             return true
@@ -156,6 +172,50 @@ final class TryOnModel {
             return "No se pudo conectar: \(reason)"
         case .badResponse:
             return "No se pudo generar la prueba."
+        }
+    }
+}
+
+
+/// Dónde te pones.
+///
+/// ## Por qué el fondo va en el encargo
+///
+/// Porque pedir la ropa y luego cambiar el fondo deja la luz de un sitio sobre
+/// una persona iluminada de otro, y eso se ve a la primera. Diciéndoselo de
+/// una, la sombra cae donde toca.
+///
+/// `none` es el que devuelve un PNG recortado: se pide fondo liso y el recorte
+/// lo hace el teléfono, que es la única forma de tener alfa de verdad.
+enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
+    case none = "plain"
+    case studio
+    case street
+    case beach
+    case office
+    case night
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: "Sin fondo"
+        case .studio: "Estudio"
+        case .street: "Calle"
+        case .beach: "Playa"
+        case .office: "Oficina"
+        case .night: "Noche"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .none: "square.dashed"
+        case .studio: "camera"
+        case .street: "building.2"
+        case .beach: "beach.umbrella"
+        case .office: "briefcase"
+        case .night: "moon.stars"
         }
     }
 }

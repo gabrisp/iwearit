@@ -98,8 +98,28 @@ LA ROPA — OBLIGATORIO:
 - No inventes logotipos, bolsillos, cinturones ni accesorios que no estén en las imágenes.
 
 LA FOTO:
-- Fotografía realista, misma luz y mismo fondo que la original.
+- Fotografía realista, con luz coherente entre la persona y el sitio donde está.
 - Nada de collage, ni de recortes pegados, ni de marcas de agua.`;
+
+/**
+ * Dónde se te pone.
+ *
+ * El escenario es parte del encargo y no un retoque posterior: pedirle al
+ * modelo que te vista y **luego** cambiarle el fondo deja la luz de un sitio
+ * sobre una persona iluminada de otro, y eso se ve enseguida. Diciéndoselo de
+ * una, la sombra cae donde toca.
+ *
+ * `plain` es el que permite recortar después: fondo liso de un solo tono, que
+ * es lo que Vision sabe separar limpiamente en el teléfono.
+ */
+const SCENES = {
+  plain: 'Fondo LISO de un solo tono gris claro (#F2F2F2), sin sombra proyectada, sin suelo y sin objetos. Solo la persona sobre ese gris.',
+  studio: 'Estudio de fotografía: fondo de papel continuo claro, luz suave de softbox y una sombra corta bajo los pies.',
+  street: 'Calle de ciudad de día, acera y fachadas desenfocadas al fondo, luz natural.',
+  beach: 'Playa a media tarde, arena y mar desenfocados al fondo, luz cálida y baja.',
+  office: 'Oficina moderna con luz de ventana, fondo desenfocado.',
+  night: 'Calle de noche con luces de la ciudad desenfocadas detrás, luz fría y contraste alto.',
+};
 
 /**
  * Prueba un outfit sobre una foto de la persona.
@@ -118,9 +138,10 @@ LA FOTO:
  * de la primera vez** y aquí no se guarda nada: se manda, se recibe y se
  * devuelve. Ver `TryOnConsent` en la app.
  */
-async function tryOn(person, garments, key, log, error) {
+async function tryOn(person, garments, scene, key, log, error) {
+  const where = SCENES[scene] || SCENES.plain;
   const content = [
-    { type: 'text', text: TRYON_PROMPT },
+    { type: 'text', text: `${TRYON_PROMPT}\n\nEL SITIO — OBLIGATORIO:\n- ${where}` },
     { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } },
   ];
   for (const garment of garments) {
@@ -434,7 +455,7 @@ export default async ({ req, res, log, error }) => {
     if (total > 6000000) {
       return res.json({ error: 'image_too_large' }, 413);
     }
-    const result = await tryOn(person, garments, key, log, error);
+    const result = await tryOn(person, garments, body?.scene, key, log, error);
     return res.json(result.body, result.status);
   }
 

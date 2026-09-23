@@ -53,7 +53,10 @@ public enum GarmentVocabulary {
         case .feet:
             ["Zapatillas", "Botas", "Zapatos", "Sandalias", "Bailarinas", "Botines"]
         case .head:
-            ["Gorra", "Gorro", "Sombrero", "Gafas de sol", "Diadema"]
+            // **Gafas a secas, además de las de sol.** Unas de ver son un
+            // accesorio como cualquier otro y hasta ahora solo cabían como
+            // "gafas de sol", que es decir que son otra cosa.
+            ["Gorra", "Gorro", "Sombrero", "Gafas", "Gafas de sol", "Diadema"]
         case .bag:
             ["Bolso", "Mochila", "Bandolera", "Tote"]
         case .other:

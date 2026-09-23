@@ -1516,7 +1516,8 @@ public actor GarmentPipeline {
             ("segmentador", garment),
         ]
 
-        if let lifted = await subjectCutout(from: original, detail: detail) {
+        let lifted = await subjectCutout(from: original, detail: detail)
+        if let lifted {
             candidates.append(("sujeto", garment.replacingImages(
                 normalized: lifted.normalized,
                 rawCrop: lifted.rawCrop
@@ -1524,7 +1525,27 @@ public actor GarmentPipeline {
         }
 
         if let split, let coloured = colourCutout(of: garment, from: image, using: split) {
-            candidates.append(("color", coloured))
+            // **El sujeto es el techo.**
+            //
+            // El corte por color se queda con todo lo que no sea del color del
+            // fondo, y eso incluye lo que haya al lado: la funda de las gafas,
+            // la sombra dura, el mando a distancia de la mesa. La nota de
+            // contaminación no lo pilla —mide fondo dentro del recorte, no
+            // objetos ajenos— así que un recorte con dos cosas puntúa bien.
+            //
+            // Vision ya ha dicho qué hay en la foto, y lo dice bien: si su
+            // sujeto ocupa mucho menos que lo que el color se quiere llevar,
+            // es que el color se está llevando otra cosa. Quitar de más es un
+            // recorte pobre; **añadir** de más es una prenda que no existe.
+            if let lifted, Self.area(of: coloured.rawCrop.cgImage, in: image)
+                > Self.area(of: lifted.rawCrop.cgImage, in: detail) * 1.3 {
+                DiagnosticsLog.record(
+                    "RECORTE",
+                    "el corte por color se pasa del sujeto: se descarta"
+                )
+            } else {
+                candidates.append(("color", coloured))
+            }
         }
 
         // **Dos notas, no una.** La forma dice si el recorte está entero; la
@@ -1972,6 +1993,17 @@ public actor GarmentPipeline {
         return lab.x > 20 && lab.x < 92
             && lab.y > 5 && lab.y < 27
             && lab.z > 8 && lab.z < 35
+    }
+
+    /// Qué parte de la foto ocupa un recorte, entre 0 y 1.
+    ///
+    /// Por su caja y no por sus píxeles opacos: es una comparación gruesa
+    /// —"esto es mucho más grande que aquello"— y contar píxeles de dos
+    /// imágenes a resoluciones distintas costaría más de lo que aclara.
+    static func area(of cutout: CGImage, in source: CGImage) -> Double {
+        let sourceArea = Double(source.width * source.height)
+        guard sourceArea > 0 else { return 0 }
+        return Double(cutout.width * cutout.height) / sourceArea
     }
 
     static func cgImage(from buffer: CVPixelBuffer) -> CGImage? {
