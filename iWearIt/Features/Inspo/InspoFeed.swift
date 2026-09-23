@@ -96,6 +96,7 @@ final class InspoFeed {
     /// vuelve a llenar. Es la diferencia entre barajar una baraja y tirarla
     /// para sacar otra.
     func shuffle() {
+        reserve.removeAll()
         let fresh = stylist.looks(from: wardrobe(), brief: baseBrief(seed: UInt64(Date().timeIntervalSince1970)), count: max(Self.capacity, looks.count))
         guard !fresh.isEmpty else { return }
 
@@ -274,6 +275,7 @@ final class InspoFeed {
         guard ids != anchors else { return }
         anchors = ids
         dismissed.removeAll()
+        reserve.removeAll()
         shuffle()
     }
 
@@ -283,7 +285,7 @@ final class InspoFeed {
             weather: forecast,
             pinned: anchors,
             discouraged: dislikes,
-            recentlyWorn: container.mainContext.recentlyWornGarments(),
+            recentlyWorn: recentlyWorn(),
             seed: seed == 0 ? Self.seedForNow() : seed
         )
     }
@@ -324,10 +326,38 @@ final class InspoFeed {
     /// allí lo que hay que combinar es lo que te llevas, no lo que tienes.
     var restrictedTo: Set<UUID>?
 
+    /// El armario, **con memoria corta**.
+    ///
+    /// Leerlo entero de SwiftData y traducirlo a valores cuesta poco, pero no
+    /// nada, y se pedía en cada descarte. Medio minuto de caché es más de lo
+    /// que dura una sesión de pasar conjuntos y menos de lo que tarda nadie en
+    /// añadir ropa desde otra pantalla.
     func wardrobe() -> [StylistGarment] {
-        let all = container.mainContext.stylistWardrobe()
+        let all: [StylistGarment]
+        if let stamp = wardrobeReadAt, Date().timeIntervalSince(stamp) < 30, !cachedWardrobe.isEmpty {
+            all = cachedWardrobe
+        } else {
+            all = container.mainContext.stylistWardrobe()
+            cachedWardrobe = all
+            wardrobeReadAt = Date()
+        }
         guard let restrictedTo else { return all }
         return all.filter { restrictedTo.contains($0.id) }
+    }
+
+    private var cachedWardrobe: [StylistGarment] = []
+    private var wardrobeReadAt: Date?
+    private var cachedWorn: [UUID: Date] = [:]
+    private var wornReadAt: Date?
+
+    /// Lo llevado esta semana, con la misma memoria corta y por el mismo
+    /// motivo: consultar el plan entero por cada deslizamiento es trabajo
+    /// repetido sobre algo que no cambia mientras pasas conjuntos.
+    private func recentlyWorn() -> [UUID: Date] {
+        if let stamp = wornReadAt, Date().timeIntervalSince(stamp) < 30 { return cachedWorn }
+        cachedWorn = container.mainContext.recentlyWornGarments()
+        wornReadAt = Date()
+        return cachedWorn
     }
 
     /// Conjuntos para una petición concreta del chat.
@@ -360,19 +390,37 @@ final class InspoFeed {
         updatedAt = Date()
     }
 
+    /// **La reserva.**
+    ///
+    /// Descartar una propuesta rellenaba el hueco montando una tanda entera:
+    /// leer el armario, leer el plan de la semana y puntuar unos cientos de
+    /// combinaciones, en el hilo principal y **en cada deslizamiento**. Por eso
+    /// el gesto se iba volviendo lento según pasabas conjuntos.
+    ///
+    /// Ahora esa tanda se monta una vez y se guarda aquí; descartar solo saca
+    /// el siguiente de la fila. Cuando la fila se acaba, se vuelve a montar —y
+    /// entonces sí cuesta, pero una vez cada ocho y no ocho veces.
+    private var reserve: [StylistLook] = []
+
     private func refill() {
         guard looks.count < Self.capacity else { return }
-        let existing = Set(looks.flatMap(\.garmentIDs))
-        let fresh = stylist.looks(
+        if reserve.isEmpty { replenishReserve() }
+
+        while looks.count < Self.capacity, !reserve.isEmpty {
+            let candidate = reserve.removeFirst()
+            guard !dismissed.contains(candidate.id) else { continue }
+            let existing = Set(looks.flatMap(\.garmentIDs))
+            guard Set(candidate.garmentIDs).isDisjoint(with: existing) else { continue }
+            looks.append(candidate)
+        }
+    }
+
+    private func replenishReserve() {
+        reserve = stylist.looks(
             from: wardrobe(),
             brief: baseBrief(seed: UInt64(Date().timeIntervalSince1970)),
             count: Self.capacity
         )
-        for look in fresh where looks.count < Self.capacity {
-            guard !dismissed.contains(look.id) else { continue }
-            guard Set(look.garmentIDs).isDisjoint(with: existing) else { continue }
-            looks.append(look)
-        }
     }
 
     /// La semilla del tramo de tiempo en el que estamos.

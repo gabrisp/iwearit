@@ -26,8 +26,17 @@ struct OutfitPickerSheet: View {
     var title = "Crear outfit"
     var subtitle = "Elige las prendas con las que quieres empezar"
     let store: ImageStore
+    /// Cuántas caben en total. `nil` = las que quieras.
+    ///
+    /// Con tope, marcar una más suelta la más antigua en vez de no hacer nada:
+    /// un botón que deja de responder sin decir por qué es peor que uno que
+    /// hace algo razonable. Lo usa el estilista, donde más de tres o cuatro
+    /// prendas de partida no dejan nada que proponer.
+    var limit: Int?
     /// Ya marcada al abrir. Viene de "crear outfit" desde una prenda concreta.
     var preselected: Garment?
+    /// O ya marcadas, cuando se vuelve a abrir con lo de antes puesto.
+    var preselectedIDs: [PersistentIdentifier] = []
     let onConfirm: ([Garment]) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -77,6 +86,7 @@ struct OutfitPickerSheet: View {
                         categoryID: id,
                         store: store,
                         mode: mode,
+                        limit: limit,
                         picking: picking,
                         picked: $picked,
                         flying: $flying
@@ -106,6 +116,7 @@ struct OutfitPickerSheet: View {
                         store: store,
                         isEven: index.isMultiple(of: 2),
                         mode: mode,
+                        limit: limit,
                         picking: picking,
                         picked: $picked,
                         flying: $flying
@@ -165,8 +176,12 @@ struct OutfitPickerSheet: View {
             }
         }
         .task {
-            guard let preselected, picked.isEmpty else { return }
-            picked = [preselected.persistentModelID]
+            guard picked.isEmpty else { return }
+            if !preselectedIDs.isEmpty {
+                picked = preselectedIDs
+            } else if let preselected {
+                picked = [preselected.persistentModelID]
+            }
         }
     }
 
@@ -277,6 +292,7 @@ private struct PickerShelf: View {
     let store: ImageStore
     let isEven: Bool
     let mode: OutfitPickerSheet.Mode
+    var limit: Int?
     let picking: Namespace.ID
     @Binding var picked: [PersistentIdentifier]
     @Binding var flying: PersistentIdentifier?
@@ -336,6 +352,8 @@ private struct PickerShelf: View {
             let siblings = Set(category.visibleGarments.map(\.persistentModelID))
             picked.removeAll { siblings.contains($0) }
         }
+        // Al llegar al tope, la más antigua deja su sitio. Ver `limit`.
+        if let limit, picked.count >= limit { picked.removeFirst() }
         picked.append(id)
 
         Task {
@@ -523,6 +541,7 @@ private struct PickerShelfScreen: View {
     let categoryID: PersistentIdentifier
     let store: ImageStore
     let mode: OutfitPickerSheet.Mode
+    var limit: Int?
     let picking: Namespace.ID
     @Binding var picked: [PersistentIdentifier]
     @Binding var flying: PersistentIdentifier?
@@ -573,6 +592,7 @@ private struct PickerShelfScreen: View {
                 let ids = Set(siblings.map(\.persistentModelID))
                 picked.removeAll { ids.contains($0) }
             }
+            if let limit, picked.count >= limit { picked.removeFirst() }
             picked.append(id)
         }
     }

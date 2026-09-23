@@ -74,3 +74,100 @@ public struct PlaceSearchService: Sendable {
         return "\(city), \(country)"
     }
 }
+
+/// Una sugerencia mientras escribes: lo que enseña el buscador de Mapas.
+public struct PlaceSuggestion: Identifiable, Sendable, Hashable {
+    public let id: String
+    /// "Madrid", "Santiago de Compostela".
+    public let title: String
+    /// "España", "A Coruña, España": lo que distingue dos sitios que se
+    /// llaman igual, que es justo el caso en el que una sola fila no sirve.
+    public let subtitle: String
+}
+
+/// El buscador de sitios **como el de Mapas**.
+///
+/// ## Por qué hace falta además de `PlaceSearchService`
+///
+/// Porque `MKLocalSearch` resuelve una búsqueda y devuelve lo que mejor casa:
+/// para "Madrid" eso es una fila, y si tu Madrid es el de Cundinamarca no hay
+/// forma de llegar a él. `MKLocalSearchCompleter` es el otro extremo de la
+/// misma API —lo que alimenta la lista de sugerencias de Mapas mientras
+/// tecleas— y devuelve una lista de verdad, ya ordenada y con el país o la
+/// provincia debajo para distinguirlas.
+///
+/// Se resuelve **solo lo que se elige**: las coordenadas de una sugerencia
+/// cuestan una búsqueda, y pedirlas para quince filas que nadie va a tocar es
+/// gastar la cuota de geocodificación en nada.
+@MainActor
+@Observable
+public final class PlaceCompleter: NSObject {
+
+    public private(set) var suggestions: [PlaceSuggestion] = []
+
+    private let completer = MKLocalSearchCompleter()
+    private var raw: [String: MKLocalSearchCompletion] = [:]
+
+    public override init() {
+        super.init()
+        completer.delegate = self
+        // Ciudades y direcciones, no cafeterías: aquí se busca dónde estás o
+        // a dónde vas.
+        completer.resultTypes = .address
+    }
+
+    public func update(query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2 else {
+            suggestions = []
+            return
+        }
+        completer.queryFragment = trimmed
+    }
+
+    /// Las coordenadas de la elegida.
+    public func resolve(_ suggestion: PlaceSuggestion) async -> GeoPlace? {
+        guard let completion = raw[suggestion.id] else { return nil }
+        let request = MKLocalSearch.Request(completion: completion)
+        guard
+            let response = try? await MKLocalSearch(request: request).start(),
+            let item = response.mapItems.first
+        else { return nil }
+
+        let name = suggestion.subtitle.isEmpty
+            ? suggestion.title
+            : "\(suggestion.title), \(suggestion.subtitle)"
+        let coordinate: CLLocationCoordinate2D
+        if #available(iOS 26, *) {
+            coordinate = item.location.coordinate
+        } else {
+            coordinate = item.placemark.coordinate
+        }
+        return GeoPlace(name: name, latitude: coordinate.latitude, longitude: coordinate.longitude)
+    }
+}
+
+// El delegado de MapKit llega en el hilo principal, pero su protocolo no lo
+// promete: se marca `@preconcurrency` para poder seguir estando aislado al
+// `MainActor` —que es donde vive lo que se publica— sin saltar de actor en
+// cada aviso.
+extension PlaceCompleter: @preconcurrency MKLocalSearchCompleterDelegate {
+
+    public func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
+        var table: [String: MKLocalSearchCompletion] = [:]
+        suggestions = completer.results.map { completion in
+            let id = "\(completion.title)|\(completion.subtitle)"
+            table[id] = completion
+            return PlaceSuggestion(
+                id: id,
+                title: completion.title,
+                subtitle: completion.subtitle
+            )
+        }
+        raw = table
+    }
+
+    public func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+        DiagnosticsLog.record("SITIO", "sugerencias: \(error.localizedDescription)", isProblem: true)
+    }
+}

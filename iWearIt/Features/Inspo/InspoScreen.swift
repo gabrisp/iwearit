@@ -204,6 +204,7 @@ struct InspoScreen: View {
         // Al volver del editor: si el outfit sigue existiendo, se quedó lo
         // editado y la tarjeta lo enseña; si no —descartaste— se olvida y
         // vuelve la propuesta.
+        .onChange(of: shown.map(\.id)) { _, _ in keepAnchorAlive() }
         .onChange(of: editingOutfit) { previous, current in
             // Y si el editor venía del estilista, se vuelve a él con la
             // conversación intacta.
@@ -386,6 +387,19 @@ struct InspoScreen: View {
     /// Si la pantalla es más ancha que alta.
     private var isWide: Bool { pageSize.width > pageSize.height }
 
+    /// **El ancla del scroll, siempre apuntando a algo que existe.**
+    ///
+    /// `scrollPosition(id:)` se queda clavado si el identificador al que
+    /// apunta desaparece de la lista —y desaparece en cuanto descartas el
+    /// conjunto que estabas mirando, o cambias las prendas de partida—: el
+    /// scroll dejaba de responder y parecía que la pantalla se había colgado.
+    private func keepAnchorAlive() {
+        guard let scrolled else { return }
+        guard scrolled != Self.moreCardID else { return }
+        guard !shown.contains(where: { $0.id == scrolled }) else { return }
+        self.scrolled = shown.first?.id
+    }
+
     // MARK: Acciones
 
     /// Guardar es **hacerlo tuyo**: deja de ser una propuesta y pasa a
@@ -447,7 +461,16 @@ struct InspoScreen: View {
     }
 
     private func discard(_ look: StylistLook) {
+        moveAnchor(off: look)
         feed.dismiss(look)
+    }
+
+    /// Deja el scroll apuntando al siguiente antes de que este se vaya.
+    private func moveAnchor(off look: StylistLook) {
+        guard scrolled == look.id else { return }
+        let index = shown.firstIndex { $0.id == look.id }
+        let next = index.flatMap { shown.indices.contains($0 + 1) ? shown[$0 + 1] : nil }
+        scrolled = next?.id ?? shown.first { $0.id != look.id }?.id
     }
 
     /// Baraja la tanda entera y sube arriba del todo.
@@ -484,6 +507,7 @@ struct InspoScreen: View {
     /// Tirado a la izquierda: fuera, y sus prendas pesan menos a partir de
     /// ahora. Ver `InspoFeed.dislike`.
     private func dislike(_ look: StylistLook) {
+        moveAnchor(off: look)
         feed.dislike(look)
     }
 
@@ -695,8 +719,16 @@ struct InspoLookCard: View {
             // **El lápiz hace lo mismo que el doble toque.** Los dos gestos
             // están bien para quien los conoce; el botón está para quien no.
             circle("pencil", action: onEdit)
-            circle("arrow.triangle.2.circlepath", action: onRegenerate)
-            circle("xmark", action: onDismiss)
+
+            // **Y tres, no cinco.**
+            //
+            // Descartar y volver a montar estaban aquí además de en el gesto:
+            // arrastrar a la izquierda descarta y tirar de arriba rehace la
+            // tanda. Cinco botones en el borde de cada tarjeta son cinco
+            // decisiones cada vez que pasas una, y tres de ellas repetidas.
+            //
+            // circle("arrow.triangle.2.circlepath", action: onRegenerate)
+            // circle("xmark", action: onDismiss)
         }
         // Separados del canto: pegados al borde parecen a punto de salirse de
         // la tarjeta, y en una pantalla estrecha el pulgar los roza al pasar

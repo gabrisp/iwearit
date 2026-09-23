@@ -61,12 +61,24 @@ struct InspoFiltersSheet: View {
                         .adaptiveProminentButton()
                 }
             }
+            // **El armario por baldas, como al crear un outfit.**
+            //
+            // Es el mismo gesto —marcar prendas del armario— y estaba resuelto
+            // ahí: baldas en horizontal y lo marcado abajo a la izquierda, sin
+            // que la rejilla se recoloque bajo el dedo. Dos formas de elegir
+            // ropa hacían parecer que hay dos armarios.
             .sheet(isPresented: $isPickingGarments) {
-                GarmentPickerSheet(
+                OutfitPickerSheet(
+                    mode: .many,
                     title: "Con estas prendas",
-                    initial: anchors
-                ) { picked in
-                    withAnimation(WKAnimation.content) { anchors = picked }
+                    subtitle: "Hasta tres: los conjuntos las llevarán",
+                    store: appEnvironment.imageStore,
+                    limit: 3,
+                    preselectedIDs: anchored.map(\.persistentModelID)
+                ) { garments in
+                    withAnimation(WKAnimation.content) {
+                        anchors = Set(garments.map(\.id))
+                    }
                 }
             }
         }

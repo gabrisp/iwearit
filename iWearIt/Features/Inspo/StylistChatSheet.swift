@@ -97,14 +97,21 @@ struct StylistChatSheet: View {
                 .sheet(item: $sheet) { which in
                     switch which {
                     case .picker:
-                        GarmentPickerSheet(
+                        // El armario por baldas, como al crear un outfit: ver
+                        // `OutfitPickerSheet`.
+                        OutfitPickerSheet(
+                            mode: .many,
                             title: "Añadir prendas",
                             // Cuatro: con cinco ya está el conjunto puesto y no
                             // queda nada que proponer.
+                            subtitle: "Hasta cuatro: el look se monta con ellas",
+                            store: appEnvironment.imageStore,
                             limit: 4,
-                            initial: chat.attached
-                        ) { picked in
-                            withAnimation(WKAnimation.content) { chat.attached = picked }
+                            preselectedIDs: attachedGarments.map(\.persistentModelID)
+                        ) { garments in
+                            withAnimation(WKAnimation.content) {
+                                chat.attached = Set(garments.map(\.id))
+                            }
                         }
                     case let .day(look):
                         StylistDayPicker { date in

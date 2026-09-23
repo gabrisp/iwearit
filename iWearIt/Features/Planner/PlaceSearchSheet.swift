@@ -16,6 +16,8 @@ struct PlaceSearchSheet: View {
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var isLocating = false
     @State private var query = ""
+    /// Las sugerencias de Mapas mientras escribes. Ver `PlaceCompleter`.
+    @State private var completer = PlaceCompleter()
     @State private var results: [GeoPlace] = []
     @State private var isSearching = false
     @State private var message: String?
@@ -65,18 +67,29 @@ struct PlaceSearchSheet: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
 
+            // **La lista de Mapas, no un resultado.**
+            //
+            // `MKLocalSearch` resuelve la búsqueda y devuelve lo que mejor
+            // casa: para "Madrid", una fila. Si tu Madrid es otro, no había
+            // forma de llegar. El completador devuelve la lista de verdad, con
+            // el país o la provincia debajo para distinguir los que se llaman
+            // igual. Ver `PlaceCompleter`.
             WKSection {
-                ForEach(Array(results.enumerated()), id: \.element.id) { index, place in
+                ForEach(Array(completer.suggestions.enumerated()), id: \.element.id) { index, suggestion in
                     WKRow(
-                        showsSeparator: index < results.count - 1,
-                        action: {
-                            onPick(place)
-                            dismiss()
-                        }
+                        showsSeparator: index < completer.suggestions.count - 1,
+                        action: { Task { await choose(suggestion) } }
                     ) {
                         HStack {
-                            Text(place.name)
-                                .foregroundStyle(WK.Palette.primaryText)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(suggestion.title)
+                                    .foregroundStyle(WK.Palette.primaryText)
+                                if !suggestion.subtitle.isEmpty {
+                                    Text(suggestion.subtitle)
+                                        .font(WK.Font.caption)
+                                        .foregroundStyle(WK.Palette.secondaryText)
+                                }
+                            }
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .font(.caption2.weight(.semibold))
@@ -85,17 +98,15 @@ struct PlaceSearchSheet: View {
                     }
                 }
             }
-            .opacity(results.isEmpty ? 0 : 1)
+            .opacity(completer.suggestions.isEmpty ? 0 : 1)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()
-        // También mientras escribes, con una pausa: así las opciones aparecen
-        // solas y no hace falta pulsar buscar para ver si la tuya está.
-        .task(id: query) {
-            guard query.trimmingCharacters(in: .whitespaces).count >= 2 else { return }
-            try? await Task.sleep(for: .milliseconds(450))
-            guard !Task.isCancelled else { return }
-            await search()
+        // Mientras escribes: el completador no geocodifica, solo sugiere, así
+        // que no hay cuota que agotar ni pausa que respetar.
+        .onChange(of: query) { _, new in
+            message = nil
+            completer.update(query: new)
         }
     }
 
@@ -107,6 +118,18 @@ struct PlaceSearchSheet: View {
             message = appEnvironment.location.isDenied
                 ? "Sin permiso de ubicación. Puedes escribir la ciudad o dárselo en Ajustes."
                 : "No se pudo saber dónde estás. Prueba a escribir la ciudad."
+            return
+        }
+        onPick(place)
+        dismiss()
+    }
+
+    /// Resuelve la sugerencia elegida y la devuelve.
+    private func choose(_ suggestion: PlaceSuggestion) async {
+        isSearching = true
+        defer { isSearching = false }
+        guard let place = await completer.resolve(suggestion) else {
+            message = "No se pudo situar ese sitio. Prueba con otro."
             return
         }
         onPick(place)

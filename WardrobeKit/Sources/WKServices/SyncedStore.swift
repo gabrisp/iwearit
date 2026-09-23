@@ -45,7 +45,11 @@ public enum SyncedStore {
             cloud.removeObject(forKey: key)
             UserDefaults.standard.removeObject(forKey: key)
         }
-        cloud.synchronize()
+        // **Sin `synchronize()` en cada escritura.** No hace falta para que
+        // llegue —el sistema lo sube solo— y ahí es donde se notaba: se
+        // llamaba una vez por descarte, y a los pocos deslizamientos el gesto
+        // iba a tirones. Se pide al arrancar, que es cuando interesa traer lo
+        // del otro dispositivo.
     }
 
     /// Un valor codificable, ida y vuelta.
