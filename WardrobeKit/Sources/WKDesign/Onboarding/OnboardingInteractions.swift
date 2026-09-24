@@ -37,7 +37,7 @@ public struct SwipeStatementDeck: View {
                 // Solo dos tarjetas vivas: la de debajo existe para que se
                 // intuya que hay más, no para poder tocarla.
                 ForEach(visibleIndices.reversed(), id: \.self) { position in
-                    StatementCard(text: statements[position].text)
+                    StatementCard(text: statements[position].text, tone: .at(position))
                         .scaleEffect(position == index ? 1 : 0.94)
                         .offset(y: position == index ? 0 : 14)
                         .offset(position == index ? drag : .zero)
@@ -52,7 +52,7 @@ public struct SwipeStatementDeck: View {
 
             HStack(spacing: WK.Spacing.xl) {
                 DeckButton(symbol: "xmark", tint: WK.Palette.secondaryText) { advance(agreeing: false) }
-                DeckButton(symbol: "checkmark", tint: WK.Palette.accent) { advance(agreeing: true) }
+                DeckButton(symbol: "checkmark", tint: OnboardingTone.oliva.color) { advance(agreeing: true) }
             }
 
             Text("\(min(index + 1, statements.count)) de \(statements.count)")
@@ -116,19 +116,36 @@ public struct SwipeStatementDeck: View {
 
 private struct StatementCard: View {
     let text: String
+    /// Cada tarjeta en un tono: al pasar se nota que cambia de frase, y la de
+    /// debajo asoma en otro color.
+    let tone: OnboardingTone
 
     var body: some View {
-        Text("“\(text)”")
-            .font(.system(.title3, weight: .medium))
-            .foregroundStyle(WK.Palette.primaryText)
-            .multilineTextAlignment(.center)
-            .padding(WK.Spacing.l)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
-                    .stroke(WK.Palette.ink(0.08), lineWidth: 1)
-            )
+        VStack(alignment: .leading, spacing: WK.Spacing.m) {
+            Image(systemName: "quote.opening")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(tone.color)
+            Text(text)
+                .font(.system(.title3, weight: .semibold))
+                .foregroundStyle(WK.Palette.primaryText)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(WK.Spacing.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // Opaca por debajo: el tono suave es transparente, y la tarjeta de
+        // detrás se veía a través.
+        .background {
+            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                .fill(WK.Palette.shelf)
+            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                .fill(tone.soft)
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                .strokeBorder(tone.color.opacity(0.25), lineWidth: 1)
+        )
     }
 }
 
@@ -222,18 +239,25 @@ public struct ProcessingView: View {
 
     public var body: some View {
         VStack(spacing: WK.Spacing.xl) {
-            ProgressView().controlSize(.large)
+            // ProgressView().controlSize(.large)
+            // Un anillo con los tonos de tela girando, en vez de la ruedecita
+            // de sistema: es el mismo "estoy pensando", pero suena a la app.
+            ToneSpinner()
+                .frame(width: 64, height: 64)
 
             Text(title)
                 .font(.system(.title3, weight: .semibold))
                 .foregroundStyle(WK.Palette.primaryText)
 
-            VStack(alignment: .leading, spacing: WK.Spacing.s) {
-                ForEach(Array(steps.prefix(visibleSteps).enumerated()), id: \.offset) { _, step in
-                    Label(step, systemImage: "checkmark.circle.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
+            VStack(alignment: .leading, spacing: WK.Spacing.m) {
+                ForEach(Array(steps.prefix(visibleSteps).enumerated()), id: \.offset) { index, step in
+                    HStack(spacing: WK.Spacing.m) {
+                        ToneIcon("checkmark", tone: .at(index), isFilled: true, size: 28)
+                        Text(step)
+                            .font(.subheadline)
+                            .foregroundStyle(WK.Palette.primaryText)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -247,24 +271,55 @@ public struct ProcessingView: View {
     }
 }
 
+/// Un anillo que gira con los tonos de tela.
+///
+/// Un solo cambio de estado: el giro lo hace `repeatForever` en el
+/// renderizador, no un `TimelineView` reevaluando la vista cada frame.
+private struct ToneSpinner: View {
+    @State private var isSpinning = false
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.08, to: 0.92)
+            .stroke(
+                AngularGradient(
+                    colors: OnboardingTone.allCases.map(\.color),
+                    center: .center
+                ),
+                style: StrokeStyle(lineWidth: 7, lineCap: .round)
+            )
+            .rotationEffect(.degrees(isSpinning ? 360 : 0))
+            .onAppear {
+                withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) {
+                    isSpinning = true
+                }
+            }
+            .accessibilityLabel("Calculando")
+    }
+}
+
 /// Un número grande con su explicación: el momento de "esto va de ti".
 public struct StatReveal: View {
     private let value: String
     private let caption: String
     private let detail: String?
+    /// El tono del número. Sin tono, el color del texto.
+    private let tone: OnboardingTone?
     @State private var hasAppeared = false
 
-    public init(value: String, caption: String, detail: String? = nil) {
+    public init(value: String, caption: String, detail: String? = nil, tone: OnboardingTone? = nil) {
         self.value = value
         self.caption = caption
         self.detail = detail
+        self.tone = tone
     }
 
     public var body: some View {
         VStack(spacing: WK.Spacing.s) {
             Text(value)
                 .font(.system(size: 56, weight: .bold, design: .rounded))
-                .foregroundStyle(WK.Palette.primaryText)
+                .foregroundStyle(tone?.color ?? WK.Palette.primaryText)
+                .monospacedDigit()
                 .scaleEffect(hasAppeared ? 1 : 0.7)
                 .opacity(hasAppeared ? 1 : 0)
 

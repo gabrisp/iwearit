@@ -84,10 +84,10 @@ struct PaywallStep: View {
                     .padding(.top, WK.Spacing.m)
 
                     VStack(alignment: .leading, spacing: WK.Spacing.m) {
-                        PaywallBenefit(symbol: "infinity", text: "Prendas y maletas sin límite")
-                        PaywallBenefit(symbol: "photo.stack", text: "Escaneo completo de tu galería")
-                        PaywallBenefit(symbol: "person.crop.rectangle", text: "Pruébate los outfits")
-                        PaywallBenefit(symbol: "square.and.arrow.up", text: "Comparte y exporta tus looks")
+                        PaywallBenefit(symbol: "infinity", tone: .granate, text: "Prendas y maletas sin límite")
+                        PaywallBenefit(symbol: "photo.stack", tone: .denim, text: "Escaneo completo de tu galería")
+                        PaywallBenefit(symbol: "person.crop.rectangle", tone: .camel, text: "Pruébate los outfits")
+                        PaywallBenefit(symbol: "square.and.arrow.up", tone: .oliva, text: "Comparte y exporta tus looks")
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -190,15 +190,17 @@ struct PaywallStep: View {
 
 private struct PaywallBenefit: View {
     let symbol: String
+    let tone: OnboardingTone
     let text: String
 
     var body: some View {
         HStack(spacing: WK.Spacing.m) {
-            Image(systemName: symbol)
-                .font(.body)
-                .foregroundStyle(WK.Palette.accent)
-                .frame(width: 26)
-            Text(text).font(.subheadline)
+            // Image(systemName: symbol)
+            //     .font(.body)
+            //     .foregroundStyle(WK.Palette.accent)
+            //     .frame(width: 26)
+            ToneIcon(symbol, tone: tone, size: 36)
+            Text(text).font(.subheadline.weight(.medium))
             Spacer()
         }
     }
@@ -226,14 +228,20 @@ private struct PlanRow: View {
                     .foregroundStyle(isSelected ? WK.Palette.accent : WK.Palette.ink(0.22))
             }
             .padding(WK.Spacing.m)
-            .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                    .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
-            )
-            .contentShape(.rect)
+            // .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+            // .overlay(
+            //     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+            //         .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+            // )
+            .contentShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
         }
-        .buttonStyle(WKPressStyle())
+        // Cristal interactivo, como las opciones del resto del onboarding.
+        .buttonStyle(.plain)
+        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+                .strokeBorder(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+        }
     }
 }
 

@@ -10,6 +10,9 @@ struct WelcomeStep: View {
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
             Spacer()
+            // Ropa antes que palabras: ver `OnboardingHangingRail`.
+            OnboardingHangingRail()
+                .padding(.bottom, WK.Spacing.xl)
             Text("Ya tienes el armario lleno.\nFalta poder verlo.")
                 .font(WK.Font.largeTitle)
                 .multilineTextAlignment(.center)
@@ -189,7 +192,9 @@ struct SavingsStep: View {
                 StatReveal(
                     value: model.money(model.idleValue),
                     caption: "en ropa que casi no te pones",
-                    detail: "Estimado a partir de las \(Int(model.wardrobeSize)) prendas que nos has dicho."
+                    detail: "Estimado a partir de las \(Int(model.wardrobeSize)) prendas que nos has dicho.",
+                    // Granate lo parado, oliva lo que se ahorra.
+                    tone: .granate
                 )
                 .padding(.top, WK.Spacing.l)
 
@@ -198,7 +203,8 @@ struct SavingsStep: View {
                 StatReveal(
                     value: model.money(model.yearlySaving),
                     caption: "al año que podrías no gastar",
-                    detail: "Si combinas lo que ya tienes en vez de comprar parecido."
+                    detail: "Si combinas lo que ya tienes en vez de comprar parecido.",
+                    tone: .oliva
                 )
 
                 Text("Son estimaciones a partir de lo que nos has contado, no una promesa.")

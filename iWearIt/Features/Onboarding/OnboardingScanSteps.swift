@@ -28,16 +28,19 @@ struct PhotoPermissionStep: View {
             VStack(alignment: .leading, spacing: WK.Spacing.m) {
                 PermissionPoint(
                     symbol: "iphone.gen3",
+                    tone: .denim,
                     title: "Todo pasa en tu iPhone",
                     detail: "Las fotos no se suben a ningún sitio."
                 )
                 PermissionPoint(
                     symbol: "hand.raised",
+                    tone: .salvia,
                     title: "Tú eliges cuánto",
                     detail: "Puedes darle acceso solo a las fotos que quieras."
                 )
                 PermissionPoint(
                     symbol: "scissors",
+                    tone: .camel,
                     title: "Solo se guarda la ropa",
                     detail: "Caras y piel se descartan; no llegan al armario."
                 )
@@ -61,15 +64,17 @@ struct PhotoPermissionStep: View {
 
 private struct PermissionPoint: View {
     let symbol: String
+    let tone: OnboardingTone
     let title: String
     let detail: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: WK.Spacing.m) {
-            Image(systemName: symbol)
-                .font(.title3)
-                .foregroundStyle(WK.Palette.accent)
-                .frame(width: 28)
+        HStack(alignment: .center, spacing: WK.Spacing.m) {
+            // Image(systemName: symbol)
+            //     .font(.title3)
+            //     .foregroundStyle(WK.Palette.accent)
+            //     .frame(width: 28)
+            ToneIcon(symbol, tone: tone, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.medium))
                 Text(detail).font(.caption).foregroundStyle(WK.Palette.secondaryText)
@@ -353,7 +358,8 @@ struct ScanSummaryStep: View {
                     // value: "\(model.outfitIdeas(garmentCount: garments.count))+",
                     value: outfitCount.formatted(),
                     caption: "combinaciones posibles",
-                    detail: "Todas con ropa que ya tienes."
+                    detail: "Todas con ropa que ya tienes.",
+                    tone: .denim
                 )
                 .padding(.top, WK.Spacing.l)
 

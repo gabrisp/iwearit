@@ -47,14 +47,20 @@ public struct OnboardingProgressBar: View {
 /// Una opción de una pregunta.
 public struct OnboardingOption: Identifiable, Hashable, Sendable {
     public let id: String
-    public let emoji: String
+    // Los emojis, fuera: ver `ToneIcon`.
+    // public let emoji: String
+    /// SF Symbol de la opción.
+    public let symbol: String
+    /// El tono de tela de su baldosa. Ver `OnboardingTone`.
+    public let tone: OnboardingTone
     public let label: String
     /// Matiz opcional bajo la etiqueta.
     public let detail: String?
 
-    public init(id: String, emoji: String, label: String, detail: String? = nil) {
+    public init(id: String, symbol: String, tone: OnboardingTone, label: String, detail: String? = nil) {
         self.id = id
-        self.emoji = emoji
+        self.symbol = symbol
+        self.tone = tone
         self.label = label
         self.detail = detail
     }
@@ -123,7 +129,10 @@ private struct OptionRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: WK.Spacing.m) {
-                Text(option.emoji).font(.title3)
+                // Text(option.emoji).font(.title3)
+                // La baldosa se llena del tono al marcarla: se ve qué está
+                // elegido sin tener que buscar el círculo de la derecha.
+                ToneIcon(option.symbol, tone: option.tone, isFilled: isSelected)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(option.label)
@@ -140,10 +149,11 @@ private struct OptionRow: View {
 
                 Image(systemName: glyph)
                     .font(.title3)
-                    .foregroundStyle(isSelected ? WK.Palette.accent : WK.Palette.ink(0.22))
+                    .foregroundStyle(isSelected ? option.tone.color : WK.Palette.ink(0.22))
+                    .contentTransition(.symbolEffect(.replace))
             }
-            .padding(.horizontal, WK.Spacing.m)
-            .padding(.vertical, WK.Spacing.m - 2)
+            .padding(.horizontal, WK.Spacing.m - 4)
+            .padding(.vertical, WK.Spacing.s + 2)
             // .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
             // .overlay(
             //     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
@@ -160,7 +170,7 @@ private struct OptionRow: View {
         // El borde de acento, fuera del cristal para que no lo muestree.
         .overlay {
             RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                .strokeBorder(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+                .strokeBorder(isSelected ? option.tone.color : .clear, lineWidth: 2)
         }
         .animation(.snappy(duration: 0.18), value: isSelected)
     }
@@ -185,14 +195,20 @@ public struct Testimonial: Identifiable, Hashable, Sendable {
     public let tag: String
     public let text: String
     public let stars: Int
+    /// El color del avatar.
+    public let tone: OnboardingTone
 
-    public init(id: String, initials: String, name: String, tag: String, text: String, stars: Int = 5) {
+    public init(
+        id: String, initials: String, name: String, tag: String, text: String,
+        stars: Int = 5, tone: OnboardingTone = .camel
+    ) {
         self.id = id
         self.initials = initials
         self.name = name
         self.tag = tag
         self.text = text
         self.stars = stars
+        self.tone = tone
     }
 }
 
@@ -206,17 +222,22 @@ public struct TestimonialCard: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
             HStack(spacing: WK.Spacing.s) {
+                // Cada persona con su tono: tres avatares negros iguales se
+                // leían como el mismo usuario repetido.
                 Text(testimonial.initials)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(WK.Palette.onAccent)
-                    .frame(width: 32, height: 32)
-                    .background(WK.Palette.accent, in: .circle)
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(testimonial.tone.color, in: .circle)
 
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(testimonial.name).font(.subheadline.weight(.medium))
                     Text(testimonial.tag)
-                        .font(.caption2)
-                        .foregroundStyle(WK.Palette.secondaryText)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(testimonial.tone.color)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(testimonial.tone.soft, in: .capsule)
                 }
                 Spacer()
                 StarRow(count: testimonial.stars)
@@ -241,7 +262,7 @@ public struct StarRow: View {
             ForEach(0..<max(0, min(5, count)), id: \.self) { _ in
                 Image(systemName: "star.fill")
                     .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(OnboardingTone.camel.color)
             }
         }
     }
@@ -274,7 +295,14 @@ public struct ComparisonTable: View {
         VStack(spacing: 0) {
             HStack {
                 Spacer()
-                Text(withTitle).font(.caption.weight(.semibold)).frame(width: 64)
+                // La columna buena, marcada con su tono: el ojo va ahí primero.
+                Text(withTitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(OnboardingTone.oliva.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(OnboardingTone.oliva.soft, in: .capsule)
+                    .frame(width: 72)
                 Text(withoutTitle).font(.caption).foregroundStyle(WK.Palette.secondaryText).frame(width: 64)
             }
             .padding(.horizontal, WK.Spacing.m)
@@ -286,8 +314,18 @@ public struct ComparisonTable: View {
                         .font(.subheadline)
                         .foregroundStyle(WK.Palette.primaryText)
                     Spacer(minLength: WK.Spacing.s)
-                    Image(systemName: "checkmark").foregroundStyle(.green).frame(width: 64)
-                    Image(systemName: "xmark").foregroundStyle(.red.opacity(0.75)).frame(width: 64)
+                    // Image(systemName: "checkmark").foregroundStyle(.green).frame(width: 64)
+                    // Image(systemName: "xmark").foregroundStyle(.red.opacity(0.75)).frame(width: 64)
+                    // Verde y rojo de sistema chillaban contra la paleta; el
+                    // "no" en gris dice lo mismo sin gritar.
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(OnboardingTone.oliva.color)
+                        .frame(width: 72)
+                    Image(systemName: "xmark.circle")
+                        .font(.title3)
+                        .foregroundStyle(WK.Palette.ink(0.22))
+                        .frame(width: 64)
                 }
                 .padding(.horizontal, WK.Spacing.m)
                 .padding(.vertical, WK.Spacing.m - 4)

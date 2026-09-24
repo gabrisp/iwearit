@@ -93,10 +93,18 @@ final class OnboardingModel {
         // que fijarla dentro de la misma animación no llega a tiempo y la
         // pantalla entrante anima en un sentido y la saliente en el otro.
         isGoingBack = next.flowDepth < step.flowDepth
-        withAnimation(WKAnimation.content) { step = next }
+        // withAnimation(WKAnimation.content) { step = next }
+        // Más lenta y lineal: las curvas van dentro de cada tramo. Ver
+        // `WKPageCardTransition`.
+        withAnimation(WKPageCardTransition.animation) { step = next }
     }
 
-    var transition: AnyTransition { .wkSlide(fromLeading: isGoingBack) }
+    // var transition: AnyTransition { .wkSlide(fromLeading: isGoingBack) }
+    /// Las pantallas pasan como tarjetas: la que se va encoge y sale hacia un
+    /// lado, la nueva entra por el otro y crece.
+    func transition(insets: EdgeInsets) -> AnyTransition {
+        WKPageCardTransition.transition(isGoingBack: isGoingBack, insets: insets)
+    }
 
     // MARK: - El cálculo
 

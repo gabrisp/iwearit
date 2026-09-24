@@ -8,25 +8,59 @@ import WKDesign
 /// por catorce ficheros garantiza que unas pantallas se queden desactualizadas.
 enum OnboardingContent {
 
+    // Con emojis, antes. Cada sistema los dibuja distinto y no casaban con
+    // la tipografía: ver `ToneIcon`.
+    // static let goals: [OnboardingOption] = [
+    //     .init(id: "faster", emoji: "⏱️", label: "Vestirme más rápido",
+    //           detail: "Dejar de decidir delante del armario"),
+    //     .init(id: "save", emoji: "💸", label: "Dejar de comprar de más",
+    //           detail: "Aprovechar lo que ya tengo"),
+    //     .init(id: "see", emoji: "👀", label: "Ver todo lo que tengo",
+    //           detail: "Sin vaciar los cajones"),
+    //     .init(id: "combine", emoji: "🎨", label: "Combinar mejor",
+    //           detail: "Sacarle partido a cada prenda"),
+    //     .init(id: "travel", emoji: "🧳", label: "Preparar viajes sin agobios"),
+    // ]
+
+    // static let pains: [OnboardingOption] = [
+    //     .init(id: "nothing", emoji: "🤷", label: "Tengo el armario lleno y nada que ponerme"),
+    //     .init(id: "forget", emoji: "🫥", label: "Me olvido de la ropa que tengo al fondo"),
+    //     .init(id: "duplicate", emoji: "👯", label: "Compro cosas parecidas a las que ya tengo"),
+    //     .init(id: "time", emoji: "⌛", label: "Pierdo tiempo cada mañana"),
+    //     .init(id: "packing", emoji: "🧳", label: "Hacer la maleta me estresa"),
+    //     .init(id: "combine", emoji: "🧩", label: "No sé combinar lo que tengo"),
+    // ]
+
     static let goals: [OnboardingOption] = [
-        .init(id: "faster", emoji: "⏱️", label: "Vestirme más rápido",
+        .init(id: "faster", symbol: "timer", tone: .denim,
+              label: "Vestirme más rápido",
               detail: "Dejar de decidir delante del armario"),
-        .init(id: "save", emoji: "💸", label: "Dejar de comprar de más",
+        .init(id: "save", symbol: "banknote", tone: .oliva,
+              label: "Dejar de comprar de más",
               detail: "Aprovechar lo que ya tengo"),
-        .init(id: "see", emoji: "👀", label: "Ver todo lo que tengo",
+        .init(id: "see", symbol: "eye", tone: .camel,
+              label: "Ver todo lo que tengo",
               detail: "Sin vaciar los cajones"),
-        .init(id: "combine", emoji: "🎨", label: "Combinar mejor",
+        .init(id: "combine", symbol: "paintpalette", tone: .granate,
+              label: "Combinar mejor",
               detail: "Sacarle partido a cada prenda"),
-        .init(id: "travel", emoji: "🧳", label: "Preparar viajes sin agobios"),
+        .init(id: "travel", symbol: "suitcase.rolling", tone: .salvia,
+              label: "Preparar viajes sin agobios"),
     ]
 
     static let pains: [OnboardingOption] = [
-        .init(id: "nothing", emoji: "🤷", label: "Tengo el armario lleno y nada que ponerme"),
-        .init(id: "forget", emoji: "🫥", label: "Me olvido de la ropa que tengo al fondo"),
-        .init(id: "duplicate", emoji: "👯", label: "Compro cosas parecidas a las que ya tengo"),
-        .init(id: "time", emoji: "⌛", label: "Pierdo tiempo cada mañana"),
-        .init(id: "packing", emoji: "🧳", label: "Hacer la maleta me estresa"),
-        .init(id: "combine", emoji: "🧩", label: "No sé combinar lo que tengo"),
+        .init(id: "nothing", symbol: "hanger", tone: .granate,
+              label: "Tengo el armario lleno y nada que ponerme"),
+        .init(id: "forget", symbol: "eye.slash", tone: .lavanda,
+              label: "Me olvido de la ropa que tengo al fondo"),
+        .init(id: "duplicate", symbol: "square.on.square", tone: .camel,
+              label: "Compro cosas parecidas a las que ya tengo"),
+        .init(id: "time", symbol: "hourglass", tone: .denim,
+              label: "Pierdo tiempo cada mañana"),
+        .init(id: "packing", symbol: "suitcase", tone: .salvia,
+              label: "Hacer la maleta me estresa"),
+        .init(id: "combine", symbol: "puzzlepiece", tone: .terracota,
+              label: "No sé combinar lo que tengo"),
     ]
 
     /// En primera persona a propósito: asentir a "yo hago esto" compromete de
@@ -44,11 +78,14 @@ enum OnboardingContent {
     ///   y además está prohibido en la App Store.
     static let testimonials: [Testimonial] = [
         .init(id: "1", initials: "MG", name: "María", tag: "Compra compulsiva",
-              text: "Me di cuenta de que tenía cuatro camisas blancas casi iguales. Llevo tres meses sin comprar nada."),
+              text: "Me di cuenta de que tenía cuatro camisas blancas casi iguales. Llevo tres meses sin comprar nada.",
+              tone: .granate),
         .init(id: "2", initials: "JL", name: "Javi", tag: "Poco tiempo",
-              text: "Dejo los outfits de la semana el domingo. Por la mañana ya no pienso."),
+              text: "Dejo los outfits de la semana el domingo. Por la mañana ya no pienso.",
+              tone: .denim),
         .init(id: "3", initials: "AR", name: "Ana", tag: "Viaja a menudo",
-              text: "Hacer la maleta era lo que peor llevaba. Ahora la preparo en diez minutos."),
+              text: "Hacer la maleta era lo que peor llevaba. Ahora la preparo en diez minutos.",
+              tone: .oliva),
     ]
 
     static let comparison: [ComparisonRow] = [

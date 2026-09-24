@@ -10,21 +10,41 @@ struct OnboardingFlow: View {
     let onFinish: () -> Void
 
     @State private var model = OnboardingModel()
+    /// Los márgenes seguros, para que las pantallas se vuelvan tarjeta desde
+    /// la pantalla entera. Ver `WKPageCardTransition`.
+    @State private var safeInsets = EdgeInsets()
 
     var body: some View {
         // `NavigationStack` propio: es lo que hace que iOS 26 difumine solo el
         // contenido que pasa por debajo de las barras. Sin él, `safeAreaBar`
         // reserva el hueco pero no tiene nada a lo que engancharse.
         NavigationStack {
-            OnboardingStepContent(model: model, onFinish: onFinish)
-                .transition(model.transition)
+            OnboardingStepContent(step: model.step, model: model, onFinish: onFinish)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // **Cada pantalla con su fondo**: ahora pasan como tarjetas,
+                // y una tarjeta transparente no se ve encoger. Ver
+                // `WKPageCardTransition`.
+                .background(WK.Palette.canvas.ignoresSafeArea())
+                .transition(model.transition(insets: safeInsets))
                 .id(model.step)
                 // El cristal del botón se funde de un paso al siguiente en vez
                 // de desaparecer y volver: el botón es el mismo objeto, solo
                 // cambia lo que dice.
                 .adaptiveGlassTransition()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(WK.Palette.canvas.ignoresSafeArea())
+                // Detrás, un escalón más oscuro: solo se ve mientras las
+                // tarjetas pasan, y es lo que las despega del fondo.
+                .background {
+                    ZStack {
+                        WK.Palette.canvas
+                        WK.Palette.ink(0.08)
+                    }
+                    .ignoresSafeArea()
+                }
+                // .background(WK.Palette.canvas.ignoresSafeArea())
+                .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: {
+                    safeInsets = $0
+                }
                 .adaptiveSafeAreaBar(edge: .top) { header }
                 .toolbarVisibility(.hidden, for: .navigationBar)
         }
@@ -62,11 +82,16 @@ struct OnboardingFlow: View {
 /// Qué paso se muestra. Vista aparte para que el `switch` no viva dentro del
 /// `@ViewBuilder` del contenedor.
 private struct OnboardingStepContent: View {
+    /// **El paso como valor, fijado al crear la vista.** Leyendo `model.step`
+    /// aquí dentro, la pantalla que se estaba yendo se redibujaba con el paso
+    /// nuevo —el modelo es observable— y durante la transición se veía la
+    /// pantalla siguiente dentro de la tarjeta de la anterior.
+    let step: OnboardingStep
     let model: OnboardingModel
     let onFinish: () -> Void
 
     var body: some View {
-        switch model.step {
+        switch step {
         case .welcome:         WelcomeStep(model: model)
         case .goal:            GoalStep(model: model)
         case .pain:            PainStep(model: model)
