@@ -231,15 +231,17 @@ private struct RootTabBarSlot: ViewModifier {
                     // mirando conjuntos, no ordenando el armario. Donde no hay
                     // acción no hay botón —ni su hueco— y la barra se queda
                     // centrada y sola.
-                    if onAssistant != nil {
-                        // El hueco del botón, para que la barra siga centrada
-                        // en la pantalla con el círculo puesto a la derecha.
-                        Color.clear
-                            .frame(width: 52, height: 1)
-                            .allowsHitTesting(false)
-                    }
-
-                    Spacer(minLength: 0)
+                    // **La barra a la izquierda y el estilista a la derecha,
+                    // siempre**, como en Lockty. Antes iba centrada con el
+                    // hueco del botón al otro lado y el botón solo salía en la
+                    // inspiración.
+                    // if onAssistant != nil {
+                    //     Color.clear
+                    //         .frame(width: 52, height: 1)
+                    //         .allowsHitTesting(false)
+                    // }
+                    //
+                    // Spacer(minLength: 0)
 
                     WKLocktyTabBar(
                         tabs: [RootTab.closet, .planner, .inspo],
@@ -260,10 +262,9 @@ private struct RootTabBarSlot: ViewModifier {
 
                     Spacer(minLength: 0)
 
-                    if let onAssistant {
-                        // El de Lockty, en su sitio de siempre. La carita se
-                        // queda comentada por si vuelve.
-                        Button(action: onAssistant) {
+                    // En todas las pestañas: la acción de la pantalla si trae
+                    // una, y si no, abrir el estilista.
+                    Button(action: onAssistant ?? { router?.openStylist() }) {
                             // **El estilista es una conversación**, y se dibuja
                             // como una: las chispas son de la pestaña de
                             // inspiración, justo al lado, y con el mismo icono
@@ -275,7 +276,6 @@ private struct RootTabBarSlot: ViewModifier {
                                 .contentShape(Circle())
                         }
                         .buttonStyle(WKPlainGlassButtonStyle(shape: Circle()))
-                    }
 
                     // Button(action: onAssistant) {
                     //     Text("🙂")

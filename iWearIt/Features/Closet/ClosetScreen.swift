@@ -343,6 +343,17 @@ struct ClosetScreen: View {
                         }
                         .tint(WK.Palette.primaryText)
                     }
+                    // **El archivo de probados**, junto a las favoritas: las
+                    // dos son "lo que has guardado", y ahí es donde se busca.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(value: ClosetRoute.tryOns) {
+                            Image(systemName: "person.crop.rectangle.stack")
+                                .font(WK.Font.headline)
+                                .contentShape(.rect)
+                        }
+                        .tint(WK.Palette.primaryText)
+                        .accessibilityLabel("Probados")
+                    }
                     // Separados en grupos: el corazón y el lápiz a un lado, y
                     // el "+" al final del todo, que es la acción principal. En
                     // iOS 26 el hueco además parte el cristal en dos píldoras.
@@ -444,6 +455,8 @@ private struct ClosetRouteDestination: View {
             // y separarlos obligaba a acordarse de dónde guardaste qué.
             // CategoryScreen(favourites: "Favoritas")
             FavouritesScreen()
+        case .tryOns:
+            TryOnArchiveScreen()
         }
     }
 }

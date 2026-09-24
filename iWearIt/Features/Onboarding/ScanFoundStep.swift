@@ -25,13 +25,19 @@ struct ScanFoundStep: View {
             primaryTitle: "Elegir cuáles guardo",
             onPrimary: { model.advance() }
         ) {
-            GarmentMarquee(
-                keys: pending.map(\.imageKey),
-                store: appEnvironment.imageStore
-            )
-            // De borde a borde: las filas entran y salen por los lados.
-            .padding(.horizontal, -WK.Spacing.screenInset)
-            .frame(maxHeight: .infinity)
+            // **Por encima y no dentro del paso**: las filas son más anchas
+            // que la pantalla —tienen que serlo para desfilar—, y metidas en
+            // el paso lo ensanchaban entero, botón incluido. En un `overlay`
+            // se dibujan de borde a borde sin tocar el tamaño de nada.
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay {
+                    GarmentMarquee(
+                        keys: pending.map(\.imageKey),
+                        store: appEnvironment.imageStore
+                    )
+                    .padding(.horizontal, -WK.Spacing.screenInset)
+                }
         }
     }
 
@@ -106,8 +112,11 @@ private struct GarmentMarquee: View {
 /// tramo y vuelta a empezar. Como el segundo es igual al primero, el salto no
 /// se ve.
 ///
-/// Un solo cambio de estado: el desfile lo hace `repeatForever` en el
-/// renderizador, no un `TimelineView` reevaluando la fila cada frame.
+/// **Con `TimelineView` y no con `repeatForever`.** La animación infinita no
+/// llegaba a arrancar dentro de la pantalla —la transacción del paso de
+/// página se la comía— y las filas se quedaban quietas. Calculando la
+/// posición a partir del reloj en cada fotograma no hay nada que arrancar:
+/// se mueve siempre. Son pocas imágenes por fila, y solo se recoloca la fila.
 private struct MarqueeRow: View {
     let keys: [String]
     let store: ImageStore
@@ -116,30 +125,39 @@ private struct MarqueeRow: View {
     let speed: CGFloat
 
     @State private var stretch: CGFloat = 0
-    @State private var isRunning = false
 
     private static let spacing: CGFloat = WK.Spacing.m
     private static let side: CGFloat = 92
 
     var body: some View {
-        HStack(spacing: Self.spacing) {
-            stretchView
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
-                    guard width > 0, stretch == 0 else { return }
-                    stretch = width + Self.spacing
-                    start()
+        // El hueco de la fila lo pone un `Color.clear` del ancho disponible;
+        // la tira, más ancha, va encima y no cuenta para el tamaño.
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.side)
+            .overlay(alignment: .leading) {
+                TimelineView(.animation) { context in
+                    HStack(spacing: Self.spacing) {
+                        stretchView
+                            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                                guard width > 0 else { return }
+                                stretch = width + Self.spacing
+                            }
+                        stretchView
+                    }
+                    .fixedSize()
+                    .offset(x: offset(at: context.date))
                 }
-            stretchView
-        }
-        .fixedSize()
-        .offset(x: offset)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: Self.side)
+            }
     }
 
-    private var offset: CGFloat {
-        let far = -stretch
-        return isReversed ? (isRunning ? 0 : far) : (isRunning ? far : 0)
+    /// Cuánto se ha desplazado la fila en este instante: de 0 a un tramo, y
+    /// vuelta a empezar.
+    private func offset(at date: Date) -> CGFloat {
+        guard stretch > 0 else { return 0 }
+        let travelled = CGFloat(date.timeIntervalSinceReferenceDate) * speed
+        let phase = travelled.truncatingRemainder(dividingBy: stretch)
+        return isReversed ? phase - stretch : -phase
     }
 
     private var stretchView: some View {
@@ -149,13 +167,6 @@ private struct MarqueeRow: View {
                     .frame(width: Self.side, height: Self.side)
                     .shadow(color: .black.opacity(0.14), radius: 6, y: 4)
             }
-        }
-    }
-
-    private func start() {
-        guard stretch > 0 else { return }
-        withAnimation(.linear(duration: Double(stretch / speed)).repeatForever(autoreverses: false)) {
-            isRunning = true
         }
     }
 }

@@ -85,4 +85,6 @@ enum ClosetRoute: Hashable {
     case suitcases
     /// Las prendas marcadas con el corazón, de todas las baldas.
     case favourites
+    /// Todo lo que te has probado. Ver `TryOnArchiveScreen`.
+    case tryOns
 }
