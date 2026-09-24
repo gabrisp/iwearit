@@ -54,6 +54,17 @@ struct PendingGarmentsGrid: View {
             }
             .padding(.horizontal, -WK.Spacing.m)
             .scrollIndicators(.hidden)
+            // Las prendas se desvanecen al llegar arriba y abajo en vez de
+            // cortarse en seco contra el borde.
+            .mask {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                        .frame(height: WK.Spacing.l)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                        .frame(height: WK.Spacing.xl)
+                }
+            }
         }
     }
 
@@ -147,8 +158,13 @@ private struct PendingCell: View {
 
     var body: some View {
         Button(action: action) {
+            // **La prenda con su recorte, sin caja.** Como cuelga en el
+            // armario: la silueta y su sombra. Metida en un rectángulo de
+            // cristal parecía una foto de carné y no ropa.
             StoredImage(key: item.imageKey, variant: .thumb, store: store)
-                .frame(height: 96)
+                .frame(height: 104)
+                .shadow(color: .black.opacity(isSelected ? 0.18 : 0.06), radius: 8, y: 5)
+                .saturation(isSelected ? 1 : 0.2)
                 .padding(WK.Spacing.xs)
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .topTrailing) {
@@ -161,17 +177,18 @@ private struct PendingCell: View {
                         )
                         .padding(WK.Spacing.xs)
                 }
-                .contentShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
+                .contentShape(.rect)
         }
-        // Cristal interactivo en la celda, como el resto de lo que se toca en
-        // el onboarding; y el borde de acento dice cuál está marcada.
-        .buttonStyle(.plain)
-        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                .strokeBorder(WK.Palette.accent, lineWidth: isSelected ? 2 : 0)
-        }
-        .opacity(isSelected ? 1 : 0.55)
+        // .buttonStyle(.plain)
+        // .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+        // .overlay {
+        //     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+        //         .strokeBorder(WK.Palette.accent, lineWidth: isSelected ? 2 : 0)
+        // }
+        // Sin caja ni borde: lo marcado se ve por el color, la sombra y el
+        // círculo; lo desmarcado se apaga.
+        .buttonStyle(WKPressStyle())
+        .opacity(isSelected ? 1 : 0.45)
         .animation(WKAnimation.selection, value: isSelected)
     }
 }

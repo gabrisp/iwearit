@@ -5,9 +5,12 @@ import SwiftUI
 public struct SwipeStatement: Identifiable, Hashable, Sendable {
     public let id: String
     public let text: String
-    public init(id: String, text: String) {
+    /// SF Symbol que acompaña a la frase en su tarjeta.
+    public let symbol: String?
+    public init(id: String, text: String, symbol: String? = nil) {
         self.id = id
         self.text = text
+        self.symbol = symbol
     }
 }
 

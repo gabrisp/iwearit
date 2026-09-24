@@ -81,18 +81,28 @@ struct StatementsStep: View {
         VStack(spacing: WK.Spacing.l) {
             VStack(spacing: WK.Spacing.s) {
                 Text("¿Te suena alguna?")
-                    .font(.system(.title, weight: .bold))
-                Text("Desliza a la derecha si te pasa.")
-                    .font(.subheadline)
+                    .font(WK.Font.largeTitle)
+                    .multilineTextAlignment(.center)
+                Text("A la derecha si te pasa, a la izquierda si no.")
+                    .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
-            .padding(.top, WK.Spacing.m)
+            .padding(.top, WK.Spacing.l)
 
-            SwipeStatementDeck(statements: OnboardingContent.statements) { agreed in
+            // La baraja de antes, propia del onboarding:
+            // SwipeStatementDeck(statements: OnboardingContent.statements) { agreed in
+            //     model.agreedStatements = agreed
+            //     model.advance()
+            // }
+            // Spacer()
+
+            // La de ahora: el gesto y las piezas de la inspiración. Ver
+            // `StatementSwipeDeck`.
+            StatementSwipeDeck(statements: OnboardingContent.statements) { agreed in
                 model.agreedStatements = agreed
                 model.advance()
             }
-            Spacer()
+            .padding(.bottom, WK.Spacing.m)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
     }

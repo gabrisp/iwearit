@@ -66,11 +66,11 @@ enum OnboardingContent {
     /// En primera persona a propósito: asentir a "yo hago esto" compromete de
     /// una forma que asentir a "la gente hace esto" no.
     static let statements: [SwipeStatement] = [
-        .init(id: "same", text: "Me pongo siempre la misma ropa"),
-        .init(id: "bought", text: "He comprado algo y luego he visto que ya tenía uno igual"),
-        .init(id: "forgot", text: "Tengo ropa con la etiqueta todavía puesta"),
-        .init(id: "morning", text: "Me cambio dos veces antes de salir de casa"),
-        .init(id: "suitcase", text: "Meto en la maleta cosas que luego no uso"),
+        .init(id: "same", text: "Me pongo siempre la misma ropa", symbol: "arrow.triangle.2.circlepath"),
+        .init(id: "bought", text: "He comprado algo y luego he visto que ya tenía uno igual", symbol: "bag"),
+        .init(id: "forgot", text: "Tengo ropa con la etiqueta todavía puesta", symbol: "tag"),
+        .init(id: "morning", text: "Me cambio dos veces antes de salir de casa", symbol: "arrow.uturn.backward"),
+        .init(id: "suitcase", text: "Meto en la maleta cosas que luego no uso", symbol: "suitcase"),
     ]
 
     /// - Note: testimonios de ejemplo hasta que haya reseñas reales. Publicar

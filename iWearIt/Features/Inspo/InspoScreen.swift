@@ -1200,6 +1200,11 @@ struct InspoVerdictPill: View {
     /// dentro de una maleta.
     /// Qué significa guardar aquí. Ver `InspoLookCard.Keep`.
     var keep: InspoLookCard.Keep = .favourite
+    /// Otros símbolos para la derecha, cuando decir que sí no es guardar: en
+    /// el onboarding es "me pasa". `nil`, los de `keep`.
+    var agree: (empty: String, full: String, fill: Color)?
+    /// El de la izquierda.
+    var disagreeSymbol = "hand.thumbsdown.fill"
 
     /// Lo mismo que le cuesta a la tarjeta comprometerse. Ver
     /// `InspoLookCard.threshold`.
@@ -1223,13 +1228,13 @@ struct InspoVerdictPill: View {
                     // botón y lo que dice el centro de la pantalla es lo mismo,
                     // así que se tiene que ver igual. Ver `KeepButton`.
                     FillingSymbol(
-                        empty: keep.symbol,
-                        full: keep.doneSymbol,
+                        empty: agree?.empty ?? keep.symbol,
+                        full: agree?.full ?? keep.doneSymbol,
                         progress: progress,
-                        fill: keep.fill
+                        fill: agree?.fill ?? keep.fill
                     )
                 } else {
-                    Image(systemName: "hand.thumbsdown.fill")
+                    Image(systemName: disagreeSymbol)
                         .foregroundStyle(WK.Palette.primaryText)
                 }
             }

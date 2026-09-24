@@ -408,13 +408,13 @@ struct ScanCollection: View {
                         }
                     }
                     ForEach(model.collected) { item in
+                        // La prenda con su recorte, sin caja: como en el
+                        // armario.
                         Image(decorative: item.piece.image.cgImage, scale: 1)
                             .resizable()
                             .scaledToFit()
-                            .padding(WK.Spacing.s)
                             .frame(width: Self.tile, height: Self.tile)
-                            .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-                            .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+                            .shadow(color: .black.opacity(0.18), radius: 6, y: 4)
                             // Cae desde arriba, como las fotos.
                             .transition(
                                 .offset(y: -60)
