@@ -882,49 +882,21 @@ struct InspoLookCard: View {
         }
     }
 
+    /// Los cinco de siempre, en columna. Ver `LookActions`.
     private var actions: some View {
-        VStack(spacing: WK.Spacing.xs) {
-            // **El corazón se llena con el dedo.**
-            //
-            // Arrastrando a la derecha se va tiñendo de rojo desde abajo
-            // —lleno justo cuando el gesto ya cuenta, que es el mismo
-            // instante del golpecito—, y tocándolo se llena de un salto. Es la
-            // misma señal por los dos caminos: el gesto invisible y el botón
-            // visible hacen lo mismo, así que tienen que decirlo igual.
-            KeepButton(
-                symbol: keep.symbol,
-                doneSymbol: keep.doneSymbol,
-                isSaved: isSaved,
-                progress: keepProgress,
-                action: onSave
-            )
-            if showsPlan { circle("calendar", action: onPlan) }
-            // **Y la maleta.** El corazón es del armario y el calendario es
-            // del jueves; esto es del viaje, que no es ninguna de las dos
-            // cosas y hasta ahora obligaba a montarlo otra vez a mano dentro
-            // de la maleta.
-            if let onPack { circle("suitcase", action: onPack) }
-            // **El lápiz hace lo mismo que el doble toque.** Los dos gestos
-            // están bien para quien los conoce; el botón está para quien no.
-            circle("pencil", action: onEdit)
-
-            // **Y el descarte, también botón.**
-            //
-            // Estaba solo en el gesto —arrastrar a la izquierda—, y un gesto
-            // que no se ve deja media decisión sin contar: quien no lo conoce
-            // no dice nunca que algo no le gusta, y el estilista se queda sin
-            // la mitad de lo que necesita saber. Tumbado, además, el gesto no
-            // existe: es este botón o nada.
-            //
-            // Hace exactamente lo mismo que tirar a la izquierda, animación
-            // incluida, porque es lo mismo.
-            circle("hand.thumbsdown", action: dislikeAway)
-
-            // Volver a montar sigue fuera: tirar de arriba rehace la tanda, y
-            // repetirlo aquí serían dos botones para lo mismo en cada tarjeta.
-            //
-            // circle("arrow.triangle.2.circlepath", action: onRegenerate)
-        }
+        LookActions(
+            keep: keep,
+            isSaved: isSaved,
+            keepProgress: keepProgress,
+            showsPlan: showsPlan,
+            onSave: onSave,
+            onPlan: onPlan,
+            onPack: onPack,
+            onEdit: onEdit,
+            // Hace lo mismo que tirar a la izquierda, animación incluida.
+            onDislike: dislikeAway,
+            layout: .column
+        )
         // Separados del canto: pegados al borde parecen a punto de salirse de
         // la tarjeta, y en una pantalla estrecha el pulgar los roza al pasar
         // de conjunto.
@@ -947,47 +919,85 @@ struct InspoLookCard: View {
     }
 }
 
-/// El botón de guardar, que se llena mientras tiras.
+/// Un símbolo que se llena de rojo desde abajo según avanza un gesto.
 ///
-/// El relleno va **dentro del símbolo**, no detrás: un círculo rojo creciendo
-/// bajo un corazón negro son dos cosas moviéndose, y lo que tiene que pasar es
-/// que el corazón se encienda. Se dibuja el símbolo lleno recortado por abajo
-/// a la altura del progreso, encima del vacío.
-private struct KeepButton: View {
-    let symbol: String
-    let doneSymbol: String
-    let isSaved: Bool
-    /// De 0 a 1. A 1 es justo cuando el gesto ya cuenta.
+/// Lo usan el botón de la tarjeta y el indicador del centro de la pantalla:
+/// dicen lo mismo, así que se dibujan igual.
+struct FillingSymbol: View {
+    let empty: String
+    let full: String
+    /// De 0 a 1. A 1, lleno.
     let progress: CGFloat
-    let action: () -> Void
+    var fill: Color = .red
 
     var body: some View {
-        WKCircleButton(size: .compact, action: action) {
-            ZStack {
-                Image(systemName: isSaved ? doneSymbol : symbol)
-                    .foregroundStyle(isSaved ? .red : WK.Palette.primaryText)
-                if !isSaved, progress > 0 {
-                    Image(systemName: doneSymbol)
-                        .foregroundStyle(.red)
-                        .mask(alignment: .bottom) {
-                            GeometryReader { proxy in
-                                Rectangle()
-                                    .frame(height: proxy.size.height * progress)
-                                    .frame(
-                                        maxWidth: .infinity,
-                                        maxHeight: .infinity,
-                                        alignment: .bottom
-                                    )
-                            }
+        ZStack {
+            Image(systemName: empty)
+                .foregroundStyle(WK.Palette.primaryText)
+            if progress > 0 {
+                Image(systemName: full)
+                    .foregroundStyle(fill)
+                    .mask(alignment: .bottom) {
+                        GeometryReader { proxy in
+                            Rectangle()
+                                .frame(height: proxy.size.height * progress)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    maxHeight: .infinity,
+                                    alignment: .bottom
+                                )
                         }
-                }
+                    }
             }
-            // Sin animación propia: el progreso viene del dedo y ya se mueve
-            // con él. Animarlo aquí lo dejaría siempre un poco por detrás.
-            .animation(nil, value: progress)
         }
+        // Sin animación propia: el progreso viene del dedo y ya se mueve con
+        // él. Animarlo lo dejaría siempre un poco por detrás.
+        .animation(nil, value: progress)
     }
 }
+
+// `KeepButton` se fue a `LookActions`, que es donde viven ahora los cinco.
+// /// El botón de guardar, que se llena mientras tiras.
+// ///
+// /// El relleno va **dentro del símbolo**, no detrás: un círculo rojo creciendo
+// /// bajo un corazón negro son dos cosas moviéndose, y lo que tiene que pasar es
+// /// que el corazón se encienda. Se dibuja el símbolo lleno recortado por abajo
+// /// a la altura del progreso, encima del vacío.
+// private struct KeepButton: View {
+//     let symbol: String
+//     let doneSymbol: String
+//     let isSaved: Bool
+//     /// De 0 a 1. A 1 es justo cuando el gesto ya cuenta.
+//     let progress: CGFloat
+//     let action: () -> Void
+//
+//     var body: some View {
+//         WKCircleButton(size: .compact, action: action) {
+//             ZStack {
+//                 Image(systemName: isSaved ? doneSymbol : symbol)
+//                     .foregroundStyle(isSaved ? .red : WK.Palette.primaryText)
+//                 if !isSaved, progress > 0 {
+//                     Image(systemName: doneSymbol)
+//                         .foregroundStyle(.red)
+//                         .mask(alignment: .bottom) {
+//                             GeometryReader { proxy in
+//                                 Rectangle()
+//                                     .frame(height: proxy.size.height * progress)
+//                                     .frame(
+//                                         maxWidth: .infinity,
+//                                         maxHeight: .infinity,
+//                                         alignment: .bottom
+//                                     )
+//                             }
+//                         }
+//                 }
+//             }
+//             // Sin animación propia: el progreso viene del dedo y ya se mueve
+//             // con él. Animarlo aquí lo dejaría siempre un poco por detrás.
+//             .animation(nil, value: progress)
+//         }
+//     }
+// }
 
 /// Qué día te lo vas a poner.
 ///
@@ -1190,6 +1200,12 @@ struct InspoVerdictPill: View {
     /// `InspoLookCard.threshold`.
     private static let threshold: CGFloat = 120
 
+    /// El símbolo vacío que va debajo del lleno: `heart.fill` → `heart`. Los
+    /// que no tienen versión vacía —el "+" de la maleta— se quedan como están.
+    private static func outline(of symbol: String) -> String {
+        symbol.hasSuffix(".fill") ? String(symbol.dropLast(".fill".count)) : symbol
+    }
+
     var body: some View {
         let progress = min(1, abs(swipe.amount) / Self.threshold)
         if progress > 0.05 {
@@ -1198,9 +1214,25 @@ struct InspoVerdictPill: View {
             // cuando lo estás mirando para decidir, y a medio arrastre se leía
             // media palabra. Un corazón o un pulgar dicen lo mismo de un
             // vistazo y dejan ver la ropa por detrás.
-            Image(systemName: goesRight ? savedSymbol : "hand.thumbsdown.fill")
+            Group {
+                if goesRight {
+                    // **El mismo relleno que el botón de la tarjeta.** El
+                    // símbolo vacío, y encima el lleno en rojo recortado desde
+                    // abajo a la altura del arrastre: lleno justo cuando el
+                    // gesto ya cuenta, que es el golpecito. Lo que dice el
+                    // botón y lo que dice el centro de la pantalla es lo mismo,
+                    // así que se tiene que ver igual. Ver `KeepButton`.
+                    FillingSymbol(
+                        empty: Self.outline(of: savedSymbol),
+                        full: savedSymbol,
+                        progress: progress
+                    )
+                } else {
+                    Image(systemName: "hand.thumbsdown.fill")
+                        .foregroundStyle(WK.Palette.primaryText)
+                }
+            }
                 .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(goesRight ? WK.Palette.accent : WK.Palette.primaryText)
                 .frame(width: 76, height: 76)
                 .adaptiveGlass(in: .circle)
                 // Crece y se asienta con el arrastre: a medio camino se ve que

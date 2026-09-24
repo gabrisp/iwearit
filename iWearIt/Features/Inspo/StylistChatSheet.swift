@@ -609,24 +609,17 @@ private struct StylistResultCard: View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
             LookCanvasView(garments: garments, store: store, outfit: outfit, showsBorder: true)
                 .overlay(alignment: .topTrailing) {
-                    HStack(spacing: WK.Spacing.xs) {
-                        // Rojo cuando está puesto, y se apaga al volver a
-                        // tocarlo: el mismo corazón que en la inspiración.
-                        circle(isSaved ? "heart.fill" : "heart", action: onSave)
-                            .foregroundStyle(isSaved ? .red : WK.Palette.primaryText)
-                        circle("calendar", action: onPlan)
-                        // **Y la maleta**, como en la inspiración: lo que se
-                        // propone para un viaje no es un favorito ni es del
-                        // jueves.
-                        circle("suitcase", action: onPack)
-                        // **El lápiz hace lo mismo que el doble toque.** Los
-                        // dos gestos están bien para quien los conoce; el
-                        // botón está para quien no.
-                        circle("pencil", action: onEdit)
-                        // Y decir que no también es un botón: un gesto que no
-                        // se ve deja media decisión sin contar.
-                        circle("hand.thumbsdown", action: onDislike)
-                    }
+                    // Los mismos cinco que en la inspiración, en fila: la
+                    // tarjeta del chat es más ancha que alta. Ver `LookActions`.
+                    LookActions(
+                        isSaved: isSaved,
+                        onSave: onSave,
+                        onPlan: onPlan,
+                        onPack: onPack,
+                        onEdit: onEdit,
+                        onDislike: onDislike,
+                        layout: .row
+                    )
                     // El mismo aire que en la inspiración: pegados al canto se
                     // leen como si se salieran de la tarjeta.
                     .padding(WK.Spacing.s)
