@@ -140,7 +140,12 @@ private struct SuitcaseContent: View {
         // Comparte borde con el paso de página del cuaderno y gana el gesto de
         // volver, que es lo pedido. Para cambiar de día quedan la tira de
         // arriba y el toque en el margen, que `pageCurl` también atiende.
-        .interactivePopEnabled()
+        // **Menos en inspiración.** Ahí las tarjetas se arrastran a los lados
+        // —a la derecha se guarda, a la izquierda se descarta— y el borde
+        // izquierdo de la pantalla es donde empieza ese gesto tanto como el de
+        // volver. Con los dos vivos, tirar de una tarjeta desde la izquierda
+        // sacaba la maleta de la pila en vez de descartar el conjunto.
+        .interactivePopEnabled { tab != .inspo }
         // **Outfits · Equipaje y el lápiz, abajo**, en una segunda barra con el
         // mismo cristal que la de pestañas. Arriba queda sitio para el
         // calendario del viaje, como en el plan. El selector de arriba se

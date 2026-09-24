@@ -135,6 +135,7 @@ struct SuitcaseInspoTab: View {
         .sheet(item: $datingLook) { look in
             SuitcaseDayPicker(suitcase: suitcase) { dayIndex in
                 plan(look, on: dayIndex)
+                saved.insert(look.id)
                 datingLook = nil
             }
         }
@@ -159,8 +160,23 @@ struct SuitcaseInspoTab: View {
                         // esta maleta, y el calendario solo aparece si el
                         // viaje tiene días.
                         keep: .trip,
-                        showsPlan: suitcase.tripDayCount != nil,
-                        onSave: { addToTrip(look) },
+                        // Sin calendario aparte: ver `onSave`.
+                        showsPlan: false,
+                        // **El "+" pregunta el día si hay días.**
+                        //
+                        // Metía el conjunto en la maleta sin preguntar nada y
+                        // luego no había forma de decirle cuándo: el
+                        // calendario de al lado hacía eso mismo, así que eran
+                        // dos botones para una decisión partida en dos. Ahora
+                        // el "+" es la decisión entera —y "sin día" es una
+                        // opción de la lista, no el resultado de no elegir.
+                        onSave: {
+                            if suitcase.tripDayCount == nil {
+                                addToTrip(look)
+                            } else {
+                                datingLook = look
+                            }
+                        },
                         onPlan: { datingLook = look },
                         onRegenerate: { regenerate(look) },
                         onEdit: { edit(look) },
@@ -308,8 +324,9 @@ struct SuitcaseInspoTab: View {
     }
 
     /// Y la fecha es un día **de este viaje**.
-    private func plan(_ look: StylistLook, on dayIndex: Int) {
+    private func plan(_ look: StylistLook, on dayIndex: Int?) {
         guard let outfit = materialise(look, isFavorite: false, inTrip: true) else { return }
+        // `nil` es "preparado": entra en la maleta y todavía no tiene día.
         outfit.suitcaseDayIndex = dayIndex
         try? modelContext.save()
         saved.insert(look.id)
@@ -357,33 +374,19 @@ struct SuitcaseInspoTab: View {
 /// enseñan las dos cosas.
 struct SuitcaseDayPicker: View {
     let suitcase: Suitcase
-    let onPick: (Int) -> Void
+    /// El día del viaje, o `nil` para dejarlo preparado sin día.
+    let onPick: (Int?) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(0..<max(1, suitcase.tripDayCount ?? 3), id: \.self) { index in
-                    Button {
-                        onPick(index)
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Text("Día \(index + 1)")
-                                .foregroundStyle(WK.Palette.primaryText)
-                            Spacer()
-                            if let date = suitcase.date(forDayIndex: index) {
-                                Text(date.formatted(.dateTime.weekday(.abbreviated).day().month()))
-                                    .font(WK.Font.caption)
-                                    .foregroundStyle(WK.Palette.secondaryText)
-                            }
-                        }
-                    }
-                }
+            // La misma lista que al elegir maleta desde inspiración, con su
+            // hueco de "sin día" delante: ver `SuitcaseDayList`.
+            SuitcaseDayList(suitcase: suitcase) { index in
+                onPick(index)
+                dismiss()
             }
-            // Sin fechas, la maleta no tiene días: se ofrecen tres huecos,
-            // que es lo que hace la propia maleta con los outfits preparados.
             .navigationTitle("¿Qué día?")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

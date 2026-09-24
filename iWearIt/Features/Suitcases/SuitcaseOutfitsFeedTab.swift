@@ -76,6 +76,8 @@ struct SuitcaseOutfitsFeedTab: View {
                 switch which {
                 case let .move(outfit):
                     SuitcaseDayPicker(suitcase: suitcase) { index in
+                        // `nil` lo devuelve a preparados, que es un sitio: el
+                        // que tienen los outfits de un viaje sin fecha.
                         outfit.suitcaseDayIndex = index
                         try? modelContext.save()
                         sheet = nil

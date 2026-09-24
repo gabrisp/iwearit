@@ -61,6 +61,8 @@ struct InspoScreen: View {
         case place
         /// Qué prenda es esa: la has tocado en el lienzo.
         case garment(Garment)
+        /// A qué maleta se lo llevas.
+        case suitcase(StylistLook)
 
         var id: String {
             switch self {
@@ -68,6 +70,7 @@ struct InspoScreen: View {
             case let .day(look): "day-\(look.id)"
             case .place: "place"
             case let .garment(garment): "garment-\(garment.id)"
+            case let .suitcase(look): "suitcase-\(look.id)"
             }
         }
     }
@@ -189,6 +192,16 @@ struct InspoScreen: View {
                         PlaceSearchSheet(title: "¿Dónde estás?") { place in
                             appEnvironment.weather.use(place)
                             Task { await feed.loadWeather() }
+                        }
+                    case let .suitcase(look):
+                        // **A la maleta desde aquí.**
+                        //
+                        // Lo que se propone en octubre para un fin de semana
+                        // en Lisboa no es un favorito ni es del jueves: es de
+                        // ese viaje. Sin esto había que guardarlo, ir al
+                        // armario, abrir la maleta y montarlo otra vez.
+                        SuitcasePickerSheet { suitcase, dayIndex in
+                            pack(look, into: suitcase, on: dayIndex)
                         }
                     case let .garment(garment):
                         // La misma hoja que al tocar la prenda colgada en su
@@ -404,7 +417,8 @@ struct InspoScreen: View {
                 onHintShown: { appEnvironment.tips.complete(.swipeLook) },
                 // De lado solo cuando de lado no significa ya otra cosa.
                 isSwipeEnabled: axis == .vertical,
-                onSelectGarment: { sheet = .garment($0) }
+                onSelectGarment: { sheet = .garment($0) },
+                onPack: { sheet = .suitcase(look) }
             )
             .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
             .modifier(InspoCardSize(axis: axis, page: pageSize))
@@ -487,6 +501,21 @@ struct InspoScreen: View {
         // Ponerle fecha es la señal más fuerte que hay: no es "me gusta", es
         // "me lo pongo". Ver `StyleVerdict.Kind`.
         feed.record(.planned, for: look)
+    }
+
+    /// A la maleta: el conjunto se hace outfit **de ese viaje**, con su día si
+    /// se ha elegido uno.
+    private func pack(_ look: StylistLook, into suitcase: Suitcase, on dayIndex: Int?) {
+        let outfit = outfit(for: look) ?? materialise(look, isFavorite: false)
+        guard let outfit else { return }
+        outfit.suitcase = suitcase
+        outfit.suitcaseDayIndex = dayIndex
+        try? modelContext.save()
+        feed.remember(outfit, for: look)
+        // Llevárselo de viaje pesa como ponérselo: has decidido con qué vas a
+        // andar por ahí una semana. Ver `StyleVerdict.Kind`.
+        feed.record(.packed, for: look)
+        saved.insert(look.id)
     }
 
     /// Doble toque o pulsación larga: se abre en el editor con sus prendas ya
@@ -653,6 +682,9 @@ struct InspoLookCard: View {
     var isSwipeEnabled = true
     /// Tocar una prenda del conjunto para ver cuál es. Ver `LookCanvasView`.
     var onSelectGarment: ((Garment) -> Void)?
+    /// A la maleta. `nil` cuando ya estás dentro de una: ver
+    /// `SuitcaseInspoTab`.
+    var onPack: (() -> Void)?
 
 
     enum Keep {
@@ -835,6 +867,11 @@ struct InspoLookCard: View {
             circle(isSaved ? keep.doneSymbol : keep.symbol, action: onSave)
                 .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
             if showsPlan { circle("calendar", action: onPlan) }
+            // **Y la maleta.** El corazón es del armario y el calendario es
+            // del jueves; esto es del viaje, que no es ninguna de las dos
+            // cosas y hasta ahora obligaba a montarlo otra vez a mano dentro
+            // de la maleta.
+            if let onPack { circle("suitcase", action: onPack) }
             // **El lápiz hace lo mismo que el doble toque.** Los dos gestos
             // están bien para quien los conoce; el botón está para quien no.
             circle("pencil", action: onEdit)
