@@ -426,6 +426,17 @@ struct ClosetScreen: View {
 
     private var navigationPath: Binding<NavigationPath> { $debugPath }
     // Antes, en Release: `.constant(NavigationPath())`, que no dejaba navegar.
+
+    #if DEBUG
+    private func openSuitcaseIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-open"),
+              ProcessInfo.processInfo.arguments.contains("suitcase"),
+              let suitcase = allSuitcases.first,
+              debugPath.isEmpty
+        else { return }
+        debugPath.append(ClosetRoute.suitcase(id: suitcase.id))
+    }
+    #endif
 }
 
 /// Resuelve una ruta en su pantalla. Extraída para que `ClosetScreen` no lleve
