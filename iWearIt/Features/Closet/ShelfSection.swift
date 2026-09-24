@@ -27,6 +27,9 @@ struct ShelfSection: View, Equatable {
     /// `onEnded` no llega—. Sin esto, un gesto cancelado dejaba el arrastre
     /// a medias y el scroll de las baldas bloqueado hasta reiniciar.
     @GestureState private var isHolding = false
+    /// Dónde está el scroll de la balda, para volver al principio cuando
+    /// llega una prenda. Ver el `onChange` del recuento.
+    @State private var scrollPosition = ScrollPosition(edge: .leading)
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.data == rhs.data }
 
@@ -253,6 +256,16 @@ struct ShelfSection: View, Equatable {
                 // otra. Animando sobre la lista de identificadores —y no sobre
                 // el array entero— solo se mueve lo que de verdad entra o sale.
                 .animation(WKAnimation.arrival, value: data.garments.map(\.id))
+            }
+            // **Al llegar una prenda, al principio y sin saltos**: es donde
+            // entra la nueva, y si la balda estaba desplazada no se veía
+            // llegar. Solo al crecer: reordenar arrastrando no mueve el scroll.
+            .scrollPosition($scrollPosition)
+            .onChange(of: data.garments.count) { old, new in
+                guard new > old, !drag.isDragging else { return }
+                withAnimation(.smooth(duration: 0.5)) {
+                    scrollPosition.scrollTo(edge: .leading)
+                }
             }
             .scrollIndicators(.hidden)
             // La fila, para saber dónde colgar cuando la balda está vacía.

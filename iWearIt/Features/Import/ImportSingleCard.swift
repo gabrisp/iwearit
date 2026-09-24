@@ -238,7 +238,8 @@ struct ImportSingleCard: View {
             // mirar una ficha era pagar por prendas que estaban bien.
             //
             // Sale del teléfono únicamente el recorte normalizado.
-            if candidate.catalogImage == nil {
+            // Sin "mejorar" en lo rodeado a mano. Ver `isFromManualCrop`.
+            if candidate.canRestyle {
                 // Se llena mientras dura. Ver `WKProgressPill`.
                 WKProgressPill(
                     candidate.isRestyling ? "mejorando…" : "mejorar",

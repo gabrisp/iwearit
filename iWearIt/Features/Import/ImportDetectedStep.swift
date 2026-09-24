@@ -234,6 +234,8 @@ struct ImportDetectedStep: View {
             Text(
                 model.searchingInRegion
                     ? "Levantando la prenda de lo que has rodeado…"
+                    : model.manualCropMissed
+                        ? "No hemos encontrado ninguna prenda en lo que has rodeado. Prueba con un poco más de margen."
                     : model.candidates.isEmpty
                         ? "No hemos visto ninguna prenda: rodéala con el dedo."
                         : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
@@ -296,7 +298,7 @@ private struct DetectedCell: View {
     /// que se paga, así que no se lanza sola por el hecho de mirar la prenda.
     @ViewBuilder
     private var improveButton: some View {
-        if candidate.catalogImage == nil {
+        if candidate.canRestyle {
             WKProgressPill(
                 candidate.isRestyling ? "mejorando…" : "mejorar",
                 symbol: "wand.and.sparkles",

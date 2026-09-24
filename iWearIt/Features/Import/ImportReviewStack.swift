@@ -420,7 +420,7 @@ private struct ImportGarmentCard: View {
     /// Redibujar la prenda fuera. A mano y de una en una: cada una se paga.
     @ViewBuilder
     private var improveButton: some View {
-        if candidate.catalogImage == nil {
+        if candidate.canRestyle {
             Button { Task { await onImprove() } } label: {
                 Label(
                     candidate.isRestyling ? "mejorando…" : "mejorar",

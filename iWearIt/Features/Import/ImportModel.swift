@@ -94,6 +94,9 @@ final class ImportModel {
     private(set) var addingDone = 0
     /// Si se está levantando el sujeto de lo que acabas de rodear.
     private(set) var searchingInRegion = false
+    /// Lo último que se rodeó no tenía sujeto dentro: se dice en vez de
+    /// guardar el recorte tal cual.
+    private(set) var manualCropMissed = false
     /// Qué foto se está reintentando, si alguna.
     private(set) var reanalysing: Int?
     /// Cómo se está reintentando, para poder decirlo en el botón.
@@ -500,6 +503,7 @@ final class ImportModel {
     /// que has señalado tú vale más que un hueco vacío.
     func addManualCandidate(_ crop: ManualCrop.Result, photoIndex: Int = 0) async {
         searchingInRegion = true
+        manualCropMissed = false
         defer { searchingInRegion = false }
 
         // **Se busca en el cachito, no en la foto.** Y en el cachito tal cual,
@@ -508,9 +512,16 @@ final class ImportModel {
         if let found = await pipeline.subject(in: crop.region.cgImage) {
             var candidate = ImportCandidate(found, photoIndex: photoIndex)
             candidate.wasCorrectedByUser = true
+            candidate.isFromManualCrop = true
             candidates.append(candidate)
         } else {
-            candidates.append(manualCandidate(from: crop.cutout.cgImage, photoIndex: photoIndex))
+            // **Nunca el recorte tal cual.** Sin sujeto dentro, lo rodeado es
+            // un trozo de foto con su fondo, no una prenda: se avisa para
+            // rodearla otra vez.
+            // candidates.append(manualCandidate(from: crop.cutout.cgImage, photoIndex: photoIndex))
+            manualCropMissed = true
+            DiagnosticsLog.record("IMPORT", "rodeada a mano sin sujeto dentro: no se añade")
+            return
         }
         DiagnosticsLog.record("IMPORT", "prenda rodeada a mano: \(candidates.count) en total")
     }
@@ -642,6 +653,8 @@ final class ImportModel {
             let resolver,
             let index = candidates.firstIndex(where: { $0.id == id }),
             candidates[index].catalogImage == nil,
+            // Lo rodeado a mano no se mejora con IA. Ver `isFromManualCrop`.
+            !candidates[index].isFromManualCrop,
             !candidates[index].isRestyling
         else { return }
 
@@ -907,21 +920,31 @@ final class ImportModel {
     func setManualCrop(_ crop: ManualCrop.Result, forCandidateWithID id: UUID) async {
         guard candidates.contains(where: { $0.id == id }) else { return }
         searchingInRegion = true
+        manualCropMissed = false
         defer { searchingInRegion = false }
 
         let found = await pipeline.subject(in: crop.region.cgImage)
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
-        candidates[index].manualCrop = found?.normalized ?? crop.cutout
+        // **Solo lo levantado del sujeto, nunca el recorte tal cual.** Sin
+        // sujeto se deja la prenda como estaba y se avisa.
+        // candidates[index].manualCrop = found?.normalized ?? crop.cutout
+        guard let found else {
+            manualCropMissed = true
+            DiagnosticsLog.record("IMPORT", "recorte a mano sin sujeto dentro: se deja como estaba")
+            return
+        }
+        candidates[index].manualCrop = found.normalized
+        candidates[index].isFromManualCrop = true
         candidates[index].catalogImage = nil
         candidates[index].catalogFailure = nil
         candidates[index].wasCorrectedByUser = true
         // El tipo, solo si no lo habías tocado tú.
-        if let found, !candidates[index].wasCorrectedByUser || candidates[index].kind == .other {
+        if !candidates[index].wasCorrectedByUser || candidates[index].kind == .other {
             candidates[index].kind = found.kind
         }
         DiagnosticsLog.record(
             "IMPORT",
-            found == nil ? "recorte a mano aplicado tal cual" : "sujeto levantado dentro del recorte"
+            "sujeto levantado dentro del recorte"
         )
     }
 
@@ -1004,6 +1027,11 @@ struct ImportCandidate: Identifiable {
     var kind: GarmentKind
     var isKept: Bool
     var wasCorrectedByUser = false
+    /// Sale de "Usar este recorte": la prenda se levantó de lo que rodeaste.
+    /// **Nunca se mejora con IA**: rodear es decir "esto, tal cual lo ves".
+    var isFromManualCrop = false
+    /// Si se puede pedir la versión mejorada.
+    var canRestyle: Bool { catalogImage == nil && !isFromManualCrop }
     /// El nombre de la prenda que ya tienes y a la que se parece. `nil` cuando
     /// es nueva, que es lo normal.
     var duplicateOf: String?

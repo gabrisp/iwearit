@@ -33,6 +33,8 @@ struct GarmentEditSheet: View {
     /// Trabajo de la sección de imagen: cambiar la foto o regenerar la de
     /// catálogo. Uno solo para las dos porque nunca van a la vez.
     @State private var isWorkingOnImage = false
+    /// Lo rodeado no tenía ninguna prenda dentro. Ver `applyManualCrop`.
+    @State private var isManualCropMissed = false
     @State private var isPickingPhoto = false
     @State private var photoItem: PhotosPickerItem?
     @State private var hasCatalog = false
@@ -131,9 +133,12 @@ struct GarmentEditSheet: View {
         .sheet(isPresented: $isCroppingByHand) {
             if let cropSource {
                 ManualCropScreen(image: cropSource) { crop in
-                    // En la ficha de una prenda que ya existe, lo que manda es
-                    // tu trazo: aquí no hay detección que corregir.
-                    Task { await applyManualCrop(crop.cutout.cgImage) }
+                    // Antes se guardaba el trazo tal cual:
+                    // Task { await applyManualCrop(crop.cutout.cgImage) }
+                    // **Se busca el sujeto dentro de lo rodeado** y se saca la
+                    // prenda de ahí, como en la importación. Nunca el recorte
+                    // tal cual, y nunca mejorado con IA.
+                    Task { await applyManualCrop(region: crop.region.cgImage) }
                 }
                 .interactiveDismissDisabled()
             }
@@ -145,6 +150,11 @@ struct GarmentEditSheet: View {
         //     isPresented: $isConfirmingDelete,
         //     titleVisibility: .visible
         // ) {
+        .alert("No hemos encontrado ninguna prenda", isPresented: $isManualCropMissed) {
+            Button("Vale", role: .cancel) {}
+        } message: {
+            Text("Rodéala otra vez con un poco más de margen. La prenda se queda como estaba.")
+        }
         .alert("¿Eliminar esta prenda?", isPresented: $isConfirmingDelete) {
             Button("Eliminar", role: .destructive) {
                 if let onDelete {
@@ -567,6 +577,23 @@ struct GarmentEditSheet: View {
     ///
     /// Y se tira la de catálogo: la que hubiera venía del recorte viejo, que es
     /// justo el que no valía. Se puede volver a generar desde aquí mismo.
+    /// Levanta la prenda de lo rodeado y la pone como imagen. Sin sujeto
+    /// dentro, se avisa y la prenda se queda como estaba.
+    private func applyManualCrop(region: CGImage) async {
+        isWorkingOnImage = true
+        defer { isWorkingOnImage = false }
+        let pipeline = GarmentPipeline(
+            segmenter: appEnvironment.segmenter,
+            embedder: appEnvironment.embedder,
+            promptBank: appEnvironment.promptBank
+        )
+        guard let found = await pipeline.subject(in: region) else {
+            isManualCropMissed = true
+            return
+        }
+        await applyManualCrop(found.normalized.cgImage)
+    }
+
     private func applyManualCrop(_ image: CGImage) async {
         isWorkingOnImage = true
         defer { isWorkingOnImage = false }
