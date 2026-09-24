@@ -102,6 +102,40 @@ LA FOTO:
 - Nada de collage, ni de recortes pegados, ni de marcas de agua.`;
 
 /**
+ * Cuando la foto es **un retrato** y el cuerpo viene descrito.
+ *
+ * Es el caso normal desde que el perfil se crea con una foto de la cara: una
+ * foto de cuerpo entero, de frente y con buena luz no la tiene casi nadie a
+ * mano, y pedirla cerraba la puerta en el primer paso. La cara la tiene todo
+ * el mundo y es la que hace que te reconozcas; el cuerpo lo dicen la estatura
+ * y la complexión, que es justo lo que una foto de la cara no puede decir.
+ *
+ * El encargo tiene que decir las dos cosas por separado, porque el modelo, con
+ * un retrato delante, devuelve un retrato: hay que pedirle explícitamente el
+ * cuerpo entero y de dónde sacarlo.
+ */
+const TRYON_FACE_PROMPT = (described) => `Vísteme con estas prendas. La primera imagen es MI CARA; las siguientes son prendas.
+
+MI CARA NO SE TOCA — OBLIGATORIO:
+- Misma cara, mismo peinado, mismo vello facial, mismo tono de piel y misma edad que en la foto. Tengo que reconocerme.
+- No la retoques, no la estilices, no le cambies la expresión ni la simetría.
+
+EL CUERPO — OBLIGATORIO:
+- La foto es solo un retrato, así que el cuerpo lo construyes tú con esto: ${described}.
+- Cuerpo entero, de pie, de frente, dentro del encuadre de la cabeza a los pies.
+- Proporciones reales para esa estatura y esa complexión. Ni modelo de pasarela ni caricatura.
+- Una sola persona.
+
+LA ROPA — OBLIGATORIO:
+- Pon EXACTAMENTE las prendas de las imágenes: mismo color, mismo estampado, mismo corte, mismo largo, mismas mangas.
+- Que caigan como caería la tela de verdad sobre ese cuerpo, con sus arrugas y sus sombras.
+- No inventes logotipos, bolsillos, cinturones ni accesorios que no estén en las imágenes.
+
+LA FOTO:
+- Fotografía realista, con luz coherente entre la persona y el sitio donde está.
+- Nada de collage, ni de recortes pegados, ni de marcas de agua.`;
+
+/**
  * Dónde se te pone.
  *
  * El escenario es parte del encargo y no un retoque posterior: pedirle al
@@ -167,8 +201,11 @@ LA FOTO:
  */
 async function tryOn(person, describedPerson, garments, scene, key, log, error) {
   const where = SCENES[scene] || SCENES.plain;
+  // Tres encargos, y el del medio es el normal: retrato + medidas. Con la
+  // foto sola —perfiles viejos, de cuerpo entero— sigue valiendo el de
+  // siempre, y sin foto, el descrito.
   const prompt = person
-    ? TRYON_PROMPT
+    ? (describedPerson ? TRYON_FACE_PROMPT(describedPerson) : TRYON_PROMPT)
     : TRYON_DESCRIBED_PROMPT(describedPerson || 'una persona de complexión media');
   const content = [
     { type: 'text', text: `${prompt}\n\nEL SITIO — OBLIGATORIO:\n- ${where}` },
@@ -214,7 +251,8 @@ async function tryOn(person, describedPerson, garments, scene, key, log, error) 
 
   const usage = completion?.usage || {};
   log(
-    `probado ${person ? 'sobre foto' : 'por descripción'} con ${garments.length} prenda(s)`
+    `probado ${person ? (describedPerson ? 'sobre retrato' : 'sobre foto') : 'por descripción'}`
+    + ` con ${garments.length} prenda(s)`
     + ` · tokens ${usage.completion_tokens ?? '?'}`,
   );
   return {

@@ -4,20 +4,21 @@ import SwiftUI
 import WKCore
 import WKDesign
 import WKPersistence
+import WKServices
 
 /// Quién se prueba la ropa, **paso a paso**.
 ///
-/// ## Por qué la foto es obligatoria
+/// ## Por qué una foto de la cara y no de cuerpo entero
 ///
-/// Porque sin ella el probador no prueba nada: dibuja a *alguien* con tu
-/// estatura y tu complexión llevando tu ropa, y eso se mira una vez y no se
-/// vuelve. Lo que se viene a ver es cómo te queda a ti, y para eso hace falta
-/// tu cara y tu cuerpo. Por eso es el primer paso y no se sale de él sin ella.
+/// Porque sin foto el probador no prueba nada —dibuja a *alguien* con tu
+/// complexión llevando tu ropa, y eso se mira una vez y no se vuelve—, pero
+/// una foto de cuerpo entero, de frente y con buena luz, no la tiene casi
+/// nadie a mano: pedirla de entrada era cerrar la puerta en el primer paso.
 ///
-/// Los datos de después no sobran: la foto dice quién eres, y la estatura y la
-/// complexión dicen **cómo encuadrar la escena** —de cuerpo entero, con las
-/// proporciones que te tocan—, que es lo que evita que la prenda salga a una
-/// talla que no es la tuya.
+/// La cara sí la tiene todo el mundo, y es la que hace que te reconozcas. El
+/// cuerpo lo ponen los datos del paso siguiente: estatura y complexión dicen
+/// **cómo encuadrar la escena** y con qué proporciones cae la ropa, que es
+/// exactamente lo que una foto de tu cara no puede decir.
 ///
 /// ## Por qué por pasos y no un formulario
 ///
@@ -47,6 +48,9 @@ struct TryOnProfileSheet: View {
     @State private var picked: PhotosPickerItem?
     @State private var imageKey = ""
     @State private var isLoadingPhoto = false
+    /// La cámara, en su propia hoja. Trae también el carrete dentro, así que
+    /// quien entre por aquí sin querer no se queda sin salida.
+    @State private var isTakingPhoto = false
     /// Si hay que preguntar antes de irse. Ver `hasProgress`.
     @State private var isConfirmingExit = false
     /// Cómo estaba al abrir: lo que decide si hay algo que perder.
@@ -113,6 +117,12 @@ struct TryOnProfileSheet: View {
         } message: {
             Text("Lo que has puesto hasta aquí no se guarda.")
         }
+        .sheet(isPresented: $isTakingPhoto) {
+            CameraScreen { images in
+                guard let first = images.first else { return }
+                Task { await store(first) }
+            }
+        }
         .task { load() }
         .task(id: picked) { await storePhoto(picked) }
     }
@@ -122,7 +132,7 @@ struct TryOnProfileSheet: View {
     private var photoStep: some View {
         WKFlowScreen(
             title: profile == nil ? "¿Quién se prueba la ropa?" : "Tu foto",
-            subtitle: "De cuerpo entero, de frente y con buena luz. Con ella te dibuja a ti.",
+            subtitle: "Tu cara, de frente y con luz. El cuerpo lo ponen las medidas del paso siguiente.",
             stepID: Step.photo,
             transition: flow.transition,
             primaryTitle: "Siguiente",
@@ -226,72 +236,82 @@ struct TryOnProfileSheet: View {
 
     // MARK: Piezas
 
-    /// La foto, a tamaño de foto.
+    /// La foto, **redonda y de frente**.
     ///
-    /// Vacío enseña la silueta y lo que hace falta; lleno enseña la foto y se
-    /// aparta. Una fila de lista con un "Añadir una foto" a la derecha pedía lo
-    /// más importante del perfil como si fuera un extra.
+    /// Redonda porque es un retrato: un rectángulo 3:4 pedía un cuerpo entero
+    /// sin decirlo, y lo que se pide es una cara. Vacío enseña la silueta y
+    /// las dos formas de traerla —hacerla o buscarla—, que es una decisión que
+    /// no se puede dar por hecha: media gente tiene ya la foto y la otra media
+    /// la hace en el momento.
     @ViewBuilder
     private var photoWell: some View {
-        if imageKey.isEmpty {
-            PhotosPicker(selection: $picked, matching: .images) {
-                VStack(spacing: WK.Spacing.s) {
-                    if isLoadingPhoto {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "figure.stand")
-                            .font(.system(size: 44, weight: .light))
-                            .foregroundStyle(WK.Palette.secondaryText)
-                    }
-                    Text("Elegir una foto")
-                        .font(WK.Font.rowTitle)
+        VStack(spacing: WK.Spacing.l) {
+            portrait
+            HStack(spacing: WK.Spacing.s) {
+                Button { isTakingPhoto = true } label: {
+                    Label("Hacer una foto", systemImage: "camera")
+                        .font(WK.Font.captionMedium)
                         .foregroundStyle(WK.Palette.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, WK.Spacing.m)
+                        .background(WK.Palette.ink(0.06), in: .capsule)
+                        .contentShape(.capsule)
                 }
-                .frame(maxWidth: .infinity)
-                .aspectRatio(3.0 / 4.0, contentMode: .fit)
-                .background {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(WK.Palette.ink(0.04))
-                        .overlay {
-                            // Un trazo discontinuo: dice "aquí va algo que
-                            // todavía no está" sin necesidad de un cartel.
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .strokeBorder(
-                                    WK.Palette.ink(0.14),
-                                    style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
-                                )
-                        }
+                .buttonStyle(WKPressStyle())
+
+                PhotosPicker(selection: $picked, matching: .images) {
+                    Label("Elegir una", systemImage: "photo.on.rectangle")
+                        .font(WK.Font.captionMedium)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, WK.Spacing.m)
+                        .background(WK.Palette.ink(0.06), in: .capsule)
+                        .contentShape(.capsule)
                 }
+                .buttonStyle(WKPressStyle())
             }
-            .buttonStyle(WKPressStyle())
-        } else {
-            StoredImage(
-                key: imageKey,
-                variant: .display,
-                store: appEnvironment.imageStore
-            )
-            .aspectRatio(3.0 / 4.0, contentMode: .fill)
-            .frame(maxWidth: .infinity)
-            .clipShape(.rect(cornerRadius: 24, style: .continuous))
-            .overlay(alignment: .bottomTrailing) {
-                HStack(spacing: WK.Spacing.xs) {
-                    PhotosPicker(selection: $picked, matching: .images) {
-                        GlassCircleLabel(symbol: "arrow.trianglehead.2.clockwise")
+        }
+    }
+
+    private var portrait: some View {
+        ZStack {
+            if imageKey.isEmpty {
+                Circle()
+                    .fill(WK.Palette.ink(0.04))
+                    .overlay {
+                        Circle().strokeBorder(
+                            WK.Palette.ink(0.14),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [7, 6])
+                        )
                     }
-                    .buttonStyle(WKPressStyle())
+                    .overlay {
+                        Group {
+                            if isLoadingPhoto {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "person.crop.circle")
+                                    .font(.system(size: 52, weight: .light))
+                                    .foregroundStyle(WK.Palette.secondaryText)
+                            }
+                        }
+                    }
+            } else {
+                StoredImage(
+                    key: imageKey,
+                    variant: .display,
+                    store: appEnvironment.imageStore
+                )
+                .aspectRatio(contentMode: .fill)
+                .clipShape(.circle)
+                .overlay(alignment: .bottomTrailing) {
                     WKCircleButton("trash", size: .compact) { removePhoto() }
                         .tint(WK.Palette.primaryText)
                 }
-                .padding(WK.Spacing.m)
-            }
-            .overlay(alignment: .bottomLeading) {
-                Text("Se procesa fuera del teléfono al probarte.")
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.onAccent.opacity(0.9))
-                    .padding(WK.Spacing.m)
-                    .frame(maxWidth: 200, alignment: .leading)
             }
         }
+        // Un retrato mide lo que mide una cara en una hoja: grande para que se
+        // vea quién es, sin comerse el paso entero.
+        .frame(width: 180, height: 180)
     }
 
     /// Un icono redondo de cristal. En su propia `View` porque la etiqueta de
@@ -414,11 +434,19 @@ struct TryOnProfileSheet: View {
         isLoadingPhoto = true
         defer { isLoadingPhoto = false }
         guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data)?.cgImage,
-              let key = try? await appEnvironment.imageStore.store(image)
+              let image = UIImage(data: data)?.cgImage
         else { return }
-        withAnimation(WKAnimation.content) { imageKey = key }
+        await store(image)
         picked = nil
+    }
+
+    /// Guardar la imagen venga de donde venga: del carrete o de la cámara.
+    private func store(_ image: CGImage) async {
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        guard let key = try? await appEnvironment.imageStore.store(image) else { return }
+        withAnimation(WKAnimation.content) { imageKey = key }
+        isTakingPhoto = false
     }
 
     /// Quitar la foto **es revocar el permiso**: se va la imagen y se va lo
