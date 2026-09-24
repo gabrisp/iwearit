@@ -21,11 +21,12 @@ import WKPersistence
 struct SuitcaseOutfitsFeedTab: View {
     let suitcase: Suitcase
     @Binding var dayIndex: Int
-    /// Revista o rejilla. **Lo decide la pantalla**, no esta pestaña: el botón
-    /// vive en la barra de la maleta, junto a la tira de días, igual que en el
-    /// plan. Tenerlo aquí además del de la barra eran dos botones para lo
-    /// mismo que ni siquiera se ponían de acuerdo.
-    let layout: PlannerLayout
+    /// Revista o rejilla. La pestaña lo lee **y lo escribe**: el botón de
+    /// cambiar vive aquí, en la misma tira que los días, exactamente como en
+    /// el plan. En la barra de navegación estaba atado a que el viaje tuviera
+    /// fechas —iba dentro del mismo `if` que la tira—, así que en una maleta
+    /// sin fechas no había forma de ver la rejilla.
+    @Binding var layout: PlannerLayout
     /// Lo que tapan las barras de la maleta, que ignora el área segura.
     var topInset: CGFloat = 0
     var bottomInset: CGFloat = 0
@@ -70,7 +71,44 @@ struct SuitcaseOutfitsFeedTab: View {
     /// las tarjetas salían más grandes que las del plan; con ellas, las dos
     /// pantallas miden lo mismo.
     private var stride: CGFloat {
-        max(320, pageSize.height - topInset - bottomInset)
+        max(320, pageSize.height - Self.stripHeight - bottomInset)
+    }
+
+    /// Lo que mide la tira con su aire, igual que en el plan.
+    private static let stripHeight: CGFloat = 64
+
+    /// La tira: los días del viaje —si los hay— y el cambio de modo.
+    ///
+    /// El botón está **siempre**, con fechas y sin ellas: la rejilla sirve
+    /// igual para ver de un vistazo lo que llevas preparado.
+    private var strip: some View {
+        HStack(spacing: WK.Spacing.s) {
+            if let dayCount = suitcase.tripDayCount {
+                TripDayBar(
+                    suitcase: suitcase,
+                    dayCount: dayCount,
+                    selected: $dayIndex
+                )
+                .padding(.leading, WK.Spacing.m)
+            } else {
+                Spacer(minLength: 0)
+            }
+
+            Button {
+                withAnimation(WKAnimation.content) { layout = layout.next }
+            } label: {
+                Image(systemName: layout.symbol)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 56, height: 56)
+                    .contentTransition(.symbolEffect(.replace.downUp))
+                    .contentShape(.circle)
+            }
+            .buttonStyle(WKPressStyle())
+            .adaptiveGlassInteractive(in: .circle)
+            .padding(.trailing, WK.Spacing.m)
+        }
+        .frame(height: Self.stripHeight)
     }
 
     private func outfits(ofDay index: Int) -> [Outfit] {
@@ -82,7 +120,10 @@ struct SuitcaseOutfitsFeedTab: View {
     var body: some View {
         pager
             .background(WK.Palette.canvas.ignoresSafeArea())
-            .safeAreaPadding(.top, topInset)
+            // **La tira, aquí y como en el plan.** Una barra de área segura
+            // que reserva su sitio: así el scroll de debajo sabe lo que tiene
+            // encima y las dos pantallas se miran igual.
+            .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
             .safeAreaPadding(.bottom, bottomInset)
             .sheet(item: $sheet) { which in
                 switch which {

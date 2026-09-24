@@ -83,7 +83,7 @@ private struct SuitcaseContent: View {
             SuitcaseTabContent(
                 suitcase: suitcase,
                 tab: tab,
-                layout: layout,
+                layout: $layout,
                 dayIndex: $dayIndex,
                 isPickingForPacking: $isPickingForNew,
                 zoom: zoom,
@@ -239,26 +239,11 @@ private struct SuitcaseContent: View {
                     SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
                 }
             }
-            if tab == .outfits, let dayCount = suitcase.tripDayCount {
-                ToolbarItem(placement: .principal) {
-                    TripDayBar(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex, isCompact: true)
-                        // Lo justo para tres días: más ancha se metía por
-                        // debajo de los botones de la derecha. Y de alto, lo
-                        // que mida la barra, como cualquier botón suyo.
-                        .frame(width: 186)
-                        .frame(maxHeight: .infinity)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(Self.layoutChange) { layout = layout.next }
-                    } label: {
-                        Image(systemName: layout.symbol)
-                            .contentTransition(.symbolEffect(.replace.downUp))
-                    }
-                    .tint(WK.Palette.primaryText)
-                }
-
-            }
+            // **La tira y el modo ya no están aquí.** Los lleva la propia
+            // pestaña de outfits, en su barra de área segura, igual que el
+            // plan —y así el botón de rejilla existe también cuando el viaje
+            // no tiene fechas, que antes se iba con la tira—. Ver
+            // `SuitcaseOutfitsFeedTab`.
         }
         .animation(WKAnimation.content, value: tab)
 
@@ -428,7 +413,9 @@ private struct SuitcaseTabButton: View {
 private struct SuitcaseTabContent: View {
     let suitcase: Suitcase
     let tab: SuitcaseTab
-    let layout: PlannerLayout
+    /// Revista o rejilla. Llega como enlace porque el botón que lo cambia vive
+    /// dentro de la pestaña de outfits, en su tira. Ver `SuitcaseOutfitsFeedTab`.
+    @Binding var layout: PlannerLayout
     @Binding var dayIndex: Int
     @Binding var isPickingForPacking: Bool
     let zoom: Namespace.ID
@@ -446,7 +433,7 @@ private struct SuitcaseTabContent: View {
             SuitcaseOutfitsFeedTab(
                 suitcase: suitcase,
                 dayIndex: $dayIndex,
-                layout: layout,
+                layout: $layout,
                 topInset: WKTabBarMetrics.topClearance,
                 bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l,
                 onEdit: onEdit
