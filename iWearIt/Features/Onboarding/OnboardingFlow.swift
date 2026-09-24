@@ -61,8 +61,12 @@ struct OnboardingFlow: View {
         // difumina lo que pasa por debajo, y mientras la pantalla se
         // encoge a tarjeta ese difuminado se veía como una franja
         // blanca en el canto de arriba.
-        // .adaptiveSafeAreaBar(edge: .top) { header }
-        .safeAreaInset(edge: .top, spacing: 0) { header }
+        // De vuelta en la barra: la franja blanca al encoger no la ponía la
+        // barra sino los fondos, y eso ya lo resuelve la tarjeta. Ver
+        // `PageCardEffect`.
+        // .safeAreaInset(edge: .top, spacing: 0) { header }
+        .adaptiveSafeAreaBar(edge: .top) { header }
+        .animation(WKAnimation.content, value: model.step == .welcome)
     }
 
     /// La que sale primero, la que entra después.
@@ -114,6 +118,8 @@ struct OnboardingFlow: View {
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.vertical, WK.Spacing.s)
+            // Aparecen fundiéndose al salir de la bienvenida, no de golpe.
+            .transition(.opacity)
         }
     }
 }
@@ -161,6 +167,11 @@ struct OnboardingStepScaffold<Content: View>: View {
     private let primaryTitle: String
     private let isEnabled: Bool
     private let onPrimary: () -> Void
+    /// El contenido llega hasta abajo y pasa bajo el botón. Para un scroll:
+    /// con el hueco y el espaciador de debajo no tocaba el borde de la zona
+    /// segura, el sistema no lo extendía y se cortaba en seco encima del
+    /// botón.
+    private let fillsToBottom: Bool
     private let content: Content
 
     init(
@@ -168,6 +179,7 @@ struct OnboardingStepScaffold<Content: View>: View {
         subtitle: String? = nil,
         primaryTitle: String = "Continuar",
         isEnabled: Bool = true,
+        fillsToBottom: Bool = false,
         onPrimary: @escaping () -> Void,
         @ViewBuilder content: () -> Content
     ) {
@@ -175,6 +187,7 @@ struct OnboardingStepScaffold<Content: View>: View {
         self.subtitle = subtitle
         self.primaryTitle = primaryTitle
         self.isEnabled = isEnabled
+        self.fillsToBottom = fillsToBottom
         self.onPrimary = onPrimary
         self.content = content()
     }
@@ -203,7 +216,9 @@ struct OnboardingStepScaffold<Content: View>: View {
             content
                 .frame(maxWidth: .infinity)
 
-            Spacer(minLength: 0)
+            if !fillsToBottom {
+                Spacer(minLength: 0)
+            }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .adaptiveSafeAreaBar(edge: .bottom) {

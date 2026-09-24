@@ -58,17 +58,28 @@ struct PendingGarmentsGrid: View {
             }
             .padding(.horizontal, -WK.Spacing.m)
             .scrollIndicators(.hidden)
-            // Las prendas se desvanecen al llegar arriba y abajo en vez de
-            // cortarse en seco contra el borde.
-            .mask {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: WK.Spacing.l)
-                    Rectangle()
-                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: WK.Spacing.xl)
-                }
-            }
+            // // Las prendas se desvanecen al llegar arriba y abajo en vez de
+            // // cortarse en seco contra el borde.
+            // .mask {
+            //     // Solo arriba: por abajo el scroll llega hasta el borde y pasa
+            //     // **por debajo del botón**, que es de cristal y ya difumina lo
+            //     // que tiene detrás. Desvanecido también abajo, se cortaba antes
+            //     // de llegar.
+            //     VStack(spacing: 0) {
+            //         LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+            //             .frame(height: WK.Spacing.l)
+            //         Rectangle()
+            //         // LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+            //         //     .frame(height: WK.Spacing.xl)
+            //     }
+            //     // Hasta el borde de abajo de la pantalla, bajo la barra.
+            //     .ignoresSafeArea(edges: .bottom)
+            // }
+            // **Sin máscara.** Se ceñía al marco del scroll y cortaba en seco
+            // todo lo que pasaba por debajo del botón. Arriba se desvanece con
+            // el efecto de borde del sistema, que no recorta nada; abajo, el
+            // scroll llega hasta el borde y pasa bajo el cristal del botón.
+            .adaptiveScrollEdge(.top)
         }
     }
 

@@ -248,6 +248,10 @@ async function tryOn(person, describedPerson, garments, scene, key, log, error) 
     body: JSON.stringify({
       model: IMAGE_MODEL,
       modalities: ['image', 'text'],
+      // **Siempre 3:4, en vertical**: es como se enseña en la app —la tarjeta
+      // del probador y el archivo— y lo que pide una persona de cuerpo
+      // entero. Sin fijarlo, el modelo elegía cada vez uno distinto.
+      image_config: { aspect_ratio: '3:4' },
       messages: [{ role: 'user', content }],
     }),
     // Más margen que una prenda suelta: son varias imágenes de entrada.

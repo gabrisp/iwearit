@@ -44,6 +44,9 @@ public actor GalleryScanner {
     /// Lo que ya se ha visto: en el armario, en lo pendiente y en este mismo
     /// escaneo. Ver `ScanDeduper`.
     private var deduper = ScanDeduper()
+    /// Cuántas fotos se quedan en cada filtro, para el registro. Ver
+    /// `ScanStats`.
+    private var stats = ScanStats()
 
     /// Lo encontrado y **no guardado**, cuando se escanea sin insertar.
     ///
@@ -86,6 +89,7 @@ public actor GalleryScanner {
     ) async -> ScanProgress {
         isCancelled = false
         harvest.removeAll()
+        stats = ScanStats()
         // **Lo que ya existe no se vuelve a proponer.** Sin esto, escanear
         // otra vez —o reiniciar el onboarding— traía de nuevo todo lo que ya
         // estaba en el armario o esperando a que lo aceptaras.
@@ -129,6 +133,7 @@ public actor GalleryScanner {
             // **Una foto ya mirada no se vuelve a mirar**: sus prendas ya
             // están en el armario o esperando.
             if deduper.hasSeenPhoto(asset.localIdentifier) {
+                stats.seen += 1
                 progress.photosProcessed = index - startIndex + 1
                 continue
             }
@@ -142,6 +147,7 @@ public actor GalleryScanner {
             // con gente vienen en tandas así.
             if let last = lastProductiveDate, let date = asset.creationDate,
                abs(last.timeIntervalSince(date)) < Self.sameOutfitWindow {
+                stats.sameOutfit += 1
                 progress.photosProcessed = index - startIndex + 1
                 continue
             }
@@ -155,6 +161,7 @@ public actor GalleryScanner {
             // —memes, capturas de Instagram, fotos de WhatsApp— no es ropa
             // tuya. Ver `isCameraCapture`.
             guard Self.isCameraCapture(asset) else {
+                stats.notCamera += 1
                 progress.photosProcessed = index - startIndex + 1
                 continue
             }
@@ -200,6 +207,14 @@ public actor GalleryScanner {
         if !pending.isEmpty {
             await flush(pending, dates: pendingDates, inserts: inserts)
         }
+        // **El resumen, en el registro.** Con "3 prendas en 300 fotos" no hay
+        // forma de saber qué filtro se las comió sin esto: se copia desde
+        // Ajustes › Diagnóstico.
+        DiagnosticsLog.record(
+            "ESCANEO",
+            "\(assets.count) candidatas · \(progress.photosProcessed) miradas · "
+                + stats.summary + " · \(uniqueFound) prendas"
+        )
         await onProgress(progress)
         return progress
     }
@@ -244,10 +259,16 @@ public actor GalleryScanner {
         onDiscovery: @Sendable @escaping (ScanDiscovery) async -> Void
     ) async -> PhotoOutcome {
         // Etapa barata: miniatura y ¿hay alguien?
-        guard let thumbnail = await Self.image(for: asset, targetSize: 256) else {
+        // A 384 y no a 256: a 256 alguien de cuerpo entero y lejos se
+        // quedaba en unos pocos píxeles y la puerta no lo veía.
+        guard let thumbnail = await Self.image(for: asset, targetSize: 384) else {
+            stats.cloud += 1
             return .skippedInCloud
         }
-        guard await Self.containsPerson(thumbnail) else { return .nothing }
+        guard await Self.containsPerson(thumbnail) else {
+            stats.noPerson += 1
+            return .nothing
+        }
 
         // Etapa cara: solo para las supervivientes.
         guard let full = await Self.image(for: asset, targetSize: 1024) else {
@@ -261,6 +282,7 @@ public actor GalleryScanner {
         }
 
         guard let found = try? await pipeline.extractGarments(from: full), !found.isEmpty else {
+            stats.noGarments += 1
             return .nothing
         }
 
@@ -268,6 +290,7 @@ public actor GalleryScanner {
         // ve de la app: una prenda mordida, borrosa o diminuta resta más de lo
         // que suma. Mejor diez prendas buenas que treinta regulares.
         let detected = found.filter(Self.isShowcaseQuality)
+        stats.lowQuality += found.count - detected.count
         if detected.count < found.count {
             DiagnosticsLog.record(
                 "ESCANEO", "\(found.count - detected.count) de \(found.count) descartadas por calidad"
@@ -281,10 +304,10 @@ public actor GalleryScanner {
             // **Casi igual a algo ya visto: fuera.** Antes de escribir nada y
             // antes de enseñarlo, para que la pantalla del escaneo no vaya
             // soltando la misma camiseta foto tras foto.
-            if deduper.isNearDuplicate(garment.featurePrint) { continue }
+            if deduper.isNearDuplicate(garment.featurePrint) { stats.duplicates += 1; continue }
             guard let key = try? await imageStore.store(garment.normalized.cgImage) else { continue }
             // El mismo recorte exacto —misma clave— también.
-            guard deduper.accept(key: key, embedding: garment.featurePrint) else { continue }
+            guard deduper.accept(key: key, embedding: garment.featurePrint) else { stats.duplicates += 1; continue }
             if let small = Self.downscaled(garment.rawCrop.cgImage, maxSide: 360) {
                 pieces.append(ScanDiscovery.Piece(
                     image: ImmutableImage(small),
@@ -322,13 +345,20 @@ public actor GalleryScanner {
     static func isShowcaseQuality(_ garment: DetectedGarment) -> Bool {
         // Por encima del techo del modo degradado: lo que sale de ahí es una
         // conjetura por la forma.
-        guard garment.confidence > GarmentPipeline.degradedConfidenceCeiling else { return false }
+        // guard garment.confidence > GarmentPipeline.degradedConfidenceCeiling else { return false }
+        // **Desde 0,2 y no "más de 0,35".** El segmentador da su confianza de
+        // clase, que a menudo queda por debajo, y sin el embedder cargado todo
+        // sale con 0,35 justos: el "mayor que" tiraba casi todas las prendas.
+        guard garment.confidence >= 0.2 else { return false }
         // Diminuta en la foto: al ampliarla para el armario se ve fatal.
         // guard min(garment.rawCrop.width, garment.rawCrop.height) >= 140 else { return false }
         // Menos estricto: con 140 se quedaban fuera prendas buenas de fotos
         // hechas de lejos.
         guard min(garment.rawCrop.width, garment.rawCrop.height) >= 90 else { return false }
-        return CutoutQuality.assess(garment.normalized.cgImage).isGoodEnough
+        // return CutoutQuality.assess(garment.normalized.cgImage).isGoodEnough
+        // Solo fuera lo que no tiene arreglo: con "suficientemente bueno" se
+        // quedaba fuera más de la mitad, y en la revisión ya se descarta.
+        return !CutoutQuality.assess(garment.normalized.cgImage).isBeyondRepair
     }
 
     static func downscaled(_ image: CGImage, maxSide: Int) -> CGImage? {
@@ -582,5 +612,24 @@ struct ScanDeduper {
             let direction = EmbeddingMath.direction(of: EmbeddingMath.decode(embedding))
         else { return }
         directions[direction.count, default: []].append(direction)
+    }
+}
+
+
+/// Cuántas fotos o prendas se quedan en cada filtro del escaneo.
+struct ScanStats {
+    var seen = 0
+    var sameOutfit = 0
+    var notCamera = 0
+    var cloud = 0
+    var noPerson = 0
+    var noGarments = 0
+    var lowQuality = 0
+    var duplicates = 0
+
+    var summary: String {
+        "ya vistas \(seen) · misma ropa \(sameOutfit) · no cámara \(notCamera) · iCloud \(cloud)"
+            + " · sin persona \(noPerson) · sin prendas \(noGarments)"
+            + " · prendas por calidad \(lowQuality) · duplicadas \(duplicates)"
     }
 }

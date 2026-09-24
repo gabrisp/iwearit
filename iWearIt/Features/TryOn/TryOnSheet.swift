@@ -328,9 +328,9 @@ struct TryOnSheet: View {
     private var bottom: some View {
         VStack(spacing: WK.Spacing.s) {
             if profile == nil {
-                WKPrimaryButton("Crear un perfil") { edit(nil) }
+                WKPrimaryButton("Crear un perfil", surface: .glass) { edit(nil) }
             } else if profile?.hasPhoto == true, profile?.canLeaveDevice != true {
-                WKPrimaryButton("Aceptar y probarme") { accept() }
+                WKPrimaryButton("Aceptar y probarme", surface: .glass) { accept() }
                 // Lo justo y en letra pequeña: el cartel de antes ocupaba media
                 // pantalla para decir esto mismo.
                 Text("Tu foto se procesa fuera del teléfono. Se pregunta una vez.")
@@ -339,7 +339,8 @@ struct TryOnSheet: View {
                     .multilineTextAlignment(.center)
             } else {
                 HStack(spacing: WK.Spacing.s) {
-                    WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo") {
+                    // En cristal, como el botón del lado.
+                    WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo", surface: .glass) {
                         generate()
                     }
                     .disabled(model?.state == .working)

@@ -41,6 +41,8 @@ struct ScanReviewStep: View {
                 : "Elige las que quieras en tu armario. Las demás se quedan para revisarlas luego desde el armario.",
             primaryTitle: primaryTitle,
             isEnabled: !isSaving,
+            // El scroll de prendas pasa por debajo del botón.
+            fillsToBottom: !pending.isEmpty,
             onPrimary: { Task { await save() } }
         ) {
             if !pending.isEmpty {

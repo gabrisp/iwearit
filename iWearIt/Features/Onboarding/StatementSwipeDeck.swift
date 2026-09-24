@@ -76,6 +76,11 @@ struct StatementSwipeDeck: View {
                         }
                     )
                     .zIndex(isTop ? 1 : 0)
+                    // **Sin transición al quitarse.** La contestada ya la
+                    // lleva la copia de `leaving`; con el fundido por defecto
+                    // esta se desvanecía en el centro mientras la copia salía
+                    // volando, y se veía volver la tarjeta y volver a irse.
+                    .transition(.identity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
