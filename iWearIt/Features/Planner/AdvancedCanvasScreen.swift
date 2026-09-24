@@ -1491,42 +1491,49 @@ private struct TrayFilterMenu: View {
     }
 }
 
-private struct TrayFilterRow: View {
-    let filters: [TrayFilter]
-    let swatches: [String: NamedColor]
-    @Binding var selection: Set<TrayFilter>
-
-    var body: some View {
-        ScrollView(.horizontal) {
-            // **Sin contenedor de cristal compartido.** El contenedor funde
-            // las superficies vecinas —para eso está— y aquí eso se leía como
-            // que el relleno de la elegida se derramaba sobre las de al lado.
-            // Son botones independientes, no un control segmentado.
-            HStack(spacing: WK.Spacing.s) {
-                ForEach(filters, id: \.self) { filter in
-                    TrayFilterChip(
-                        label: filter.label,
-                        swatch: filter.colorKey.flatMap { swatches[$0] },
-                        isSelected: selection.contains(filter)
-                    ) {
-                        withAnimation(WKAnimation.selection) {
-                            if selection.contains(filter) {
-                                selection.remove(filter)
-                            } else {
-                                selection.insert(filter)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, WK.Spacing.m)
-        }
-        .scrollIndicators(.hidden)
-        // Sin recortar: la píldora elegida crece un poco y al primero y al
-        // último se les cortaría el borde.
-        .scrollClipDisabled()
-    }
-}
+// **La fila de píldoras de un criterio, comentada y no borrada.**
+//
+// Es lo que había antes de los menús: una fila por criterio, cada una con su
+// título encima. Se lee de un vistazo cuando hay cuatro filtros y es
+// impracticable cuando hay treinta, que es el caso real. Si algún día los
+// menús estorban, esto es lo que había.
+//
+// private struct TrayFilterRow: View {
+//     let filters: [TrayFilter]
+//     let swatches: [String: NamedColor]
+//     @Binding var selection: Set<TrayFilter>
+//
+//     var body: some View {
+//         ScrollView(.horizontal) {
+//             // **Sin contenedor de cristal compartido.** El contenedor funde
+//             // las superficies vecinas —para eso está— y aquí eso se leía como
+//             // que el relleno de la elegida se derramaba sobre las de al lado.
+//             // Son botones independientes, no un control segmentado.
+//             HStack(spacing: WK.Spacing.s) {
+//                 ForEach(filters, id: \.self) { filter in
+//                     TrayFilterChip(
+//                         label: filter.label,
+//                         swatch: filter.colorKey.flatMap { swatches[$0] },
+//                         isSelected: selection.contains(filter)
+//                     ) {
+//                         withAnimation(WKAnimation.selection) {
+//                             if selection.contains(filter) {
+//                                 selection.remove(filter)
+//                             } else {
+//                                 selection.insert(filter)
+//                             }
+//                         }
+//                     }
+//                 }
+//             }
+//             .padding(.horizontal, WK.Spacing.m)
+//         }
+//         .scrollIndicators(.hidden)
+//         // Sin recortar: la píldora elegida crece un poco y al primero y al
+//         // último se les cortaría el borde.
+//         .scrollClipDisabled()
+//     }
+// }
 
 private struct TrayFilterChip: View {
     let label: String

@@ -307,6 +307,9 @@ private struct SuitcaseFeedCard: View {
     let outfit: Outfit
     let suitcase: Suitcase
     let store: ImageStore
+    /// Sin uso desde que la rejilla tiene su propia celda con menú —ver
+    /// `SuitcaseGridCell`—, pero el parámetro se queda: la tarjeta sabe
+    /// encogerse y volver a usarla en una rejilla es pasarle `true`.
     var isCompact = false
     let onEdit: () -> Void
     let onMove: () -> Void
