@@ -182,6 +182,46 @@ public actor WardrobeActor {
     ///
     /// Se descartan las prendas sin embedding: no son comparables, y un `nil`
     /// no se parece a nada.
+    /// Guarda lo encontrado **como pendiente**. Ver `PendingGarment`.
+    public func insertPending(_ items: [(draft: GarmentDraft, photoDate: Date?)]) throws {
+        guard !items.isEmpty else { return }
+        for item in items {
+            modelContext.insert(PendingGarment(draft: item.draft, photoDate: item.photoDate))
+        }
+        try modelContext.save()
+    }
+
+    /// Lo que ya existe, para que un escaneo no lo vuelva a proponer.
+    ///
+    /// Las claves de los recortes, las fotos ya miradas y los vectores de cada
+    /// prenda —del armario **y** de lo pendiente—. Sin esto, volver a escanear
+    /// —o reiniciar el onboarding— proponía otra vez todo lo que ya tienes.
+    public struct Fingerprints: Sendable {
+        public var imageKeys: Set<String> = []
+        public var photoIDs: Set<String> = []
+        public var embeddings: [Data] = []
+
+        public init() {}
+    }
+
+    public func fingerprints() throws -> Fingerprints {
+        var result = Fingerprints()
+        let garments = try modelContext.fetch(
+            FetchDescriptor<Garment>(predicate: #Predicate { $0.deletedAt == nil })
+        )
+        for garment in garments {
+            result.imageKeys.insert(garment.normalizedImageKey)
+            if let photo = garment.sourcePhotoLocalIdentifier { result.photoIDs.insert(photo) }
+            if let embedding = garment.embedding { result.embeddings.append(embedding) }
+        }
+        for pending in try modelContext.fetch(FetchDescriptor<PendingGarment>()) {
+            result.imageKeys.insert(pending.imageKey)
+            if let photo = pending.sourcePhotoID { result.photoIDs.insert(photo) }
+            if let embedding = pending.draft?.embedding { result.embeddings.append(embedding) }
+        }
+        return result
+    }
+
     public func knownEmbeddings() throws -> [DuplicateDetector.Known] {
         // **Y sin las borradas.** "Ya tienes una parecida" señalaba prendas que
         // el usuario había tirado: el parecido es con algo que ya no está en el
@@ -393,6 +433,16 @@ public actor WardrobeActor {
         }
         for profile in try modelContext.fetch(FetchDescriptor<BodyProfile>()) {
             keys.insert(profile.imageKey)
+        }
+        // Las fotos de lo que te has probado: cuestan dinero, y sin esta línea
+        // el recolector las borraba en el siguiente arranque.
+        for result in try modelContext.fetch(FetchDescriptor<TryOnResult>()) {
+            keys.insert(result.imageKey)
+        }
+        // Y los recortes de lo pendiente: la prenda todavía no existe, pero su
+        // imagen es lo que se enseña para decidir si entra.
+        for pending in try modelContext.fetch(FetchDescriptor<PendingGarment>()) {
+            keys.insert(pending.imageKey)
         }
         keys.remove("")
         return keys

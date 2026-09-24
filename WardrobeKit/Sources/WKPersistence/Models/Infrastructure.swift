@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import WKCore
 
 /// Una cara o cuerpo subido por el usuario para el try-on. Máximo 3.
 @Model
@@ -259,4 +260,55 @@ public final class TryOnResult {
         self.outfit = outfit
         self.profile = profile
     }
+}
+
+/// Una prenda **encontrada y todavía no aceptada**.
+///
+/// ## Por qué existe
+///
+/// El escaneo de la galería encuentra lo que encuentra, y decidir qué entra al
+/// armario es del usuario. Hasta ahora lo encontrado vivía en memoria mientras
+/// se decidía: si saltabas el paso, cerrabas la app o se quedaba colgada, se
+/// perdía todo y había que volver a escanear. Aquí queda guardado hasta que
+/// alguien dice sí —y entra al armario— o no —y se descarta—; y se puede
+/// decidir en el momento o días después, desde el armario.
+///
+/// **Solo en este dispositivo.** Es trabajo a medio hacer sobre la galería de
+/// este iPhone: sincronizarlo llenaría el iPad de propuestas de fotos que no
+/// tiene. Ver `WardrobeSchemaV1.localOnly`.
+///
+/// Guarda el borrador entero codificado en vez de un campo por propiedad: es
+/// un estado de paso, nadie lo consulta por partes, y así un campo nuevo en
+/// `GarmentDraft` no obliga a tocar este modelo.
+@Model
+public final class PendingGarment {
+    public var id: UUID = UUID()
+    /// La clave del recorte, ya escrito en disco. Es también lo que lo hace
+    /// único: el mismo recorte dos veces es el mismo pendiente.
+    public var imageKey: String = ""
+    public var kindRaw: String = ""
+    public var draftData: Data = Data()
+    /// Cuándo lo encontró el escaneo.
+    public var foundAt: Date = Date()
+    /// Cuándo se hizo la foto de la que sale, para ordenar lo reciente primero.
+    public var photoDate: Date?
+    /// De qué foto sale, para no volver a mirarla en el siguiente escaneo.
+    public var sourcePhotoID: String?
+
+    public init(draft: GarmentDraft, photoDate: Date?) {
+        self.id = UUID()
+        self.imageKey = draft.normalizedImageKey
+        self.kindRaw = draft.kind.rawValue
+        self.draftData = (try? JSONEncoder().encode(draft)) ?? Data()
+        self.foundAt = Date()
+        self.photoDate = photoDate
+        self.sourcePhotoID = draft.sourcePhotoLocalIdentifier
+    }
+
+    /// El borrador, tal como salió del escaneo.
+    public var draft: GarmentDraft? {
+        try? JSONDecoder().decode(GarmentDraft.self, from: draftData)
+    }
+
+    public var kind: GarmentKind { GarmentKind(rawValue: kindRaw) ?? .other }
 }

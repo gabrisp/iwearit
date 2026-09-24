@@ -40,11 +40,13 @@ struct OnboardingFlow: View {
                     Image(systemName: "chevron.left")
                         .font(WK.Font.headline)
                         .foregroundStyle(WK.Palette.secondaryText)
-                        .frame(width: 32, height: 32)
-                        .background(WK.Palette.ink(0.07), in: .circle)
+                        .frame(width: 36, height: 36)
+                        // .background(WK.Palette.ink(0.07), in: .circle)
                         .contentShape(.circle)
                 }
-                .buttonStyle(WKPressStyle())
+                // Cristal interactivo, como el resto de botones del onboarding.
+                .buttonStyle(.plain)
+                .adaptiveGlassInteractive(in: .circle)
 
                 OnboardingProgressBar(
                     step: model.step.progressIndex,

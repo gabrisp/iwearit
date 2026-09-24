@@ -42,7 +42,21 @@ enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
 @Observable
 final class OnboardingModel {
 
-    var step: OnboardingStep = .welcome
+    var step: OnboardingStep = OnboardingModel.launchStep
+
+    /// `-onboardingStep scanning` arranca en ese paso, para probar el escaneo
+    /// y la revisión sin recorrer las diez pantallas de antes. Solo depuración.
+    private static var launchStep: OnboardingStep {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-onboardingStep"),
+           arguments.indices.contains(index + 1),
+           let step = OnboardingStep.allCases.first(where: { "\($0)" == arguments[index + 1] }) {
+            return step
+        }
+        #endif
+        return .welcome
+    }
 
     /// Lo que el escaneo ha encontrado y **todavía no ha guardado**.
     ///

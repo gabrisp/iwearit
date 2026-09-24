@@ -57,12 +57,16 @@ struct ClosetScreen: View {
         /// en el propio caso no hay nada que pueda llegar tarde.
         case review(ImportableBatch)
         case shelves
+        /// Lo que el escaneo encontró y aún no se ha decidido. Ver
+        /// `PendingGarment`.
+        case pending
 
         var id: String {
             switch self {
             case .capture: "capture"
             case let .review(batch): batch.id.uuidString
             case .shelves: "shelves"
+            case .pending: "pending"
             }
         }
     }
@@ -163,6 +167,11 @@ struct ClosetScreen: View {
                         isRequestingAdd = true
                     }
                         .containerRelativeFrame(.vertical)
+                        // Con el armario vacío también: si del escaneo no se
+                        // importó nada, lo pendiente es justo lo que falta.
+                        .overlay(alignment: .top) {
+                            PendingGarmentsPill { sheet = .pending }
+                        }
                         .transition(AnyTransition(.blurReplace))
                 } else if bulk.isActive {
                     // Todas las prendas juntas, cada una llegando desde su
@@ -170,6 +179,9 @@ struct ClosetScreen: View {
                     ClosetBulkGrid(bulk: bulk, namespace: closetGrid)
                 } else {
                     LazyVStack(spacing: 0) {
+                        // Lo que el escaneo dejó por decidir, antes que nada.
+                        PendingGarmentsPill { sheet = .pending }
+
                         ForEach(shelves) { shelf in
                             ShelfSection(data: shelf)
                                 .equatable()
@@ -361,6 +373,8 @@ struct ClosetScreen: View {
                     ImportSheet(images: batch.images)
                 case .shelves:
                     NavigationStack { ShelfOrderScreen() }
+                case .pending:
+                    PendingGarmentsSheet()
                 }
             }
             #if DEBUG

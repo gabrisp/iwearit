@@ -93,14 +93,27 @@ struct ScanningStep: View {
     @State private var stage = ScanStageModel()
     @State private var scanner: GalleryScanner?
     @State private var isPreparing = false
+    @State private var hasFinished = false
 
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
             HStack {
                 Spacer()
-                Button("Saltar") { finish() }
-                    .font(.subheadline)
-                    .foregroundStyle(WK.Palette.secondaryText)
+                // Cristal interactivo, como el resto de botones del
+                // onboarding. Antes: texto gris suelto.
+                // Button("Saltar") { finish() }
+                //     .font(.subheadline)
+                //     .foregroundStyle(WK.Palette.secondaryText)
+                Button { finish() } label: {
+                    Text("Saltar")
+                        .font(WK.Font.captionMedium)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .padding(.horizontal, WK.Spacing.m)
+                        .padding(.vertical, WK.Spacing.s)
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .adaptiveGlassInteractive(in: .capsule)
             }
 
             VStack(spacing: WK.Spacing.xs) {
@@ -225,9 +238,14 @@ struct ScanningStep: View {
             // `nil` en Pro: la galería entera. El número lo decide el gate,
             // no esta pantalla.
             limit: appEnvironment.gate.scanPhotoLimit,
-            // **Sin guardar nada todavía.** Lo encontrado se enseña en el paso
-            // siguiente y entra al armario lo que el usuario diga.
+            // **Sin meter nada en el armario todavía.** Lo encontrado se
+            // guarda como pendiente según aparece —así saltar el paso o cerrar
+            // la app no lo pierde— y entra al armario lo que el usuario diga.
             inserts: false,
+            // Con sesenta prendas distintas ya hay armario de sobra para
+            // empezar. Seguir era dejar al usuario mirando cómo se repasan
+            // años de fotos; lo demás se puede escanear luego desde el armario.
+            stopAfter: 60,
             onProgress: { updated in
                 Task { @MainActor in progress = updated }
             },
@@ -278,10 +296,15 @@ struct ScanningStep: View {
     }
 
     private func finish() {
+        // **Una sola vez.** "Saltar" cancela la tarea, pero `run()` sigue
+        // hasta el final y volvía a llamar aquí: el onboarding avanzaba dos
+        // pasos de golpe y la revisión de lo encontrado no se llegaba a ver.
+        guard !hasFinished else { return }
+        hasFinished = true
         Task {
-            // La cosecha antes de avanzar: el paso siguiente la necesita para
-            // poder enseñar algo.
-            model.harvest = await scanner?.harvest ?? []
+            // Lo encontrado ya está guardado como pendiente según salía: el
+            // paso siguiente lo lee de ahí. Lo de antes:
+            // model.harvest = await scanner?.harvest ?? []
             await scanner?.cancel()
             model.advance()
         }

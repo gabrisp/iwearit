@@ -53,6 +53,9 @@ public enum WardrobeSchemaV1: VersionedSchema {
         [
             DownloadedModel.self,
             ScanSession.self,
+            // Lo que el escaneo encontró y todavía no se ha aceptado: trabajo
+            // sobre la galería de este iPhone. Ver `PendingGarment`.
+            PendingGarment.self,
         ]
     }
 }

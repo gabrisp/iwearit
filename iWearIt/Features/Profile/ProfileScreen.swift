@@ -348,13 +348,28 @@ private struct ModelSection: View {
 /// aviso nuevo.
 private struct TipsSection: View {
     @Environment(AppEnvironment.self) private var appEnvironment
+    /// La misma marca que lee la raíz: apagarla vuelve a enseñar el
+    /// onboarding al momento. Ver `RootView`.
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
+    @State private var isConfirmingRestart = false
 
     var body: some View {
         let tips = appEnvironment.tips
         WKSection(
             "Tutorial",
-            footer: "Los avisos vuelven a salir según entres en cada pantalla."
+            footer: "Los avisos vuelven a salir según entres en cada pantalla. Repetir la bienvenida no borra nada: tu armario, outfits y maletas se quedan como están."
         ) {
+            // **Solo la marca, nada más.** El onboarding no borra en ningún
+            // paso, y el escaneo se salta lo que ya está en el armario o
+            // pendiente —ver `ScanDeduper`—, así que repetirlo no duplica
+            // prendas.
+            WKRow(action: { isConfirmingRestart = true }) {
+                Text("Repetir la bienvenida")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.accent)
+                Spacer()
+            }
+
             WKRow {
                 Text("Avisos vistos")
                     .font(WK.Font.rowTitle)
@@ -373,6 +388,12 @@ private struct TipsSection: View {
             }
             .disabled(tips.seenCount == 0)
             .opacity(tips.seenCount == 0 ? 0.4 : 1)
+        }
+        .alert("¿Repetir la bienvenida?", isPresented: $isConfirmingRestart) {
+            Button("Repetir") { hasCompletedOnboarding = false }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Vuelves al principio del onboarding. No se borra nada de tu armario.")
         }
     }
 }
@@ -463,6 +484,9 @@ private struct DebugSection: View {
             WKRow(action: { seed(count: 300) }) {
                 Text("Sembrar 300 prendas").font(WK.Font.rowTitle)
             }
+            WKRow(action: { seed(count: 12, asPending: true) }) {
+                Text("Sembrar 12 pendientes").font(WK.Font.rowTitle)
+            }
             WKRow(showsSeparator: false, action: { isConfirmingErase = true }) {
                 Text("Restablecer de fábrica")
                     .font(WK.Font.rowTitle)
@@ -509,7 +533,7 @@ private struct DebugSection: View {
         }
     }
 
-    private func seed(count: Int) {
+    private func seed(count: Int, asPending: Bool = false) {
         isSeeding = true
         Task {
             let start = ContinuousClock.now
@@ -517,7 +541,8 @@ private struct DebugSection: View {
                 let created = try await DevSeed.populate(
                     wardrobe: appEnvironment.wardrobe,
                     imageStore: appEnvironment.imageStore,
-                    count: count
+                    count: count,
+                    asPending: asPending
                 )
                 lastResult = "\(created) prendas en \(start.duration(to: .now).formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2))))"
             } catch {

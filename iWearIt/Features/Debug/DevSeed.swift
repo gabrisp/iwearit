@@ -53,7 +53,8 @@ enum DevSeed {
     static func populate(
         wardrobe: WardrobeActor,
         imageStore: ImageStore,
-        count: Int = 30
+        count: Int = 30,
+        asPending: Bool = false
     ) async throws -> Int {
         var drafts: [GarmentDraft] = []
         drafts.reserveCapacity(count)
@@ -82,6 +83,12 @@ enum DevSeed {
 
         // Por lotes, igual que hará el escaneo masivo: así el camino de
         // inserción que se ejercita en desarrollo es el mismo que el de producción.
+        // Como pendientes, lo mismo que deja el escaneo del onboarding: para
+        // ver la revisión sin una galería con gente.
+        if asPending {
+            try await wardrobe.insertPending(drafts.map { (draft: $0, photoDate: Date()) })
+            return drafts.count
+        }
         for start in stride(from: 0, to: drafts.count, by: WardrobeActor.batchSize) {
             let slice = Array(drafts[start..<min(start + WardrobeActor.batchSize, drafts.count)])
             try await wardrobe.insert(slice)

@@ -143,11 +143,13 @@ private struct DeckButton: View {
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(width: 60, height: 60)
-                .background(WK.Palette.shelf, in: .circle)
-                .overlay(Circle().stroke(WK.Palette.ink(0.10), lineWidth: 1))
+                // .background(WK.Palette.shelf, in: .circle)
+                // .overlay(Circle().stroke(WK.Palette.ink(0.10), lineWidth: 1))
                 .contentShape(.circle)
         }
-        .buttonStyle(WKPressStyle())
+        // Cristal interactivo: ver `OptionRow`.
+        .buttonStyle(.plain)
+        .adaptiveGlassInteractive(in: .circle)
         .sensoryFeedback(.impact(weight: .light), trigger: symbol)
     }
 }

@@ -7,7 +7,9 @@ import Foundation
 /// son `Sendable`, así que no pueden cruzar actores. El pipeline corre fuera del
 /// hilo principal, acumula estos borradores y los entrega en lotes al
 /// `WardrobeActor`, que es quien los convierte en `Garment`.
-public struct GarmentDraft: Sendable, Hashable {
+/// Codificable para poder guardarse **tal cual** como pendiente: lo que el
+/// escaneo encuentra y todavía nadie ha dicho que entre. Ver `PendingGarment`.
+public struct GarmentDraft: Sendable, Hashable, Codable {
     public var kind: GarmentKind
     public var subcategory: String?
     public var material: String?

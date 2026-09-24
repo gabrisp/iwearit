@@ -144,14 +144,24 @@ private struct OptionRow: View {
             }
             .padding(.horizontal, WK.Spacing.m)
             .padding(.vertical, WK.Spacing.m - 2)
-            .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                    .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
-            )
-            .contentShape(.rect)
+            // .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+            // .overlay(
+            //     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+            //         .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+            // )
+            .contentShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
         }
-        .buttonStyle(WKPressStyle())
+        // **Cristal interactivo**, como todo lo que se toca en el onboarding:
+        // el propio cristal responde al dedo, así que el estilo del botón es
+        // plano —el encogido de `WKPressStyle` encima se sumaba al del cristal
+        // y la fila daba dos respuestas a un solo toque—.
+        .buttonStyle(.plain)
+        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+        // El borde de acento, fuera del cristal para que no lo muestree.
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
+                .strokeBorder(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+        }
         .animation(.snappy(duration: 0.18), value: isSelected)
     }
 

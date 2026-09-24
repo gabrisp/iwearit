@@ -41,6 +41,9 @@ public actor GalleryScanner {
     private let wardrobe: WardrobeActor
 
     private var isCancelled = false
+    /// Lo que ya se ha visto: en el armario, en lo pendiente y en este mismo
+    /// escaneo. Ver `ScanDeduper`.
+    private var deduper = ScanDeduper()
 
     /// Lo encontrado y **no guardado**, cuando se escanea sin insertar.
     ///
@@ -71,11 +74,20 @@ public actor GalleryScanner {
         startIndex: Int = 0,
         limit: Int? = nil,
         inserts: Bool = true,
+        /// Parar al llegar a tantas prendas **distintas**. El onboarding no
+        /// necesita la galería entera para arrancar un armario: con unas
+        /// decenas de prendas buenas ya hay armario, y seguir era dejar al
+        /// usuario mirando cómo se repasan seis años de fotos.
+        stopAfter: Int? = nil,
         onProgress: @Sendable @escaping (ScanProgress) async -> Void,
         onDiscovery: @Sendable @escaping (ScanDiscovery) async -> Void
     ) async -> ScanProgress {
         isCancelled = false
         harvest.removeAll()
+        // **Lo que ya existe no se vuelve a proponer.** Sin esto, escanear
+        // otra vez —o reiniciar el onboarding— traía de nuevo todo lo que ya
+        // estaba en el armario o esperando a que lo aceptaras.
+        deduper = ScanDeduper(known: (try? await wardrobe.fingerprints()) ?? .init())
 
         let assets = Self.candidateAssets()
         #if DEBUG
@@ -86,7 +98,13 @@ public actor GalleryScanner {
         progress.totalPhotos = min(assets.count, limit.map { startIndex + $0 } ?? assets.count)
 
         var pending: [GarmentDraft] = []
+        /// Las fechas de las fotos de lo pendiente, en el mismo orden.
+        var pendingDates: [Date?] = []
         var lastReport = ContinuousClock.now
+        /// Cuándo se hizo la última foto que **dio** prendas. Ver
+        /// `sameOutfitWindow`.
+        var lastProductiveDate: Date?
+        var uniqueFound = 0
 
         for index in startIndex..<progress.totalPhotos {
             if isCancelled { break }
@@ -106,6 +124,26 @@ public actor GalleryScanner {
 
             let asset = assets.object(at: index)
 
+            // **Una foto ya mirada no se vuelve a mirar**: sus prendas ya
+            // están en el armario o esperando.
+            if deduper.hasSeenPhoto(asset.localIdentifier) {
+                progress.photosProcessed = index - startIndex + 1
+                continue
+            }
+
+            // **La misma ropa, el mismo rato.** Las fotos de una misma tarde
+            // —una ráfaga, diez fotos en la misma cena— llevan la misma ropa, y
+            // cada una la proponía otra vez: la camiseta aparecía seis veces.
+            // Si la foto es de muy poco antes de la última que dio prendas, se
+            // salta sin gastar un milisegundo en ella. Es además lo que más
+            // acelera el escaneo: en una galería normal, la mayoría de fotos
+            // con gente vienen en tandas así.
+            if let last = lastProductiveDate, let date = asset.creationDate,
+               abs(last.timeIntervalSince(date)) < Self.sameOutfitWindow {
+                progress.photosProcessed = index - startIndex + 1
+                continue
+            }
+
             // Sin `autoreleasepool`: no funciona a través de un `await`, así
             // que envolver esta llamada sería decorativo. Lo que de verdad
             // mantiene la memoria a raya es que cada foto se pide ya reducida
@@ -121,6 +159,9 @@ public actor GalleryScanner {
                     progress.outfitsFound += 1
                     progress.garmentsFound += found.count
                     pending.append(contentsOf: found)
+                    pendingDates.append(contentsOf: Array(repeating: asset.creationDate, count: found.count))
+                    uniqueFound += found.count
+                    lastProductiveDate = asset.creationDate
                 }
             case .nothing:
                 break
@@ -129,12 +170,15 @@ public actor GalleryScanner {
             progress.photosProcessed = index - startIndex + 1
 
             if pending.count >= Self.commitBatchSize {
-                if inserts {
-                    try? await wardrobe.insert(pending)
-                } else {
-                    harvest.append(contentsOf: pending)
-                }
+                await flush(pending, dates: pendingDates, inserts: inserts)
                 pending.removeAll(keepingCapacity: true)
+                pendingDates.removeAll(keepingCapacity: true)
+            }
+
+            // Suficiente: se para aquí y se informa de que ha acabado.
+            if let stopAfter, uniqueFound >= stopAfter {
+                progress.photosProcessed = index - startIndex + 1
+                break
             }
 
             if ContinuousClock.now - lastReport > Self.progressInterval {
@@ -144,14 +188,34 @@ public actor GalleryScanner {
         }
 
         if !pending.isEmpty {
-            if inserts {
-                try? await wardrobe.insert(pending)
-            } else {
-                harvest.append(contentsOf: pending)
-            }
+            await flush(pending, dates: pendingDates, inserts: inserts)
         }
         await onProgress(progress)
         return progress
+    }
+
+    /// Cuánto tiempo entre dos fotos para darlas por **la misma ropa**.
+    ///
+    /// Hora y media: lo que dura una comida, una tarde de paseo, una ráfaga.
+    /// Menos dejaba pasar las series; más empezaba a saltarse cambios de ropa
+    /// de verdad —la de por la mañana y la de por la noche—.
+    static let sameOutfitWindow: TimeInterval = 90 * 60
+
+    /// Guarda un lote: al armario, o como pendiente.
+    ///
+    /// **Pendiente en disco y no en memoria.** Lo encontrado vivía en un array
+    /// mientras el usuario decidía: saltar el paso, cerrar la app o que se
+    /// colgara el escaneo lo tiraba todo. Ahora cada lote se queda guardado
+    /// según se encuentra. Ver `PendingGarment`.
+    private func flush(_ drafts: [GarmentDraft], dates: [Date?], inserts: Bool) async {
+        if inserts {
+            try? await wardrobe.insert(drafts)
+        } else {
+            try? await wardrobe.insertPending(
+                zip(drafts, dates).map { (draft: $0, photoDate: $1) }
+            )
+            harvest.append(contentsOf: drafts)
+        }
     }
 
     // MARK: - Una foto
@@ -195,7 +259,13 @@ public actor GalleryScanner {
         var drafts: [GarmentDraft] = []
         var pieces: [ScanDiscovery.Piece] = []
         for garment in detected {
+            // **Casi igual a algo ya visto: fuera.** Antes de escribir nada y
+            // antes de enseñarlo, para que la pantalla del escaneo no vaya
+            // soltando la misma camiseta foto tras foto.
+            if deduper.isNearDuplicate(garment.featurePrint) { continue }
             guard let key = try? await imageStore.store(garment.normalized.cgImage) else { continue }
+            // El mismo recorte exacto —misma clave— también.
+            guard deduper.accept(key: key, embedding: garment.featurePrint) else { continue }
             if let small = Self.downscaled(garment.rawCrop.cgImage, maxSide: 360) {
                 pieces.append(ScanDiscovery.Piece(
                     image: ImmutableImage(small),
@@ -219,6 +289,8 @@ public actor GalleryScanner {
                 )
             )
         }
+        // La foto ya está mirada, dé lo que dé.
+        deduper.markPhoto(asset.localIdentifier)
         if !pieces.isEmpty, let photo = Self.downscaled(full, maxSide: 520) {
             await onDiscovery(ScanDiscovery(photo: ImmutableImage(photo), pieces: pieces))
         }
@@ -361,5 +433,68 @@ public actor GalleryScanner {
 
     static func containsPerson(_ image: CGImage) async -> Bool {
         (try? await VisionStages.containsPerson(image)) ?? false
+    }
+}
+
+/// Lo que ya se ha visto, para no proponerlo dos veces.
+///
+/// Tres filtros, del más barato al más caro:
+///
+/// 1. **La foto.** Una foto que ya dio prendas —en este escaneo o en uno
+///    anterior— no se vuelve a mirar.
+/// 2. **El recorte exacto.** El `ImageStore` direcciona por contenido: dos
+///    recortes idénticos tienen la misma clave.
+/// 3. **La prenda casi igual.** La misma camiseta en dos fotos distintas no da
+///    dos recortes idénticos, pero sí dos vectores casi iguales. El listón es
+///    el de `DuplicateDetector`, alto a propósito: dos camisetas negras
+///    distintas pasan de 0,85 sin ser la misma.
+///
+/// Los vectores se guardan ya normalizados: se comparan contra cada prenda
+/// nueva, y normalizar cientos de vectores por cada una sería trabajo repetido.
+struct ScanDeduper {
+    private var imageKeys: Set<String> = []
+    private var photoIDs: Set<String> = []
+    /// Las direcciones, separadas por longitud: los vectores de TinyCLIP y los
+    /// de `VNFeaturePrint` viven en espacios distintos y no se comparan.
+    private var directions: [Int: [[Float]]] = [:]
+
+    init() {}
+
+    init(known: WardrobeActor.Fingerprints) {
+        imageKeys = known.imageKeys
+        photoIDs = known.photoIDs
+        for embedding in known.embeddings { remember(embedding) }
+    }
+
+    func hasSeenPhoto(_ id: String) -> Bool { photoIDs.contains(id) }
+
+    mutating func markPhoto(_ id: String) { photoIDs.insert(id) }
+
+    func isNearDuplicate(_ embedding: Data?) -> Bool {
+        guard
+            let embedding,
+            let direction = EmbeddingMath.direction(of: EmbeddingMath.decode(embedding))
+        else { return false }
+        for other in directions[direction.count] ?? [] {
+            if EmbeddingMath.similarity(direction, other) >= DuplicateDetector.threshold {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Lo da por visto. `false` si el recorte exacto ya estaba.
+    mutating func accept(key: String, embedding: Data?) -> Bool {
+        guard imageKeys.insert(key).inserted else { return false }
+        remember(embedding)
+        return true
+    }
+
+    private mutating func remember(_ embedding: Data?) {
+        guard
+            let embedding,
+            let direction = EmbeddingMath.direction(of: EmbeddingMath.decode(embedding))
+        else { return }
+        directions[direction.count, default: []].append(direction)
     }
 }
