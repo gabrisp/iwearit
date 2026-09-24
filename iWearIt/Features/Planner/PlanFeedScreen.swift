@@ -350,15 +350,38 @@ struct PlanFeedScreen: View {
     /// ella al punto. Es el truco del planificador viejo, que por lo mismo
     /// salía de un punto fijo; aquí sale del rectángulo entero.
     private var zoomAnchor: some View {
+        // **A medio camino, y dicho en números.** Un `Color.clear` con
+        // proporción no tiene tamaño propio y el zoom arrancaba de un
+        // rectángulo diminuto; con la tarjeta entera, en cambio, no se notaba
+        // que creciera. Con algo más de la mitad de la tarjeta, centrado en
+        // ella, se lee como que el editor sale **de** ella.
         Color.clear
-            .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
-            .modifier(PlanCardSize(page: pageSize, stride: stride))
+            .frame(
+                width: cardSize.width * Self.zoomStartScale,
+                height: cardSize.height * Self.zoomStartScale
+            )
             .adaptiveZoomSource(id: Self.feedZoomID, in: zoom)
             .allowsHitTesting(false)
     }
 
+    /// Lo que mide la tarjeta de la revista: el lienzo, con su proporción,
+    /// dentro del hueco menos su aire. Las mismas cuentas que hace SwiftUI con
+    /// `aspectRatio(.fit)` sobre `PlanCardSize`.
+    private var cardSize: CGSize {
+        let ratio = CanvasSpace.width / CanvasSpace.height
+        let height = max(0, stride - 2 * PlanCardSize.inset(stride: stride))
+        let width = pageSize.width
+        guard height > 0, width > 0 else { return .zero }
+        return width / height > ratio
+            ? CGSize(width: height * ratio, height: height)
+            : CGSize(width: width, height: width / ratio)
+    }
+
     /// El nombre de ese rectángulo.
     private static let feedZoomID = UUID()
+
+    /// Qué parte de la tarjeta mide el rectángulo del que sale el editor.
+    private static let zoomStartScale: CGFloat = 0.6
 
     private var pager: some View {
         ScrollView(.horizontal) {
