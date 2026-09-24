@@ -334,6 +334,32 @@ struct PlanFeedScreen: View {
     /// planificador viejo: aquí dentro va otro scroll —el de los outfits del
     /// día— y anidar el de SwiftUI dentro del de UIKit era pelearse por el
     /// dedo en cada gesto diagonal.
+    /// **De dónde crece el editor en la revista**: un rectángulo invisible
+    /// puesto justo donde está la tarjeta, pero **fuera** de los scrolls.
+    ///
+    /// La tarjeta vive dentro de dos scrolls anidados —el de los días, de lado,
+    /// y el de los outfits de cada día, de arriba abajo—, y ahí el sistema la
+    /// encuentra pero calcula mal dónde está: grabado fotograma a fotograma, la
+    /// tarjeta desaparecía y el editor crecía desde una miniatura en la
+    /// esquina de arriba a la izquierda. Probado con el origen en la tarjeta y
+    /// con el origen pegado al lienzo: lo mismo las dos veces.
+    ///
+    /// En la revista la tarjeta que se ve está **siempre** en el mismo sitio
+    /// —el scroll engancha cada una en el centro—, así que un rectángulo con su
+    /// misma forma y su mismo hueco, puesto encima del pager, coincide con
+    /// ella al punto. Es el truco del planificador viejo, que por lo mismo
+    /// salía de un punto fijo; aquí sale del rectángulo entero.
+    private var zoomAnchor: some View {
+        Color.clear
+            .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
+            .modifier(PlanCardSize(page: pageSize, stride: stride))
+            .adaptiveZoomSource(id: Self.feedZoomID, in: zoom)
+            .allowsHitTesting(false)
+    }
+
+    /// El nombre de ese rectángulo.
+    private static let feedZoomID = UUID()
+
     private var pager: some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
@@ -351,6 +377,9 @@ struct PlanFeedScreen: View {
             .scrollTargetLayout()
         }
         .scrollTargetBehavior(.paging)
+        .overlay {
+            if layout == .feed { zoomAnchor }
+        }
         .scrollPosition(id: $day)
         .scrollIndicators(.hidden)
         // Sin hueco a mano: la tira va en la barra y el área segura ya la
@@ -466,9 +495,14 @@ struct PlanFeedScreen: View {
 
     private func edit(_ outfit: Outfit, isNew: Bool = false, zoomFrom source: UUID? = nil) {
         editingIsNew = isNew
-        // Uno que ya existe crece desde su tarjeta; uno nuevo, desde donde
+        // En revista, desde el rectángulo de encima del pager (ver
+        // `zoomAnchor`); en rejilla, desde su celda. Uno nuevo, desde donde
         // diga quien lo crea —o desde ninguna parte—.
-        zoomSourceID = isNew ? source : outfit.stableID
+        if isNew {
+            zoomSourceID = source
+        } else {
+            zoomSourceID = layout == .feed ? Self.feedZoomID : outfit.stableID
+        }
         editingOutfit = outfit
     }
 
@@ -526,7 +560,9 @@ struct PlanFeedScreen: View {
             modelContext.insert(item)
         }
         try? modelContext.save()
-        edit(outfit, isNew: true, zoomFrom: wasEmpty ? Self.newOutfitZoomID : nil)
+        // Con el día vacío, la tarjeta de crear está justo donde está el
+        // rectángulo de origen; con el día lleno, no hay nada de donde crecer.
+        edit(outfit, isNew: true, zoomFrom: wasEmpty && layout == .feed ? Self.feedZoomID : nil)
     }
 
     /// El papel de un outfit: el suyo, o el de la app si no tiene.
@@ -595,7 +631,8 @@ private struct PlanDayFeed: View {
                 // puesto en la pantalla entera envolvía a los de cada
                 // tarjeta, y el zoom cogía el de fuera: la transición salía
                 // del borde de la pantalla en vez del lienzo que tocaste.
-                .adaptiveZoomSource(id: newOutfitID, in: zoom)
+                // El origen del zoom no está aquí: ver `zoomAnchor`.
+                // .adaptiveZoomSource(id: newOutfitID, in: zoom)
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
@@ -612,6 +649,7 @@ private struct PlanDayFeed: View {
                     PlanFeedCard(
                         entry: entry,
                         store: store,
+                        zoom: zoom,
                         glass: glass,
                         onEdit: { onEdit(entry.outfit) },
                         onMove: { onMove(entry.outfit) },
@@ -620,10 +658,6 @@ private struct PlanDayFeed: View {
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
                     .modifier(PlanCardSize(page: pageSize, stride: stride))
-                    // **Después de medirla.** Puesto antes, el origen del
-                    // zoom era la tarjeta sin su hueco, así que la pantalla
-                    // crecía desde un rectángulo que no es el que se ve.
-                    .adaptiveZoomSource(id: entry.id, in: zoom)
                     .id(AnyHashable(entry.id))
                 }
 
@@ -717,6 +751,8 @@ struct PlanCardSize: ViewModifier {
 private struct PlanFeedCard: View {
     let entry: PlanFeedScreen.Entry
     let store: ImageStore
+    /// De dónde crece el editor. Ver el cuerpo.
+    let zoom: Namespace.ID
     /// El cristal que comparten estos botones con el menú de la rejilla.
     let glass: Namespace.ID
     let onEdit: () -> Void
@@ -735,6 +771,8 @@ private struct PlanFeedCard: View {
             // prenda no lo lleva, ahí el gesto no existe. Ver `GarmentTouch`.
             onDoubleTap: onEdit
         )
+        // El origen del zoom **no está aquí**: ver `PlanFeedScreen.zoomAnchor`.
+        // .adaptiveZoomSource(id: entry.id, in: zoom)
         // **Sin píldora de fecha.** El día ya está arriba, en la tira, y
         // repetirlo dentro de cada lienzo es decir dos veces lo mismo tapando
         // la ropa.
