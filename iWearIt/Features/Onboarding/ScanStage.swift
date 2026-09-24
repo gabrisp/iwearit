@@ -399,38 +399,40 @@ struct ScanCollection: View {
             // .frame(height: 150, alignment: .top)
             // .clipped()
 
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: WK.Spacing.s) {
-                    if model.collected.isEmpty {
-                        // Huecos esperando: se ve dónde van a caer.
-                        ForEach(0..<4, id: \.self) { index in
-                            PlaceholderTile(size: Self.tile, index: index)
-                        }
-                    }
-                    ForEach(model.collected) { item in
-                        // La prenda con su recorte, sin caja: como en el
-                        // armario.
-                        Image(decorative: item.piece.image.cgImage, scale: 1)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: Self.tile, height: Self.tile)
-                            .shadow(color: .black.opacity(0.18), radius: 6, y: 4)
-                            // Cae desde arriba, como las fotos.
-                            .transition(
-                                .offset(y: -60)
-                                    .combined(with: .scale(scale: 0.5))
-                                    .combined(with: .opacity)
-                            )
-                    }
-                }
-                .padding(.vertical, WK.Spacing.s)
-            }
-            .contentMargins(.horizontal, WK.Spacing.screenInset, for: .scrollContent)
-            .scrollIndicators(.hidden)
-            // De borde a borde: la tira se sale del margen de la pantalla.
-            .padding(.horizontal, -WK.Spacing.screenInset)
-            .frame(height: Self.tile + WK.Spacing.m)
-            .animation(.spring(duration: 0.45, bounce: 0.2), value: model.collected.count)
+            // **Sin tira abajo.** Las prendas se enseñan al acabar, todas y
+            // desfilando: ver `ScanFoundStep`. Aquí se quedan los números.
+            // ScrollView(.horizontal) {
+            //     LazyHStack(spacing: WK.Spacing.s) {
+            //         if model.collected.isEmpty {
+            //             // Huecos esperando: se ve dónde van a caer.
+            //             ForEach(0..<4, id: \.self) { index in
+            //                 PlaceholderTile(size: Self.tile, index: index)
+            //             }
+            //         }
+            //         ForEach(model.collected) { item in
+            //             // La prenda con su recorte, sin caja: como en el
+            //             // armario.
+            //             Image(decorative: item.piece.image.cgImage, scale: 1)
+            //                 .resizable()
+            //                 .scaledToFit()
+            //                 .frame(width: Self.tile, height: Self.tile)
+            //                 .shadow(color: .black.opacity(0.18), radius: 6, y: 4)
+            //                 // Cae desde arriba, como las fotos.
+            //                 .transition(
+            //                     .offset(y: -60)
+            //                         .combined(with: .scale(scale: 0.5))
+            //                         .combined(with: .opacity)
+            //                 )
+            //         }
+            //     }
+            //     .padding(.vertical, WK.Spacing.s)
+            // }
+            // .contentMargins(.horizontal, WK.Spacing.screenInset, for: .scrollContent)
+            // .scrollIndicators(.hidden)
+            // // De borde a borde: la tira se sale del margen de la pantalla.
+            // .padding(.horizontal, -WK.Spacing.screenInset)
+            // .frame(height: Self.tile + WK.Spacing.m)
+            // .animation(.spring(duration: 0.45, bounce: 0.2), value: model.collected.count)
         }
     }
 

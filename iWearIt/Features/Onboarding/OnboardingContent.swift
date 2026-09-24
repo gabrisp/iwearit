@@ -88,6 +88,21 @@ enum OnboardingContent {
               tone: .oliva),
     ]
 
+    /// La comparativa del deslizador: lo mismo dicho con y sin la app, en el
+    /// mismo orden para que cada fila se transforme en su pareja.
+    static let comparisonPairs: [ComparisonPair] = [
+        .init(id: "see", symbol: "eye", tone: .camel,
+              with: "Ves todo lo que tienes", without: "Lo del fondo del armario no existe"),
+        .init(id: "combine", symbol: "paintpalette", tone: .granate,
+              with: "Sabes qué combina con qué", without: "Siempre las mismas tres combinaciones"),
+        .init(id: "repeat", symbol: "square.on.square", tone: .denim,
+              with: "Dejas de comprar repetido", without: "Otra camisa blanca casi igual"),
+        .init(id: "plan", symbol: "calendar", tone: .oliva,
+              with: "La semana, ya planificada", without: "Decidir cada mañana con prisa"),
+        .init(id: "pack", symbol: "suitcase", tone: .salvia,
+              with: "La maleta, hecha sin pensar", without: "Maleta llena de lo que no usas"),
+    ]
+
     static let comparison: [ComparisonRow] = [
         .init(id: "see", label: "Ves todo lo que tienes"),
         .init(id: "combine", label: "Sabes qué combina con qué"),

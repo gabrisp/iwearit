@@ -92,6 +92,7 @@ struct ScanningStep: View {
     let model: OnboardingModel
 
     @Environment(AppEnvironment.self) private var appEnvironment
+    @Environment(\.modelContext) private var modelContext
     @State private var progress = ScanProgress()
     // @State private var discoveries: [ScanDiscovery] = []
     /// El montón de fotos y la colección. Ver `ScanStageModel`.
@@ -329,7 +330,10 @@ struct ScanningStep: View {
             // paso siguiente lo lee de ahí. Lo de antes:
             // model.harvest = await scanner?.harvest ?? []
             await scanner?.cancel()
-            model.advance()
+            // Con algo encontrado, primero la pantalla de "+X prendas"; sin
+            // nada, directo a la revisión, que ya lo dice.
+            let found = (try? modelContext.fetchCount(FetchDescriptor<PendingGarment>())) ?? 0
+            model.go(to: found > 0 ? .scanFound : .scanReview)
         }
     }
 }

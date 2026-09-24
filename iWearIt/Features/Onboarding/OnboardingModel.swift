@@ -22,6 +22,9 @@ enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
     case comparison
     case photoPermission
     case scanning
+    /// "+X prendas, más de N outfits", con las prendas desfilando. Ver
+    /// `ScanFoundStep`.
+    case scanFound
     case scanReview
     case scanSummary
     case paywall
@@ -80,6 +83,11 @@ final class OnboardingModel {
     func advance() {
         guard let next = OnboardingStep(rawValue: step.rawValue + 1) else { return }
         move(to: next)
+    }
+
+    /// Ir a un paso concreto, con su paso de página.
+    func go(to target: OnboardingStep) {
+        move(to: target)
     }
 
     func goBack() {

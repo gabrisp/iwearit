@@ -231,15 +231,18 @@ struct ComparisonStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "Con iWearIt y sin él",
+            title: "Desliza y compara",
             onPrimary: { model.advance() }
         ) {
-            ComparisonTable(
-                rows: OnboardingContent.comparison,
-                withTitle: "iWearIt",
-                withoutTitle: "Sin él"
-            )
-            .padding(.top, WK.Spacing.m)
+            // La tabla de dos columnas con ✓ y ✕, antes:
+            // ComparisonTable(
+            //     rows: OnboardingContent.comparison,
+            //     withTitle: "iWearIt",
+            //     withoutTitle: "Sin él"
+            // )
+            // .padding(.top, WK.Spacing.m)
+            ComparisonSlider(pairs: OnboardingContent.comparisonPairs)
+                .padding(.top, WK.Spacing.s)
         }
     }
 }
