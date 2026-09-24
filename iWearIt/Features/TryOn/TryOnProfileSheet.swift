@@ -194,9 +194,23 @@ struct TryOnProfileSheet: View {
                 }
                 .frame(height: 132)
 
-                chips("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
-                chips("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
-                chips("Piel", BodyProfile.SkinTone.allCases, selection: $skinTone) { $0.label }
+                // Filas de píldoras, antes: parecían un formulario, y la de
+                // complexión se salía por la derecha.
+                // chips("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
+                // chips("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
+                // chips("Piel", BodyProfile.SkinTone.allCases, selection: $skinTone) { $0.label }
+
+                // Lo que se elige de una lista, en menús dentro de una tarjeta
+                // de cristal: se ve el valor elegido y cambiarlo son dos
+                // toques.
+                VStack(spacing: 0) {
+                    menuRow("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
+                    Divider().padding(.leading, WK.Spacing.m)
+                    menuRow("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
+                }
+                .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+
+                skinSwatches
             }
         }
     }
@@ -248,27 +262,23 @@ struct TryOnProfileSheet: View {
         VStack(spacing: WK.Spacing.l) {
             portrait
             HStack(spacing: WK.Spacing.s) {
+                // Cristal interactivo, no cápsulas grises.
                 Button { isTakingPhoto = true } label: {
                     Label("Hacer una foto", systemImage: "camera")
                         .font(WK.Font.captionMedium)
                         .foregroundStyle(WK.Palette.primaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, WK.Spacing.m)
-                        .background(WK.Palette.ink(0.06), in: .capsule)
+                        // .background(WK.Palette.ink(0.06), in: .capsule)
                         .contentShape(.capsule)
                 }
-                .buttonStyle(WKPressStyle())
+                .buttonStyle(.plain)
+                .adaptiveGlassInteractive(in: .capsule)
 
                 PhotosPicker(selection: $picked, matching: .images) {
-                    Label("Elegir una", systemImage: "photo.on.rectangle")
-                        .font(WK.Font.captionMedium)
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, WK.Spacing.m)
-                        .background(WK.Palette.ink(0.06), in: .capsule)
-                        .contentShape(.capsule)
+                    GlassCapsuleLabel(title: "Elegir una", symbol: "photo.on.rectangle")
                 }
-                .buttonStyle(WKPressStyle())
+                .buttonStyle(.plain)
             }
         }
     }
@@ -326,6 +336,108 @@ struct TryOnProfileSheet: View {
                 .frame(width: 34, height: 34)
                 .contentShape(.circle)
                 .adaptiveGlassInteractive(in: .circle)
+        }
+    }
+
+    /// Una etiqueta de cápsula de cristal. En su propia `View` por lo mismo
+    /// que `GlassCircleLabel`: la etiqueta del selector de fotos no está en el
+    /// actor principal.
+    private struct GlassCapsuleLabel: View {
+        let title: String
+        let symbol: String
+
+        var body: some View {
+            Label(title, systemImage: symbol)
+                .font(WK.Font.captionMedium)
+                .foregroundStyle(WK.Palette.primaryText)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, WK.Spacing.m)
+                .contentShape(.capsule)
+                .adaptiveGlassInteractive(in: .capsule)
+        }
+    }
+
+    /// Una fila con su valor y un menú para cambiarlo.
+    private func menuRow<Option: Hashable & CaseIterable>(
+        _ title: String,
+        _ options: [Option],
+        selection: Binding<Option>,
+        label: @escaping (Option) -> String
+    ) -> some View {
+        Menu {
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.self) { option in
+                    Text(label(option)).tag(option)
+                }
+            }
+        } label: {
+            HStack {
+                Text(title)
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Spacer()
+                Text(label(selection.wrappedValue))
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .contentTransition(.opacity)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(WK.Palette.tertiaryText)
+            }
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.m - 2)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// El tono de piel, **en muestras del tono** y no en palabras: "morena"
+    /// se entiende distinto en cada casa, un círculo de color no.
+    private var skinSwatches: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.s) {
+            Text("Piel")
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+            HStack(spacing: WK.Spacing.l) {
+                ForEach(BodyProfile.SkinTone.allCases, id: \.self) { tone in
+                    Button {
+                        withAnimation(WKAnimation.selection) { skinTone = tone }
+                    } label: {
+                        VStack(spacing: WK.Spacing.xs) {
+                            Circle()
+                                .fill(Self.swatch(tone))
+                                .frame(width: 44, height: 44)
+                                .padding(4)
+                                // Anillo por fuera, separado: no tapa el color.
+                                .overlay {
+                                    Circle().stroke(
+                                        skinTone == tone ? WK.Palette.accent : .clear,
+                                        lineWidth: 2
+                                    )
+                                }
+                            Text(tone.label)
+                                .font(skinTone == tone ? WK.Font.captionMedium : WK.Font.caption)
+                                .foregroundStyle(
+                                    skinTone == tone ? WK.Palette.primaryText : WK.Palette.secondaryText
+                                )
+                        }
+                    }
+                    .buttonStyle(WKPressStyle())
+                    .accessibilityLabel("Piel \(tone.label)")
+                    .accessibilityAddTraits(skinTone == tone ? .isSelected : [])
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func swatch(_ tone: BodyProfile.SkinTone) -> Color {
+        switch tone {
+        case .light: Color(red: 0.96, green: 0.84, blue: 0.74)
+        case .medium: Color(red: 0.87, green: 0.68, blue: 0.53)
+        case .tan: Color(red: 0.68, green: 0.48, blue: 0.33)
+        case .dark: Color(red: 0.40, green: 0.26, blue: 0.18)
         }
     }
 
