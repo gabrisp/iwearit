@@ -29,8 +29,25 @@ struct TryOnSheet: View {
     /// Qué perfil se está editando, o `nil` para uno nuevo. El `Bool` de al
     /// lado es el que abre la hoja: con `item:` haría falta un identificable
     /// para el caso "nuevo", que no tiene identidad todavía.
-    @State private var editing: BodyProfile?
-    @State private var isEditingProfile = false
+    // @State private var editing: BodyProfile?
+    // @State private var isEditingProfile = false
+    /// La única hoja de la pantalla: un perfil —`nil` dentro, uno nuevo— o
+    /// escribir el escenario o la postura a tu manera.
+    @State private var sheet: Sheet?
+
+    private enum Sheet: Identifiable {
+        case profile(BodyProfile?)
+        case customScene
+        case customPose
+
+        var id: String {
+            switch self {
+            case let .profile(profile): "profile-\(profile?.id.uuidString ?? "new")"
+            case .customScene: "scene"
+            case .customPose: "pose"
+            }
+        }
+    }
     /// Cuál de tus perfiles está puesto.
     ///
     /// Por identificador y no por el objeto: el objeto puede irse —lo borras—
@@ -39,6 +56,15 @@ struct TryOnSheet: View {
     @State private var selectedID: UUID?
     /// Dónde ponerte. Ver `TryOnScene`.
     @State private var scene: TryOnScene = .none
+    /// En qué postura. Ver `TryOnPose`.
+    @State private var pose: TryOnPose = .standing
+    /// Lo escrito para "a tu manera", en escenario y en postura.
+    @State private var customScene = ""
+    @State private var customPose = ""
+    /// **Mirando o creando.** Si el outfit ya tiene pruebas, se abre
+    /// enseñándolas; "Crear otra" pasa a elegir sitio y postura. Sin pruebas,
+    /// se abre ya creando.
+    @State private var isCreating = false
     /// Si la prueba que se ve ya se metió en el outfit como sticker.
     @State private var addedToOutfit = false
 
@@ -121,13 +147,24 @@ struct TryOnSheet: View {
             .adaptiveSafeAreaBar(edge: .bottom) { bottom }
             .interactiveDismissDisabled(model?.state == .working)
             .task { prepare() }
-            .sheet(isPresented: $isEditingProfile) {
+            .sheet(item: $sheet) { which in
+                switch which {
                 // Editar uno que ya existe, con todo a la vista; crear uno
                 // nuevo, con su flujo de pasos.
-                if let editing {
+                case let .profile(editing?):
                     ProfileEditSheet(profile: editing)
-                } else {
+                case .profile(nil):
                     TryOnProfileSheet(profile: nil)
+                case .customScene:
+                    TryOnCustomDirectionSheet(
+                        prompt: String(localized: "tryon.direction.customScenePrompt", defaultValue: "Describe the place: a rooftop at sunset, a café in Paris…"),
+                        text: $customScene
+                    )
+                case .customPose:
+                    TryOnCustomDirectionSheet(
+                        prompt: String(localized: "tryon.direction.customPosePrompt", defaultValue: "Describe the pose: leaning on a wall, arms crossed…"),
+                        text: $customPose
+                    )
                 }
             }
         }
@@ -425,10 +462,27 @@ struct TryOnSheet: View {
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
+            } else if !isCreating, !history.isEmpty {
+                // **Lo que ya hay**, primero: las pruebas de este outfit, y
+                // "Crear otra" para pasar a elegir sitio y postura.
+                past
+                    .padding(.horizontal, -WK.Spacing.screenInset)
+                WKPrimaryButton(
+                    String(localized: "tryon.createAnother", defaultValue: "Create another"),
+                    systemImage: "plus",
+                    surface: .glass
+                ) {
+                    withAnimation(WKAnimation.content) {
+                        isCreating = true
+                        showing = nil
+                    }
+                }
             } else {
+                // "Añadir al outfit" fuera del probador: las pruebas se ponen
+                // en el lienzo con su sticker, "Probados".
                 // **Al propio outfit**, como sticker: sin fondo, la persona
                 // recortada; con escena, la foto entera.
-                if model?.state != .working, model?.result != nil || showing != nil {
+                if false, model?.state != .working, model?.result != nil || showing != nil {
                     Button { Task { await addToOutfit() } } label: {
                         Label(
                             addedToOutfit ? String(localized: "tryon.tryonsheet.addedToTheOutfit", defaultValue: "Added to the outfit") : String(localized: "tryon.tryonsheet.addToOutfit", defaultValue: "Add to outfit"),
@@ -449,9 +503,17 @@ struct TryOnSheet: View {
                 }
 
                 // El fondo, en tarjetas que se ven. Ver `ScenePicker`.
-                ScenePicker(selection: $scene)
-                    .padding(.horizontal, -WK.Spacing.screenInset)
-                    .disabled(model?.state == .working)
+                // ScenePicker(selection: $scene)
+                // Sitio y postura, cada uno con su "a tu manera". Ver
+                // `TryOnDirectionPicker`.
+                TryOnDirectionPicker(
+                    scene: $scene,
+                    pose: $pose,
+                    onCustomScene: { sheet = .customScene },
+                    onCustomPose: { sheet = .customPose }
+                )
+                .padding(.horizontal, -WK.Spacing.screenInset)
+                .disabled(model?.state == .working)
 
                 // En cristal, a lo ancho. El menú de escenas de al lado se
                 // queda comentado: ver `ScenePicker`.
@@ -472,6 +534,7 @@ struct TryOnSheet: View {
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.bottom, WK.Spacing.xs)
         .animation(WKAnimation.content, value: profile?.canLeaveDevice)
+        .animation(WKAnimation.content, value: isCreating)
     }
 
     // MARK: Lo que hace
@@ -496,6 +559,10 @@ struct TryOnSheet: View {
 
     private func prepare() {
         guard model == nil else { return }
+        // Con pruebas, se abre enseñándolas —la última delante—; sin ellas,
+        // ya creando.
+        isCreating = history.isEmpty
+        showing = history.first
         model = TryOnModel(
             resolver: appEnvironment.resolver,
             imageStore: appEnvironment.imageStore
@@ -503,8 +570,7 @@ struct TryOnSheet: View {
     }
 
     private func edit(_ profile: BodyProfile?) {
-        editing = profile
-        isEditingProfile = true
+        sheet = .profile(profile)
     }
 
     private func accept() {
@@ -529,7 +595,7 @@ struct TryOnSheet: View {
             let done = await model.generate(
                 for: profile,
                 garments: outfit.garments,
-                scene: scene
+                direction: direction
             )
             guard done, let image = model.result?.cgImage else { return }
             store.note(.generation, detail: outfit.name)
@@ -537,6 +603,19 @@ struct TryOnSheet: View {
             showing = nil
             await save(image)
         }
+    }
+
+    /// Sitio y postura para el encargo. "A tu manera" sin nada escrito cuenta
+    /// como el de por defecto.
+    private var direction: TryOnDirection {
+        let sceneText = customScene.trimmingCharacters(in: .whitespacesAndNewlines)
+        let poseText = customPose.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TryOnDirection(
+            scene: scene == .custom && sceneText.isEmpty ? TryOnScene.studio.rawValue : scene.rawValue,
+            sceneDescription: scene == .custom ? sceneText : nil,
+            pose: pose == .custom && poseText.isEmpty ? TryOnPose.standing.rawValue : pose.rawValue,
+            poseDescription: pose == .custom ? poseText : nil
+        )
     }
 
     /// **Lo probado se guarda.**

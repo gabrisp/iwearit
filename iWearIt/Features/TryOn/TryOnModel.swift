@@ -59,7 +59,7 @@ final class TryOnModel {
     func generate(
         for profile: BodyProfile,
         garments: [Garment],
-        scene: TryOnScene = .none
+        direction: TryOnDirection = TryOnDirection(scene: TryOnScene.none.rawValue, pose: TryOnPose.standing.rawValue)
     ) async -> Bool {
         guard let resolver else {
             state = .failed(String(localized: "tryon.tryonmodel.thisNeedsAConnectionTo", defaultValue: "This needs a connection to the server."))
@@ -111,7 +111,7 @@ final class TryOnModel {
                 personJPEG: personJPEG,
                 personDescription: profile.described,
                 garmentsPNG: pieces,
-                scene: scene.rawValue
+                direction: direction
             )
             guard let generated = UIImage(data: data)?.cgImage else {
                 state = .failed(String(localized: "tryon.tryonmodel.theServerReturnedSomethingThat", defaultValue: "The server returned something that isn't an image."))
@@ -124,7 +124,8 @@ final class TryOnModel {
             // de cuadros. Así que se le pide un fondo liso y aquí se levanta
             // el sujeto, que es la única forma de tener un PNG de verdad. Ver
             // `SubjectCutout`.
-            let final = scene == .none ? (await SubjectCutout.lift(generated) ?? generated) : generated
+            let isPlain = direction.scene == TryOnScene.none.rawValue
+            let final = isPlain ? (await SubjectCutout.lift(generated) ?? generated) : generated
             result = UIImage(cgImage: final)
             state = .done
             DiagnosticsLog.record("PROBADOR", "listo · \(pieces.count) prenda(s)")
@@ -220,6 +221,9 @@ enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
     case beach
     case office
     case night
+    case gym
+    /// Uno descrito por ti. Ver `TryOnDirectionPicker`.
+    case custom
 
     var id: String { rawValue }
 
@@ -231,6 +235,8 @@ enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
         case .beach: String(localized: "common.beach", defaultValue: "Beach")
         case .office: String(localized: "tryon.tryonmodel.office", defaultValue: "Office")
         case .night: String(localized: "tryon.tryonmodel.night", defaultValue: "Night")
+        case .gym: String(localized: "tryon.scene.gym", defaultValue: "Gym")
+        case .custom: String(localized: "tryon.scene.custom", defaultValue: "Your own")
         }
     }
 
@@ -242,6 +248,44 @@ enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
         case .beach: "beach.umbrella"
         case .office: "briefcase"
         case .night: "moon.stars"
+        case .gym: "dumbbell.fill"
+        case .custom: "pencil.and.scribble"
+        }
+    }
+}
+
+/// **En qué postura.** Como el sitio, va en el encargo: la postura decide cómo
+/// cae la ropa, y no se arregla después.
+enum TryOnPose: String, CaseIterable, Identifiable, Sendable {
+    case standing
+    case walking
+    case posing
+    case sitting
+    case mirror
+    /// Una descrita por ti. Ver `TryOnDirectionPicker`.
+    case custom
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .standing: String(localized: "tryon.pose.standing", defaultValue: "Standing")
+        case .walking: String(localized: "tryon.pose.walking", defaultValue: "Walking")
+        case .posing: String(localized: "tryon.pose.posing", defaultValue: "Posing")
+        case .sitting: String(localized: "tryon.pose.sitting", defaultValue: "Sitting")
+        case .mirror: String(localized: "tryon.pose.mirror", defaultValue: "Mirror")
+        case .custom: String(localized: "tryon.pose.custom", defaultValue: "Your own")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .standing: "figure.stand"
+        case .walking: "figure.walk"
+        case .posing: "figure.dance"
+        case .sitting: "figure.seated.side.left"
+        case .mirror: "camera.viewfinder"
+        case .custom: "pencil.and.scribble"
         }
     }
 }

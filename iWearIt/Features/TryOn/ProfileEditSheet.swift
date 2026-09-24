@@ -30,7 +30,9 @@ struct ProfileEditSheet: View {
     @State private var editing: Field?
 
     private enum Field: String, Identifiable {
-        case height, shape, presentation, skin
+        // La piel ya no abre hoja: van las muestras a la vista, como antes.
+        // case height, shape, presentation, skin
+        case height, shape, presentation
         /// La cámara, en la misma hoja: dos `.sheet` en una vista dejan mudo
         /// a uno.
         case camera
@@ -46,7 +48,13 @@ struct ProfileEditSheet: View {
                 VStack(spacing: WK.Spacing.m) {
                     hero
                     rows
-                    photoSection
+                    // La foto se cambia con los botones de debajo del retrato,
+                    // como antes. La sección de foto se queda comentada.
+                    // photoSection
+                    Text(String(localized: "tryon.profileeditsheet.itWillBeDrawnAs", defaultValue: "It will be drawn as ") + profile.described + ".")
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.top, WK.Spacing.m)
@@ -83,24 +91,53 @@ struct ProfileEditSheet: View {
 
     // MARK: Imagen
 
-    /// La foto, del mismo alto que la prenda en su ficha.
+    // La foto del mismo alto que la prenda en su ficha, en rectángulo: se
+    // queda comentada. El retrato redondo de antes era el bueno.
+    // private var hero: some View {
+    //     Group {
+    //         if profile.hasPhoto {
+    //             StoredImage(
+    //                 key: profile.imageKey,
+    //                 variant: .display,
+    //                 store: appEnvironment.imageStore,
+    //                 shadow: .init(opacity: 0.35, radius: 18, y: 11)
+    //             )
+    //             .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+    //         } else {
+    //             ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: 150)
+    //         }
+    //     }
+    //     .frame(height: 230)
+    //     .frame(maxWidth: .infinity)
+    //     .wkShimmer(isActive: isLoadingPhoto)
+    // }
+
+    /// La foto en grande, redonda, y cómo cambiarla debajo.
     private var hero: some View {
-        Group {
-            if profile.hasPhoto {
-                StoredImage(
-                    key: profile.imageKey,
-                    variant: .display,
-                    store: appEnvironment.imageStore,
-                    shadow: .init(opacity: 0.35, radius: 18, y: 11)
-                )
-                .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
-            } else {
-                ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: 150)
+        VStack(spacing: WK.Spacing.m) {
+            ZStack {
+                if profile.hasPhoto {
+                    StoredImage(key: profile.imageKey, variant: .display, store: appEnvironment.imageStore)
+                        .scaledToFill()
+                } else {
+                    ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: 150)
+                }
+                if isLoadingPhoto { ProgressView() }
             }
+            .frame(width: 150, height: 150)
+            .clipShape(.circle)
+            .wkShimmer(isActive: isLoadingPhoto)
+            .shadow(color: .black.opacity(0.12), radius: 14, y: 8)
+
+            HStack(spacing: WK.Spacing.s) {
+                // La cámara va por la única hoja de la vista. Ver `Field`.
+                GlassLabelButton(title: String(localized: "common.takeAPhoto", defaultValue: "Take a photo"), symbol: "camera") { editing = .camera }
+                GlassLabelButton(title: String(localized: "tryon.profileeditsheet.change", defaultValue: "Change"), symbol: "photo.on.rectangle") { isPickingPhoto = true }
+            }
+            .disabled(isLoadingPhoto)
         }
-        .frame(height: 230)
         .frame(maxWidth: .infinity)
-        .wkShimmer(isActive: isLoadingPhoto)
+        .padding(.bottom, WK.Spacing.s)
     }
 
     // MARK: Datos
@@ -108,10 +145,15 @@ struct ProfileEditSheet: View {
     private var rows: some View {
         VStack(spacing: 0) {
             NameRow(name: $profile.label)
+            // La altura, en una rueda en su hoja, como la balda de una prenda.
+            // Ver `HeightPickerSheet`.
             EditRow(value: String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: height)) cm"), label: String(localized: "tryon.profileeditsheet.height", defaultValue: "Height")) { editing = .height }
             EditRow(value: shape.label, label: String(localized: "tryon.profileeditsheet.build", defaultValue: "Build")) { editing = .shape }
             EditRow(value: presentation.label, label: String(localized: "tryon.profileeditsheet.dressesAs", defaultValue: "Dresses as")) { editing = .presentation }
-            EditRow(value: skinTone.label, label: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin")) { editing = .skin }
+            // La piel no abre hoja: cuatro muestras a la vista y se toca la
+            // que es, como antes.
+            // EditRow(value: skinTone.label, label: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin")) { editing = .skin }
+            SkinRow(selection: skinToneBinding)
             NotesRow(notes: notes)
         }
     }
@@ -121,22 +163,25 @@ struct ProfileEditSheet: View {
     private func sheet(for field: Field) -> some View {
         switch field {
         case .height:
-            WKChipSheet(
-                title: String(localized: "tryon.profileeditsheet.height", defaultValue: "Height"),
-                subtitle: String(localized: "tryon.profileeditsheet.pickYoursOrTypeIt", defaultValue: "Pick yours or type it in centimetres"),
-                options: stride(from: 145, through: 205, by: 5).map { .init(id: "\($0)", label: String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: $0)) cm")) },
-                selection: Binding(
-                    get: { ["\(height)"] },
-                    set: { set in
-                        let digits = set.first?.filter(\.isNumber) ?? ""
-                        if let value = Int(digits), (120...230).contains(value) {
-                            profile.heightCentimetres = value
-                        }
-                    }
-                ),
-                limit: 1,
-                allowsCustom: true
-            )
+            // Rueda, como la de elegir balda. Las píldoras de 5 en 5 se
+            // quedan comentadas.
+            HeightPickerSheet(profile: profile)
+        //     WKChipSheet(
+        //         title: String(localized: "tryon.profileeditsheet.height", defaultValue: "Height"),
+        //         subtitle: String(localized: "tryon.profileeditsheet.pickYoursOrTypeIt", defaultValue: "Pick yours or type it in centimetres"),
+        //         options: stride(from: 145, through: 205, by: 5).map { .init(id: "\($0)", label: String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: $0)) cm")) },
+        //         selection: Binding(
+        //             get: { ["\(height)"] },
+        //             set: { set in
+        //                 let digits = set.first?.filter(\.isNumber) ?? ""
+        //                 if let value = Int(digits), (120...230).contains(value) {
+        //                     profile.heightCentimetres = value
+        //                 }
+        //             }
+        //         ),
+        //         limit: 1,
+        //         allowsCustom: true
+        //     )
         case .shape:
             WKChipSheet(
                 title: String(localized: "tryon.profileeditsheet.build", defaultValue: "Build"),
@@ -164,17 +209,18 @@ struct ProfileEditSheet: View {
                 guard let first = images.first else { return }
                 Task { await store(first) }
             }
-        case .skin:
-            WKChipSheet(
-                title: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin"),
-                subtitle: String(localized: "tryon.profileeditsheet.theToneYouReDrawn", defaultValue: "The tone you're drawn with"),
-                options: BodyProfile.SkinTone.allCases.map { .init(id: $0.rawValue, label: $0.label) },
-                selection: Binding(
-                    get: { [skinTone.rawValue] },
-                    set: { if let raw = $0.first { profile.skinToneRaw = raw } }
-                ),
-                limit: 1
-            )
+        // La piel, en muestras a la vista. Ver `SkinRow`.
+        // case .skin:
+        //     WKChipSheet(
+        //         title: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin"),
+        //         subtitle: String(localized: "tryon.profileeditsheet.theToneYouReDrawn", defaultValue: "The tone you're drawn with"),
+        //         options: BodyProfile.SkinTone.allCases.map { .init(id: $0.rawValue, label: $0.label) },
+        //         selection: Binding(
+        //             get: { [skinTone.rawValue] },
+        //             set: { if let raw = $0.first { profile.skinToneRaw = raw } }
+        //         ),
+        //         limit: 1
+        //     )
         }
     }
 
@@ -235,6 +281,10 @@ struct ProfileEditSheet: View {
     private var shape: BodyProfile.Shape { profile.shape ?? .average }
     private var presentation: BodyProfile.Presentation { profile.presentation ?? .neutral }
     private var skinTone: BodyProfile.SkinTone { profile.skinTone ?? .medium }
+
+    private var skinToneBinding: Binding<BodyProfile.SkinTone> {
+        Binding(get: { profile.skinTone ?? .medium }, set: { profile.skinToneRaw = $0.rawValue })
+    }
 
     private var notes: Binding<String> {
         Binding(get: { profile.notes ?? "" }, set: { profile.notes = $0 })
@@ -297,6 +347,67 @@ private struct MenuRow<Option: Hashable>: View {
                 Rectangle().fill(WK.Palette.ink(0.07)).frame(height: 1)
             }
         }
+    }
+}
+
+/// La piel, en su fila: la etiqueta pequeña arriba y las muestras debajo,
+/// con la forma de `CutChipsRow`.
+private struct SkinRow: View {
+    @Binding var selection: BodyProfile.SkinTone
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: WK.Spacing.s) {
+                Text(String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin"))
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                SkinToneSwatches(selection: $selection)
+            }
+            .padding(.vertical, WK.Spacing.m - 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Rectangle().fill(WK.Palette.ink(0.07)).frame(height: 1)
+        }
+    }
+}
+
+/// Elegir la altura con una rueda, igual que la balda de una prenda. Ver
+/// `ShelfPickerSheet`.
+///
+/// Rueda y no teclado: es un número de tres cifras dentro de un rango
+/// conocido, y recorrerlo es un solo gesto.
+private struct HeightPickerSheet: View {
+    @Bindable var profile: BodyProfile
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selection: Int?
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.m) {
+            Text(String(localized: "tryon.profileeditsheet.height", defaultValue: "Height"))
+                .font(WK.Font.title)
+                .foregroundStyle(WK.Palette.primaryText)
+
+            WKWheelPicker(
+                items: Array(120...230),
+                selection: $selection
+            ) { value in
+                Text(String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: value)) cm"))
+                    .font(WK.Font.title)
+                    .monospacedDigit()
+            }
+            .frame(height: 220)
+
+            WKPrimaryButton(String(localized: "tryon.profileeditsheet.useThisHeight", defaultValue: "Use this height")) { apply() }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .wkDynamicSheet()
+        .onAppear { selection = profile.heightCentimetres ?? 170 }
+    }
+
+    private func apply() {
+        if let selection { profile.heightCentimetres = selection }
+        dismiss()
     }
 }
 

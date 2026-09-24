@@ -316,6 +316,52 @@ private struct TryOnViewer: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: WK.Spacing.m) {
+                if let outfit = result.outfit {
+                    // **El mismo juego de cartas que el probador**: la prueba
+                    // y el outfit, una encima de otra, que se tocan y se
+                    // arrastran para cambiarlas de sitio. Ver `TryOnStage`.
+                    TryOnStage(
+                        outfit: outfit,
+                        profile: result.profile,
+                        result: nil,
+                        showing: result,
+                        isWorking: false,
+                        isPlainScene: result.sceneRaw == TryOnScene.none.rawValue,
+                        store: store
+                    )
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                    .frame(maxHeight: .infinity)
+                } else {
+                    pager
+                }
+            }
+            .padding(.vertical, WK.Spacing.m)
+            .frame(maxHeight: .infinity)
+            .background(WK.Palette.canvas.ignoresSafeArea())
+            // "Añadir al outfit" fuera del historial: las pruebas se ponen en
+            // el lienzo con su sticker, "Probados".
+            // **Al outfit con el que se probó**: la prueba guarda a cuál va,
+            // y se mete en él como sticker —sin fondo o con su escena—.
+            // .adaptiveSafeAreaBar(edge: .bottom) { addToOutfitButton }
+            .navigationTitle(result.createdAt.formatted(date: .abbreviated, time: .shortened))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { toolbar }
+            .alert(String(localized: "tryon.tryonarchivescreen.deleteThisTryOn", defaultValue: "Delete this try-on?"), isPresented: $isConfirmingDelete) {
+                Button(String(localized: "tryon.tryonarchivescreen.delete", defaultValue: "Delete"), role: .destructive, action: onDelete)
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
+            }
+        }
+        .task {
+            if let cgImage = try? await store.image(for: result.imageKey, variant: .display) {
+                image = UIImage(cgImage: cgImage)
+            }
+        }
+    }
+
+    /// El visor de antes, a páginas: la prueba y su outfit. Queda para las
+    /// pruebas cuyo outfit ya no existe, que no tienen con qué jugar.
+    private var pager: some View {
+            VStack(spacing: WK.Spacing.m) {
                 ScrollView(.horizontal) {
                     HStack(spacing: 0) {
                         StoredImage(key: result.imageKey, variant: .display, store: store)
@@ -364,63 +410,50 @@ private struct TryOnViewer: View {
                     .animation(WKAnimation.selection, value: page)
                 }
             }
-            .padding(.vertical, WK.Spacing.m)
-            .frame(maxHeight: .infinity)
-            .background(WK.Palette.canvas.ignoresSafeArea())
-            // **Al outfit con el que se probó**: la prueba guarda a cuál va,
-            // y se mete en él como sticker —sin fondo o con su escena—.
-            .adaptiveSafeAreaBar(edge: .bottom) {
-                if let outfit = result.outfit {
-                    WKPrimaryButton(
-                        addedToOutfit ? String(localized: "tryon.tryonarchivescreen.addedToTheOutfit", defaultValue: "Added to the outfit") : String(localized: "tryon.tryonarchivescreen.addToOutfit", defaultValue: "Add to outfit"),
-                        systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle",
-                        surface: .glass
-                    ) {
-                        let size = image.map { $0.size } ?? CGSize(width: 3, height: 4)
-                        TryOnSticker.add(key: result.imageKey, imageSize: size, to: outfit, context: modelContext)
-                        withAnimation(WKAnimation.content) { addedToOutfit = true }
-                    }
-                    .disabled(addedToOutfit)
-                    .sensoryFeedback(.success, trigger: addedToOutfit)
-                    .padding(.horizontal, WK.Spacing.screenInset)
-                    .padding(.bottom, WK.Spacing.s)
-                }
+    }
+
+    // Comentado: ver el cuerpo. "Añadir al outfit" ya no va aquí.
+    //         .adaptiveSafeAreaBar(edge: .bottom) {
+    //             if let outfit = result.outfit {
+    //                 WKPrimaryButton(
+    //                     addedToOutfit ? String(localized: "tryon.tryonarchivescreen.addedToTheOutfit", defaultValue: "Added to the outfit") : String(localized: "tryon.tryonarchivescreen.addToOutfit", defaultValue: "Add to outfit"),
+    //                     systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle",
+    //                     surface: .glass
+    //                 ) {
+    //                     let size = image.map { $0.size } ?? CGSize(width: 3, height: 4)
+    //                     TryOnSticker.add(key: result.imageKey, imageSize: size, to: outfit, context: modelContext)
+    //                     withAnimation(WKAnimation.content) { addedToOutfit = true }
+    //                 }
+    //                 .disabled(addedToOutfit)
+    //                 .sensoryFeedback(.success, trigger: addedToOutfit)
+    //                 .padding(.horizontal, WK.Spacing.screenInset)
+    //                 .padding(.bottom, WK.Spacing.s)
+    //             }
+    //         }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+            ToolbarItem(placement: .topBarLeading) {
+                Button { isConfirmingDelete = true } label: { Image(systemName: "trash") }
+                    .tint(.red)
             }
-            .navigationTitle(result.createdAt.formatted(date: .abbreviated, time: .shortened))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { isConfirmingDelete = true } label: { Image(systemName: "trash") }
-                        .tint(.red)
-                }
-                if let image {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        let shared = SnazzyExport.tryOn(
-                            image,
-                            paper: result.sceneRaw == TryOnScene.none.rawValue
-                                ? result.outfit.map { UIColor(PlanFeedScreen.backdrop(of: $0)) } ?? UIColor(WK.Palette.canvas)
-                                : nil
-                        )
-                        ShareLink(item: Image(uiImage: shared), preview: .init(String(localized: "tryon.tryonarchivescreen.triedOn", defaultValue: "Tried on"), image: Image(uiImage: shared))) {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                        .tint(WK.Palette.primaryText)
-                    }
-                }
+            if let image {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(WK.Palette.primaryText)
+                    let shared = SnazzyExport.tryOn(
+                        image,
+                        paper: result.sceneRaw == TryOnScene.none.rawValue
+                            ? result.outfit.map { UIColor(PlanFeedScreen.backdrop(of: $0)) } ?? UIColor(WK.Palette.canvas)
+                            : nil
+                    )
+                    ShareLink(item: Image(uiImage: shared), preview: .init(String(localized: "tryon.tryonarchivescreen.triedOn", defaultValue: "Tried on"), image: Image(uiImage: shared))) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .tint(WK.Palette.primaryText)
                 }
             }
-            .alert(String(localized: "tryon.tryonarchivescreen.deleteThisTryOn", defaultValue: "Delete this try-on?"), isPresented: $isConfirmingDelete) {
-                Button(String(localized: "tryon.tryonarchivescreen.delete", defaultValue: "Delete"), role: .destructive, action: onDelete)
-                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { dismiss() } label: { Image(systemName: "xmark") }
+                    .tint(WK.Palette.primaryText)
             }
-        }
-        .task {
-            if let cgImage = try? await store.image(for: result.imageKey, variant: .display) {
-                image = UIImage(cgImage: cgImage)
-            }
-        }
     }
 }

@@ -104,11 +104,29 @@ PRESENTACIÓN — PLANA SIEMPRE:
  * cara, el resultado no es "yo con esa camiseta", es otra persona con esa
  * camiseta, y eso no sirve para decidir si te la pones.
  */
+/**
+ * **La cara, 1:1.** Lo que más se nota cuando falla: el modelo tiende a
+ * "mejorar" la cara —más simétrica, piel de anuncio, otra nariz— y el
+ * resultado es alguien parecido, no tú. Se lo decimos rasgo a rasgo, con lo
+ * que suele cambiar, y le pedimos la cara grande y nítida para que no la
+ * reinvente al dibujarla pequeña.
+ */
+const FACE_IDENTITY = `IDENTIDAD — LO MÁS IMPORTANTE, POR ENCIMA DE TODO LO DEMÁS:
+- La cara tiene que ser LA MISMA PERSONA de la foto, reconocible al instante por quien la conoce. Cópiala 1:1, no la reinterpretes.
+- Copia rasgo a rasgo: forma de la cara y de la mandíbula, ojos (forma, tamaño, separación, color, párpados), cejas, nariz (puente, punta y aletas), boca y labios, orejas, frente, línea del pelo.
+- Mismo peinado, mismo color y volumen de pelo, mismo vello facial exactamente como está (ni más, ni menos, ni más arreglado).
+- Misma piel: mismo tono, mismas pecas, lunares, marcas, ojeras y textura real con poros. Sin maquillaje añadido, sin suavizado, sin filtro de belleza.
+- Misma edad, mismo peso en la cara, misma expresión y misma asimetría natural. No la hagas más guapa, más joven ni más "de modelo".
+- Si dudas en un rasgo, quédate con lo que se ve en la foto; nunca lo sustituyas por una cara genérica.
+- La cara nítida, bien iluminada y con detalle fotográfico, sin que quede pequeña o borrosa por el encuadre.`;
+
 const TRYON_PROMPT = `Vísteme con estas prendas. La primera imagen soy yo; las siguientes son prendas.
 
+${FACE_IDENTITY}
+
 LA PERSONA NO SE TOCA — OBLIGATORIO:
-- Misma cara, mismo peinado, mismo tono de piel, misma complexión, misma postura y mismo encuadre.
-- No la adelgaces, no la estilices, no le cambies la edad ni la expresión. Es la misma persona, vestida de otra manera.
+- Misma complexión y mismas proporciones que en la foto.
+- No la adelgaces, no la estilices, no le cambies la edad. Es la misma persona, vestida de otra manera.
 - No añadas ni quites personas.
 
 LA ROPA — OBLIGATORIO:
@@ -136,13 +154,12 @@ LA FOTO:
  */
 const TRYON_FACE_PROMPT = (described) => `Vísteme con estas prendas. La primera imagen es MI CARA; las siguientes son prendas.
 
-MI CARA NO SE TOCA — OBLIGATORIO:
-- Misma cara, mismo peinado, mismo vello facial, mismo tono de piel y misma edad que en la foto. Tengo que reconocerme.
-- No la retoques, no la estilices, no le cambies la expresión ni la simetría.
+${FACE_IDENTITY}
 
 EL CUERPO — OBLIGATORIO:
 - La foto es solo un retrato, así que el cuerpo lo construyes tú con esto: ${described}.
-- Cuerpo entero, de pie, de frente, dentro del encuadre de la cabeza a los pies.
+- El cuello, los hombros y el tono de piel del cuerpo casan con la cara de la foto: es una sola persona, no una cabeza pegada.
+- Cuerpo entero, dentro del encuadre de la cabeza a los pies.
 - Proporciones reales para esa estatura y esa complexión. Ni modelo de pasarela ni caricatura.
 - Una sola persona.
 
@@ -173,7 +190,28 @@ const SCENES = {
   beach: 'Playa a media tarde, arena y mar desenfocados al fondo, luz cálida y baja.',
   office: 'Oficina moderna con luz de ventana, fondo desenfocado.',
   night: 'Calle de noche con luces de la ciudad desenfocadas detrás, luz fría y contraste alto.',
+  gym: 'Gimnasio moderno: máquinas, mancuernas y espejos desenfocados al fondo, luz de techo intensa y algo fría.',
 };
+
+/**
+ * **Cómo estás.** Igual que el sitio: va en el encargo, porque la postura
+ * decide cómo cae la ropa —una camisa andando no es una camisa quieta— y no
+ * se puede arreglar después.
+ */
+const POSES = {
+  standing: 'De pie y de frente, relajado, con los brazos sueltos a los lados.',
+  walking: 'Andando hacia la cámara a paso natural, a media zancada, con los brazos en movimiento.',
+  sitting: 'Sentado en un taburete o una silla sencilla, cuerpo entero a la vista, postura natural.',
+  mirror: 'Haciéndose una foto frente al espejo con el móvil a la altura del pecho, sin que el móvil tape la cara.',
+  posing: 'Posando con naturalidad, peso en una pierna, una mano en el bolsillo y el cuerpo ligeramente girado a tres cuartos.',
+};
+
+/** Lo que escribió alguien, limpio y corto: va dentro de un encargo. */
+function freeText(value) {
+  if (typeof value !== 'string') return null;
+  const clean = value.replace(/[\u0000-\u001f`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 280);
+  return clean || null;
+}
 
 /**
  * Lo que se pide cuando **no hay foto**: dibujar a alguien con esa descripción
@@ -189,7 +227,7 @@ const TRYON_DESCRIBED_PROMPT = (who) => `Dibuja a ${who} llevando puestas estas 
 
 LA PERSONA — OBLIGATORIO:
 - Exactamente la descripción dada: esa estatura, esa complexión, ese tono de piel. Ni más delgada, ni más alta, ni más joven.
-- Cuerpo entero, de frente, de pie y natural. Postura relajada, no de desfile.
+- Cuerpo entero y natural, no de desfile.
 - Una sola persona. Cara natural y neutra; no una modelo de catálogo.
 
 LA ROPA — OBLIGATORIO:
@@ -219,8 +257,11 @@ LA FOTO:
  * de la primera vez** y aquí no se guarda nada: se manda, se recibe y se
  * devuelve. Ver `TryOnConsent` en la app.
  */
-async function tryOn(person, describedPerson, garments, scene, key, log, error) {
-  const where = SCENES[scene] || SCENES.plain;
+async function tryOn(person, describedPerson, garments, direction, key, log, error) {
+  const { scene, sceneDescription, pose, poseDescription } = direction;
+  // Lo escrito a mano, solo si se eligió "a tu manera"; si no, el de la lista.
+  const where = (scene === 'custom' && freeText(sceneDescription)) || SCENES[scene] || SCENES.plain;
+  const how = (pose === 'custom' && freeText(poseDescription)) || POSES[pose] || POSES.standing;
   // Tres encargos, y el del medio es el normal: retrato + medidas. Con la
   // foto sola —perfiles viejos, de cuerpo entero— sigue valiendo el de
   // siempre, y sin foto, el descrito.
@@ -228,7 +269,10 @@ async function tryOn(person, describedPerson, garments, scene, key, log, error) 
     ? (describedPerson ? TRYON_FACE_PROMPT(describedPerson) : TRYON_PROMPT)
     : TRYON_DESCRIBED_PROMPT(describedPerson || 'una persona de complexión media');
   const content = [
-    { type: 'text', text: `${prompt}\n\nEL SITIO — OBLIGATORIO:\n- ${where}` },
+    {
+      type: 'text',
+      text: `${prompt}\n\nLA POSTURA — OBLIGATORIO:\n- ${how}\n- La postura no cambia la cara: sigue siendo la misma persona, 1:1.\n\nEL SITIO — OBLIGATORIO:\n- ${where}`,
+    },
   ];
   if (person) {
     content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } });
@@ -608,7 +652,12 @@ const handle = async ({ req, res, log, error }) => {
     if (total > 6000000) {
       return res.json({ error: 'image_too_large' }, 413);
     }
-    const result = await tryOn(person, describedPerson, garments, body?.scene, key, log, error);
+    const result = await tryOn(person, describedPerson, garments, {
+      scene: body?.scene,
+      sceneDescription: body?.sceneDescription,
+      pose: body?.pose,
+      poseDescription: body?.poseDescription,
+    }, key, log, error);
     return res.json(result.body, result.status);
   }
 

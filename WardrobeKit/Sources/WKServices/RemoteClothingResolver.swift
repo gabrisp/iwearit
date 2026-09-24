@@ -170,7 +170,7 @@ public actor RemoteClothingResolver: ClothingResolving {
         personJPEG: Data?,
         personDescription: String,
         garmentsPNG: [Data],
-        scene: String
+        direction: TryOnDirection
     ) async throws -> Data {
         await acquireSlot()
         defer { releaseSlot() }
@@ -183,7 +183,10 @@ public actor RemoteClothingResolver: ClothingResolving {
             personBase64: personJPEG?.base64EncodedString(),
             personDescription: personDescription,
             garmentsBase64: garmentsPNG.map { $0.base64EncodedString() },
-            scene: scene,
+            scene: direction.scene,
+            sceneDescription: direction.sceneDescription,
+            pose: direction.pose,
+            poseDescription: direction.poseDescription,
             jobID: jobID
         )
         // Lo más lento que pide la app: varias imágenes de entrada y una de
@@ -443,6 +446,9 @@ public actor RemoteClothingResolver: ClothingResolving {
         let personDescription: String
         let garmentsBase64: [String]
         let scene: String
+        let sceneDescription: String?
+        let pose: String
+        let poseDescription: String?
         let jobID: String
     }
 

@@ -55,13 +55,13 @@ public struct CachedClothingResolver: ClothingResolving {
         personJPEG: Data?,
         personDescription: String,
         garmentsPNG: [Data],
-        scene: String
+        direction: TryOnDirection
     ) async throws -> Data {
         try await base.tryOn(
             personJPEG: personJPEG,
             personDescription: personDescription,
             garmentsPNG: garmentsPNG,
-            scene: scene
+            direction: direction
         )
     }
 

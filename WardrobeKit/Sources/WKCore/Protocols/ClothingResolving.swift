@@ -69,8 +69,31 @@ public protocol ClothingResolving: Sendable {
         personJPEG: Data?,
         personDescription: String,
         garmentsPNG: [Data],
-        scene: String
+        direction: TryOnDirection
     ) async throws -> Data
+}
+
+/// **Cómo se hace la foto**: dónde y en qué postura.
+///
+/// Las dos cosas van en el encargo y no se retocan después: el sitio decide la
+/// luz y la postura decide cómo cae la ropa, y ninguna de las dos se arregla
+/// pegando algo encima.
+public struct TryOnDirection: Sendable, Equatable {
+    /// El escenario: `plain`, `studio`, `gym`… o `custom`.
+    public var scene: String
+    /// Lo que escribiste, si el escenario es `custom`.
+    public var sceneDescription: String?
+    /// La postura: `standing`, `walking`… o `custom`.
+    public var pose: String
+    /// Lo que escribiste, si la postura es `custom`.
+    public var poseDescription: String?
+
+    public init(scene: String, sceneDescription: String? = nil, pose: String, poseDescription: String? = nil) {
+        self.scene = scene
+        self.sceneDescription = sceneDescription
+        self.pose = pose
+        self.poseDescription = poseDescription
+    }
 }
 
 /// Lo que se manda a resolver.

@@ -476,7 +476,190 @@ struct ScenePicker: View {
                 colors: [Color(red: 0.12, green: 0.14, blue: 0.34), Color(red: 0.38, green: 0.2, blue: 0.46)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .gym:
+            LinearGradient(
+                colors: [Color(red: 0.45, green: 0.47, blue: 0.5), Color(red: 0.17, green: 0.18, blue: 0.2)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .custom:
+            LinearGradient(
+                colors: [Color(red: 0.98, green: 0.72, blue: 0.55), Color(red: 0.7, green: 0.45, blue: 0.8)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
         }
+    }
+}
+
+/// **Dónde y cómo**: el escenario y la postura, en dos pestañas con las
+/// mismas tarjetas. Los dos tienen su "a tu manera", que abre una hoja para
+/// escribirlo. Ver `TryOnDirection`.
+struct TryOnDirectionPicker: View {
+    @Binding var scene: TryOnScene
+    @Binding var pose: TryOnPose
+    /// Abrir la hoja para escribir el escenario o la postura.
+    let onCustomScene: () -> Void
+    let onCustomPose: () -> Void
+
+    enum Tab: CaseIterable { case scene, pose }
+    @State private var tab: Tab = .scene
+    @Namespace private var tabs
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.s) {
+            // Las dos pestañas, pequeñas y centradas: dicen qué fila se ve.
+            HStack(spacing: WK.Spacing.xs) {
+                ForEach(Tab.allCases, id: \.self) { which in
+                    Button {
+                        withAnimation(WKAnimation.selection) { tab = which }
+                    } label: {
+                        Text(which == .scene
+                             ? String(localized: "tryon.direction.scene", defaultValue: "Scene")
+                             : String(localized: "tryon.direction.pose", defaultValue: "Pose"))
+                            .font(tab == which ? WK.Font.captionMedium : WK.Font.caption)
+                            .foregroundStyle(tab == which ? WK.Palette.onAccent : WK.Palette.secondaryText)
+                            .padding(.horizontal, WK.Spacing.m)
+                            .padding(.vertical, WK.Spacing.xs + 2)
+                            .background {
+                                if tab == which {
+                                    Capsule().fill(WK.Palette.accent)
+                                        .matchedGeometryEffect(id: "tab", in: tabs)
+                                }
+                            }
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(3)
+            .adaptiveGlass(in: .capsule)
+
+            ScrollView(.horizontal) {
+                HStack(spacing: WK.Spacing.m) {
+                    switch tab {
+                    case .scene:
+                        ForEach(TryOnScene.allCases) { option in
+                            DirectionCard(
+                                symbol: option.symbol,
+                                label: option.label,
+                                isSelected: scene == option,
+                                isDashed: option == .none,
+                                symbolOnFill: option != .none
+                            ) {
+                                ScenePicker.fill(for: option)
+                            } action: {
+                                withAnimation(WKAnimation.selection) { scene = option }
+                                if option == .custom { onCustomScene() }
+                            }
+                        }
+                    case .pose:
+                        ForEach(TryOnPose.allCases) { option in
+                            DirectionCard(
+                                symbol: option.symbol,
+                                label: option.label,
+                                isSelected: pose == option,
+                                isDashed: false,
+                                symbolOnFill: option == .custom
+                            ) {
+                                if option == .custom {
+                                    ScenePicker.fill(for: .custom)
+                                } else {
+                                    WK.Palette.shelf
+                                }
+                            } action: {
+                                withAnimation(WKAnimation.selection) { pose = option }
+                                if option == .custom { onCustomPose() }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, WK.Spacing.xs)
+                .transition(.blurReplace)
+            }
+            .contentMargins(.horizontal, WK.Spacing.screenInset, for: .scrollContent)
+            .scrollIndicators(.hidden)
+            .animation(WKAnimation.content, value: tab)
+        }
+        .sensoryFeedback(.selection, trigger: scene)
+        .sensoryFeedback(.selection, trigger: pose)
+    }
+}
+
+/// Una tarjeta de escenario o de postura: su color, su icono y su nombre, con
+/// el anillo por fuera si es la elegida. Ver `ScenePicker`.
+private struct DirectionCard<Fill: View>: View {
+    let symbol: String
+    let label: String
+    let isSelected: Bool
+    let isDashed: Bool
+    /// Icono en blanco sobre un color; en tinta sobre el papel.
+    let symbolOnFill: Bool
+    @ViewBuilder let fill: () -> Fill
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: WK.Spacing.xs) {
+                ZStack {
+                    fill()
+                    Image(systemName: symbol)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(symbolOnFill ? .white : WK.Palette.secondaryText)
+                        .shadow(color: .black.opacity(symbolOnFill ? 0.2 : 0), radius: 3, y: 1)
+                }
+                .frame(width: 60, height: 76)
+                .clipShape(.rect(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    if isDashed {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(WK.Palette.ink(0.2), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    }
+                }
+                .padding(3)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+                }
+                .scaleEffect(isSelected ? 1 : 0.94)
+
+                Text(label)
+                    .font(isSelected ? WK.Font.captionMedium : WK.Font.caption)
+                    .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                    .lineLimit(1)
+                    .frame(maxWidth: 72)
+            }
+        }
+        .buttonStyle(WKPressStyle())
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// **Escribirlo tú**: el escenario o la postura a tu manera. Hoja dinámica,
+/// un campo y listo.
+struct TryOnCustomDirectionSheet: View {
+    let prompt: String
+    @Binding var text: String
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        // El campo y, a su lado, el "listo": abajo del todo lo tapaba el
+        // teclado.
+        HStack(alignment: .bottom, spacing: WK.Spacing.s) {
+            TextField(prompt, text: $text, axis: .vertical)
+                .font(WK.Font.body)
+                .lineLimit(2...5)
+                .focused($isFocused)
+                .padding(WK.Spacing.m)
+                .background(WK.Palette.ink(0.05), in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+            WKCircleButton("checkmark") { dismiss() }
+                .tint(WK.Palette.primaryText)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.vertical, WK.Spacing.l)
+        .onAppear { isFocused = true }
+        .wkDynamicSheet()
     }
 }
 
