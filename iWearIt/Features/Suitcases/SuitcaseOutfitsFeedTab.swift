@@ -150,6 +150,16 @@ struct SuitcaseOutfitsFeedTab: View {
         // del plan.
     }
 
+    /// La fecha de una página, **si es un día del viaje**.
+    ///
+    /// La última página es la de sin día, y no tiene fecha: pedírsela al viaje
+    /// devolvía el día siguiente al último —el 7 de un viaje que acaba el 6—
+    /// y la tarjeta de crear lo enseñaba en su taco.
+    private func tripDate(of index: Int) -> Date? {
+        guard let days = suitcase.tripDayCount, index < days else { return nil }
+        return suitcase.date(forDayIndex: index)
+    }
+
     private func outfits(ofDay index: Int) -> [Outfit] {
         let all = suitcase.visibleOutfits.filter { !$0.garments.isEmpty }
         guard let days = suitcase.tripDayCount else { return all }
@@ -247,7 +257,7 @@ struct SuitcaseOutfitsFeedTab: View {
         // día, no de la pestaña. Ver `PlanDayFeed`.
         SuitcaseDayFeed(
             outfits: outfits(ofDay: index),
-            day: suitcase.date(forDayIndex: index),
+            day: tripDate(of: index),
             suitcase: suitcase,
             store: appEnvironment.imageStore,
             pageSize: pageSize,
@@ -304,7 +314,7 @@ struct SuitcaseOutfitsFeedTab: View {
                     }
                 }
 
-                PlanCreateCard(date: suitcase.date(forDayIndex: index))
+                PlanCreateCard(date: tripDate(of: index))
                     .matchedGeometryEffect(id: "create-\(index)", in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
                     .onTapGesture { sheet = .picker }

@@ -49,15 +49,27 @@ struct PackingChecklistTab: View {
                         }
                     }
                     .padding(.horizontal, WK.Spacing.screenInset)
-                    // El mismo hueco de arriba que la rejilla: la lista también
-                    // pasa por debajo de la barra. Ver `suitcaseTopInset`.
-                    .padding(.top, suitcaseTopInset + WK.Spacing.l)
-                    .padding(.bottom, 120)
+                    // **Sin huecos a mano.** La maleta ya no ignora el área
+                    // segura: las barras de arriba y de abajo reservan su sitio
+                    // solas. Con el hueco contado a mano y el área segura
+                    // ignorada aquí dentro —cuando la pantalla ya la respeta—,
+                    // la lista empezaba en otro sitio que las otras dos
+                    // pestañas y al cambiar entre ellas todo saltaba.
+                    .padding(.vertical, WK.Spacing.l)
                 }
                 .scrollIndicators(.hidden)
-                .ignoresSafeArea(edges: [.top, .bottom])
+                // Lo de antes:
+                // .padding(.top, suitcaseTopInset + WK.Spacing.l)
+                // .padding(.bottom, 120)
+                // .ignoresSafeArea(edges: [.top, .bottom])
             }
         }
+        // **El papel de siempre, como las otras dos pestañas.** Outfits e
+        // Inspo pintan la página con el fondo de la app y llevan el color de la
+        // maleta en las tarjetas; esta dejaba ver el color de la maleta de
+        // fondo, así que al cambiar de pestaña la pantalla entera cambiaba de
+        // color de golpe.
+        .background(WK.Palette.canvas.ignoresSafeArea())
         // **"Añadir suelta" ya no es un botón flotante**: es el "+" de la
         // barra, que además no se pelea con la barra de Outfits · Equipaje.
         //
