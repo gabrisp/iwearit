@@ -58,8 +58,18 @@ public struct WKPrimaryButton: View {
     private var label: some View {
         Label {
             Text(title).font(.headline)
+                // Si el título cambia —"Guardar" → "Guardando…" → "Guardado"—,
+                // las letras ruedan en vez de saltar. Lo anima quien cambia el
+                // título, con su `animation`.
+                .contentTransition(.numericText())
         } icon: {
-            if let systemImage { Image(systemName: systemImage) }
+            if let systemImage {
+                Image(systemName: systemImage)
+                    // Y el símbolo se transforma en el nuevo: con `magic`, lo
+                    // que comparten —la bandeja y la flecha— se queda, y solo
+                    // cambia el distintivo.
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))
+            }
         }
         .labelStyle(.titleAndIcon)
         .frame(maxWidth: .infinity)

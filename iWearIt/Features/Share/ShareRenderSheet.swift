@@ -47,7 +47,10 @@ struct ShareRenderSheet: View {
             WKPrimaryButton(title, systemImage: symbol, surface: .glass) {
                 Task { await save() }
             }
-            .disabled(image == nil || state == .saving || state == .saved)
+            // Sin toques mientras guarda o ya guardado, pero **sin atenuar**:
+            // "Guardado en Fotos" es la confirmación y tiene que leerse.
+            .allowsHitTesting(image != nil && state != .saving && state != .saved)
+            .opacity(image == nil ? 0.5 : 1)
             .sensoryFeedback(.success, trigger: state == .saved)
 
             if state == .denied || state == .failed {
@@ -61,7 +64,7 @@ struct ShareRenderSheet: View {
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .animation(WKAnimation.content, value: image != nil)
-        .animation(WKAnimation.content, value: state)
+        .animation(.smooth(duration: 0.45), value: state)
         .task {
             guard image == nil else { return }
             image = await render()
@@ -77,7 +80,15 @@ struct ShareRenderSheet: View {
         }
     }
 
-    private var symbol: String { state == .saved ? "checkmark" : "square.and.arrow.down" }
+    /// La misma bandeja en los tres: al guardar solo cambia su distintivo, y
+    /// el botón lo transforma con `magic`. Ver `WKPrimaryButton`.
+    private var symbol: String {
+        switch state {
+        case .saving: "square.and.arrow.down.badge.clock"
+        case .saved: "square.and.arrow.down.badge.checkmark"
+        default: "square.and.arrow.down"
+        }
+    }
 
     /// A Fotos directamente, pidiendo solo permiso para **añadir**: no hace
     /// falta ver la fototeca para guardar una imagen en ella.
@@ -89,7 +100,11 @@ struct ShareRenderSheet: View {
             return
         }
         do {
+            // Un mínimo de "Guardando…": guardar tarda un instante y, sin
+            // esto, el paso intermedio del botón no llegaba ni a verse.
+            async let pause: Void? = try? Task.sleep(for: .milliseconds(600))
             try await Self.addToLibrary(image)
+            _ = await pause
             state = .saved
         } catch {
             state = .failed

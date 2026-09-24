@@ -1,91 +1,103 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "CFBundleDisplayName": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snazzy"
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snazzy"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy"
           }
         }
       }
     },
-    "NSCameraUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Take a photo of a piece of clothing to add it to your closet."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Haz una foto a una prenda para añadirla a tu armario."
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "iWearIt"
           }
         }
       }
     },
-    "NSLocationWhenInUseUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To know the weather where you are and suggest clothes to match. Your location never leaves the device: it's only used to check the forecast."
+    "NSCameraUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a photo of a piece of clothing to add it to your closet."
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para saber qué tiempo hace donde estás y proponerte ropa acorde. La ubicación no sale del dispositivo: solo se usa para consultar el parte."
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Haz una foto a una prenda para añadirla a tu armario."
           }
         }
       }
     },
-    "NSPhotoLibraryUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snazzy analyses your photos on your own iPhone to cut out the clothes you're wearing and build your digital closet. Your photos never leave the device."
+    "NSLocationWhenInUseUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To know the weather where you are and suggest clothes to match. Your location never leaves the device: it's only used to check the forecast."
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snazzy analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo."
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para saber qué tiempo hace donde estás y proponerte ropa acorde. La ubicación no sale del dispositivo: solo se usa para consultar el parte."
           }
         }
       }
     },
-    "NSPhotoLibraryAddUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "To save your outfits and try-ons to your Photos."
+    "NSPhotoLibraryAddUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To save your outfits and try-ons to your Photos."
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para guardar tus outfits y pruebas en Fotos."
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para guardar tus outfits y pruebas en Fotos."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy analyses your photos on your own iPhone to cut out the clothes you're wearing and build your digital closet. Your photos never leave the device."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo."
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }
