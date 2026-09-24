@@ -47,7 +47,11 @@ struct PendingGarmentsGrid: View {
                         ) { toggle(item.id) }
                     }
                 }
-                .padding(.vertical, WK.Spacing.s)
+                // Tanto aire como degradado: en reposo la primera y la
+                // última fila se ven enteras, y solo se desvanece lo que
+                // pasa por el borde al desplazar.
+                .padding(.top, WK.Spacing.l)
+                .padding(.bottom, WK.Spacing.xl)
                 // Aire dentro del scroll para la sombra del cristal: sin él,
                 // el borde del scroll la cortaba en seco y se veía una franja.
                 .padding(.horizontal, WK.Spacing.m)
