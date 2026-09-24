@@ -163,13 +163,15 @@ struct PaywallStep: View {
         }
     }
 
-    /// Lo que pone el botón: si el paquete elegido trae prueba gratis, se dice.
+    /// Lo que pone el botón.
     private var buyTitle: String {
         if store.isWorking { return "Un momento…" }
-        guard let picked else { return "Empezar 7 días gratis" }
-        if let trial = picked.storeProduct.introductoryDiscount, trial.price == 0 {
-            return "Empezar \(trial.subscriptionPeriod.localizedDescription) gratis"
-        }
+        // **Sin prueba gratis en ningún plan.** Antes, sin paquetes cargados,
+        // el botón prometía siete días gratis que no existen.
+        // guard let picked else { return "Empezar 7 días gratis" }
+        // if let trial = picked.storeProduct.introductoryDiscount, trial.price == 0 {
+        //     return "Empezar \(trial.subscriptionPeriod.localizedDescription) gratis"
+        // }
         return "Suscribirme"
     }
 
@@ -272,9 +274,10 @@ private extension Package {
     /// la hay, y lo que sale al mes si es un plan largo.
     var planDetail: String? {
         var parts: [String] = []
-        if let intro = storeProduct.introductoryDiscount, intro.price == 0 {
-            parts.append("\(intro.subscriptionPeriod.localizedDescription) gratis")
-        }
+        // Sin prueba gratis: no se anuncia aunque la tienda trajera una.
+        // if let intro = storeProduct.introductoryDiscount, intro.price == 0 {
+        //     parts.append("\(intro.subscriptionPeriod.localizedDescription) gratis")
+        // }
         if packageType == .annual || packageType == .sixMonth,
            let monthly = storeProduct.pricePerMonth {
             let formatter = NumberFormatter()
