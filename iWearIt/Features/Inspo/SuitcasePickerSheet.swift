@@ -33,51 +33,48 @@ struct SuitcasePickerSheet: View {
     var body: some View {
         // **Sin pila de navegación y del alto de lo que lleva dentro.**
         //
-        // Una `NavigationStack` aquí es una barra que nadie pidió —título,
-        // botón de volver y una línea— para dos pantallas que no son
-        // navegación, son una pregunta con una repregunta. El chrome es el de
-        // cualquier flujo de la app: la equis vuelve o cierra según dónde
-        // estés. Ver `WKFlowScreen`.
+        // Una `NavigationStack` aquí es una barra que nadie pidió para dos
+        // pantallas que no son navegación, son una pregunta con una
+        // repregunta. El chrome —cerrar o volver, y el título— lo pone la
+        // hoja en su barra, así que no se mueve: lo único que cambia es el
+        // medio, y el título se funde. Ver `WKSheetChrome`.
         Group {
             switch flow.step {
-            case .suitcase: suitcaseStep
-            case .day: dayStep
+            case .suitcase:
+                grid
+                    .transition(flow.transition)
+                    .id(Step.suitcase)
+            case .day:
+                Group {
+                    if let chosen {
+                        SuitcaseDayList(suitcase: chosen) { pick($0) }
+                    }
+                }
+                .transition(flow.transition)
+                .id(Step.day)
             }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .adaptiveSafeAreaBar(edge: .top, spacing: 0) {
+            WKSheetChrome(
+                title: title,
+                isAtRoot: flow.isAtRoot,
+                onLeading: {
+                    if flow.isAtRoot {
+                        dismiss()
+                    } else {
+                        flow.move(to: .suitcase)
+                    }
+                }
+            )
         }
         .wkDynamicSheet()
     }
 
-    private var suitcaseStep: some View {
-        WKFlowScreen(
-            title: "¿A qué maleta?",
-            subtitle: suitcases.isEmpty
-                ? "Créala desde el armario y este conjunto tendrá dónde ir."
-                : nil,
-            stepID: Step.suitcase,
-            transition: flow.transition,
-            primaryTitle: "Ahora no",
-            isAtRoot: true,
-            onLeading: { dismiss() },
-            onPrimary: { dismiss() }
-        ) {
-            grid
-        }
-    }
-
-    private var dayStep: some View {
-        WKFlowScreen(
-            title: chosen?.name ?? "¿Qué día?",
-            subtitle: "Y si todavía no lo sabes, sin día.",
-            stepID: Step.day,
-            transition: flow.transition,
-            primaryTitle: "Sin día",
-            isAtRoot: false,
-            onLeading: { flow.move(to: .suitcase) },
-            onPrimary: { pick(nil) }
-        ) {
-            if let chosen {
-                SuitcaseDayList(suitcase: chosen, showsNoDay: false) { pick($0) }
-            }
+    private var title: String {
+        switch flow.step {
+        case .suitcase: "¿A qué maleta?"
+        case .day: chosen?.name ?? "¿Qué día?"
         }
     }
 

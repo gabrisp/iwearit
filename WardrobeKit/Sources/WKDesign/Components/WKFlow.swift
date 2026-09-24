@@ -145,3 +145,80 @@ public struct WKFlowScreen<Content: View>: View {
         }
     }
 }
+
+/// La barra de una hoja: volver o cerrar, y el título.
+///
+/// ## Por qué una barra y no el encabezado del paso
+///
+/// Porque el chrome **no se mueve**. Puesto dentro del paso, se va con él: al
+/// cambiar de pantalla el botón de cerrar desaparecía y volvía a aparecer un
+/// palmo más abajo, y lo que tenía que leerse como la misma hoja pensando se
+/// leía como dos hojas distintas. En una barra de área segura la pone la hoja,
+/// reserva su sitio, y lo único que cambia es el medio.
+///
+/// El título sí cambia, y cambia **fundiéndose**: `blurReplace` deja el texto
+/// nuevo formándose donde estaba el viejo en vez de sustituirlo de golpe. Es
+/// el mismo chrome que las hojas de Lockty.
+///
+/// - Note: sin botón principal a propósito. Una hoja donde **elegir es la
+///   acción** —una maleta, un día— no necesita confirmar nada, y un "Ahora no"
+///   ahí abajo es un botón que solo sirve para cerrar lo que la equis ya
+///   cierra.
+public struct WKSheetChrome<Trailing: View>: View {
+    private let title: String
+    private let isAtRoot: Bool
+    private let onLeading: () -> Void
+    private let trailing: Trailing
+
+    public init(
+        title: String,
+        isAtRoot: Bool,
+        onLeading: @escaping () -> Void,
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) {
+        self.title = title
+        self.isAtRoot = isAtRoot
+        self.onLeading = onLeading
+        self.trailing = trailing()
+    }
+
+    /// Lo que mide la barra. Público porque quien la pone tiene que poder
+    /// reservarle el sitio exacto.
+    public static var height: CGFloat { 52 }
+
+    public var body: some View {
+        ZStack {
+            Text(title)
+                .font(WK.Font.headline)
+                .foregroundStyle(WK.Palette.primaryText)
+                .lineLimit(1)
+                // El título es del paso, así que cambia con él —y por eso
+                // lleva su identidad: sin ella, SwiftUI cree que es el mismo
+                // texto con otras letras y no hay nada que fundir.
+                .id(title)
+                .transition(.blurReplace.combined(with: .opacity))
+
+            HStack {
+                Button(action: onLeading) {
+                    Image(systemName: isAtRoot ? "xmark" : "chevron.left")
+                        .font(.headline)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .frame(width: 32, height: 32)
+                        .background(WK.Palette.ink(0.07), in: .circle)
+                        .contentShape(.circle)
+                        // El icono también se funde: es el mismo botón
+                        // diciendo otra cosa, no otro botón.
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(WKPressStyle())
+
+                Spacer(minLength: 0)
+                trailing
+            }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .frame(height: Self.height)
+        .animation(WKAnimation.content, value: title)
+        .animation(WKAnimation.content, value: isAtRoot)
+    }
+}
