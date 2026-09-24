@@ -49,54 +49,128 @@ struct TryOnSheet: View {
 
     var body: some View {
         NavigationStack {
-            content
-                .background(WK.Palette.canvas.ignoresSafeArea())
-                .navigationTitle("Probador")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button { dismiss() } label: { Image(systemName: "xmark") }
-                            .tint(WK.Palette.primaryText)
-                    }
-                    if let result = model?.result {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            ShareLink(item: Image(uiImage: result), preview: .init("Probado")) {
-                                Image(systemName: "square.and.arrow.up")
-                            }
-                            .tint(WK.Palette.primaryText)
-                        }
-                    }
-                }
-                .adaptiveSafeAreaBar(edge: .bottom) { bottom }
-                .task { prepare() }
-                .sheet(isPresented: $isEditingProfile) {
-                    TryOnProfileSheet(profile: editing)
-                }
-        }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        ScrollView {
             VStack(spacing: WK.Spacing.l) {
-                canvas
-                past
-                if !profiles.isEmpty { strip }
-                // Las píldoras de escena, fuera: el fondo se elige con el
-                // botón de al lado de "Probármelo". Ver `sceneMenu`.
-                // scenes
+                // **La prueba y el outfit, delante.** Antes la foto iba en un
+                // marco con la tira de pruebas y la de perfiles debajo, y lo
+                // que se venía a ver —cómo te queda— quedaba apretado entre
+                // controles. Ahora el escenario ocupa la pantalla; los
+                // perfiles van en la pastilla de arriba y el historial en el
+                // probador virtual.
+                TryOnStage(
+                    outfit: outfit,
+                    profile: profile,
+                    result: model?.result,
+                    showing: showing,
+                    isWorking: model?.state == .working,
+                    isPlainScene: scene == .none,
+                    store: appEnvironment.imageStore
+                )
+                .frame(maxHeight: .infinity)
+
                 if case let .failed(reason) = model?.state {
                     Text(reason)
                         .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.accent)
+                        .foregroundStyle(.red)
                         .multilineTextAlignment(.center)
                 }
+                // past
+                // if !profiles.isEmpty { strip }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.vertical, WK.Spacing.m)
+            .padding(.top, WK.Spacing.s)
+            .background(WK.Palette.canvas.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .tint(WK.Palette.primaryText)
+                }
+                ToolbarItem(placement: .principal) {
+                    ProfileSwitcher(
+                        profiles: profiles,
+                        selected: profile,
+                        canAddMore: canAddMore,
+                        store: appEnvironment.imageStore,
+                        onSelect: { selectedID = $0.id },
+                        onEdit: { edit($0) },
+                        onNew: { edit(nil) }
+                    )
+                }
+                if let result = model?.result {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        ShareLink(item: Image(uiImage: result), preview: .init("Probado")) {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .tint(WK.Palette.primaryText)
+                    }
+                }
+            }
+            .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+            .task { prepare() }
+            .sheet(isPresented: $isEditingProfile) {
+                // Editar uno que ya existe, con todo a la vista; crear uno
+                // nuevo, con su flujo de pasos.
+                if let editing {
+                    ProfileEditSheet(profile: editing)
+                } else {
+                    TryOnProfileSheet(profile: nil)
+                }
+            }
         }
-        .scrollIndicators(.hidden)
     }
+
+    // El cuerpo de antes: marco con la foto, la tira de probados y la de
+    // perfiles una debajo de otra.
+    // var body: some View {
+    //     NavigationStack {
+    //         content
+    //             .background(WK.Palette.canvas.ignoresSafeArea())
+    //             .navigationTitle("Probador")
+    //             .navigationBarTitleDisplayMode(.inline)
+    //             .toolbar {
+    //                 ToolbarItem(placement: .topBarLeading) {
+    //                     Button { dismiss() } label: { Image(systemName: "xmark") }
+    //                         .tint(WK.Palette.primaryText)
+    //                 }
+    //                 if let result = model?.result {
+    //                     ToolbarItem(placement: .topBarTrailing) {
+    //                         ShareLink(item: Image(uiImage: result), preview: .init("Probado")) {
+    //                             Image(systemName: "square.and.arrow.up")
+    //                         }
+    //                         .tint(WK.Palette.primaryText)
+    //                     }
+    //                 }
+    //             }
+    //             .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+    //             .task { prepare() }
+    //             .sheet(isPresented: $isEditingProfile) {
+    //                 TryOnProfileSheet(profile: editing)
+    //             }
+    //     }
+    // }
+
+    // @ViewBuilder
+    // private var content: some View {
+    //     ScrollView {
+    //         VStack(spacing: WK.Spacing.l) {
+    //             canvas
+    //             past
+    //             if !profiles.isEmpty { strip }
+    //             // Las píldoras de escena, fuera: el fondo se elige con el
+    //             // botón de al lado de "Probármelo". Ver `sceneMenu`.
+    //             // scenes
+    //             if case let .failed(reason) = model?.state {
+    //                 Text(reason)
+    //                     .font(WK.Font.caption)
+    //                     .foregroundStyle(WK.Palette.accent)
+    //                     .multilineTextAlignment(.center)
+    //             }
+    //         }
+    //         .padding(.horizontal, WK.Spacing.screenInset)
+    //         .padding(.vertical, WK.Spacing.m)
+    //     }
+    //     .scrollIndicators(.hidden)
+    // }
 
     /// Lo que ya te has probado de este conjunto, lo último primero.
     private var history: [TryOnResult] {
@@ -338,20 +412,25 @@ struct TryOnSheet: View {
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
             } else {
-                HStack(spacing: WK.Spacing.s) {
-                    // En cristal, como el botón del lado.
-                    WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo", surface: .glass) {
-                        generate()
-                    }
+                // El fondo, en tarjetas que se ven. Ver `ScenePicker`.
+                ScenePicker(selection: $scene)
+                    .padding(.horizontal, -WK.Spacing.screenInset)
                     .disabled(model?.state == .working)
-                    sceneMenu
-                }
 
-                if let profile {
-                    Button("Editar \(profile.label)") { edit(profile) }
-                        .font(WK.Font.caption)
-                        .foregroundStyle(WK.Palette.secondaryText)
+                // En cristal, a lo ancho. El menú de escenas de al lado se
+                // queda comentado: ver `ScenePicker`.
+                WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo", surface: .glass) {
+                    generate()
                 }
+                .disabled(model?.state == .working)
+                // sceneMenu
+
+                // Editar el perfil va en la pastilla de arriba.
+                // if let profile {
+                //     Button("Editar \(profile.label)") { edit(profile) }
+                //         .font(WK.Font.caption)
+                //         .foregroundStyle(WK.Palette.secondaryText)
+                // }
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)

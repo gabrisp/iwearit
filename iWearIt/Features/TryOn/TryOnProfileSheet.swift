@@ -398,36 +398,8 @@ struct TryOnProfileSheet: View {
             Text("Piel")
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
-            HStack(spacing: WK.Spacing.l) {
-                ForEach(BodyProfile.SkinTone.allCases, id: \.self) { tone in
-                    Button {
-                        withAnimation(WKAnimation.selection) { skinTone = tone }
-                    } label: {
-                        VStack(spacing: WK.Spacing.xs) {
-                            Circle()
-                                .fill(Self.swatch(tone))
-                                .frame(width: 44, height: 44)
-                                .padding(4)
-                                // Anillo por fuera, separado: no tapa el color.
-                                .overlay {
-                                    Circle().stroke(
-                                        skinTone == tone ? WK.Palette.accent : .clear,
-                                        lineWidth: 2
-                                    )
-                                }
-                            Text(tone.label)
-                                .font(skinTone == tone ? WK.Font.captionMedium : WK.Font.caption)
-                                .foregroundStyle(
-                                    skinTone == tone ? WK.Palette.primaryText : WK.Palette.secondaryText
-                                )
-                        }
-                    }
-                    .buttonStyle(WKPressStyle())
-                    .accessibilityLabel("Piel \(tone.label)")
-                    .accessibilityAddTraits(skinTone == tone ? .isSelected : [])
-                }
-            }
-            .frame(maxWidth: .infinity)
+            // Las mismas muestras que en la edición. Ver `SkinToneSwatches`.
+            SkinToneSwatches(selection: $skinTone)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

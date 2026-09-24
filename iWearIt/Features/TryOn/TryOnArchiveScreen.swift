@@ -60,7 +60,13 @@ struct TryOnArchiveScreen: View {
                     remove(result)
                 }
             case let .profile(profile):
-                TryOnProfileSheet(profile: profile)
+                // Editar uno que ya existe: la hoja con todo a la vista. Crear
+                // uno nuevo: el flujo de pasos.
+                if let profile {
+                    ProfileEditSheet(profile: profile)
+                } else {
+                    TryOnProfileSheet(profile: nil)
+                }
             }
         }
         .animation(WKAnimation.content, value: results.count)
@@ -78,7 +84,7 @@ struct TryOnArchiveScreen: View {
                         Button { sheet = .profile(profile) } label: {
                             ProfileCard(profile: profile, store: appEnvironment.imageStore)
                         }
-                        .buttonStyle(WKPressStyle())
+                        .buttonStyle(.plain)
                         .contextMenu {
                             Button { sheet = .profile(profile) } label: {
                                 Label("Editar", systemImage: "pencil")
@@ -205,7 +211,8 @@ private struct ProfileCard: View {
             .frame(width: 120)
         }
         .padding(WK.Spacing.m)
-        .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        // Cristal **interactivo**: la tarjeta es un botón.
+        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
     }
 }
 
