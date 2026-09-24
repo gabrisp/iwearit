@@ -40,14 +40,38 @@ struct PlanFeedScreen: View {
     /// Qué día se está mirando. Lo escribe el scroll de lado y lo puede
     /// cambiar el calendario.
     @State private var day: Date? = Calendar.current.startOfDay(for: Date())
-    @State private var isPickingDay = false
     @State private var layout: Layout = .feed
     @State private var scrolled: AnyHashable?
     @State private var pageSize: CGSize = .zero
     @State private var editingOutfit: Outfit?
     @State private var editingIsNew = false
-    @State private var movingOutfit: Outfit?
-    @State private var isPicking = false
+    /// **Una sola hoja, como en inspiración.** Con un `.sheet` por cada cosa
+    /// —mover, elegir prendas, el calendario, probarse— SwiftUI atiende a una
+    /// y deja mudas las demás. Ver `AppRouter.Sheet`.
+    @State private var sheet: Sheet?
+
+    enum Sheet: Identifiable {
+        /// A qué día se lleva.
+        case move(Outfit)
+        /// Qué prendas lleva el nuevo.
+        case picker
+        /// Salto a una fecha.
+        case day
+        /// Cómo te queda puesto.
+        case tryOn(Outfit)
+
+        var id: String {
+            switch self {
+            case let .move(outfit): "move-\(outfit.stableID)"
+            case .picker: "picker"
+            case .day: "day"
+            case let .tryOn(outfit): "tryon-\(outfit.stableID)"
+            }
+        }
+    }
+
+    /// Cuál está a punto de irse, esperando el sí.
+    @State private var deleting: Outfit?
 
     /// Para que cada lienzo viaje a su sitio al cambiar de modo.
     @Namespace private var morph
@@ -117,37 +141,66 @@ struct PlanFeedScreen: View {
                 )
                 .adaptiveZoomDestination(id: AnyHashable(outfit.stableID), in: zoom)
             }
-            .sheet(item: $movingOutfit) { outfit in
-                StylistDayPicker { date in
-                    move(outfit, to: date)
-                    movingOutfit = nil
+            .sheet(item: $sheet) { which in
+                switch which {
+                case let .move(outfit):
+                    StylistDayPicker { date in
+                        move(outfit, to: date)
+                        sheet = nil
+                    }
+                case .picker:
+                    OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                        guard !picked.isEmpty else { return }
+                        create(with: picked)
+                    }
+                case .day:
+                    dayJump
+                case let .tryOn(outfit):
+                    // **Probarse desde el plan y no solo desde el editor.**
+                    // Lo que tienes planeado para el jueves es justo lo que
+                    // quieres verte puesto, y entrar a editarlo para eso era
+                    // pasar por una pantalla de trabajo para mirar.
+                    TryOnSheet(outfit: outfit)
+                        .presentationBackground(WK.Palette.canvas)
                 }
             }
-            .sheet(isPresented: $isPicking) {
-                OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
-                    guard !picked.isEmpty else { return }
-                    create(with: picked)
+            // Quitar un outfit del plan **pregunta**: es trabajo de colocar
+            // prendas, y al lado del lápiz un resbalón lo tiraría entero.
+            .alert(
+                "¿Quitar este outfit?",
+                isPresented: Binding(
+                    get: { deleting != nil },
+                    set: { if !$0 { deleting = nil } }
+                ),
+                presenting: deleting
+            ) { outfit in
+                Button("Quitar", role: .destructive) {
+                    withAnimation(WKAnimation.content) { outfit.markDeleted() }
+                    deleting = nil
                 }
-            }
-            // El calendario de siempre, ahora desde la barra. Ver
-            // `CalendarJumpSheet`.
-            .sheet(isPresented: $isPickingDay) {
-                CalendarJumpSheet(
-                    selection: Binding(
-                        get: { day ?? Calendar.current.startOfDay(for: Date()) },
-                        set: { picked in
-                            // Escribir el ancla del scroll **es** ir a ese día:
-                            // la lista de días ya existe, así que se desliza
-                            // hasta él en vez de recargar nada.
-                            withAnimation(WKAnimation.content) {
-                                day = Calendar.current.startOfDay(for: picked)
-                            }
-                        }
-                    )
-                )
+                Button("Cancelar", role: .cancel) { deleting = nil }
+            } message: { _ in
+                Text("Las prendas siguen en tu armario.")
             }
             .animation(WKAnimation.content, value: layout)
         }
+    }
+
+    /// El calendario de siempre. Ver `CalendarJumpSheet`.
+    private var dayJump: some View {
+        CalendarJumpSheet(
+            selection: Binding(
+                get: { day ?? Calendar.current.startOfDay(for: Date()) },
+                set: { picked in
+                    // Escribir el ancla del scroll **es** ir a ese día: la
+                    // lista de días ya existe, así que se desliza hasta él en
+                    // vez de recargar nada.
+                    withAnimation(WKAnimation.content) {
+                        day = Calendar.current.startOfDay(for: picked)
+                    }
+                }
+            )
+        )
     }
 
     /// La tira: el calendario, los días y el cambio de modo. La misma que
@@ -157,7 +210,7 @@ struct PlanFeedScreen: View {
         DayStripBar(
             anchorDay: anchor,
             selectedOffset: selectedOffset,
-            onOpenCalendar: { isPickingDay = true },
+            onOpenCalendar: { sheet = .day },
             layoutSymbol: layout == .feed ? "square.grid.2x2" : "rectangle.portrait",
             onToggleLayout: {
                 withAnimation(WKAnimation.content) {
@@ -256,11 +309,12 @@ struct PlanFeedScreen: View {
             morph: morph,
             zoom: zoom,
             createID: Self.createID + date.description,
-            isPicking: isPicking,
+            isPicking: sheet != nil,
             isEditing: editingOutfit != nil,
             onEdit: { edit($0) },
-            onMove: { movingOutfit = $0 },
-            onCreate: { isPicking = true }
+            onMove: { sheet = .move($0) },
+            onDelete: { deleting = $0 },
+            onCreate: { sheet = .picker }
         )
     }
 
@@ -277,7 +331,10 @@ struct PlanFeedScreen: View {
                         entry: entry,
                         store: appEnvironment.imageStore,
                         onEdit: { edit(entry.outfit) },
-                        onMove: { movingOutfit = entry.outfit }
+                        onMove: { sheet = .move(entry.outfit) },
+                        onDuplicate: { duplicate(entry.outfit) },
+                        onTryOn: { sheet = .tryOn(entry.outfit) },
+                        onDelete: { deleting = entry.outfit }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
                     .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
@@ -286,19 +343,22 @@ struct PlanFeedScreen: View {
                     // copiarlo para variarlo, mandarlo a otro día. En revista
                     // solo ves uno y ahí manda el gesto de pasar. Ver
                     // `PlannerGrid`, que ya lo hacía así.
+                    // El mismo menú que la elipsis, por si el dedo va antes
+                    // que el ojo: mantener pulsado es como se pide un menú en
+                    // cualquier otra rejilla del sistema.
                     .contextMenu {
                         Button("Editar", systemImage: "pencil") { edit(entry.outfit) }
+                        Button("Probármelo", systemImage: "person.crop.rectangle") {
+                            sheet = .tryOn(entry.outfit)
+                        }
                         Button("Duplicar", systemImage: "plus.square.on.square") {
                             duplicate(entry.outfit)
                         }
                         Button("Mover a otro día", systemImage: "calendar") {
-                            movingOutfit = entry.outfit
+                            sheet = .move(entry.outfit)
                         }
-                        // Destructivo y el último: lo que borra va abajo y en
-                        // rojo, para que el dedo no lo encuentre de camino a
-                        // otra cosa.
-                        Button("Eliminar", systemImage: "trash", role: .destructive) {
-                            withAnimation(WKAnimation.content) { entry.outfit.markDeleted() }
+                        Button("Quitar", systemImage: "trash", role: .destructive) {
+                            deleting = entry.outfit
                         }
                     }
                 }
@@ -308,7 +368,7 @@ struct PlanFeedScreen: View {
                 PlanCreateCard(date: date)
                     .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
-                    .onTapGesture { isPicking = true }
+                    .onTapGesture { sheet = .picker }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             // **Seis puntos más que en la revista.** Ahí la tarjeta trae su
@@ -427,6 +487,7 @@ private struct PlanDayFeed: View {
     let isEditing: Bool
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
+    let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
     @State private var anchor: AnyHashable?
@@ -439,7 +500,8 @@ private struct PlanDayFeed: View {
                         entry: entry,
                         store: store,
                         onEdit: { onEdit(entry.outfit) },
-                        onMove: { onMove(entry.outfit) }
+                        onMove: { onMove(entry.outfit) },
+                        onDelete: { onDelete(entry.outfit) }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
                     .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
@@ -535,6 +597,7 @@ private struct PlanFeedCard: View {
     let store: ImageStore
     let onEdit: () -> Void
     let onMove: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         LookCanvasView(
@@ -551,6 +614,11 @@ private struct PlanFeedCard: View {
         // repetirlo dentro de cada lienzo es decir dos veces lo mismo tapando
         // la ropa.
         .overlay(alignment: .topTrailing) {
+            // **Tres, y con sitio para los tres.** Aquí se ve un solo lienzo
+            // a pantalla completa: hay hueco de sobra para las tres cosas que
+            // se le hacen a un outfit planeado —abrirlo, cambiarlo de día,
+            // quitarlo— y esconderlas tras un menú sería un toque de más para
+            // todas.
             VStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
                     .tint(WK.Palette.primaryText)
@@ -560,6 +628,8 @@ private struct PlanFeedCard: View {
                     action: onMove
                 )
                 .tint(WK.Palette.primaryText)
+                WKCircleButton("trash", size: .compact, action: onDelete)
+                    .tint(.red)
             }
             .padding(WK.Spacing.m)
         }
@@ -582,6 +652,9 @@ private struct PlanGridCell: View {
     let store: ImageStore
     let onEdit: () -> Void
     let onMove: () -> Void
+    let onDuplicate: () -> Void
+    let onTryOn: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         // **El mismo lienzo que a pantalla completa.** Con su papel: el color
@@ -593,30 +666,32 @@ private struct PlanGridCell: View {
             backdrop: PlanFeedScreen.backdrop(of: entry.outfit),
             outfit: entry.outfit,
             showsBorder: true,
-            // El doble toque tiene que llegar también encima de la ropa: si la
-            // prenda no lo lleva, ahí el gesto no existe. Ver `GarmentTouch`.
             onDoubleTap: onEdit
         )
         .overlay(alignment: .topTrailing) {
-            VStack(spacing: WK.Spacing.xs) {
-                WKCircleButton("pencil", size: .compact, action: onEdit)
-                    .tint(WK.Palette.primaryText)
-                WKCircleButton(
-                    "arrow.up.and.down.and.arrow.left.and.right",
-                    size: .compact,
-                    action: onMove
-                )
-                .tint(WK.Palette.primaryText)
+            // **Uno solo, y detrás un menú.** En una celda de rejilla tres
+            // botones ocupan media tarjeta y se tocan entre ellos: el pulgar
+            // acierta el de al lado al pasar. Con la elipsis, la celda enseña
+            // el outfit y las acciones se piden cuando se quieren —y caben
+            // todas, incluidas las que en grande no están.
+            Menu {
+                Button("Editar", systemImage: "pencil", action: onEdit)
+                Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
+                Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
+                Button("Mover a otro día", systemImage: "calendar", action: onMove)
+                Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 34, height: 34)
+                    .contentShape(.circle)
+                    .adaptiveGlassInteractive(in: .circle)
             }
-            // Separados del canto, como en grande: pegados al borde se leen
-            // como si se salieran de la tarjeta, y en una celda pequeña el
-            // pulgar los rozaba al pasar.
+            // Separado del canto, como en grande: pegado al borde se lee como
+            // si se saliera de la tarjeta, y el pulgar lo rozaba al pasar.
             .padding(WK.Spacing.s)
         }
-        .contentShape(.rect)
-        // El mismo doble toque que en grande. Un toque simple no: en una
-        // rejilla se toca sin querer al arrancar el scroll.
-        .onTapGesture(count: 2, perform: onEdit)
     }
 }
 

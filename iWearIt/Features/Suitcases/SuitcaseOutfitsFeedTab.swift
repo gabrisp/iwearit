@@ -35,8 +35,25 @@ struct SuitcaseOutfitsFeedTab: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
     @State private var pageSize: CGSize = .zero
-    @State private var movingOutfit: Outfit?
-    @State private var isPicking = false
+    /// Una sola hoja, como en el plan: dos en la misma vista dejan muda a
+    /// una. Ver `PlanFeedScreen.Sheet`.
+    @State private var sheet: Sheet?
+    /// El que espera el sí para irse.
+    @State private var deleting: Outfit?
+
+    enum Sheet: Identifiable {
+        case move(Outfit)
+        case picker
+        case tryOn(Outfit)
+
+        var id: String {
+            switch self {
+            case let .move(outfit): "move-\(outfit.stableID)"
+            case .picker: "picker"
+            case let .tryOn(outfit): "tryon-\(outfit.stableID)"
+            }
+        }
+    }
     @State private var page: Int?
 
     @Namespace private var morph
@@ -55,18 +72,39 @@ struct SuitcaseOutfitsFeedTab: View {
             .background(WK.Palette.canvas.ignoresSafeArea())
             .safeAreaPadding(.top, topInset)
             .safeAreaPadding(.bottom, bottomInset)
-            .sheet(item: $movingOutfit) { outfit in
-                SuitcaseDayPicker(suitcase: suitcase) { index in
-                    outfit.suitcaseDayIndex = index
-                    try? modelContext.save()
-                    movingOutfit = nil
+            .sheet(item: $sheet) { which in
+                switch which {
+                case let .move(outfit):
+                    SuitcaseDayPicker(suitcase: suitcase) { index in
+                        outfit.suitcaseDayIndex = index
+                        try? modelContext.save()
+                        sheet = nil
+                    }
+                case .picker:
+                    OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
+                        guard !picked.isEmpty else { return }
+                        create(with: picked)
+                    }
+                case let .tryOn(outfit):
+                    TryOnSheet(outfit: outfit)
+                        .presentationBackground(WK.Palette.canvas)
                 }
             }
-            .sheet(isPresented: $isPicking) {
-                OutfitPickerSheet(store: appEnvironment.imageStore) { picked in
-                    guard !picked.isEmpty else { return }
-                    create(with: picked)
+            .alert(
+                "¿Quitar este outfit?",
+                isPresented: Binding(
+                    get: { deleting != nil },
+                    set: { if !$0 { deleting = nil } }
+                ),
+                presenting: deleting
+            ) { outfit in
+                Button("Quitar", role: .destructive) {
+                    withAnimation(WKAnimation.content) { outfit.markDeleted() }
+                    deleting = nil
                 }
+                Button("Cancelar", role: .cancel) { deleting = nil }
+            } message: { _ in
+                Text("Las prendas siguen en tu armario.")
             }
             .onChange(of: page) { _, value in
                 if let value { dayIndex = value }
@@ -110,10 +148,11 @@ struct SuitcaseOutfitsFeedTab: View {
             pageSize: pageSize,
             morph: morph,
             createID: "create-\(index)",
-            isPicking: isPicking,
+            isPicking: sheet != nil,
             onEdit: { onEdit($0, false) },
-            onMove: { movingOutfit = $0 },
-            onCreate: { isPicking = true }
+            onMove: { sheet = .move($0) },
+            onDelete: { deleting = $0 },
+            onCreate: { sheet = .picker }
         )
     }
 
@@ -124,13 +163,16 @@ struct SuitcaseOutfitsFeedTab: View {
                 spacing: WK.Spacing.m
             ) {
                 ForEach(outfits(ofDay: index), id: \.stableID) { outfit in
-                    SuitcaseFeedCard(
+                    SuitcaseGridCell(
                         outfit: outfit,
                         suitcase: suitcase,
                         store: appEnvironment.imageStore,
-                        isCompact: true,
+                        canMove: suitcase.tripDayCount != nil,
                         onEdit: { onEdit(outfit, false) },
-                        onMove: { movingOutfit = outfit }
+                        onMove: { sheet = .move(outfit) },
+                        onDuplicate: { duplicate(outfit) },
+                        onTryOn: { sheet = .tryOn(outfit) },
+                        onDelete: { deleting = outfit }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
                     // El mismo menú que en la rejilla del plan: aquí se ven
@@ -138,16 +180,19 @@ struct SuitcaseOutfitsFeedTab: View {
                     // cambiarlo de día.
                     .contextMenu {
                         Button("Editar", systemImage: "pencil") { onEdit(outfit, false) }
+                        Button("Probármelo", systemImage: "person.crop.rectangle") {
+                            sheet = .tryOn(outfit)
+                        }
                         Button("Duplicar", systemImage: "plus.square.on.square") {
                             duplicate(outfit)
                         }
                         if suitcase.tripDayCount != nil {
                             Button("Mover a otro día", systemImage: "calendar") {
-                                movingOutfit = outfit
+                                sheet = .move(outfit)
                             }
                         }
-                        Button("Eliminar", systemImage: "trash", role: .destructive) {
-                            withAnimation(WKAnimation.content) { outfit.markDeleted() }
+                        Button("Quitar", systemImage: "trash", role: .destructive) {
+                            deleting = outfit
                         }
                     }
                 }
@@ -155,7 +200,7 @@ struct SuitcaseOutfitsFeedTab: View {
                 PlanCreateCard(title: "Añadir")
                     .matchedGeometryEffect(id: "create-\(index)", in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
-                    .onTapGesture { isPicking = true }
+                    .onTapGesture { sheet = .picker }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.top, WK.Spacing.xl)
@@ -211,6 +256,7 @@ private struct SuitcaseDayFeed: View {
     let isPicking: Bool
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
+    let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
     @State private var anchor: AnyHashable?
@@ -224,7 +270,8 @@ private struct SuitcaseDayFeed: View {
                         suitcase: suitcase,
                         store: store,
                         onEdit: { onEdit(outfit) },
-                        onMove: { onMove(outfit) }
+                        onMove: { onMove(outfit) },
+                        onDelete: { onDelete(outfit) }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
                     .modifier(PlanCardSize(page: pageSize))
@@ -261,6 +308,7 @@ private struct SuitcaseFeedCard: View {
     var isCompact = false
     let onEdit: () -> Void
     let onMove: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         LookCanvasView(
@@ -273,6 +321,7 @@ private struct SuitcaseFeedCard: View {
             onDoubleTap: onEdit
         )
         .overlay(alignment: .topTrailing) {
+            // Los mismos tres que en el plan: abrir, cambiar de día y quitar.
             VStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
                     .tint(WK.Palette.primaryText)
@@ -284,6 +333,8 @@ private struct SuitcaseFeedCard: View {
                     )
                     .tint(WK.Palette.primaryText)
                 }
+                WKCircleButton("trash", size: .compact, action: onDelete)
+                    .tint(.red)
             }
             // Con aire en las dos medidas: pegados al canto, en una celda de
             // rejilla el pulgar los roza al arrancar el scroll.
@@ -322,6 +373,53 @@ private struct LongPressToEdit: ViewModifier {
             content.onLongPressGesture(perform: action)
         } else {
             content
+        }
+    }
+}
+
+/// Una celda de la rejilla de la maleta: el lienzo y una elipsis.
+///
+/// La misma pieza que en el plan —ver `PlanGridCell`—, con el papel de la
+/// maleta en vez del del outfit: aquí lo que distingue un viaje de otro es su
+/// color.
+private struct SuitcaseGridCell: View {
+    let outfit: Outfit
+    let suitcase: Suitcase
+    let store: ImageStore
+    let canMove: Bool
+    let onEdit: () -> Void
+    let onMove: () -> Void
+    let onDuplicate: () -> Void
+    let onTryOn: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        LookCanvasView(
+            garments: outfit.garments,
+            store: store,
+            backdrop: SuitcaseTint.backdrop(for: suitcase.colorRaw),
+            outfit: outfit,
+            showsBorder: true,
+            onDoubleTap: onEdit
+        )
+        .overlay(alignment: .topTrailing) {
+            Menu {
+                Button("Editar", systemImage: "pencil", action: onEdit)
+                Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
+                Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
+                if canMove {
+                    Button("Mover a otro día", systemImage: "calendar", action: onMove)
+                }
+                Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 34, height: 34)
+                    .contentShape(.circle)
+                    .adaptiveGlassInteractive(in: .circle)
+            }
+            .padding(WK.Spacing.s)
         }
     }
 }
