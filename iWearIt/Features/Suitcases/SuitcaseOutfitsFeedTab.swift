@@ -27,7 +27,7 @@ struct SuitcaseOutfitsFeedTab: View {
     /// fechas —iba dentro del mismo `if` que la tira—, así que en una maleta
     /// sin fechas no había forma de ver la rejilla.
     @Binding var layout: PlannerLayout
-    /// Lo que tapan las barras de la maleta, que ignora el área segura.
+    /// Sin uso desde que la maleta respeta el área segura: se pasa a cero.
     var topInset: CGFloat = 0
     var bottomInset: CGFloat = 0
     let onEdit: (Outfit, Bool) -> Void
@@ -72,14 +72,10 @@ struct SuitcaseOutfitsFeedTab: View {
         return days + 1
     }
 
-    /// **El mismo hueco que en el plan.**
-    ///
-    /// Allí el scroll llega ya recortado por las barras —van como área segura—
-    /// así que su alto *es* lo que se ve. Aquí no: la maleta ignora el área
-    /// segura a propósito —el papel llega a los cuatro bordes— y las barras se
-    /// descuentan a mano. Sin restarlas, el hueco medía una pantalla entera y
-    /// las tarjetas salían más grandes que las del plan; con ellas, las dos
-    /// pantallas miden lo mismo.
+    /// **El mismo hueco que en el plan.** La maleta respeta el área segura, así
+    /// que el scroll llega ya recortado por sus barras y su alto es lo que se
+    /// ve. (Antes la ignoraba y aquí se restaban las barras a mano; esas
+    /// cuentas nunca cuadraron con las del plan.)
     private var stride: CGFloat {
         // **Lo mismo que el plan, porque ahora es lo mismo que el plan.** Con
         // el área segura respetada, el scroll ya llega recortado por la tira
@@ -140,14 +136,8 @@ struct SuitcaseOutfitsFeedTab: View {
             .padding(.trailing, WK.Spacing.m)
         }
         .frame(height: Self.stripHeight)
-        // **Por debajo de la barra de la maleta.**
-        //
-        // Esta pantalla ignora el área segura a propósito —el papel llega a
-        // los cuatro bordes—, así que una barra puesta arriba se dibuja
-        // **detrás** de la de navegación: la tira quedaba encima del botón de
-        // volver y del lápiz, medio tapada y robándoles el toque. Contando lo
-        // que mide esa barra, la tira cae justo debajo, que es donde está la
-        // del plan.
+        // Sin uso: los días y el modo van ahora en la barra de navegación de
+        // la maleta (`SuitcaseDetailScreen`). Se queda por si vuelve a flotar.
     }
 
     /// La fecha de una página, **si es un día del viaje**.
