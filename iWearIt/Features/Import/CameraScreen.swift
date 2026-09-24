@@ -52,7 +52,10 @@ struct CameraScreen: View {
             // **El carrete, siempre.** Con la cámara sin permiso, ocupada o
             // sin arrancar, es la única forma de añadir algo desde aquí; y
             // esta pantalla es a la que lleva el botón del armario vacío.
-            CameraBarButton(symbol: "photo.on.rectangle") { isPresentingPicker = true }
+            // Sin botón de galería: esta cámara es para hacer la foto.
+            // CameraBarButton(symbol: "photo.on.rectangle") { isPresentingPicker = true }
+            // El hueco del botón, para que el disparador siga en el centro.
+            Color.clear.frame(width: 48, height: 48)
             Spacer()
             Group {
                 ShutterButton { await capture() }
@@ -138,7 +141,7 @@ private struct CameraStateContent: View {
             CameraMessage(
                 icon: "camera.fill",
                 title: "Sin acceso a la cámara",
-                detail: "Actívalo en Ajustes › iWearIt para hacer fotos a tus prendas."
+                detail: "Actívalo en Ajustes › Snazzy para hacer fotos a tus prendas."
             )
         case let .failed(reason):
             CameraMessage(icon: "exclamationmark.triangle", title: "No se pudo abrir la cámara", detail: reason)
@@ -151,11 +154,12 @@ private struct FramingGuide: View {
     var body: some View {
         VStack {
             Spacer()
-            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
-                .strokeBorder(.white.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [10, 8]))
-                .frame(maxWidth: .infinity)
-                .aspectRatio(0.78, contentMode: .fit)
-                .padding(.horizontal, WK.Spacing.xl)
+            // Sin marco: se queda solo el consejo.
+            // RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+            //     .strokeBorder(.white.opacity(0.55), style: StrokeStyle(lineWidth: 2, dash: [10, 8]))
+            //     .frame(maxWidth: .infinity)
+            //     .aspectRatio(0.78, contentMode: .fit)
+            //     .padding(.horizontal, WK.Spacing.xl)
             Text("Coloca la prenda sola sobre un fondo liso")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.8))

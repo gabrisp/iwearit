@@ -17,7 +17,7 @@ struct WelcomeStep: View {
                 .font(WK.Font.largeTitle)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(WK.Palette.primaryText)
-            Text("iWearIt encuentra tu ropa en tus propias fotos y te enseña todo lo que puedes ponerte sin comprar nada.")
+            Text("Snazzy encuentra tu ropa en tus propias fotos y te enseña todo lo que puedes ponerte sin comprar nada.")
                 .font(WK.Font.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(WK.Palette.secondaryText)

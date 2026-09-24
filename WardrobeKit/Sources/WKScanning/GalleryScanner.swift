@@ -209,7 +209,9 @@ public actor GalleryScanner {
     /// Hora y media: lo que dura una comida, una tarde de paseo, una ráfaga.
     /// Menos dejaba pasar las series; más empezaba a saltarse cambios de ropa
     /// de verdad —la de por la mañana y la de por la noche—.
-    static let sameOutfitWindow: TimeInterval = 90 * 60
+    // static let sameOutfitWindow: TimeInterval = 90 * 60
+    /// Media hora: con hora y media se saltaban cambios de ropa de verdad.
+    static let sameOutfitWindow: TimeInterval = 30 * 60
 
     /// Guarda un lote: al armario, o como pendiente.
     ///
@@ -322,7 +324,10 @@ public actor GalleryScanner {
         // conjetura por la forma.
         guard garment.confidence > GarmentPipeline.degradedConfidenceCeiling else { return false }
         // Diminuta en la foto: al ampliarla para el armario se ve fatal.
-        guard min(garment.rawCrop.width, garment.rawCrop.height) >= 140 else { return false }
+        // guard min(garment.rawCrop.width, garment.rawCrop.height) >= 140 else { return false }
+        // Menos estricto: con 140 se quedaban fuera prendas buenas de fotos
+        // hechas de lejos.
+        guard min(garment.rawCrop.width, garment.rawCrop.height) >= 90 else { return false }
         return CutoutQuality.assess(garment.normalized.cgImage).isGoodEnough
     }
 
@@ -365,7 +370,10 @@ public actor GalleryScanner {
     /// 1.080, WhatsApp a 1.200— se queda fuera sin tocar un píxel. El resto
     /// del filtro, en `isCameraCapture`.
     static let recentWindow: TimeInterval = 365 * 24 * 60 * 60
-    static let maximumCandidates = 10_000
+    // static let maximumCandidates = 10_000
+    /// Las 2.000 más recientes: bastan para el armario de ahora y el escaneo
+    /// se termina en un rato.
+    static let maximumCandidates = 2_000
     static let minimumCameraSide = 1_500
 
     static func candidateAssets() -> PHFetchResult<PHAsset> {
@@ -541,13 +549,20 @@ struct ScanDeduper {
 
     mutating func markPhoto(_ id: String) { photoIDs.insert(id) }
 
+    /// Solo lo casi idéntico cuenta como la misma prenda.
+    static let scanThreshold: Float = 0.97
+
     func isNearDuplicate(_ embedding: Data?) -> Bool {
         guard
             let embedding,
             let direction = EmbeddingMath.direction(of: EmbeddingMath.decode(embedding))
         else { return false }
         for other in directions[direction.count] ?? [] {
-            if EmbeddingMath.similarity(direction, other) >= DuplicateDetector.threshold {
+            // Más permisivo que el detector de duplicados del armario: en el
+            // escaneo, dos prendas parecidas —dos vaqueros, dos camisetas
+            // blancas— se estaban dando por la misma y se perdía una.
+            // if EmbeddingMath.similarity(direction, other) >= DuplicateDetector.threshold {
+            if EmbeddingMath.similarity(direction, other) >= Self.scanThreshold {
                 return true
             }
         }

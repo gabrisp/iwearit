@@ -20,7 +20,7 @@ struct PhotoPermissionStep: View {
     var body: some View {
         OnboardingStepScaffold(
             title: "Tu ropa ya está\nen tus fotos",
-            subtitle: "iWearIt las mira en tu iPhone para recortar las prendas que llevas puestas.",
+            subtitle: "Snazzy las mira en tu iPhone para recortar las prendas que llevas puestas.",
             primaryTitle: "Dejar que mire mis fotos",
             isEnabled: !isRequesting,
             onPrimary: { request() }
@@ -261,7 +261,8 @@ struct ScanningStep: View {
             // Con sesenta prendas distintas ya hay armario de sobra para
             // empezar. Seguir era dejar al usuario mirando cómo se repasan
             // años de fotos; lo demás se puede escanear luego desde el armario.
-            stopAfter: 60,
+            // stopAfter: 60,
+            stopAfter: 100,
             onProgress: { updated in
                 Task { @MainActor in progress = updated }
             },

@@ -111,7 +111,7 @@ private struct ComparisonPanel: View {
             // veía nunca.
             HStack {
                 if !isWith { Spacer() }
-                Text(isWith ? "Con iWearIt" : "Sin iWearIt")
+                Text(isWith ? "Con Snazzy" : "Sin Snazzy")
                     .font(WK.Font.captionMedium)
                     .foregroundStyle(isWith ? OnboardingTone.oliva.color : WK.Palette.secondaryText)
                     .padding(.horizontal, 10)

@@ -118,7 +118,7 @@ extension Feature {
     var lockedDetail: String {
         switch self {
         case .garments:
-            "Con iWearIt Pro tu armario no tiene tope."
+            "Con Snazzy Pro tu armario no tiene tope."
         case .suitcases:
             "Con Pro puedes preparar tantos viajes como quieras a la vez."
         case .customCategories:
