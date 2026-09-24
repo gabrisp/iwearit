@@ -187,7 +187,7 @@ public struct WKSheetChrome<Trailing: View>: View {
     public static var height: CGFloat { 52 }
 
     public var body: some View {
-        ZStack {
+        HStack(spacing: WK.Spacing.m) {
             Text(title)
                 .font(WK.Font.headline)
                 .foregroundStyle(WK.Palette.primaryText)
@@ -197,24 +197,24 @@ public struct WKSheetChrome<Trailing: View>: View {
                 // texto con otras letras y no hay nada que fundir.
                 .id(title)
                 .transition(.blurReplace.combined(with: .opacity))
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack {
-                Button(action: onLeading) {
-                    Image(systemName: isAtRoot ? "xmark" : "chevron.left")
-                        .font(.headline)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .frame(width: 32, height: 32)
-                        .background(WK.Palette.ink(0.07), in: .circle)
-                        .contentShape(.circle)
-                        // El icono también se funde: es el mismo botón
-                        // diciendo otra cosa, no otro botón.
-                        .contentTransition(.symbolEffect(.replace))
-                }
-                .buttonStyle(WKPressStyle())
+            trailing
 
-                Spacer(minLength: 0)
-                trailing
+            // **A la derecha.** Es donde está el pulgar que cierra, y donde la
+            // app pone cerrar en todas partes.
+            Button(action: onLeading) {
+                Image(systemName: isAtRoot ? "xmark" : "chevron.left")
+                    .font(.headline)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .frame(width: 32, height: 32)
+                    .background(WK.Palette.ink(0.07), in: .circle)
+                    .contentShape(.circle)
+                    // El icono también se funde: es el mismo botón diciendo
+                    // otra cosa, no otro botón.
+                    .contentTransition(.symbolEffect(.replace))
             }
+            .buttonStyle(WKPressStyle())
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .frame(height: Self.height)

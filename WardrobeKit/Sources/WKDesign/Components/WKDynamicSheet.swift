@@ -167,3 +167,51 @@ public extension View {
         modifier(WKDynamicSheetHeight())
     }
 }
+
+/// Hace scroll **solo cuando lo que lleva dentro no cabe**.
+///
+/// Una hoja dinámica toma su altura del contenido, así que sus pantallas no
+/// llevan scroll: uno reportaría la altura que le **dan** y la hoja abriría a
+/// tope con nada dentro. Eso vale hasta que el contenido es de verdad más alto
+/// de lo que una hoja puede ser —un viaje de tres semanas, una rejilla llena—
+/// y entonces lo último queda por debajo de la pantalla sin forma de llegar.
+///
+/// Así que: se mide lo que hay, se toma esa altura hasta el límite, y se deja
+/// desplazar a partir de ahí. Por debajo del límite es exactamente lo que
+/// había —una altura fija que la hoja mide— con el scroll apagado para que no
+/// rebote.
+///
+/// Es `locktyScrollWhenTooTall`, que es de donde viene.
+private struct WKScrollWhenTooTall: ViewModifier {
+    @State private var contentHeight: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        let limit = wkSheetMaximumContentHeight
+        let height = contentHeight == 0 ? nil : min(contentHeight, limit)
+
+        return ScrollView(.vertical) {
+            content
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { new in
+                    guard abs(new - contentHeight) > 0.5 else { return }
+                    contentHeight = new
+                }
+        }
+        .frame(height: height)
+        .scrollDisabled(contentHeight <= limit)
+        .scrollBounceBehavior(.basedOnSize)
+        .scrollIndicators(.hidden)
+        // Un scroll recorta, y aquí lo de dentro se dibuja fuera de sí mismo:
+        // la sombra de una tarjeta, el cristal de una píldora. Lo que mantiene
+        // el contenido dentro de la hoja es la altura de arriba, no el
+        // recorte.
+        .scrollClipDisabled()
+    }
+}
+
+public extension View {
+    /// Ver `WKScrollWhenTooTall`. Para las pantallas de hoja que **casi
+    /// siempre** caben y de vez en cuando no.
+    func wkScrollWhenTooTall() -> some View {
+        modifier(WKScrollWhenTooTall())
+    }
+}

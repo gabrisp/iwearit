@@ -55,6 +55,9 @@ struct SuitcasePickerSheet: View {
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
+        // Con muchas maletas la rejilla puede pasarse de alto: ahí, y solo
+        // ahí, se desplaza. Ver `wkScrollWhenTooTall`.
+        .wkScrollWhenTooTall()
         .adaptiveSafeAreaBar(edge: .top, spacing: 0) {
             WKSheetChrome(
                 title: title,
@@ -147,8 +150,7 @@ struct SuitcaseDayList: View {
     private var days: Int { max(1, suitcase.tripDayCount ?? 3) }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: WK.Spacing.l) {
+        VStack(spacing: WK.Spacing.l) {
                 if showsNoDay {
                     // Ancho entero y el primero: es la respuesta más común.
                     Button { onPick(nil) } label: {
@@ -189,12 +191,13 @@ struct SuitcaseDayList: View {
                     }
                 }
             }
-            .padding(.vertical, WK.Spacing.xs)
-        }
-        .scrollIndicators(.hidden)
-        // Sin fondo ni título propios: el marco lo pone quien la enseña —el
-        // flujo de elegir maleta, o la hoja de mover un outfit—.
-        .frame(maxHeight: 320)
+        .padding(.vertical, WK.Spacing.xs)
+        // **Sin alto a mano y sin scroll propio.** Tenía los dos —un tope de
+        // 320 puntos y un `ScrollView` dentro—, que es pelearse con la hoja:
+        // la hoja mide lo que hay para decidir cuánto abrir, y un scroll le
+        // devuelve el alto que ella misma le dio. Si un viaje es tan largo que
+        // no cabe, de eso se encarga `wkScrollWhenTooTall`.
+        .wkScrollWhenTooTall()
     }
 }
 
