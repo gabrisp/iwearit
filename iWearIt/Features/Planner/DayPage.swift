@@ -379,7 +379,7 @@ private struct DayCanvas: View {
     /// una preferencia de la pantalla.
     private var backdropColor: Color {
         guard
-            let components = OutfitBackdrop(rawValue: current?.backdropRaw ?? "")?.components
+            let components = OutfitBackdropPalette.components(for: current?.backdropRaw)
         else { return WK.Palette.canvas }
         return WK.Palette.canvasTint(red: components.red, green: components.green, blue: components.blue)
     }

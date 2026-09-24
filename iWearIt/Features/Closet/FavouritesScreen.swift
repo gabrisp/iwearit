@@ -329,7 +329,7 @@ private struct FavouriteOutfitCell: View {
     }
 
     private var backdropColor: Color {
-        guard let components = OutfitBackdrop(rawValue: outfit.backdropRaw ?? "")?.components else {
+        guard let components = OutfitBackdropPalette.components(for: outfit.backdropRaw) else {
             return WK.Palette.canvas
         }
         return WK.Palette.canvasTint(

@@ -153,6 +153,7 @@ struct SuitcaseOutfitsFeedTab: View {
             isPicking: sheet != nil,
             onEdit: { onEdit($0, false) },
             onMove: { sheet = .move($0) },
+            onTryOn: { sheet = .tryOn($0) },
             onDelete: { deleting = $0 },
             onCreate: { sheet = .picker }
         )
@@ -258,6 +259,7 @@ private struct SuitcaseDayFeed: View {
     let isPicking: Bool
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
+    let onTryOn: (Outfit) -> Void
     let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
@@ -273,6 +275,7 @@ private struct SuitcaseDayFeed: View {
                         store: store,
                         onEdit: { onEdit(outfit) },
                         onMove: { onMove(outfit) },
+                        onTryOn: { onTryOn(outfit) },
                         onDelete: { onDelete(outfit) }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
@@ -313,6 +316,7 @@ private struct SuitcaseFeedCard: View {
     var isCompact = false
     let onEdit: () -> Void
     let onMove: () -> Void
+    let onTryOn: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -338,8 +342,13 @@ private struct SuitcaseFeedCard: View {
                     )
                     .tint(WK.Palette.primaryText)
                 }
-                WKCircleButton("trash", size: .compact, action: onDelete)
-                    .tint(.red)
+                WKCircleButton("person.crop.rectangle", size: .compact, action: onTryOn)
+                    .tint(WK.Palette.primaryText)
+                // El color en el símbolo: el estilo del botón pinta la
+                // etiqueta con el primario y el `tint` de fuera no llegaba.
+                WKCircleButton(size: .compact, action: onDelete) {
+                    Image(systemName: "trash").foregroundStyle(.red)
+                }
             }
             // Con aire en las dos medidas: pegados al canto, en una celda de
             // rejilla el pulgar los roza al arrancar el scroll.

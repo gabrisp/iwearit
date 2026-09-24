@@ -231,7 +231,7 @@ struct PlannerGridCell: View {
 
     private var backdropColor: Color {
         guard
-            let components = OutfitBackdrop(rawValue: outfit.backdropRaw ?? "")?.components
+            let components = OutfitBackdropPalette.components(for: outfit.backdropRaw)
         else { return fallback }
         return WK.Palette.canvasTint(red: components.red, green: components.green, blue: components.blue)
     }

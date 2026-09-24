@@ -284,7 +284,7 @@ private struct CanvasEditorScreen: View {
                 blue: tint.components.blue
             )
         }
-        guard let components = OutfitBackdrop(rawValue: outfit.backdropRaw ?? "")?.components else {
+        guard let components = OutfitBackdropPalette.components(for: outfit.backdropRaw) else {
             return WK.Palette.canvas
         }
         return WK.Palette.canvasTint(red: components.red, green: components.green, blue: components.blue)

@@ -207,3 +207,80 @@ public enum OutfitBackdrop: String, CaseIterable, Sendable, Identifiable {
         return (maximum - min(c.red, c.green, c.blue)) / maximum
     }
 }
+
+/// Cómo se resuelve el papel de un outfit, venga de donde venga.
+///
+/// ## Por qué hace falta un intermediario
+///
+/// Porque el papel dejó de ser **solo** uno de la paleta: también puede ser un
+/// color sacado de la propia ropa, y ese no cabe en un `enum` —cambia con cada
+/// outfit—. Lo que se guarda sigue siendo una cadena, así que aquí está el
+/// único sitio que sabe leerla: un caso de la paleta, o un color escrito en
+/// hexadecimal.
+///
+/// Sin esto, cada pantalla que pinta un lienzo tendría su propio `if` y la
+/// siguiente que se añadiera se olvidaría de uno.
+public enum OutfitBackdropPalette {
+    /// Lo que se guarda para decir "el color de la ropa": una almohadilla y
+    /// seis dígitos. No es un caso más del `enum` a propósito — el día que se
+    /// añada otro color a la paleta, este no colisiona con nada.
+    public static func stored(hex components: (red: Double, green: Double, blue: Double)) -> String {
+        let clamp = { (value: Double) in Int((max(0, min(1, value)) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", clamp(components.red), clamp(components.green), clamp(components.blue))
+    }
+
+    /// Los componentes de lo guardado, sea de la paleta o hexadecimal.
+    public static func components(for raw: String?) -> (red: Double, green: Double, blue: Double)? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if let known = OutfitBackdrop(rawValue: raw) { return known.components }
+        return hex(raw)
+    }
+
+    private static func hex(_ raw: String) -> (red: Double, green: Double, blue: Double)? {
+        var text = raw
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        return (
+            red: Double((value >> 16) & 0xFF) / 255,
+            green: Double((value >> 8) & 0xFF) / 255,
+            blue: Double(value & 0xFF) / 255
+        )
+    }
+
+    /// **El color de la propia ropa, apagado.**
+    ///
+    /// La media de los dominantes, con el color bajado y la claridad subida:
+    /// el papel tiene que recordar a lo que sostiene sin competir con ello. Un
+    /// papel del mismo rojo que la chaqueta hace desaparecer la chaqueta; el
+    /// mismo rojo lavado la enmarca.
+    ///
+    /// - Returns: `nil` si no hay ropa de la que sacarlo.
+    public static func extracted(from colors: [(red: Double, green: Double, blue: Double, weight: Double)]) -> String? {
+        guard !colors.isEmpty else { return nil }
+        let total = colors.reduce(0.0) { $0 + max($1.weight, 0.001) }
+        var mixed = (red: 0.0, green: 0.0, blue: 0.0)
+        for color in colors {
+            let weight = max(color.weight, 0.001) / total
+            mixed.red += color.red * weight
+            mixed.green += color.green * weight
+            mixed.blue += color.blue * weight
+        }
+
+        // Hacia el gris y hacia la luz: un tercio del color que tenía, y el
+        // resto del camino hasta el blanco. Son los mismos números que separan
+        // a la paleta de la ropa —ninguno de sus veinte colores es saturado—,
+        // solo que aquí salen de la prenda en vez de estar escritos.
+        let luminance = 0.2126 * mixed.red + 0.7152 * mixed.green + 0.0722 * mixed.blue
+        let muted = (
+            red: mixed.red * 0.35 + luminance * 0.65,
+            green: mixed.green * 0.35 + luminance * 0.65,
+            blue: mixed.blue * 0.35 + luminance * 0.65
+        )
+        let lifted = (
+            red: muted.red + (1 - muted.red) * 0.45,
+            green: muted.green + (1 - muted.green) * 0.45,
+            blue: muted.blue + (1 - muted.blue) * 0.45
+        )
+        return stored(hex: lifted)
+    }
+}

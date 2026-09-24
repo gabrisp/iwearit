@@ -1,5 +1,6 @@
 import SwiftUI
 import WKCanvas
+import WKCore
 import WKDesign
 import WKPersistence
 
@@ -24,6 +25,16 @@ struct BackdropPicker: View {
 
     private var current: String? { outfit.backdropRaw }
 
+    /// El color de la ropa de **este** conjunto, apagado. `nil` si el conjunto
+    /// todavía no tiene prendas con color analizado.
+    private var extracted: String? {
+        OutfitBackdropPalette.extracted(
+            from: outfit.garments.compactMap(\.colors.first).map {
+                (red: $0.red, green: $0.green, blue: $0.blue, weight: $0.weight)
+            }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
             Text("Color del fondo")
@@ -34,9 +45,27 @@ struct BackdropPicker: View {
                 columns: Array(repeating: GridItem(.flexible(), spacing: WK.Spacing.s), count: 5),
                 spacing: WK.Spacing.m
             ) {
+                // **El de la propia ropa, el primero.**
+                //
+                // Sacado de las prendas del conjunto y apagado: el papel tiene
+                // que recordar a lo que sostiene sin competir con ello. Es el
+                // único que no está en la paleta porque no puede estarlo —
+                // cambia con cada outfit—. Ver `OutfitBackdropPalette`.
+                if let extracted {
+                    ColorSwatch(
+                        components: OutfitBackdropPalette.components(for: extracted)
+                            ?? (red: 1, green: 1, blue: 1),
+                        isSelected: current == extracted,
+                        badge: "eyedropper"
+                    ) {
+                        withAnimation(WKAnimation.selection) { outfit.backdropRaw = extracted }
+                        dismiss()
+                    }
+                }
+
                 ForEach(OutfitBackdrop.allCases) { backdrop in
-                    BackdropSwatch(
-                        backdrop: backdrop,
+                    ColorSwatch(
+                        components: backdrop.components,
                         isSelected: current == backdrop.rawValue
                     ) {
                         apply(backdrop)
@@ -60,9 +89,11 @@ struct BackdropPicker: View {
 ///
 /// Vista propia y no un `@ViewBuilder` repetido seis veces: repetirlo dentro
 /// del builder cuesta seis diffs en vez de uno por muestra.
-private struct BackdropSwatch: View {
-    let backdrop: OutfitBackdrop
+private struct ColorSwatch: View {
+    let components: (red: Double, green: Double, blue: Double)
     let isSelected: Bool
+    /// Un símbolo en la esquina, para la muestra que no es de la paleta.
+    var badge: String?
     let action: () -> Void
 
     var body: some View {
@@ -70,18 +101,24 @@ private struct BackdropSwatch: View {
             RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
                 // La muestra, igual de clara que como queda el lienzo.
                 .fill(WK.Palette.canvasTint(
-                    red: backdrop.components.red,
-                    green: backdrop.components.green,
-                    blue: backdrop.components.blue
+                    red: components.red,
+                    green: components.green,
+                    blue: components.blue
                 ))
                 .frame(height: 56)
                 .overlay {
                     RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
                         .stroke(WK.Palette.accent, lineWidth: isSelected ? 3 : 0)
                 }
+                .overlay {
+                    if let badge {
+                        Image(systemName: badge)
+                            .font(.caption)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                }
                 .contentShape(.rect)
         }
         .buttonStyle(WKPressStyle())
-        .animation(WKAnimation.selection, value: isSelected)
     }
 }

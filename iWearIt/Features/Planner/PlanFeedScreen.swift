@@ -335,6 +335,7 @@ struct PlanFeedScreen: View {
             isEditing: editingOutfit != nil,
             onEdit: { edit($0) },
             onMove: { sheet = .move($0) },
+            onTryOn: { sheet = .tryOn($0) },
             onDelete: { deleting = $0 },
             onCreate: { sheet = .picker }
         )
@@ -477,9 +478,7 @@ struct PlanFeedScreen: View {
 
     /// El papel de un outfit: el suyo, o el de la app si no tiene.
     static func backdrop(of outfit: Outfit) -> Color {
-        guard
-            let raw = outfit.backdropRaw,
-            let components = OutfitBackdrop(rawValue: raw)?.components
+        guard let components = OutfitBackdropPalette.components(for: outfit.backdropRaw)
         else { return WK.Palette.canvas }
         return WK.Palette.canvasTint(
             red: components.red,
@@ -519,6 +518,7 @@ private struct PlanDayFeed: View {
     let isEditing: Bool
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
+    let onTryOn: (Outfit) -> Void
     let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
@@ -555,6 +555,7 @@ private struct PlanDayFeed: View {
                         glass: glass,
                         onEdit: { onEdit(entry.outfit) },
                         onMove: { onMove(entry.outfit) },
+                        onTryOn: { onTryOn(entry.outfit) },
                         onDelete: { onDelete(entry.outfit) }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
@@ -645,6 +646,7 @@ private struct PlanFeedCard: View {
     let glass: Namespace.ID
     let onEdit: () -> Void
     let onMove: () -> Void
+    let onTryOn: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -683,6 +685,12 @@ private struct PlanFeedCard: View {
                     action: onMove
                 )
                 .tint(WK.Palette.primaryText)
+                // **Probárselo, aquí también.** Lo que tienes puesto para el
+                // jueves es justo lo que quieres verte, y tenerlo solo en el
+                // menú de la rejilla lo dejaba a dos toques de distancia en la
+                // pantalla donde más se mira.
+                WKCircleButton("person.crop.rectangle", size: .compact, action: onTryOn)
+                    .tint(WK.Palette.primaryText)
                 // El color **en el símbolo** y no en el `tint`: el estilo del
                 // botón pinta su etiqueta con el color primario, así que el
                 // tinte de fuera no llegaba y la papelera salía negra como
