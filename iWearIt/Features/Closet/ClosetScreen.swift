@@ -24,6 +24,14 @@ struct ClosetScreen: View {
     /// `-open suitcase` empuja la primera maleta al arrancar, para poder
     /// capturar pantallas profundas sin navegar a mano.
     @Query private var allSuitcases: [Suitcase]
+    #endif
+    /// La pila de navegación del armario. **En las dos configuraciones**: en
+    /// Release era una constante y empujar cualquier pantalla —ajustes,
+    /// favoritas, maletas— no hacía nada.
+    @State private var debugPath = NavigationPath()
+
+    // **Fuera del `#if DEBUG`.** Estaban dentro por error: en Debug compilaba
+    // y en Release —el archive— no existía nada de esto.
     /// El arrastre de prendas entre baldas. Vive aquí porque cruza baldas: es
     /// el único sitio que las ve todas.
     @State private var shelfDrag = ShelfDragModel()
@@ -38,8 +46,6 @@ struct ClosetScreen: View {
     @State private var scrollPosition = ScrollPosition(edge: .top)
     @State private var scrollOffset: CGFloat = 0
     @State private var viewportHeight: CGFloat = 0
-    @State private var debugPath = NavigationPath()
-    #endif
 
     /// Lo abre el estado vacío. Vive aquí porque el botón vacío ocupa la
     /// pantalla entera y no cuelga de ninguna balda.
@@ -418,20 +424,8 @@ struct ClosetScreen: View {
         garments.filter { bulk.contains($0.persistentModelID) }
     }
 
-    #if DEBUG
     private var navigationPath: Binding<NavigationPath> { $debugPath }
-
-    private func openSuitcaseIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-open"),
-              ProcessInfo.processInfo.arguments.contains("suitcase"),
-              let suitcase = allSuitcases.first,
-              debugPath.isEmpty
-        else { return }
-        debugPath.append(ClosetRoute.suitcase(id: suitcase.id))
-    }
-    #else
-    private var navigationPath: Binding<NavigationPath> { .constant(NavigationPath()) }
-    #endif
+    // Antes, en Release: `.constant(NavigationPath())`, que no dejaba navegar.
 }
 
 /// Resuelve una ruta en su pantalla. Extraída para que `ClosetScreen` no lleve
