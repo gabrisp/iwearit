@@ -33,6 +33,7 @@ struct SuitcaseOutfitsFeedTab: View {
     let onEdit: (Outfit, Bool) -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Environment(AppEnvironment.self) private var appEnvironment
 
     @State private var pageSize: CGSize = .zero
@@ -71,7 +72,7 @@ struct SuitcaseOutfitsFeedTab: View {
     /// las tarjetas salían más grandes que las del plan; con ellas, las dos
     /// pantallas miden lo mismo.
     private var stride: CGFloat {
-        max(320, pageSize.height - topInset - Self.stripHeight - bottomInset)
+        max(320, pageSize.height - WKTabBarMetrics.screenTopInset - Self.stripHeight - bottomInset)
     }
 
     /// Lo que mide la tira con su aire, igual que en el plan.
@@ -83,13 +84,28 @@ struct SuitcaseOutfitsFeedTab: View {
     /// igual para ver de un vistazo lo que llevas preparado.
     private var strip: some View {
         HStack(spacing: WK.Spacing.s) {
+            // **Volver, aquí.** La barra de navegación de la maleta se
+            // esconde en esta pestaña: dejaba dos franjas arriba —la suya y
+            // la tira— en una pantalla cuyo papel llega a los cuatro bordes.
+            // El gesto de volver sigue estando; esto es para el dedo que
+            // prefiere un botón.
+            Button { dismiss() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 56, height: 56)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(WKPressStyle())
+            .adaptiveGlassInteractive(in: .circle)
+            .padding(.leading, WK.Spacing.m)
+
             if let dayCount = suitcase.tripDayCount {
                 TripDayBar(
                     suitcase: suitcase,
                     dayCount: dayCount,
                     selected: $dayIndex
                 )
-                .padding(.leading, WK.Spacing.m)
             } else {
                 Spacer(minLength: 0)
             }
@@ -117,7 +133,8 @@ struct SuitcaseOutfitsFeedTab: View {
         // volver y del lápiz, medio tapada y robándoles el toque. Contando lo
         // que mide esa barra, la tira cae justo debajo, que es donde está la
         // del plan.
-        .padding(.top, topInset)
+        // Solo el corte de la pantalla: la barra de navegación ya no está.
+        .padding(.top, WKTabBarMetrics.screenTopInset)
     }
 
     private func outfits(ofDay index: Int) -> [Outfit] {

@@ -132,6 +132,11 @@ private struct SuitcaseContent: View {
         // paso el selector de arriba pasa a ser el segmentado de Apple.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        // **Sin barra en Outfits.** Ahí la pestaña pone su propia tira —volver,
+        // los días y el modo— y dos franjas arriba en una pantalla cuyo papel
+        // llega a los cuatro bordes es una de más. En Equipaje e Inspiración
+        // la barra se queda: llevan el "+" y la píldora del tiempo.
+        .toolbarVisibility(tab == .outfits ? .hidden : .automatic, for: .navigationBar)
         // **Volver deslizando, siempre.** Lo único que lo desactiva es el
         // editor, y lo desactiva él mismo mientras está abierto: ahí el lienzo
         // está lleno de arrastres y el borde izquierdo es donde se coloca una

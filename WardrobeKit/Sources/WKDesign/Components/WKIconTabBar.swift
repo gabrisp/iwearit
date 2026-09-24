@@ -70,6 +70,11 @@ public enum WKTabBarMetrics {
         windowTopInset + 44
     }
 
+    /// Solo el corte de la pantalla, sin barra: para quien pone su propia
+    /// barra arriba en una pantalla que ignora el área segura.
+    @MainActor
+    public static var screenTopInset: CGFloat { windowTopInset }
+
     @MainActor
     private static var windowTopInset: CGFloat {
         UIApplication.shared.connectedScenes

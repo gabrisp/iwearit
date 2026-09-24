@@ -58,6 +58,8 @@ struct StylistChatSheet: View {
         case picker
         /// Qué día te pones este conjunto.
         case day(StylistLook)
+        /// A qué maleta se lo llevas.
+        case suitcase(StylistLook)
         // **El archivo ya no es una hoja.** Era una tercera capa encima de la
         // hoja del estilista, y una conversación abierta desde ahí se veía a
         // dos alturas de donde se escribe. Ahora se empuja en la pila de esta
@@ -68,6 +70,7 @@ struct StylistChatSheet: View {
             switch self {
             case .picker: "picker"
             case let .day(look): "day-\(look.id)"
+            case let .suitcase(look): "suitcase-\(look.id)"
             }
         }
     }
@@ -143,6 +146,12 @@ struct StylistChatSheet: View {
                         StylistDayPicker { date in
                             plan(look, on: date)
                             sheet = nil
+                        }
+                    case let .suitcase(look):
+                        // A la maleta, como desde la inspiración: el viaje y,
+                        // si tiene fechas, el día. Ver `SuitcasePickerSheet`.
+                        SuitcasePickerSheet { suitcase, dayIndex in
+                            pack(look, into: suitcase, on: dayIndex)
                         }
                     }
                 }
@@ -246,7 +255,8 @@ struct StylistChatSheet: View {
                         onSave: { save(look) },
                         onPlan: { sheet = .day(look) },
                         onEdit: { edit(look) },
-                        onDislike: { dislike(look) }
+                        onDislike: { dislike(look) },
+                        onPack: { sheet = .suitcase(look) }
                     )
                     .containerRelativeFrame(.horizontal, count: 3, span: 2, spacing: WK.Spacing.m)
                 }
@@ -377,7 +387,34 @@ struct StylistChatSheet: View {
         }
     }
 
+    /// A la maleta: el conjunto se hace outfit **de ese viaje**, con su día si
+    /// se ha elegido uno.
+    private func pack(_ look: StylistLook, into suitcase: Suitcase, on dayIndex: Int?) {
+        let existing = outfit(for: look) ?? materialise(look, isFavorite: false)
+        guard let outfit = existing else { return }
+        outfit.suitcase = suitcase
+        outfit.suitcaseDayIndex = dayIndex
+        try? modelContext.save()
+        feed.remember(outfit, for: look)
+        feed.record(.packed, for: look, source: .stylist)
+        chat.saved.insert(look.id)
+    }
+
+    /// El corazón es un interruptor: volver a tocarlo lo quita. Ver
+    /// `InspoScreen.save`.
     private func save(_ look: StylistLook) {
+        if chat.saved.contains(look.id) {
+            chat.saved.remove(look.id)
+            if let outfit = outfit(for: look) {
+                outfit.isFavorite = false
+                try? modelContext.save()
+            }
+            return
+        }
+        return saveNew(look)
+    }
+
+    private func saveNew(_ look: StylistLook) {
         // El de siempre si ya existe —lo editaste y lo estás guardando—, y uno
         // nuevo si no. Crear otro dejaría dos: el que tocaste y el que se
         // guarda.
@@ -565,19 +602,30 @@ private struct StylistResultCard: View {
     let onPlan: () -> Void
     let onEdit: () -> Void
     let onDislike: () -> Void
+    /// A la maleta. Ver `SuitcasePickerSheet`.
+    let onPack: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
             LookCanvasView(garments: garments, store: store, outfit: outfit, showsBorder: true)
                 .overlay(alignment: .topTrailing) {
                     HStack(spacing: WK.Spacing.xs) {
+                        // Rojo cuando está puesto, y se apaga al volver a
+                        // tocarlo: el mismo corazón que en la inspiración.
                         circle(isSaved ? "heart.fill" : "heart", action: onSave)
-                            .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
+                            .foregroundStyle(isSaved ? .red : WK.Palette.primaryText)
                         circle("calendar", action: onPlan)
+                        // **Y la maleta**, como en la inspiración: lo que se
+                        // propone para un viaje no es un favorito ni es del
+                        // jueves.
+                        circle("suitcase", action: onPack)
                         // **El lápiz hace lo mismo que el doble toque.** Los
                         // dos gestos están bien para quien los conoce; el
                         // botón está para quien no.
                         circle("pencil", action: onEdit)
+                        // Y decir que no también es un botón: un gesto que no
+                        // se ve deja media decisión sin contar.
+                        circle("hand.thumbsdown", action: onDislike)
                     }
                     // El mismo aire que en la inspiración: pegados al canto se
                     // leen como si se salieran de la tarjeta.
