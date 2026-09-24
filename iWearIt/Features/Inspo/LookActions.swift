@@ -32,6 +32,8 @@ struct LookActions: View {
     /// A la maleta. `nil` dentro de una maleta: ya estás en una.
     var onPack: (() -> Void)?
     let onEdit: () -> Void
+    /// Compartir el conjunto. Ver `ShareRenderSheet`.
+    var onShare: (() -> Void)?
     let onDislike: () -> Void
     var layout: Layout = .column
 
@@ -69,6 +71,7 @@ struct LookActions: View {
         // El lápiz hace lo mismo que el doble toque: el gesto está bien para
         // quien lo conoce; el botón, para quien no.
         circle("pencil", action: onEdit)
+        if let onShare { circle("square.and.arrow.up", action: onShare) }
         // Y decir que no también es un botón: un gesto que no se ve deja media
         // decisión sin contar, y el estilista se queda sin la mitad de lo que
         // necesita saber.

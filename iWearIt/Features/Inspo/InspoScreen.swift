@@ -63,6 +63,8 @@ struct InspoScreen: View {
         case garment(Garment)
         /// A qué maleta se lo llevas.
         case suitcase(StylistLook)
+        /// Compartir el conjunto. Ver `ShareRenderSheet`.
+        case share(StylistLook)
 
         var id: String {
             switch self {
@@ -71,6 +73,7 @@ struct InspoScreen: View {
             case .place: "place"
             case let .garment(garment): "garment-\(garment.id)"
             case let .suitcase(look): "suitcase-\(look.id)"
+            case let .share(look): "share-\(look.id)"
             }
         }
     }
@@ -203,6 +206,8 @@ struct InspoScreen: View {
                         SuitcasePickerSheet { suitcase, dayIndex in
                             pack(look, into: suitcase, on: dayIndex)
                         }
+                    case let .share(look):
+                        ShareRenderSheet { await render(look) }
                     case let .garment(garment):
                         // La misma hoja que al tocar la prenda colgada en su
                         // balda. Aquí no hay nada que saber que allí no: es la
@@ -420,7 +425,8 @@ struct InspoScreen: View {
                 // De lado solo cuando de lado no significa ya otra cosa.
                 isSwipeEnabled: axis == .vertical,
                 onSelectGarment: { sheet = .garment($0) },
-                onPack: { sheet = .suitcase(look) }
+                onPack: { sheet = .suitcase(look) },
+                onShare: { sheet = .share(look) }
             )
             .adaptiveZoomSource(id: AnyHashable(look.id), in: zoom)
             .modifier(InspoCardSize(axis: axis, page: pageSize))
@@ -547,6 +553,19 @@ struct InspoScreen: View {
     }
 
     /// El outfit de una propuesta, si ya se hizo uno.
+    /// El conjunto listo para compartir: el outfit si ya lo es —con sus
+    /// stickers—, y si no, sus prendas como en la tarjeta.
+    private func render(_ look: StylistLook) async -> UIImage? {
+        let garments = look.garmentIDs.compactMap { byID[$0] }
+        let backdrop = UIColor(InspoPalette.color(InspoPalette.backdrop(for: look, garments: garments)))
+        if let outfit = outfit(for: look) {
+            return await SnazzyExport.outfit(outfit, backdrop: backdrop, store: appEnvironment.imageStore)
+        }
+        return await SnazzyExport.look(
+            garments, seed: InspoPalette.seed(for: look), backdrop: backdrop, store: appEnvironment.imageStore
+        )
+    }
+
     private func outfit(for look: StylistLook) -> Outfit? {
         guard let id = feed.outfitID(for: look) else { return nil }
         return modelContext.registeredModel(for: id)
@@ -703,6 +722,8 @@ struct InspoLookCard: View {
     /// A la maleta. `nil` cuando ya estás dentro de una: ver
     /// `SuitcaseInspoTab`.
     var onPack: (() -> Void)?
+    /// Compartir. Ver `ShareRenderSheet`.
+    var onShare: (() -> Void)?
 
 
     enum Keep {
@@ -895,6 +916,7 @@ struct InspoLookCard: View {
             onPlan: onPlan,
             onPack: onPack,
             onEdit: onEdit,
+            onShare: onShare,
             // Hace lo mismo que tirar a la izquierda, animación incluida.
             onDislike: dislikeAway,
             layout: .column

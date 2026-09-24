@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import WKCanvas
 import WKCore
 import WKDesign
 import WKPersistence
@@ -46,26 +47,103 @@ enum SnazzyExport {
 
     // MARK: Outfits
 
-    /// El lienzo de un outfit, a su tamaño lógico —1000 × 1400— y con la marca.
+    /// Algo del lienzo listo para dibujar: su imagen, dónde va y cómo.
+    private struct Piece {
+        let image: CGImage
+        let transform: ItemTransform
+        let isFlipped: Bool
+        /// Las prendas llevan sombra, para que no parezcan pegatinas; los
+        /// stickers no, como en el lienzo.
+        let hasShadow: Bool
+        /// Las fotos van recortadas en redondo, como en `CanvasStickerView`.
+        let cornerRadius: CGFloat?
+    }
+
+    /// El lienzo de un outfit **entero** —prendas, fecha, tiempo, textos,
+    /// fotos y pruebas— en 3:4 y con la marca. Lo que se ve en la tarjeta es
+    /// lo que sale: si algo del lienzo faltara en lo exportado, no sería ese
+    /// outfit.
     static func outfit(_ outfit: Outfit, backdrop: UIColor, store: ImageStore) async -> UIImage? {
+        let elements: [Element] = outfit.items.compactMap { item in
+            if let sticker = item.sticker { return .sticker(sticker, item.transform, flipped: item.isFlipped) }
+            guard let garment = item.garment, garment.deletedAt == nil else { return nil }
+            return .garment(garment, item.transform, flipped: item.isFlipped)
+        }
+        return await canvas(
+            elements,
+            strokes: CanvasDrawing.decode(outfit.drawingData),
+            backdrop: backdrop,
+            store: store
+        )
+    }
+
+    /// Una propuesta de la inspiración que aún no es un outfit: sus prendas,
+    /// colocadas como en la tarjeta. Ver `LookCanvasView.layout`.
+    static func look(_ garments: [Garment], seed: UInt64, backdrop: UIColor, store: ImageStore) async -> UIImage? {
+        let elements = LookCanvasView.layout(garments, seed: seed).map {
+            Element.garment($0.garment, $0.transform, flipped: false)
+        }
+        return await canvas(elements, strokes: [], backdrop: backdrop, store: store)
+    }
+
+    /// Lo que hay en un lienzo.
+    private enum Element {
+        case garment(Garment, ItemTransform, flipped: Bool)
+        case sticker(CanvasSticker, ItemTransform, flipped: Bool)
+
+        var transform: ItemTransform {
+            switch self {
+            case let .garment(_, transform, _), let .sticker(_, transform, _): transform
+            }
+        }
+
+        /// Dado la vuelta en el editor. Ver `CanvasEditing.flip`.
+        var isFlipped: Bool {
+            switch self {
+            case let .garment(_, _, flipped), let .sticker(_, _, flipped): flipped
+            }
+        }
+    }
+
+    private static func canvas(
+        _ elements: [Element], strokes: [CanvasStroke], backdrop: UIColor, store: ImageStore
+    ) async -> UIImage? {
         let canvas = CGSize(width: CanvasSpace.width, height: CanvasSpace.height)
         let output = Self.size
         // El lienzo entero encajado en el 3:4; el papel sigue por los lados.
         let placed = fit(canvas, in: CGRect(origin: .zero, size: output))
         let scale = placed.width / canvas.width
 
-        // Las prendas, cargadas **antes** de dibujar. La versión de catálogo si
-        // existe, que es la que se ve en la app. Ver `StoredImage`.
-        var pieces: [(image: CGImage, transform: ItemTransform)] = []
-        let items = outfit.items
-            .filter { $0.sticker == nil }
-            .sorted { $0.transform.zIndex < $1.transform.zIndex }
-        for item in items {
-            guard let garment = item.garment, garment.deletedAt == nil else { continue }
-            let key = garment.normalizedImageKey
-            let variant: ImageStore.Variant = await store.hasCatalog(for: key) ? .catalog : .display
-            guard let image = try? await store.image(for: key, variant: variant) else { continue }
-            pieces.append((image, item.transform))
+        // Todo cargado **antes** de dibujar, y en el orden del lienzo: un
+        // sticker puede ir debajo de una prenda y encima de otra.
+        var pieces: [Piece] = []
+        // `sorted` es estable: a igual `zIndex`, el orden de siempre.
+        for element in elements.sorted(by: { $0.transform.zIndex < $1.transform.zIndex }) {
+            let transform = element.transform
+            switch element {
+            case let .sticker(sticker, _, _):
+                guard let image = await stickerImage(sticker, transform: transform, scale: scale, store: store) else { continue }
+                let isPhoto = if case .photo = sticker { true } else { false }
+                pieces.append(Piece(image: image, transform: transform, isFlipped: element.isFlipped, hasShadow: false, cornerRadius: isPhoto ? 18 : nil))
+            case let .garment(garment, _, _):
+                // La versión de catálogo si existe, que es la que se ve en la
+                // app. Ver `StoredImage`.
+                let key = garment.normalizedImageKey
+                let variant: ImageStore.Variant = await store.hasCatalog(for: key) ? .catalog : .display
+                guard let image = try? await store.image(for: key, variant: variant) else { continue }
+                pieces.append(Piece(image: image, transform: transform, isFlipped: element.isFlipped, hasShadow: true, cornerRadius: nil))
+            }
+        }
+
+        // **Lo pintado a mano**, encima de todo como en el lienzo. Con la
+        // misma vista que lo pinta allí: ver `CanvasStrokesView`.
+        var drawing: CGImage?
+        if !strokes.isEmpty {
+            let renderer = ImageRenderer(
+                content: CanvasStrokesView(strokes: strokes).frame(width: canvas.width, height: canvas.height)
+            )
+            renderer.scale = scale
+            drawing = renderer.cgImage
         }
 
         let format = UIGraphicsImageRendererFormat()
@@ -86,12 +164,27 @@ enum SnazzyExport {
                 cg.translateBy(x: transform.x, y: transform.y)
                 cg.rotate(by: transform.rotation)
                 cg.scaleBy(x: transform.scale, y: transform.scale)
-                // La sombra de siempre, para que no parezcan pegatinas.
-                cg.setShadow(offset: CGSize(width: 0, height: 11), blur: 36, color: UIColor.black.withAlphaComponent(0.5).cgColor)
+                // Dado la vuelta, como en el editor: el espejo va dentro de
+                // la caja, después de girarla.
+                if piece.isFlipped { cg.scaleBy(x: -1, y: 1) }
+                if piece.hasShadow {
+                    // La sombra de siempre, para que no parezcan pegatinas.
+                    cg.setShadow(offset: CGSize(width: 0, height: 11), blur: 36, color: UIColor.black.withAlphaComponent(0.5).cgColor)
+                }
+                if let radius = piece.cornerRadius {
+                    // Como en el lienzo: la caja del sticker, redondeada.
+                    let frame = CGRect(x: -box.width / 2, y: -box.height / 2, width: box.width, height: box.height)
+                    cg.addPath(UIBezierPath(roundedRect: frame, cornerRadius: radius).cgPath)
+                    cg.clip()
+                }
                 UIImage(cgImage: piece.image).draw(
                     in: CGRect(x: -fitted.width / 2, y: -fitted.height / 2, width: fitted.width, height: fitted.height)
                 )
                 cg.restoreGState()
+            }
+
+            if let drawing {
+                UIImage(cgImage: drawing).draw(in: CGRect(origin: .zero, size: canvas))
             }
 
             // La marca, en las coordenadas del 3:4 y no del lienzo.
@@ -99,6 +192,30 @@ enum SnazzyExport {
             cg.translateBy(x: -placed.minX, y: -placed.minY)
             drawWatermark(in: CGRect(origin: .zero, size: output), onLight: isLight(backdrop))
         }
+    }
+
+    /// Un sticker hecho imagen.
+    ///
+    /// Las fotos —las pruebas incluidas— se leen de disco tal cual. El resto
+    /// —fecha, tiempo, texto— son vistas, y se pintan con **la misma vista**
+    /// del lienzo: dibujarlas otra vez a mano acabaría en dos fechas que no se
+    /// parecen.
+    private static func stickerImage(
+        _ sticker: CanvasSticker, transform: ItemTransform, scale: CGFloat, store: ImageStore
+    ) async -> CGImage? {
+        if case let .photo(key) = sticker {
+            return try? await store.image(for: key, variant: .display)
+        }
+        let box = CGSize(width: transform.baseWidth, height: transform.baseHeight)
+        let renderer = ImageRenderer(
+            content: CanvasStickerView(sticker: sticker, store: store)
+                .frame(width: box.width, height: box.height)
+                .environment(\.colorScheme, .light)
+        )
+        // A la resolución a la que acaba dibujado, y un poco más: el texto
+        // tiene que salir nítido.
+        renderer.scale = max(1, transform.scale * scale) * 2
+        return renderer.cgImage
     }
 
     // MARK: Dibujo

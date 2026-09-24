@@ -67,15 +67,21 @@ struct LookCanvasView: View {
         outfit?.items.filter { $0.sticker != nil } ?? []
     }
 
-    private var placed: [(garment: Garment, transform: ItemTransform)] {
+    private var placed: [(garment: Garment, transform: ItemTransform, isFlipped: Bool)] {
         if let outfit {
             return outfit.items
                 .filter { $0.sticker == nil }
                 .compactMap { item in
                     guard let garment = item.garment, garment.deletedAt == nil else { return nil }
-                    return (garment: garment, transform: item.transform)
+                    return (garment: garment, transform: item.transform, isFlipped: item.isFlipped)
                 }
         }
+        return Self.layout(garments, seed: seed).map { ($0.garment, $0.transform, false) }
+    }
+
+    /// Dónde cae cada prenda de una propuesta sin guardar. Estática para que
+    /// lo exportado —ver `SnazzyExport.look`— la coloque igual que la tarjeta.
+    static func layout(_ garments: [Garment], seed: UInt64) -> [(garment: Garment, transform: ItemTransform)] {
         let ordered = garments.sorted {
             StylistRole($0.kind).sortOrder < StylistRole($1.kind).sortOrder
         }
@@ -114,6 +120,7 @@ struct LookCanvasView: View {
                     LookGarmentImage(
                         garment: entry.garment,
                         transform: entry.transform,
+                        isFlipped: entry.isFlipped,
                         store: store,
                         masks: masks,
                         onSelect: onSelectGarment.map { select in { select(entry.garment) } },
@@ -128,6 +135,7 @@ struct LookCanvasView: View {
                     if let sticker = item.sticker {
                         let transform = item.transform
                         CanvasStickerView(sticker: sticker, store: store)
+                            .scaleEffect(x: item.isFlipped ? -1 : 1)
                             .frame(width: transform.baseWidth, height: transform.baseHeight)
                             .scaleEffect(transform.scale)
                             .rotationEffect(.radians(transform.rotation))
@@ -135,6 +143,15 @@ struct LookCanvasView: View {
                             .zIndex(transform.zIndex)
                             .allowsHitTesting(false)
                     }
+                }
+
+                // **Y lo pintado a mano**, encima de todo como en el editor.
+                if let drawingData = outfit?.drawingData {
+                    CanvasStrokesView(strokes: CanvasDrawing.decode(drawingData))
+                        .frame(width: CanvasSpace.width, height: CanvasSpace.height)
+                        // Por encima de cualquier prenda o sticker.
+                        .zIndex(.greatestFiniteMagnitude)
+                        .allowsHitTesting(false)
                 }
             }
             .frame(width: CanvasSpace.width, height: CanvasSpace.height)
@@ -165,6 +182,8 @@ struct LookCanvasView: View {
 private struct LookGarmentImage: View {
     let garment: Garment
     let transform: ItemTransform
+    /// Dado la vuelta en el editor. Ver `CanvasEditing.flip`.
+    var isFlipped = false
     let store: ImageStore
     var masks: MaskCache?
     var onSelect: (() -> Void)?
@@ -177,6 +196,7 @@ private struct LookGarmentImage: View {
             store: store,
             shadow: .init(opacity: 0.5, radius: 18, y: 11)
         )
+        .scaleEffect(x: isFlipped ? -1 : 1)
         .frame(width: transform.baseWidth, height: transform.baseHeight)
         // **El área de toque es la silueta, no el rectángulo.** Una chaqueta
         // recortada tiene media esquina transparente: por bounding box, tocar

@@ -106,6 +106,10 @@ struct ShareRenderSheet: View {
             try await Self.addToLibrary(image)
             _ = await pause
             state = .saved
+            // Y vuelve a "Guardar en Fotos": la confirmación se lee y se va,
+            // y se puede guardar otra vez.
+            try? await Task.sleep(for: .seconds(1.8))
+            if state == .saved { state = .idle }
         } catch {
             state = .failed
         }
