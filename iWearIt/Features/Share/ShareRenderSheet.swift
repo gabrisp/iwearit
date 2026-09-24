@@ -14,26 +14,35 @@ struct ShareRenderSheet: View {
     @State private var image: UIImage?
     @State private var state: SaveState = .idle
 
+    /// La vista previa, en el 3:4 de todo lo exportado.
+    private static let previewSize = CGSize(width: 330, height: 440)
+
     private enum SaveState: Equatable { case idle, saving, saved, denied, failed }
 
     var body: some View {
         VStack(spacing: WK.Spacing.l) {
+            // Tamaño fijo en 3:4 y el recorte sobre la imagen misma: con el
+            // recorte fuera, en un marco más ancho que la foto, las esquinas
+            // quedaban en el aire y la imagen salía con picos.
             Group {
                 if let image {
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFit()
+                        .scaledToFill()
                         .transition(.blurReplace)
                 } else {
-                    RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
-                        .fill(WK.Palette.shelf)
-                        .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                    WK.Palette.shelf
                         .wkShimmer(isActive: true)
                 }
             }
-            .frame(maxHeight: 440)
+            .frame(width: Self.previewSize.width, height: Self.previewSize.height)
             .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                    .strokeBorder(.black.opacity(0.06), lineWidth: 1)
+            }
             .shadow(color: .black.opacity(0.15), radius: 16, y: 8)
+            .padding(.top, WK.Spacing.m)
 
             WKPrimaryButton(title, systemImage: symbol, surface: .glass) {
                 Task { await save() }
