@@ -404,7 +404,9 @@ struct InspoScreen: View {
                 garments: look.garmentIDs.compactMap { byID[$0] },
                 outfit: outfit(for: look),
                 store: appEnvironment.imageStore,
-                backdrop: InspoPalette.color(InspoPalette.backdrop(for: look)),
+                backdrop: InspoPalette.color(
+                    InspoPalette.backdrop(for: look, garments: look.garmentIDs.compactMap { byID[$0] })
+                ),
                 isSaved: saved.contains(look.id),
                 onSave: { save(look) },
                 onPlan: { sheet = .day(look) },
@@ -629,7 +631,7 @@ struct InspoScreen: View {
             // El papel que estabas viendo se guarda con él: abrir lo guardado
             // y encontrárselo en otro color sería otra prenda más que no
             // pediste.
-            backdropRaw: InspoPalette.backdrop(for: look).rawValue,
+            backdropRaw: InspoPalette.backdrop(for: look, garments: pieces).rawValue,
             context: modelContext,
             seed: InspoPalette.seed(for: look)
         )
@@ -993,9 +995,80 @@ enum InspoPalette {
         return hash
     }
 
-    static func backdrop(for look: StylistLook) -> OutfitBackdrop {
+    /// El papel de un conjunto: **al azar, pero que pegue**.
+    ///
+    /// ## Por qué no vale el azar a secas
+    ///
+    /// Porque un conjunto verde oliva sobre papel oliva desaparece, y uno
+    /// beige sobre papel crema es una mancha clara dentro de otra. El azar
+    /// puro acierta la mayoría de las veces y falla estrepitosamente la que
+    /// no, que es justo la que se recuerda.
+    ///
+    /// Así que se puntúa cada papel contra la ropa que lleva el conjunto:
+    ///
+    /// 1. **Contraste de claridad.** Ni poco —la ropa se pierde— ni
+    ///    exagerado, que un papel oscuro bajo ropa clara convierte la tarjeta
+    ///    en un cartel. El punto dulce está a media distancia.
+    /// 2. **Distancia de tono.** Dos verdes distintos siguen siendo dos
+    ///    verdes; separarse del tono dominante es lo que hace que la prenda
+    ///    se lea como prenda y el papel como papel.
+    /// 3. **Sin pasarse de color.** Entre dos papeles que empatan, gana el
+    ///    más tranquilo: el papel no compite con lo que sostiene.
+    ///
+    /// De los mejores se elige con la semilla del conjunto, que es lo que
+    /// mantiene el azar —dos conjuntos parecidos no salen iguales— sin perder
+    /// que el mismo conjunto tenga siempre su color.
+    static func backdrop(for look: StylistLook, garments: [Garment] = []) -> OutfitBackdrop {
         let all = OutfitBackdrop.allCases
-        return all[Int(seed(for: look) % UInt64(all.count))]
+        let seed = seed(for: look)
+        let colors = garments.compactMap(\.colors.first)
+        guard !colors.isEmpty else { return all[Int(seed % UInt64(all.count))] }
+
+        let total = colors.reduce(0.0) { $0 + max($1.weight, 0.001) }
+        let mixed = colors.reduce(into: (red: 0.0, green: 0.0, blue: 0.0)) { sum, color in
+            let weight = max(color.weight, 0.001) / total
+            sum.red += color.red * weight
+            sum.green += color.green * weight
+            sum.blue += color.blue * weight
+        }
+        let clothesLuminance = 0.2126 * mixed.red + 0.7152 * mixed.green + 0.0722 * mixed.blue
+        let clothesHue = hue(red: mixed.red, green: mixed.green, blue: mixed.blue)
+
+        let ranked = all.sorted { first, second in
+            score(first, luminance: clothesLuminance, hue: clothesHue)
+                > score(second, luminance: clothesLuminance, hue: clothesHue)
+        }
+        // Los cinco mejores y no el mejor: con uno solo, todos los conjuntos
+        // de tonos parecidos saldrían sobre el mismo papel y la pantalla se
+        // volvería monocroma.
+        let best = Array(ranked.prefix(5))
+        return best[Int(seed % UInt64(best.count))]
+    }
+
+    private static func score(_ backdrop: OutfitBackdrop, luminance: Double, hue: Double) -> Double {
+        // A 0,35 de diferencia de claridad se lee perfecto; más allá empieza a
+        // ser un cartel. La campana premia acercarse a ese punto.
+        let contrast = 1 - min(1, abs(abs(backdrop.luminance - luminance) - 0.35) / 0.35)
+        // Distancia de tono por el lado corto del círculo, normalizada.
+        let raw = abs(backdrop.hue - hue)
+        let distance = min(raw, 1 - raw) * 2
+        // Y un empate lo rompe el más tranquilo.
+        return contrast * 0.6 + distance * 0.3 + (1 - backdrop.saturation) * 0.1
+    }
+
+    private static func hue(red: Double, green: Double, blue: Double) -> Double {
+        let maximum = max(red, green, blue)
+        let minimum = min(red, green, blue)
+        let delta = maximum - minimum
+        guard delta > 0.0001 else { return 0 }
+        let hue: Double
+        switch maximum {
+        case red: hue = (green - blue) / delta
+        case green: hue = 2 + (blue - red) / delta
+        default: hue = 4 + (red - green) / delta
+        }
+        let normalised = (hue / 6).truncatingRemainder(dividingBy: 1)
+        return normalised < 0 ? normalised + 1 : normalised
     }
 
     static func color(_ backdrop: OutfitBackdrop) -> Color {

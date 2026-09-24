@@ -1357,43 +1357,137 @@ private struct TrayFilterBars: View {
     private var filled: [Section] { sections.filter { !$0.filters.isEmpty } }
 
     var body: some View {
-        // **Una fila, con los grupos separados por una línea.**
+        // **Menús, no una fila interminable de píldoras.**
         //
-        // Los títulos estaban por un motivo bueno —"negro" y "deporte" no
-        // dicen por sí solos cuál es color y cuál estilo— pero costaban cuatro
-        // franjas de bandeja, que es más de lo que ese motivo vale. Una línea
-        // fina separa igual: se ve que ahí cambia el criterio, y el chip de un
-        // color lleva además su muestra delante.
-        ScrollView(.horizontal) {
-            HStack(spacing: WK.Spacing.xs) {
-                ForEach(filled) { section in
-                    if section.id != filled.first?.id {
-                        Rectangle()
-                            .fill(WK.Palette.ink(0.12))
-                            .frame(width: 1, height: 20)
-                            .padding(.horizontal, WK.Spacing.xs)
+        // Con todos los filtros puestos a la vez —las ocho partes, las baldas
+        // que tengas, ocho colores— la fila medía tres pantallas: encontrar
+        // "zapatos" era desplazarse a ciegas por una tira donde todo se
+        // parece. Un menú por criterio cabe en una línea, dice **cuántos**
+        // llevas puestos de cada uno y enseña sus opciones con su marca, que
+        // es como se elige de una lista larga en cualquier otro sitio.
+        HStack(spacing: WK.Spacing.s) {
+            ForEach(filled) { section in
+                if section.filters.count == 1, let only = section.filters.first {
+                    // Un solo filtro no necesita menú: es un interruptor.
+                    TrayFilterChip(
+                        label: only.label,
+                        swatch: only.colorKey.flatMap { swatches[$0] },
+                        isSelected: selection.contains(only)
+                    ) {
+                        withAnimation(WKAnimation.selection) { toggle(only) }
                     }
-                    ForEach(section.filters, id: \.self) { filter in
-                        TrayFilterChip(
-                            label: filter.label,
-                            swatch: filter.colorKey.flatMap { swatches[$0] },
-                            isSelected: selection.contains(filter)
-                        ) {
-                            withAnimation(WKAnimation.selection) {
-                                if selection.contains(filter) {
-                                    selection.remove(filter)
-                                } else {
-                                    selection.insert(filter)
-                                }
-                            }
+                } else {
+                    TrayFilterMenu(
+                        title: section.title,
+                        filters: section.filters,
+                        swatches: swatches,
+                        selection: $selection
+                    )
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            // **Quitarlos todos, cuando hay algo que quitar.**
+            //
+            // Con los criterios escondidos en menús, un filtro puesto en el
+            // tercero no se ve desde fuera; sin esto había que abrir los menús
+            // uno a uno para encontrar por qué falta media rejilla.
+            if !selection.isEmpty {
+                Button {
+                    withAnimation(WKAnimation.selection) { selection.removeAll() }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .frame(width: 30, height: 30)
+                        .contentShape(.circle)
+                }
+                .buttonStyle(WKPressStyle())
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, WK.Spacing.m)
+        .padding(.vertical, WK.Spacing.s)
+    }
+
+    private func toggle(_ filter: TrayFilter) {
+        if selection.contains(filter) {
+            selection.remove(filter)
+        } else {
+            selection.insert(filter)
+        }
+    }
+}
+
+/// Un criterio, con sus opciones dentro.
+///
+/// La etiqueta dice el criterio y, si hay algo elegido, **qué**: con uno, su
+/// nombre; con varios, cuántos. Un menú que solo dice "Color" cuando ya has
+/// elegido dos obliga a abrirlo para saber qué está pasando con la rejilla.
+private struct TrayFilterMenu: View {
+    let title: String
+    let filters: [TrayFilter]
+    let swatches: [String: NamedColor]
+    @Binding var selection: Set<TrayFilter>
+
+    private var chosen: [TrayFilter] { filters.filter { selection.contains($0) } }
+
+    private var label: String {
+        switch chosen.count {
+        case 0: title
+        case 1: chosen[0].label
+        default: "\(title) · \(chosen.count)"
+        }
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(filters, id: \.self) { filter in
+                Button {
+                    withAnimation(WKAnimation.selection) {
+                        if selection.contains(filter) {
+                            selection.remove(filter)
+                        } else {
+                            selection.insert(filter)
                         }
+                    }
+                } label: {
+                    // La marca la pone el propio menú con `Toggle`, pero aquí
+                    // hace falta el símbolo para que la fila diga a la vez qué
+                    // es y si está puesta.
+                    Label(
+                        filter.label,
+                        systemImage: selection.contains(filter) ? "checkmark" : ""
+                    )
+                }
+            }
+
+            if !chosen.isEmpty {
+                Divider()
+                Button("Quitar", systemImage: "xmark") {
+                    withAnimation(WKAnimation.selection) {
+                        selection.subtract(filters)
                     }
                 }
             }
+        } label: {
+            HStack(spacing: WK.Spacing.xs) {
+                Text(label)
+                    .font(WK.Font.captionMedium)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .foregroundStyle(chosen.isEmpty ? WK.Palette.primaryText : WK.Palette.onAccent)
+            .fixedSize()
             .padding(.horizontal, WK.Spacing.m)
             .padding(.vertical, WK.Spacing.s)
+            .background {
+                Capsule().fill(chosen.isEmpty ? WK.Palette.ink(0.06) : WK.Palette.accent)
+            }
         }
-        .scrollIndicators(.hidden)
+        .buttonStyle(WKPressStyle())
     }
 }
 

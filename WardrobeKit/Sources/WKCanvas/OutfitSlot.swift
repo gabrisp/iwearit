@@ -132,6 +132,12 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
 /// que notarse — si no, el selector parece roto.
 public enum OutfitBackdrop: String, CaseIterable, Sendable, Identifiable {
     case sand, clay, blush, coral, lilac, sky, teal, sage, olive, slate
+    // **Diez más.** Con diez colores y un armario de cien outfits, el papel
+    // se repetía cada dos tarjetas y dejaba de decir nada. Estos siguen la
+    // misma regla que los otros: tono medio, nada de saturaciones que griten
+    // por encima de la ropa —el papel es papel— y ninguno tan claro que se
+    // confunda con el fondo de la app.
+    case cream, butter, apricot, rose, plum, denim, ice, moss, cocoa, storm
 
     public var id: String { rawValue }
 
@@ -155,6 +161,49 @@ public enum OutfitBackdrop: String, CaseIterable, Sendable, Identifiable {
         case .sage:  (0.686, 0.765, 0.667)
         case .olive: (0.635, 0.663, 0.486)
         case .slate: (0.667, 0.686, 0.722)
+        case .cream:   (0.937, 0.914, 0.855)
+        case .butter:  (0.925, 0.867, 0.671)
+        case .apricot: (0.941, 0.788, 0.639)
+        case .rose:    (0.871, 0.663, 0.686)
+        case .plum:    (0.706, 0.624, 0.702)
+        case .denim:   (0.549, 0.639, 0.745)
+        case .ice:     (0.769, 0.843, 0.855)
+        case .moss:    (0.596, 0.686, 0.588)
+        case .cocoa:   (0.729, 0.635, 0.569)
+        case .storm:   (0.573, 0.600, 0.643)
         }
+    }
+
+    /// Claridad percibida, 0-1. La de siempre: el ojo pesa el verde mucho más
+    /// que el azul, y una media aritmética diría que un azul marino y un
+    /// verde oliva son igual de oscuros.
+    public var luminance: Double {
+        let c = components
+        return 0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue
+    }
+
+    /// Tono, 0-1, dando la vuelta al círculo. Sirve para saber si dos colores
+    /// son **el mismo color** aunque uno sea más claro.
+    public var hue: Double {
+        let c = components
+        let maximum = max(c.red, c.green, c.blue)
+        let minimum = min(c.red, c.green, c.blue)
+        let delta = maximum - minimum
+        guard delta > 0.0001 else { return 0 }
+        let hue: Double
+        switch maximum {
+        case c.red: hue = (c.green - c.blue) / delta
+        case c.green: hue = 2 + (c.blue - c.red) / delta
+        default: hue = 4 + (c.red - c.green) / delta
+        }
+        return (hue / 6).truncatingRemainder(dividingBy: 1) + (hue < 0 ? 1 : 0)
+    }
+
+    /// Cuánto color tiene. Un gris no compite con nada, así que pega con todo.
+    public var saturation: Double {
+        let c = components
+        let maximum = max(c.red, c.green, c.blue)
+        guard maximum > 0.0001 else { return 0 }
+        return (maximum - min(c.red, c.green, c.blue)) / maximum
     }
 }
