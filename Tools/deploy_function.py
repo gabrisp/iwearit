@@ -140,7 +140,10 @@ def main() -> int:
     for name, value in [
         ("OPENROUTER_API_KEY", key),
         ("OPENROUTER_MODEL", "google/gemini-2.5-flash-lite"),
-        ("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image"),
+        # Un escalón por encima del "lite": más detalle en el probador, a
+        # unos céntimos más por imagen.
+        # ("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image"),
+        ("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-image"),
         # El endpoint **público**: el que Appwrite inyecta en la función
         # (`APPWRITE_FUNCTION_API_ENDPOINT`) viene mal configurado en este
         # servidor —apunta a `/v1/realtime/v1`— y cualquier llamada ahí

@@ -353,7 +353,9 @@ async function restyle(image, key, log, error) {
       ],
       background: 'transparent',
       output_format: 'png',
-      quality: 'medium',
+      // Alta y no media: la versión de catálogo es lo que se enseña de la
+      // prenda en toda la app.
+      quality: 'high',
       n: 1,
     }),
     signal: AbortSignal.timeout(120000),
