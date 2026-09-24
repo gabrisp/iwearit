@@ -474,7 +474,23 @@ struct InspoScreen: View {
     ///
     /// Y no tiene nada que ver con ponérselo un día: se puede guardar sin
     /// fecha —te gusta y ya— y se puede poner una fecha sin guardarlo.
+    /// El corazón es un interruptor: volver a tocarlo lo quita.
+    ///
+    /// Antes solo sabía encenderse, así que un toque sin querer —o cambiar de
+    /// opinión— dejaba el conjunto en favoritos para siempre y había que ir al
+    /// armario a quitarlo. El conjunto **no se borra** al quitarle el corazón:
+    /// sigue siendo un outfit tuyo si lo habías editado o planeado; lo único
+    /// que se va es el favorito.
     private func save(_ look: StylistLook) {
+        if saved.contains(look.id) {
+            saved.remove(look.id)
+            if let outfit = outfit(for: look) {
+                outfit.isFavorite = false
+                try? modelContext.save()
+            }
+            return
+        }
+
         let outfit = outfit(for: look) ?? materialise(look, isFavorite: true)
         guard let outfit else { return }
         outfit.isFavorite = true

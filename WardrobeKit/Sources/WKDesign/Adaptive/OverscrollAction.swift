@@ -81,6 +81,8 @@ private struct OverscrollAction: ViewModifier {
     @State private var isEligible = false
     /// Ya disparado: no se repite hasta volver al final.
     @State private var hasFired = false
+    /// Decidido y esperando a que el lienzo termine de volver.
+    @State private var isPending = false
 
     /// El relleno. Negro translúcido y no el color del texto: sobre cristal,
     /// un relleno opaco tapa lo que hay detrás y la píldora deja de parecer
@@ -249,16 +251,40 @@ private struct OverscrollAction: ViewModifier {
     }
 
     private func fireIfDue() {
-        if !isTouching, isEligible, -offset >= threshold, !hasFired {
+        // **Decidido al soltar; ejecutado al aterrizar.**
+        //
+        // Lo que dispara es soltar pasado el umbral, y eso no cambia: el
+        // háptico llega ahí, que es cuando la decisión se toma. Pero la acción
+        // suele abrir una hoja, y una hoja subiendo mientras el scroll todavía
+        // está volviendo son dos animaciones peleándose por el mismo cuarto de
+        // segundo: el lienzo se quedaba a medio camino y caía de golpe. Así
+        // que se apunta, se deja que el rebote acabe —el propio scroll dice
+        // cuándo, volviendo al final— y entonces se ejecuta.
+        if !isTouching, isEligible, -offset >= threshold, !hasFired, !isPending {
             tips?.complete(.overscrollNewOutfit)
-            action()
+            isPending = true
             hasFired = true
+            // Por si el rebote no llega a contarse —un scroll que ya estaba
+            // quieto no vuelve a avisar—, un plazo máximo.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(450))
+                run()
+            }
         }
+
+        // Ha vuelto al final: el sitio donde la hoja ya no pisa a nadie.
+        if isPending, !isTouching, offset > -8 { run() }
         // Se rearma al volver al final. Con margen: pedir exactamente 0 no
         // ocurre casi nunca porque el rebote deja décimas.
-        if hasFired, !isTouching, offset.rounded() > -10 {
+        if hasFired, !isPending, !isTouching, offset.rounded() > -10 {
             hasFired = false
         }
+    }
+
+    private func run() {
+        guard isPending else { return }
+        isPending = false
+        action()
     }
 }
 

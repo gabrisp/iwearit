@@ -85,6 +85,12 @@ final class CloudSync {
     /// pantalla que estés mirando— se pregunta.
     private(set) var canEnableNow = false
 
+    /// Si ya se ha ofrecido encender la réplica en **esta** ejecución.
+    ///
+    /// Estática porque la pregunta sobrevive al objeto: contestar que sí crea
+    /// un `CloudSync` nuevo, y es justo ese el que volvía a preguntar.
+    private static var hasOffered = false
+
     /// **Ha terminado de bajar lo del otro dispositivo.**
     ///
     /// Una sola señal y no un goteo: `NSPersistentStoreRemoteChange` llega
@@ -253,7 +259,18 @@ final class CloudSync {
             switch account {
             case .available:
                 // Hay cuenta pero la app se abrió sin réplica: se ofrece.
-                if !isEnabled, AppConfiguration.syncsWithCloud { canEnableNow = true }
+                // **Una vez por arranque, y no una vez por intento.**
+                //
+                // Decir que sí reconstruye el entorno entero, y si esa vez no
+                // se pudo abrir con réplica —falta el permiso, CloudKit está
+                // caído, el contenedor todavía no existe— la app vuelve a
+                // abrirse en local con una cuenta disponible delante: es decir,
+                // exactamente la condición que levanta esta pregunta. Sin esta
+                // marca, contestar que sí la volvía a hacer, y otra vez, y otra.
+                if !isEnabled, AppConfiguration.syncsWithCloud, !Self.hasOffered {
+                    Self.hasOffered = true
+                    canEnableNow = true
+                }
                 if isEnabled, case .unavailable = status { status = .idle }
             case .noAccount:
                 status = .unavailable("sin sesión de iCloud")
