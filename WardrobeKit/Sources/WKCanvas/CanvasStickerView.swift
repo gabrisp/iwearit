@@ -68,10 +68,13 @@ public enum DatePadPalette {
 public struct DatePadGlyph: View {
     private let date: Date
     private let size: CGFloat
+    /// Cuánto se baja el taco entero, **después** de dibujarlo. Ver el cuerpo.
+    private let opacity: Double
 
-    public init(date: Date, size: CGFloat = 18) {
+    public init(date: Date, size: CGFloat = 18, opacity: Double = 1) {
         self.date = date
         self.size = size
+        self.opacity = opacity
     }
 
     private static let day: DateFormatter = {
@@ -84,27 +87,44 @@ public struct DatePadGlyph: View {
         let line = max(1, size * 0.085)
         let corner = size * 0.2
         let header = size * 0.28
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
 
-        // **Una sola figura y un solo relleno.**
+        // **Opaco por dentro, translúcido por fuera.**
         //
-        // Antes eran dos formas apiladas —el borde y la banda— pintadas las
-        // dos con el color que le pase quien lo use. Si ese color lleva
-        // opacidad, donde se cruzan se suma: la esquina de arriba salía al
-        // doble de tinta que el resto del taco, y se leía como un borrón.
-        // Dibujadas como un único `Path` —la banda recortada justo por dentro
-        // del borde, sin tocarlo— el relleno es uno y la tinta, la misma en
-        // todo el taco.
-        DatePadShape(lineWidth: line, corner: corner, header: header)
-            .fill(.foreground)
-            .frame(width: size, height: size)
-            .overlay(alignment: .bottom) {
+        // El marco y la banda se tocan, y pintados los dos con un color que ya
+        // lleva opacidad la zona donde se cruzan sale al doble de tinta: un
+        // borrón en la esquina de arriba. Dibujados **opacos** y aplanados con
+        // `compositingGroup`, la transparencia se aplica una sola vez sobre el
+        // resultado, así que el taco es de una tinta entera.
+        //
+        // Por eso la opacidad es un parámetro y no viene en el color: quien lo
+        // use pasa un color macizo y dice cuánto quiere bajarlo.
+        ZStack {
+            shape.strokeBorder(lineWidth: line)
+
+            // La cabecera del taco, **maciza**. Como raya fina no se leía a
+            // este tamaño: parecía un borde mal dibujado en vez de la banda
+            // del calendario. Recortada con la misma forma para que no se
+            // salga por las esquinas redondeadas.
+            VStack(spacing: 0) {
+                Rectangle().frame(height: header)
+                Spacer(minLength: 0)
+            }
+            .clipShape(shape)
+
+            VStack(spacing: 0) {
+                Color.clear.frame(height: header)
                 Text(Self.day.string(from: date))
                     .font(.system(size: size * 0.46, weight: .bold))
                     .monospacedDigit()
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
-                    .frame(height: size - header)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .frame(width: size * 0.88, height: size)
+        .compositingGroup()
+        .opacity(opacity)
     }
 
 }
@@ -252,29 +272,5 @@ public struct WeatherStickerView: View {
         return measurement.formatted(
             .measurement(width: .narrow, usage: .weather, numberFormatStyle: .number.precision(.fractionLength(0)))
         )
-    }
-}
-
-/// La silueta de un taco de calendario: el marco y su banda, en un solo trazo.
-private struct DatePadShape: Shape {
-    let lineWidth: CGFloat
-    let corner: CGFloat
-    let header: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        var path = RoundedRectangle(cornerRadius: corner, style: .continuous)
-            .path(in: rect)
-            .strokedPath(StrokeStyle(lineWidth: lineWidth))
-        // La banda, justo por dentro del marco: empieza donde acaba el trazo,
-        // así que no hay un solo píxel pintado dos veces.
-        path.addRect(
-            CGRect(
-                x: rect.minX + lineWidth,
-                y: rect.minY + lineWidth,
-                width: rect.width - 2 * lineWidth,
-                height: max(0, header - lineWidth)
-            )
-        )
-        return path
     }
 }

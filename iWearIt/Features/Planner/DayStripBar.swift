@@ -251,10 +251,12 @@ private struct TodayButton: View {
 
     var body: some View {
         Button(action: action) {
-            DatePadGlyph(date: date, size: 18)
-                // El mismo gris que el icono del otro extremo: el taco toma el
-                // color de quien lo pone, y aquí es un icono de barra.
-                .foregroundStyle(WK.Palette.secondaryText)
+            // El mismo gris que el icono del otro extremo, pero puesto como
+            // color macizo y opacidad aparte: con un gris que ya lleva
+            // transparencia, el marco y la banda se sumaban donde se tocan.
+            // Ver `DatePadGlyph`.
+            DatePadGlyph(date: date, size: 18, opacity: 0.55)
+                .foregroundStyle(WK.Palette.primaryText)
                 .frame(width: 44, height: 56)
                 .contentShape(.rect)
         }

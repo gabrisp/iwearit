@@ -834,8 +834,10 @@ struct PlanCreateCard: View {
                 // se lee de una: qué día es, y qué se puede hacer con él.
                 VStack(spacing: WK.Spacing.m) {
                     if let date {
-                        DatePadGlyph(date: date, size: 40)
-                            .foregroundStyle(WK.Palette.tertiaryText)
+                        // Color macizo y la opacidad aparte: ver
+                        // `DatePadGlyph`.
+                        DatePadGlyph(date: date, size: 40, opacity: 0.35)
+                            .foregroundStyle(WK.Palette.primaryText)
                     }
                     VStack(spacing: WK.Spacing.xs) {
                         Image(systemName: "plus")
