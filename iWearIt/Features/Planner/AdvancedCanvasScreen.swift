@@ -1210,7 +1210,10 @@ private struct CanvasGarmentTray: View {
                     }
                 }
             }
-            .padding(.top, WK.Spacing.s)
+            // **Sin aire arriba.** La barra de filtros ya reserva su sitio y
+            // el scroll pasa por debajo de ella; un respiro más aquí era una
+            // franja vacía entre la barra y la primera fila, y al desplazar
+            // se veía el contenido cortado un poco antes de llegar arriba.
             .padding(.bottom, WK.Spacing.l)
         }
         .scrollIndicators(.hidden)
@@ -1399,11 +1402,13 @@ private struct TrayFilterBars: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .frame(width: 30, height: 30)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .frame(width: 32, height: 32)
                         .contentShape(.circle)
                 }
                 .buttonStyle(WKPressStyle())
+                // Del mismo cristal que los menús de al lado.
+                .adaptiveGlassInteractive(in: .circle)
                 .transition(.scale.combined(with: .opacity))
             }
         }
@@ -1479,15 +1484,17 @@ private struct TrayFilterMenu: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .bold))
             }
-            .foregroundStyle(chosen.isEmpty ? WK.Palette.primaryText : WK.Palette.onAccent)
             .fixedSize()
             .padding(.horizontal, WK.Spacing.m)
             .padding(.vertical, WK.Spacing.s)
-            .background {
-                Capsule().fill(chosen.isEmpty ? WK.Palette.ink(0.06) : WK.Palette.accent)
-            }
+            .contentShape(.capsule)
         }
         .buttonStyle(WKPressStyle())
+        // **De cristal, como las píldoras de al lado.** Eran cápsulas
+        // rellenas de tinta sobre una barra de cristal: dos materiales en la
+        // misma fila, y los menús se leían como etiquetas pegadas encima en
+        // vez de como botones. El color del texto lo decide la superficie.
+        .modifier(TrayChipSurface(isSelected: !chosen.isEmpty))
     }
 }
 
