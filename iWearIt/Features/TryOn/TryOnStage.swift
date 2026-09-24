@@ -29,6 +29,33 @@ struct TryOnStage: View {
     /// Lo que se está arrastrando cada una ahora mismo.
     @State private var photoDrag: CGSize = .zero
     @State private var outfitDrag: CGSize = .zero
+    /// **Dónde cae cada una esta vez.** Se baraja en cada cambio: dos cartas
+    /// que caen siempre en el mismo sitio y con el mismo ángulo parecen
+    /// dibujadas, no puestas.
+    @State private var layout = Layout.random()
+
+    private struct Layout {
+        /// A qué lado asoma la de detrás: -1 izquierda, 1 derecha.
+        var side: CGFloat
+        var frontTilt: Double
+        var backTilt: Double
+        /// Desplazamientos, en fracción del escenario.
+        var frontShift: CGFloat
+        var backShift: CGFloat
+        var backDrop: CGFloat
+
+        static func random() -> Layout {
+            let side: CGFloat = Bool.random() ? -1 : 1
+            return Layout(
+                side: side,
+                frontTilt: Double.random(in: 1...4) * Double(side),
+                backTilt: -Double.random(in: 5...12) * Double(side),
+                frontShift: CGFloat.random(in: 0.03...0.08),
+                backShift: CGFloat.random(in: 0.22...0.32),
+                backDrop: CGFloat.random(in: 0.02...0.14)
+            )
+        }
+    }
 
     /// Si ya hay prueba que enseñar: la recién hecha o una del historial.
     private var showsResult: Bool { result != nil || showing != nil }
@@ -107,9 +134,14 @@ struct TryOnStage: View {
             .animation(.spring(duration: 0.5, bounce: 0.2), value: isWorking)
             .sensoryFeedback(.impact(weight: .light), trigger: front)
         }
+        // Cada cambio, otra caída.
+        .onChange(of: front) { _, _ in
+            withAnimation(.spring(duration: 0.5, bounce: 0.25)) { layout = .random() }
+        }
         // Al llegar una prueba, delante: es lo que se venía a ver.
         .onChange(of: result) { _, new in
             if new != nil { front = .photo }
+            layout = .random()
         }
         .onChange(of: isWorking) { _, working in
             if working { front = .photo }
@@ -129,19 +161,19 @@ struct TryOnStage: View {
             ? outfitSize(front: isFront, in: size, photoWidth: photoWidth).width
             : (isFront ? photoWidth : photoWidth * 0.62)
         // Sola —antes de la prueba—, el outfit va centrado.
+        // La de delante hacia un lado y la de detrás asomando por el otro,
+        // cada vez con otro ángulo. Ver `Layout`.
         let rest = isFront
-            ? CGSize(width: showsResult ? size.width * 0.06 : 0, height: 0)
-            : CGSize(width: -size.width * 0.28, height: size.height * 0.1)
-        let tilt: Double = isFront ? (isWorking || !showsResult ? 0 : 2) : -9
+            ? CGSize(width: showsResult ? size.width * layout.frontShift * layout.side : 0, height: 0)
+            : CGSize(width: -size.width * layout.backShift * layout.side, height: size.height * layout.backDrop)
+        let tilt: Double = isFront ? (isWorking || !showsResult ? 0 : layout.frontTilt) : layout.backTilt
 
         return content()
             .frame(width: width)
-            .shadow(color: .black.opacity(isFront ? 0.18 : 0.12), radius: isFront ? 18 : 12, y: isFront ? 10 : 6)
-            // Se inclina un poco hacia donde la llevas, como una carta.
-            .rotationEffect(.degrees(tilt + Double(drag.width) / 25))
-            .scaleEffect(drag == .zero ? 1 : 1.03)
-            .offset(x: rest.width + drag.width, y: rest.height + drag.height)
-            .zIndex(isFront ? 1 : 0)
+            // **El toque, antes de moverla.** Puesta después del
+            // desplazamiento, la zona de toque se quedaba donde estaba la
+            // tarjeta sin mover —debajo de la de delante— y tocar el trozo
+            // que asoma de la de detrás no hacía nada.
             .contentShape(.rect)
             // Con una sola tarjeta no hay nada que cambiar.
             .allowsHitTesting(showsResult)
@@ -149,7 +181,9 @@ struct TryOnStage: View {
                 front = isFront ? (which == .photo ? .outfit : .photo) : which
             }
             .gesture(
-                DragGesture(minimumDistance: 6)
+                // En coordenadas de la pantalla: dentro de una tarjeta girada
+                // el arrastre saldría girado con ella.
+                DragGesture(minimumDistance: 6, coordinateSpace: .global)
                     .onChanged { value in
                         var transaction = Transaction()
                         transaction.disablesAnimations = true
@@ -170,6 +204,12 @@ struct TryOnStage: View {
                         }
                     }
             )
+            .shadow(color: .black.opacity(isFront ? 0.18 : 0.12), radius: isFront ? 18 : 12, y: isFront ? 10 : 6)
+            // Se inclina un poco hacia donde la llevas, como una carta.
+            .rotationEffect(.degrees(tilt + Double(drag.width) / 25))
+            .scaleEffect(drag == .zero ? 1 : 1.03)
+            .offset(x: rest.width + drag.width, y: rest.height + drag.height)
+            .zIndex(isFront ? 1 : 0)
     }
 
     // El escenario de antes, fijo: el outfit detrás sin tocar.

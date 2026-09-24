@@ -189,24 +189,26 @@ private struct ProfileCard: View {
             }
             .frame(width: 84, height: 84)
             .clipShape(.circle)
-            .overlay(alignment: .bottomTrailing) {
-                Image(systemName: "pencil")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .frame(width: 28, height: 28)
-                    .adaptiveGlass(in: .circle)
-            }
+            // El lápiz sobraba: la tarjeta entera ya es el botón de editar.
+            // .overlay(alignment: .bottomTrailing) {
+            //     Image(systemName: "pencil")
+            //         .font(.caption.weight(.bold))
+            //         .foregroundStyle(WK.Palette.primaryText)
+            //         .frame(width: 28, height: 28)
+            //         .adaptiveGlass(in: .circle)
+            // }
 
             VStack(spacing: 2) {
                 Text(profile.label.isEmpty ? String(localized: "tryon.tryonarchivescreen.noName", defaultValue: "No name") : profile.label)
                     .font(WK.Font.captionMedium)
                     .foregroundStyle(WK.Palette.primaryText)
                     .lineLimit(1)
-                Text(profile.described)
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
+                // La descripción debajo sobraba: el nombre y la cara bastan.
+                // Text(profile.described)
+                //     .font(WK.Font.caption)
+                //     .foregroundStyle(WK.Palette.secondaryText)
+                //     .lineLimit(2)
+                //     .multilineTextAlignment(.center)
             }
             .frame(width: 120)
         }

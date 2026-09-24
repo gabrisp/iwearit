@@ -60,6 +60,8 @@ struct StylistChatSheet: View {
         case day(StylistLook)
         /// A qué maleta se lo llevas.
         case suitcase(StylistLook)
+        /// Compartir, como en la inspiración. Ver `ShareRenderSheet`.
+        case share(StylistLook)
         // **El archivo ya no es una hoja.** Era una tercera capa encima de la
         // hoja del estilista, y una conversación abierta desde ahí se veía a
         // dos alturas de donde se escribe. Ahora se empuja en la pila de esta
@@ -71,6 +73,7 @@ struct StylistChatSheet: View {
             case .picker: "picker"
             case let .day(look): "day-\(look.id)"
             case let .suitcase(look): "suitcase-\(look.id)"
+            case let .share(look): "share-\(look.id)"
             }
         }
     }
@@ -153,6 +156,8 @@ struct StylistChatSheet: View {
                         SuitcasePickerSheet { suitcase, dayIndex in
                             pack(look, into: suitcase, on: dayIndex)
                         }
+                    case let .share(look):
+                        ShareRenderSheet { await render(look) }
                     }
                 }
         }
@@ -256,7 +261,8 @@ struct StylistChatSheet: View {
                         onPlan: { sheet = .day(look) },
                         onEdit: { edit(look) },
                         onDislike: { dislike(look) },
-                        onPack: { sheet = .suitcase(look) }
+                        onPack: { sheet = .suitcase(look) },
+                        onShare: { sheet = .share(look) }
                     )
                     .containerRelativeFrame(.horizontal, count: 3, span: 2, spacing: WK.Spacing.m)
                 }
@@ -471,6 +477,19 @@ struct StylistChatSheet: View {
     }
 
     /// El outfit de verdad de una propuesta, si ya se hizo uno y sigue vivo.
+    /// El conjunto listo para compartir, como se ve en su tarjeta: el outfit
+    /// si ya lo es, y si no sus prendas sobre el papel de siempre.
+    private func render(_ look: StylistLook) async -> UIImage? {
+        let backdrop = UIColor(WK.Palette.canvas)
+        if let outfit = outfit(for: look) {
+            return await SnazzyExport.outfit(outfit, backdrop: backdrop, store: appEnvironment.imageStore)
+        }
+        return await SnazzyExport.look(
+            look.garmentIDs.compactMap { byID[$0] },
+            seed: 0, backdrop: backdrop, store: appEnvironment.imageStore
+        )
+    }
+
     private func outfit(for look: StylistLook) -> Outfit? {
         guard let id = feed.outfitID(for: look) else { return nil }
         guard let outfit: Outfit = modelContext.registeredModel(for: id) else { return nil }
@@ -604,6 +623,8 @@ private struct StylistResultCard: View {
     let onDislike: () -> Void
     /// A la maleta. Ver `SuitcasePickerSheet`.
     let onPack: () -> Void
+    /// Compartir. Ver `ShareRenderSheet`.
+    let onShare: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
@@ -619,6 +640,7 @@ private struct StylistResultCard: View {
                         onPlan: onPlan,
                         onPack: onPack,
                         onEdit: onEdit,
+                        onShare: onShare,
                         onDislike: onDislike,
                         layout: .column
                     )
