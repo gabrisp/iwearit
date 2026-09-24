@@ -84,11 +84,26 @@ public enum WKTabBarMetrics {
     ///   quede **centrado**.
     @MainActor
     public static func principalWidth(sideButtons: Int = 1) -> CGFloat {
+        principalWidth(leadingButtons: sideButtons, trailingButtons: sideButtons)
+    }
+
+    /// Lo mismo, contando **cada lado por separado**.
+    ///
+    /// Para cuando un lado está vacío: en el plan no hay nada a la izquierda,
+    /// y reservarle el hueco de un botón que no existe dejaba la tira con un
+    /// palmo de aire hasta el botón de la derecha. Así ocupa desde el margen
+    /// de la izquierda hasta justo antes de ese botón.
+    @MainActor
+    public static func principalWidth(leadingButtons: Int, trailingButtons: Int) -> CGFloat {
         let screen = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first?.screen.bounds.width ?? 390
-        let side = CGFloat(sideButtons) * 44 + WK.Spacing.m + WK.Spacing.s
-        return max(120, screen - 2 * side)
+        // Cada lado: su margen con el borde, y por botón su ancho y el aire
+        // que lo separa del centro.
+        func side(_ buttons: Int) -> CGFloat {
+            WK.Spacing.m + CGFloat(buttons) * (44 + WK.Spacing.s)
+        }
+        return max(120, screen - side(leadingButtons) - side(trailingButtons))
     }
 
     /// Solo el corte de la pantalla, sin barra: para quien pone su propia

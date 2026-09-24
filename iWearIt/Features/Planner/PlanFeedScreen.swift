@@ -45,6 +45,15 @@ struct PlanFeedScreen: View {
     @State private var pageSize: CGSize = .zero
     @State private var editingOutfit: Outfit?
     @State private var editingIsNew = false
+    /// **De dónde crece el editor**, o `nil` si no hay de dónde.
+    ///
+    /// Se decide al abrirlo y no después: un outfit recién creado con el día
+    /// ya lleno no tiene tarjeta en pantalla —ni la suya, que todavía no se ha
+    /// dibujado, ni la de crear, que solo existe con el día vacío—. Pedir un
+    /// zoom desde un origen que no está hacía que el sistema lo tomara en el
+    /// punto cero, y el editor crecía desde la esquina de arriba a la
+    /// izquierda. Sin origen, entra como un empujón normal, que es lo honesto.
+    @State private var zoomSourceID: UUID?
     /// **Una sola hoja, como en inspiración.** Con un `.sheet` por cada cosa
     /// —mover, elegir prendas, el calendario, probarse— SwiftUI atiende a una
     /// y deja mudas las demás. Ver `AppRouter.Sheet`.
@@ -164,9 +173,11 @@ struct PlanFeedScreen: View {
                         onOpenCalendar: { sheet = .day },
                         isInBar: true
                     )
-                    // Se reserva el mismo hueco a los dos lados aunque a la
-                    // izquierda no haya nada: así la tira queda centrada.
-                    .frame(width: WKTabBarMetrics.principalWidth(sideButtons: 1))
+                    // **Desde el margen de la izquierda hasta el botón.** A
+                    // la izquierda no hay nada, así que no se le reserva
+                    // hueco: la tira ocupa todo lo que queda sin llegar a
+                    // tocar el botón de la derecha.
+                    .frame(width: WKTabBarMetrics.principalWidth(leadingButtons: 0, trailingButtons: 1))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -195,10 +206,7 @@ struct PlanFeedScreen: View {
                 // lado, como un empujón cualquiera. Para ese caso el origen es
                 // la pantalla, que sí está. Ver `SuitcaseDetailScreen`, que ya
                 // lo resolvía así.
-                .adaptiveZoomDestination(
-                    id: editingIsNew ? Self.newOutfitZoomID : outfit.stableID,
-                    in: zoom
-                )
+                .modifier(PlanZoomDestination(id: zoomSourceID, namespace: zoom))
             }
             .sheet(item: $sheet) { which in
                 switch which {
@@ -456,8 +464,11 @@ struct PlanFeedScreen: View {
 
     // MARK: Acciones
 
-    private func edit(_ outfit: Outfit, isNew: Bool = false) {
+    private func edit(_ outfit: Outfit, isNew: Bool = false, zoomFrom source: UUID? = nil) {
         editingIsNew = isNew
+        // Uno que ya existe crece desde su tarjeta; uno nuevo, desde donde
+        // diga quien lo crea —o desde ninguna parte—.
+        zoomSourceID = isNew ? source : outfit.stableID
         editingOutfit = outfit
     }
 
@@ -500,6 +511,9 @@ struct PlanFeedScreen: View {
 
     /// Crear cuelga del día que estés mirando, y de hoy si no hay ninguno.
     private func create(with garments: [Garment]) {
+        // Antes de crearlo: si el día estaba vacío, en pantalla está la
+        // tarjeta de crear y de ahí crece el editor. Si no, no hay origen.
+        let wasEmpty = entries(of: day ?? anchor).isEmpty
         let outfit = Outfit()
         modelContext.insert(outfit)
         // Al día que se está mirando: es el que tienes delante.
@@ -512,7 +526,7 @@ struct PlanFeedScreen: View {
             modelContext.insert(item)
         }
         try? modelContext.save()
-        edit(outfit, isNew: true)
+        edit(outfit, isNew: true, zoomFrom: wasEmpty ? Self.newOutfitZoomID : nil)
     }
 
     /// El papel de un outfit: el suyo, o el de la app si no tiene.
@@ -885,5 +899,19 @@ struct PlanCreateCard: View {
                 }
             }
             .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
+    }
+}
+
+/// El zoom del editor, **solo si hay de dónde**. Ver `zoomSourceID`.
+private struct PlanZoomDestination: ViewModifier {
+    let id: UUID?
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if let id {
+            content.adaptiveZoomDestination(id: id, in: namespace)
+        } else {
+            content
+        }
     }
 }
