@@ -22,89 +22,110 @@ struct SuitcasePickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Suitcase.createdAt, order: .reverse) private var suitcases: [Suitcase]
+    @State private var flow = WKFlowStack(Step.suitcase)
     @State private var chosen: Suitcase?
 
+    enum Step: Int, WKFlowStep {
+        case suitcase, day
+        var flowDepth: Int { rawValue }
+    }
+
     var body: some View {
-        NavigationStack {
-            Group {
-                if suitcases.isEmpty {
-                    ContentUnavailableView(
-                        "Todavía no hay maletas",
-                        systemImage: "suitcase",
-                        description: Text("Créala desde el armario y este conjunto tendrá dónde ir.")
-                    )
-                } else {
-                    grid
-                }
-            }
-            .navigationTitle("¿A qué maleta?")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(WK.Palette.primaryText)
-                }
-            }
-            .navigationDestination(item: $chosen) { suitcase in
-                SuitcaseDayList(suitcase: suitcase) { index in
-                    onPick(suitcase, index)
-                    dismiss()
-                }
+        // **Sin pila de navegación y del alto de lo que lleva dentro.**
+        //
+        // Una `NavigationStack` aquí es una barra que nadie pidió —título,
+        // botón de volver y una línea— para dos pantallas que no son
+        // navegación, son una pregunta con una repregunta. El chrome es el de
+        // cualquier flujo de la app: la equis vuelve o cierra según dónde
+        // estés. Ver `WKFlowScreen`.
+        Group {
+            switch flow.step {
+            case .suitcase: suitcaseStep
+            case .day: dayStep
             }
         }
-        .presentationDetents([.medium, .large])
+        .wkDynamicSheet()
+    }
+
+    private var suitcaseStep: some View {
+        WKFlowScreen(
+            title: "¿A qué maleta?",
+            subtitle: suitcases.isEmpty
+                ? "Créala desde el armario y este conjunto tendrá dónde ir."
+                : nil,
+            stepID: Step.suitcase,
+            transition: flow.transition,
+            primaryTitle: "Ahora no",
+            isAtRoot: true,
+            onLeading: { dismiss() },
+            onPrimary: { dismiss() }
+        ) {
+            grid
+        }
+    }
+
+    private var dayStep: some View {
+        WKFlowScreen(
+            title: chosen?.name ?? "¿Qué día?",
+            subtitle: "Y si todavía no lo sabes, sin día.",
+            stepID: Step.day,
+            transition: flow.transition,
+            primaryTitle: "Sin día",
+            isAtRoot: false,
+            onLeading: { flow.move(to: .suitcase) },
+            onPrimary: { pick(nil) }
+        ) {
+            if let chosen {
+                SuitcaseDayList(suitcase: chosen, showsNoDay: false) { pick($0) }
+            }
+        }
+    }
+
+    private func pick(_ dayIndex: Int?) {
+        guard let chosen else { return }
+        onPick(chosen, dayIndex)
+        dismiss()
     }
 
     /// **Las maletas, como están en el armario.**
     ///
     /// Una lista de nombres obliga a leer para elegir entre cuatro viajes que
     /// tú distingues de un vistazo por su forma y su color —que es justo para
-    /// lo que les pusiste icono y color al crearlas—. La misma figura que en
-    /// la balda, en rejilla.
+    /// lo que les pusiste icono y color al crearlas—.
     private var grid: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 140), spacing: WK.Spacing.l)],
-                spacing: WK.Spacing.l
-            ) {
-                ForEach(suitcases) { suitcase in
-                    Button {
-                        // Sin fechas no hay día que preguntar: entra como
-                        // preparado.
-                        if suitcase.tripDayCount == nil {
-                            onPick(suitcase, nil)
-                            dismiss()
-                        } else {
-                            chosen = suitcase
-                        }
-                    } label: {
-                        VStack(spacing: WK.Spacing.xs) {
-                            SuitcaseFigure(
-                                symbolName: suitcase.symbolName,
-                                tint: SuitcaseTint(rawValue: suitcase.colorRaw ?? ""),
-                                width: 124
-                            )
-                            Text(suitcase.name)
-                                .font(WK.Font.garmentName)
-                                .foregroundStyle(WK.Palette.primaryText)
-                                .lineLimit(1)
-                            // Los días, en pequeño: es lo que dice si al
-                            // tocarla va a preguntar algo más.
-                            Text(suitcase.tripDayCount.map { "\($0) días" } ?? "Sin fechas")
-                                .font(WK.Font.caption)
-                                .foregroundStyle(WK.Palette.tertiaryText)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(.rect)
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: WK.Spacing.m), count: 3),
+            spacing: WK.Spacing.l
+        ) {
+            ForEach(suitcases) { suitcase in
+                Button {
+                    // Sin fechas no hay día que preguntar: entra como
+                    // preparado y se cierra.
+                    if suitcase.tripDayCount == nil {
+                        onPick(suitcase, nil)
+                        dismiss()
+                    } else {
+                        chosen = suitcase
+                        flow.move(to: .day)
                     }
-                    .buttonStyle(WKPressStyle())
+                } label: {
+                    VStack(spacing: WK.Spacing.xs) {
+                        SuitcaseFigure(
+                            symbolName: suitcase.symbolName,
+                            tint: SuitcaseTint(rawValue: suitcase.colorRaw ?? ""),
+                            width: 88
+                        )
+                        Text(suitcase.name)
+                            .font(WK.Font.garmentName)
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(.rect)
                 }
+                .buttonStyle(WKPressStyle())
             }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.vertical, WK.Spacing.l)
         }
-        .scrollIndicators(.hidden)
-        .background(WK.Palette.canvas)
     }
 }
 
@@ -120,6 +141,10 @@ struct SuitcasePickerSheet: View {
 /// outfits planeados, a tamaño de tocarlo.
 struct SuitcaseDayList: View {
     let suitcase: Suitcase
+    /// Si enseña el hueco de "sin día". Apagado cuando quien la enseña ya lo
+    /// ofrece por su cuenta —el flujo de elegir maleta lo lleva en su botón—,
+    /// para no dar dos veces la misma salida.
+    var showsNoDay = true
     let onPick: (Int?) -> Void
 
     private var days: Int { max(1, suitcase.tripDayCount ?? 3) }
@@ -127,28 +152,30 @@ struct SuitcaseDayList: View {
     var body: some View {
         ScrollView {
             VStack(spacing: WK.Spacing.l) {
-                // Ancho entero y el primero: es la respuesta más común.
-                Button { onPick(nil) } label: {
-                    VStack(spacing: WK.Spacing.xs) {
-                        Image(systemName: "tray")
-                            .font(.title2)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                        Text("Sin día")
-                            .font(WK.Font.headline)
-                            .foregroundStyle(WK.Palette.primaryText)
-                        Text("Preparado en la maleta")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.tertiaryText)
+                if showsNoDay {
+                    // Ancho entero y el primero: es la respuesta más común.
+                    Button { onPick(nil) } label: {
+                        VStack(spacing: WK.Spacing.xs) {
+                            Image(systemName: "tray")
+                                .font(.title2)
+                                .foregroundStyle(WK.Palette.secondaryText)
+                            Text("Sin día")
+                                .font(WK.Font.headline)
+                                .foregroundStyle(WK.Palette.primaryText)
+                            Text("Preparado en la maleta")
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, WK.Spacing.l)
+                        .background(
+                            WK.Palette.shelf,
+                            in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
+                        )
+                        .contentShape(.rect)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, WK.Spacing.l)
-                    .background(
-                        WK.Palette.shelf,
-                        in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
-                    )
-                    .contentShape(.rect)
+                    .buttonStyle(WKPressStyle())
                 }
-                .buttonStyle(WKPressStyle())
 
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: WK.Spacing.m), count: 3),
@@ -165,13 +192,12 @@ struct SuitcaseDayList: View {
                     }
                 }
             }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.vertical, WK.Spacing.l)
+            .padding(.vertical, WK.Spacing.xs)
         }
         .scrollIndicators(.hidden)
-        .background(WK.Palette.canvas)
-        .navigationTitle(suitcase.name)
-        .navigationBarTitleDisplayMode(.inline)
+        // Sin fondo ni título propios: el marco lo pone quien la enseña —el
+        // flujo de elegir maleta, o la hoja de mover un outfit—.
+        .frame(maxHeight: 320)
     }
 }
 

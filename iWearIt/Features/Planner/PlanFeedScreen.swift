@@ -88,7 +88,13 @@ struct PlanFeedScreen: View {
     private static let createID = "plan.create"
 
     /// De dónde crece el editor cuando el outfit **acaba de nacer**.
-    private static let newOutfitZoomID = "plan.new-outfit"
+    ///
+    /// Un `UUID` y no una cadena: el id de una transición de zoom se guarda
+    /// **con su tipo**, así que origen y destino tienen que ser el mismo tipo
+    /// para encontrarse. Con un `AnyHashable` envolviendo una cadena en un
+    /// lado y un `UUID` en el otro, la transición no emparejaba nada y la
+    /// pantalla entraba de lado.
+    private static let newOutfitZoomID = UUID()
 
     /// Lo planeado para un día.
     private func entries(of date: Date) -> [Entry] {
@@ -136,8 +142,6 @@ struct PlanFeedScreen: View {
             // Aquí manda ella: la tira es la de siempre, con su cápsula y su
             // botón al lado, y la barra le reserva el sitio —así el scroll de
             // debajo sabe lo que tiene encima sin que nadie lo cuente a mano.
-            // El origen del zoom para lo recién creado: la pantalla entera.
-            .adaptiveZoomSource(id: AnyHashable(Self.newOutfitZoomID), in: zoom)
             .toolbarVisibility(.hidden, for: .navigationBar)
             .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
@@ -156,9 +160,7 @@ struct PlanFeedScreen: View {
                 // la pantalla, que sí está. Ver `SuitcaseDetailScreen`, que ya
                 // lo resolvía así.
                 .adaptiveZoomDestination(
-                    id: editingIsNew
-                        ? AnyHashable(Self.newOutfitZoomID)
-                        : AnyHashable(outfit.stableID),
+                    id: editingIsNew ? Self.newOutfitZoomID : outfit.stableID,
                     in: zoom
                 )
             }
@@ -331,6 +333,7 @@ struct PlanFeedScreen: View {
             zoom: zoom,
             createID: Self.createID + date.description,
             glass: glass,
+            newOutfitID: Self.newOutfitZoomID,
             isPicking: sheet != nil,
             isEditing: editingOutfit != nil,
             onEdit: { edit($0) },
@@ -361,7 +364,7 @@ struct PlanFeedScreen: View {
                         onDelete: { deleting = entry.outfit }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
-                    .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
+                    .adaptiveZoomSource(id: entry.id, in: zoom)
                     // **El menú, solo en la rejilla.** Es donde se ven varios
                     // a la vez, que es justo cuando apetece reutilizar uno:
                     // copiarlo para variarlo, mandarlo a otro día. En revista
@@ -512,6 +515,8 @@ private struct PlanDayFeed: View {
     let createID: String
     /// El cristal compartido entre los botones y el menú.
     let glass: Namespace.ID
+    /// De dónde crece el editor de un outfit recién creado.
+    let newOutfitID: UUID
     /// Si el selector de prendas está puesto ahora mismo.
     let isPicking: Bool
     /// Si el editor está abierto encima.
@@ -536,6 +541,11 @@ private struct PlanDayFeed: View {
         if entries.isEmpty {
             PlanCreateCard(date: day)
                 .matchedGeometryEffect(id: createID, in: morph)
+                // **De aquí crece el editor de lo recién creado.** Un origen
+                // puesto en la pantalla entera envolvía a los de cada
+                // tarjeta, y el zoom cogía el de fuera: la transición salía
+                // del borde de la pantalla en vez del lienzo que tocaste.
+                .adaptiveZoomSource(id: newOutfitID, in: zoom)
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
@@ -559,8 +569,11 @@ private struct PlanDayFeed: View {
                         onDelete: { onDelete(entry.outfit) }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
-                    .adaptiveZoomSource(id: AnyHashable(entry.id), in: zoom)
                     .modifier(PlanCardSize(page: pageSize, stride: stride))
+                    // **Después de medirla.** Puesto antes, el origen del
+                    // zoom era la tarjeta sin su hueco, así que la pantalla
+                    // crecía desde un rectángulo que no es el que se ve.
+                    .adaptiveZoomSource(id: entry.id, in: zoom)
                     .id(AnyHashable(entry.id))
                 }
 
@@ -595,8 +608,17 @@ struct CreateOnOverscroll: ViewModifier {
     func body(content: Content) -> some View {
         if isOn {
             content.overscrollAction(
+                // Los mismos números que en el armario, que es donde este
+                // gesto ya existía: el mismo tirón tiene que costar lo mismo y
+                // la píldora tiene que salir a la misma altura.
+                //
+                // El hueco de la barra de pestañas **ya está reservado** —va
+                // como área segura—, así que aquí basta un respiro. Con la
+                // barra contada a mano encima de eso, la píldora salía un
+                // palmo más arriba que la del armario.
+                threshold: 84,
                 label: "Crear un outfit",
-                bottomInset: WKTabBarMetrics.clearance,
+                bottomInset: WK.Spacing.m,
                 action: action
             )
         } else {
