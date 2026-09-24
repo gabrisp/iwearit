@@ -86,3 +86,14 @@ public extension WKCircleButton where Symbol == Image {
     .padding()
     .background(WK.Palette.canvas)
 }
+
+/// Los símbolos que significan **una cosa concreta de la app**, en un sitio.
+///
+/// Un icono que se repite en tres pantallas escrito tres veces acaba siendo
+/// tres iconos: basta con que alguien cambie uno. Estos se piden por nombre.
+public enum WKSymbols {
+    /// La inspiración: propuestas que salen solas.
+    public static let inspo = "sparkles"
+    /// El estilista: una conversación.
+    public static let stylist = "text.bubble.fill"
+}

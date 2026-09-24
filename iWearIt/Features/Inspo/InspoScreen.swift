@@ -1275,7 +1275,8 @@ struct InspoMoreCard: View {
                     if isWorking {
                         ProgressView()
                     } else {
-                        Image(systemName: isExhausted ? "checkmark.circle" : "wand.and.stars")
+                        // Traer más es cosa de la inspiración, y lleva su icono.
+                        Image(systemName: isExhausted ? "checkmark.circle" : "sparkles")
                             .font(.system(size: 26))
                             .foregroundStyle(WK.Palette.secondaryText)
                     }

@@ -688,7 +688,8 @@ private struct CanvasEditorScreen: View {
                     stylistPrompt = ""
                     withAnimation(WKAnimation.selection) { isAsking = true }
                 } label: {
-                    Image(systemName: "sparkles")
+                    // El mismo icono que el estilista en todas partes.
+                    Image(systemName: WKSymbols.stylist)
                         .font(WK.Font.headline)
                         .foregroundStyle(WK.Palette.primaryText)
                         .frame(width: Self.controlSide, height: Self.controlSide)

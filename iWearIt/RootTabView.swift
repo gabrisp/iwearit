@@ -249,7 +249,10 @@ private struct RootTabBarSlot: ViewModifier {
                         switch tab {
                         case .closet: "cabinet"
                         case .planner: "calendar"
-                        case .inspo: "wand.and.stars"
+                        // Las chispas son de la inspiración: la varita es
+                        // de "mejorar" —la prenda, las monedas—, y usarla
+                        // aquí también decía que las dos cosas eran lo mismo.
+                        case .inspo: WKSymbols.inspo
                         case .profile: "person.crop.circle"
                         }
                     }
@@ -261,7 +264,11 @@ private struct RootTabBarSlot: ViewModifier {
                         // El de Lockty, en su sitio de siempre. La carita se
                         // queda comentada por si vuelve.
                         Button(action: onAssistant) {
-                            Image(systemName: "sparkles")
+                            // **El estilista es una conversación**, y se dibuja
+                            // como una: las chispas son de la pestaña de
+                            // inspiración, justo al lado, y con el mismo icono
+                            // en los dos no se sabía cuál era cuál.
+                            Image(systemName: WKSymbols.stylist)
                                 .font(.body.weight(.medium))
                                 .foregroundStyle(WK.Palette.primaryText)
                                 .frame(width: 52, height: 52)
