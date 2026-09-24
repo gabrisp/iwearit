@@ -267,6 +267,8 @@ private struct CanvasEditorScreen: View {
         case tryOn
         /// Compartir el lienzo como imagen, con la marca. Ver `SnazzyExport`.
         case share
+        /// Tus pruebas como stickers. Ver `TryOnStickerSheet`.
+        case tryOnStickers
         var id: String { rawValue }
     }
 
@@ -648,6 +650,9 @@ private struct CanvasEditorScreen: View {
             // lienzo transparente la dejaba flotando entre las prendas.
             TryOnSheet(outfit: outfit)
                 .presentationBackground(WK.Palette.canvas)
+        case .tryOnStickers:
+            TryOnStickerSheet(outfit: outfit, store: store) {}
+                .presentationBackground(WK.Palette.canvas)
         case .share:
             if let exportImage {
                 ShareImageSheet(image: exportImage)
@@ -807,16 +812,18 @@ private struct CanvasEditorScreen: View {
                 editedOutfitID: outfit.stableID
             )
         case .stickers:
-            VStack(alignment: .leading, spacing: WK.Spacing.m) {
-                StickerPicker { kind in
-                    add(kind)
-                    withAnimation(WKAnimation.arrival) { trayKind = nil }
-                }
-                // Tus pruebas como stickers. Ver `TryOnStickerStrip`.
-                TryOnStickerStrip(outfit: outfit, store: store) {
-                    withAnimation(WKAnimation.arrival) { trayKind = nil }
-                }
+            // "Probados" es un sticker más: abre su hoja con las de este
+            // outfit y las demás. La tira suelta de antes, comentada.
+            StickerPicker(onTryOns: {
+                withAnimation(WKAnimation.arrival) { trayKind = nil }
+                sheet = .tryOnStickers
+            }) { kind in
+                add(kind)
+                withAnimation(WKAnimation.arrival) { trayKind = nil }
             }
+            // TryOnStickerStrip(outfit: outfit, store: store) {
+            //     withAnimation(WKAnimation.arrival) { trayKind = nil }
+            // }
         case .drawing:
             DrawingPicker(drawing: drawing)
         case .backdrop:

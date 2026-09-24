@@ -323,6 +323,23 @@
           }
         }
       }
+    },
+    "wkcanvas.canvastray.triedOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tried on"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Probados"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

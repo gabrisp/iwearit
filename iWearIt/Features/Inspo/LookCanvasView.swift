@@ -62,6 +62,11 @@ struct LookCanvasView: View {
     /// Dónde cae cada prenda. Se calcula una vez por conjunto y no por
     /// fotograma: es aritmética barata, pero dentro del `body` se repetiría en
     /// cada scroll.
+    /// Los stickers del outfit guardado. Una propuesta sin guardar no tiene.
+    private var stickers: [CanvasItem] {
+        outfit?.items.filter { $0.sticker != nil } ?? []
+    }
+
     private var placed: [(garment: Garment, transform: ItemTransform)] {
         if let outfit {
             return outfit.items
@@ -114,6 +119,22 @@ struct LookCanvasView: View {
                         onSelect: onSelectGarment.map { select in { select(entry.garment) } },
                         onDoubleTap: onDoubleTap
                     )
+                }
+
+                // **Y los stickers**, como en el editor: una prueba metida en
+                // el outfit, un texto, la fecha. Antes se saltaban y lo que
+                // ponías en el editor desaparecía al salir.
+                ForEach(stickers, id: \.id) { item in
+                    if let sticker = item.sticker {
+                        let transform = item.transform
+                        CanvasStickerView(sticker: sticker, store: store)
+                            .frame(width: transform.baseWidth, height: transform.baseHeight)
+                            .scaleEffect(transform.scale)
+                            .rotationEffect(.radians(transform.rotation))
+                            .position(x: transform.x, y: transform.y)
+                            .zIndex(transform.zIndex)
+                            .allowsHitTesting(false)
+                    }
                 }
             }
             .frame(width: CanvasSpace.width, height: CanvasSpace.height)

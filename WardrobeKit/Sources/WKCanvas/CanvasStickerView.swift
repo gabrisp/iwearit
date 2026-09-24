@@ -9,11 +9,18 @@ import WKPersistence
 /// qué— qué hay dentro. Mueve, gira, escala y apila una caja; lo que se pinta
 /// en esa caja se decide aquí. Por eso un sticker se manipula exactamente
 /// igual que una prenda sin duplicar una sola línea de gestos.
-struct CanvasStickerView: View {
+public struct CanvasStickerView: View {
     let sticker: CanvasSticker
     let store: ImageStore
 
-    var body: some View {
+    /// Pública para pintar los stickers también fuera del editor: las
+    /// tarjetas del plan y de la inspiración los enseñan igual.
+    public init(sticker: CanvasSticker, store: ImageStore) {
+        self.sticker = sticker
+        self.store = store
+    }
+
+    public var body: some View {
         switch sticker {
         case let .date(value):
             DateStickerView(date: value)

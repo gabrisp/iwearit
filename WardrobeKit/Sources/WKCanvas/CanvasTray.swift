@@ -287,9 +287,13 @@ private struct CanvasTrayTab: View {
 /// Las cuatro cosas que se pueden pegar.
 public struct StickerPicker: View {
     private let onPick: (CanvasSticker.Kind) -> Void
+    /// "Probados": tus pruebas como stickers. Lo pone la app, que es quien
+    /// las conoce; sin acción no hay casilla.
+    private let onTryOns: (() -> Void)?
 
-    public init(onPick: @escaping (CanvasSticker.Kind) -> Void) {
+    public init(onTryOns: (() -> Void)? = nil, onPick: @escaping (CanvasSticker.Kind) -> Void) {
         self.onPick = onPick
+        self.onTryOns = onTryOns
     }
 
     public var body: some View {
@@ -298,6 +302,9 @@ public struct StickerPicker: View {
             StickerTile(symbol: "calendar", label: String(localized: "wkcanvas.canvastray.date", defaultValue: "Date", bundle: .module)) { onPick(.date) }
             StickerTile(symbol: "textformat", label: String(localized: "wkcanvas.canvastray.text", defaultValue: "Text", bundle: .module)) { onPick(.text) }
             StickerTile(symbol: "cloud.sun", label: String(localized: "wkcanvas.canvastray.weather", defaultValue: "Weather", bundle: .module)) { onPick(.weather) }
+            if let onTryOns {
+                StickerTile(symbol: "person.crop.rectangle.stack", label: String(localized: "wkcanvas.canvastray.triedOn", defaultValue: "Tried on", bundle: .module), action: onTryOns)
+            }
         }
         .padding(.horizontal, WK.Spacing.m)
     }
