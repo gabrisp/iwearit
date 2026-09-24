@@ -306,6 +306,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Snazzy;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Haz una foto a una prenda para añadirla a tu armario.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Para saber qué tiempo hace donde estás y proponerte ropa acorde. La ubicación no sale del dispositivo: solo se usa para consultar el parte.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Para guardar tus outfits y pruebas en Fotos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Snazzy analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
 				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -346,6 +347,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Snazzy;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Haz una foto a una prenda para añadirla a tu armario.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Para saber qué tiempo hace donde estás y proponerte ropa acorde. La ubicación no sale del dispositivo: solo se usa para consultar el parte.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Para guardar tus outfits y pruebas en Fotos.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Snazzy analiza tus fotos en tu propio iPhone para recortar las prendas que llevas y construir tu armario digital. Las fotos no salen del dispositivo.";
 				INFOPLIST_KEY_UIAppFonts = "PlusJakartaSans-Light.ttf PlusJakartaSans-Regular.ttf PlusJakartaSans-Medium.ttf PlusJakartaSans-SemiBold.ttf PlusJakartaSans-Bold.ttf";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

@@ -68,6 +68,8 @@ struct PlanFeedScreen: View {
         case day
         /// Cómo te queda puesto.
         case tryOn(Outfit)
+        /// Compartir: el lienzo renderizado y guardar. Ver `ShareRenderSheet`.
+        case share(Outfit)
 
         var id: String {
             switch self {
@@ -75,6 +77,7 @@ struct PlanFeedScreen: View {
             case .picker: "picker"
             case .day: "day"
             case let .tryOn(outfit): "tryon-\(outfit.stableID)"
+            case let .share(outfit): "share-\(outfit.stableID)"
             }
         }
     }
@@ -222,6 +225,14 @@ struct PlanFeedScreen: View {
                     }
                 case .day:
                     dayJump
+                case let .share(outfit):
+                    ShareRenderSheet {
+                        await SnazzyExport.outfit(
+                            outfit,
+                            backdrop: UIColor(PlanFeedScreen.backdrop(of: outfit)),
+                            store: appEnvironment.imageStore
+                        )
+                    }
                 case let .tryOn(outfit):
                     // **Probarse desde el plan y no solo desde el editor.**
                     // Lo que tienes planeado para el jueves es justo lo que
@@ -435,6 +446,7 @@ struct PlanFeedScreen: View {
             onEdit: { edit($0) },
             onMove: { sheet = .move($0) },
             onTryOn: { sheet = .tryOn($0) },
+            onShare: { sheet = .share($0) },
             onDelete: { deleting = $0 },
             onCreate: { sheet = .picker }
         )
@@ -457,6 +469,7 @@ struct PlanFeedScreen: View {
                         onMove: { sheet = .move(entry.outfit) },
                         onDuplicate: { duplicate(entry.outfit) },
                         onTryOn: { sheet = .tryOn(entry.outfit) },
+                        onShare: { sheet = .share(entry.outfit) },
                         onDelete: { deleting = entry.outfit }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
@@ -633,6 +646,7 @@ private struct PlanDayFeed: View {
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
     let onTryOn: (Outfit) -> Void
+    let onShare: (Outfit) -> Void
     let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
@@ -677,6 +691,7 @@ private struct PlanDayFeed: View {
                         onEdit: { onEdit(entry.outfit) },
                         onMove: { onMove(entry.outfit) },
                         onTryOn: { onTryOn(entry.outfit) },
+                        onShare: { onShare(entry.outfit) },
                         onDelete: { onDelete(entry.outfit) }
                     )
                     .matchedGeometryEffect(id: entry.id, in: morph)
@@ -781,6 +796,7 @@ private struct PlanFeedCard: View {
     let onEdit: () -> Void
     let onMove: () -> Void
     let onTryOn: () -> Void
+    let onShare: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -827,6 +843,10 @@ private struct PlanFeedCard: View {
                 // pantalla donde más se mira.
                 WKCircleButton("person.crop.rectangle", size: .compact, action: onTryOn)
                     .tint(WK.Palette.primaryText)
+                // Compartir, como una acción más del outfit. Ver
+                // `ShareRenderSheet`.
+                WKCircleButton("square.and.arrow.up", size: .compact, action: onShare)
+                    .tint(WK.Palette.primaryText)
                 // El color **en el símbolo** y no en el `tint`: el estilo del
                 // botón pinta su etiqueta con el color primario, así que el
                 // tinte de fuera no llegaba y la papelera salía negra como
@@ -861,6 +881,7 @@ private struct PlanGridCell: View {
     let onMove: () -> Void
     let onDuplicate: () -> Void
     let onTryOn: () -> Void
+    let onShare: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -885,6 +906,7 @@ private struct PlanGridCell: View {
                 Menu {
                     Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil", action: onEdit)
                     Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle", action: onTryOn)
+                    Button(String(localized: "plan.share", defaultValue: "Share"), systemImage: "square.and.arrow.up", action: onShare)
                     Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square", action: onDuplicate)
                     Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar", action: onMove)
                     Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "trash", role: .destructive, action: onDelete)

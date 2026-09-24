@@ -424,18 +424,20 @@ private struct CanvasEditorScreen: View {
             }
             // **Probártelo**, que es la pregunta que queda cuando el conjunto
             // ya está montado: ¿cómo me queda? Ver `TryOnSheet`.
-            // **Exportar el lienzo**, con "Snazzy" abajo a la derecha.
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { Task { await exportCanvas() } } label: {
-                    if isExporting {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-                .tint(WK.Palette.primaryText)
-                .disabled(outfit.garments.isEmpty || isExporting)
-            }
+            // Compartir ya no va en el editor: es una acción más del outfit
+            // en el plan. Ver `ShareRenderSheet`.
+            // // **Exportar el lienzo**, con "Snazzy" abajo a la derecha.
+            // ToolbarItem(placement: .topBarTrailing) {
+            //     Button { Task { await exportCanvas() } } label: {
+            //         if isExporting {
+            //             ProgressView()
+            //         } else {
+            //             Image(systemName: "square.and.arrow.up")
+            //         }
+            //     }
+            //     .tint(WK.Palette.primaryText)
+            //     .disabled(outfit.garments.isEmpty || isExporting)
+            // }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { sheet = .tryOn } label: {
                     Image(systemName: "person.crop.rectangle")

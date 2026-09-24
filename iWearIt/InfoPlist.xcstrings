@@ -68,6 +68,23 @@
           }
         }
       }
+    },
+    "NSPhotoLibraryAddUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To save your outfits and try-ons to your Photos."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para guardar tus outfits y pruebas en Fotos."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

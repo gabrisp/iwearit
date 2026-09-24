@@ -47,12 +47,15 @@ struct SuitcaseOutfitsFeedTab: View {
         case move(Outfit)
         case picker
         case tryOn(Outfit)
+        /// Compartir. Ver `ShareRenderSheet`.
+        case share(Outfit)
 
         var id: String {
             switch self {
             case let .move(outfit): "move-\(outfit.stableID)"
             case .picker: "picker"
             case let .tryOn(outfit): "tryon-\(outfit.stableID)"
+            case let .share(outfit): "share-\(outfit.stableID)"
             }
         }
     }
@@ -189,6 +192,14 @@ struct SuitcaseOutfitsFeedTab: View {
                         guard !picked.isEmpty else { return }
                         create(with: picked)
                     }
+                case let .share(outfit):
+                    ShareRenderSheet {
+                        await SnazzyExport.outfit(
+                            outfit,
+                            backdrop: UIColor(SuitcaseTint.backdrop(for: suitcase.colorRaw)),
+                            store: appEnvironment.imageStore
+                        )
+                    }
                 case let .tryOn(outfit):
                     TryOnSheet(outfit: outfit)
                         .presentationBackground(WK.Palette.canvas)
@@ -258,6 +269,7 @@ struct SuitcaseOutfitsFeedTab: View {
             onEdit: { onEdit($0, false) },
             onMove: { sheet = .move($0) },
             onTryOn: { sheet = .tryOn($0) },
+            onShare: { sheet = .share($0) },
             onDelete: { deleting = $0 },
             onCreate: { sheet = .picker }
         )
@@ -279,6 +291,7 @@ struct SuitcaseOutfitsFeedTab: View {
                         onMove: { sheet = .move(outfit) },
                         onDuplicate: { duplicate(outfit) },
                         onTryOn: { sheet = .tryOn(outfit) },
+                        onShare: { sheet = .share(outfit) },
                         onDelete: { deleting = outfit }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
@@ -289,6 +302,9 @@ struct SuitcaseOutfitsFeedTab: View {
                         Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil") { onEdit(outfit, false) }
                         Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle") {
                             sheet = .tryOn(outfit)
+                        }
+                        Button(String(localized: "plan.share", defaultValue: "Share"), systemImage: "square.and.arrow.up") {
+                            sheet = .share(outfit)
                         }
                         Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(outfit)
@@ -376,6 +392,7 @@ private struct SuitcaseDayFeed: View {
     let onEdit: (Outfit) -> Void
     let onMove: (Outfit) -> Void
     let onTryOn: (Outfit) -> Void
+    let onShare: (Outfit) -> Void
     let onDelete: (Outfit) -> Void
     let onCreate: () -> Void
 
@@ -392,6 +409,7 @@ private struct SuitcaseDayFeed: View {
                         onEdit: { onEdit(outfit) },
                         onMove: { onMove(outfit) },
                         onTryOn: { onTryOn(outfit) },
+                        onShare: { onShare(outfit) },
                         onDelete: { onDelete(outfit) }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
@@ -433,6 +451,7 @@ private struct SuitcaseFeedCard: View {
     let onEdit: () -> Void
     let onMove: () -> Void
     let onTryOn: () -> Void
+    let onShare: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -459,6 +478,8 @@ private struct SuitcaseFeedCard: View {
                     .tint(WK.Palette.primaryText)
                 }
                 WKCircleButton("person.crop.rectangle", size: .compact, action: onTryOn)
+                    .tint(WK.Palette.primaryText)
+                WKCircleButton("square.and.arrow.up", size: .compact, action: onShare)
                     .tint(WK.Palette.primaryText)
                 // El color en el símbolo: el estilo del botón pinta la
                 // etiqueta con el primario y el `tint` de fuera no llegaba.
@@ -521,6 +542,7 @@ private struct SuitcaseGridCell: View {
     let onMove: () -> Void
     let onDuplicate: () -> Void
     let onTryOn: () -> Void
+    let onShare: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -536,6 +558,7 @@ private struct SuitcaseGridCell: View {
             Menu {
                 Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil", action: onEdit)
                 Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle", action: onTryOn)
+                Button(String(localized: "plan.share", defaultValue: "Share"), systemImage: "square.and.arrow.up", action: onShare)
                 Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square", action: onDuplicate)
                 if canMove {
                     Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar", action: onMove)
