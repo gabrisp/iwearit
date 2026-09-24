@@ -33,6 +33,9 @@ public enum WardrobeSchemaV1: VersionedSchema {
             // Lo que te gusta y lo que no, con su contexto. Va sincronizado:
             // tus gustos son tuyos, no de este teléfono. Ver `StyleVerdict`.
             StyleVerdict.self,
+            // Lo que ya te has probado: cuesta dinero y tiempo, así que no se
+            // tira al cerrar la hoja. Ver `TryOnResult`.
+            TryOnResult.self,
             GarmentImageBlob.self,
             SyncDevice.self,
             WebShortcut.self,

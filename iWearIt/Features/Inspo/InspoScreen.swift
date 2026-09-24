@@ -866,8 +866,20 @@ struct InspoLookCard: View {
 
     private var actions: some View {
         VStack(spacing: WK.Spacing.xs) {
-            circle(isSaved ? keep.doneSymbol : keep.symbol, action: onSave)
-                .foregroundStyle(isSaved ? WK.Palette.accent : WK.Palette.primaryText)
+            // **El corazón se llena con el dedo.**
+            //
+            // Arrastrando a la derecha se va tiñendo de rojo desde abajo
+            // —lleno justo cuando el gesto ya cuenta, que es el mismo
+            // instante del golpecito—, y tocándolo se llena de un salto. Es la
+            // misma señal por los dos caminos: el gesto invisible y el botón
+            // visible hacen lo mismo, así que tienen que decirlo igual.
+            KeepButton(
+                symbol: keep.symbol,
+                doneSymbol: keep.doneSymbol,
+                isSaved: isSaved,
+                progress: keepProgress,
+                action: onSave
+            )
             if showsPlan { circle("calendar", action: onPlan) }
             // **Y la maleta.** El corazón es del armario y el calendario es
             // del jueves; esto es del viaje, que no es ninguna de las dos
@@ -904,9 +916,58 @@ struct InspoLookCard: View {
     /// El botón redondo de siempre, con la medida de siempre. Ver
     /// `WKCircleButton`: antes cada sitio lo ponía a mano con su `frame`, y no
     /// había dos iguales.
+    /// Cuánto le falta al arrastre para contar como me gusta, de 0 a 1. Solo
+    /// hacia la derecha: a la izquierda lo que se está diciendo es lo otro.
+    private var keepProgress: CGFloat {
+        guard drag > 0 else { return 0 }
+        return min(1, drag / Self.threshold)
+    }
+
     private func circle(_ symbol: String, action: @escaping () -> Void) -> some View {
         WKCircleButton(symbol, size: .compact, action: action)
             .tint(WK.Palette.primaryText)
+    }
+}
+
+/// El botón de guardar, que se llena mientras tiras.
+///
+/// El relleno va **dentro del símbolo**, no detrás: un círculo rojo creciendo
+/// bajo un corazón negro son dos cosas moviéndose, y lo que tiene que pasar es
+/// que el corazón se encienda. Se dibuja el símbolo lleno recortado por abajo
+/// a la altura del progreso, encima del vacío.
+private struct KeepButton: View {
+    let symbol: String
+    let doneSymbol: String
+    let isSaved: Bool
+    /// De 0 a 1. A 1 es justo cuando el gesto ya cuenta.
+    let progress: CGFloat
+    let action: () -> Void
+
+    var body: some View {
+        WKCircleButton(size: .compact, action: action) {
+            ZStack {
+                Image(systemName: isSaved ? doneSymbol : symbol)
+                    .foregroundStyle(isSaved ? .red : WK.Palette.primaryText)
+                if !isSaved, progress > 0 {
+                    Image(systemName: doneSymbol)
+                        .foregroundStyle(.red)
+                        .mask(alignment: .bottom) {
+                            GeometryReader { proxy in
+                                Rectangle()
+                                    .frame(height: proxy.size.height * progress)
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        maxHeight: .infinity,
+                                        alignment: .bottom
+                                    )
+                            }
+                        }
+                }
+            }
+            // Sin animación propia: el progreso viene del dedo y ya se mueve
+            // con él. Animarlo aquí lo dejaría siempre un poco por detrás.
+            .animation(nil, value: progress)
+        }
     }
 }
 

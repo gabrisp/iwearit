@@ -85,6 +85,12 @@ public final class Outfit {
     ///
     /// Y con sincronización importa el doble: este es el mismo en todos los
     /// dispositivos; el de SwiftData, no.
+    /// Lo que se ha probado de este conjunto. Ver `TryOnResult`.
+    ///
+    /// Vacío por defecto y sin borrado en cascada: el probado es una foto
+    /// tuya, no una propiedad del outfit.
+    @Relationship(deleteRule: .nullify) public var tryOns: [TryOnResult]? = []
+
     public var stableID: UUID { id }
 
     /// Siguiente `zIndex` para traer una prenda al frente.

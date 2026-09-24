@@ -61,6 +61,18 @@ struct SuitcaseOutfitsFeedTab: View {
     /// Los días del viaje. Sin fechas, un solo hueco: lo preparado.
     private var dayCount: Int { suitcase.tripDayCount ?? 1 }
 
+    /// **El mismo hueco que en el plan.**
+    ///
+    /// Allí el scroll llega ya recortado por las barras —van como área segura—
+    /// así que su alto *es* lo que se ve. Aquí no: la maleta ignora el área
+    /// segura a propósito —el papel llega a los cuatro bordes— y las barras se
+    /// descuentan a mano. Sin restarlas, el hueco medía una pantalla entera y
+    /// las tarjetas salían más grandes que las del plan; con ellas, las dos
+    /// pantallas miden lo mismo.
+    private var stride: CGFloat {
+        max(320, pageSize.height - topInset - bottomInset)
+    }
+
     private func outfits(ofDay index: Int) -> [Outfit] {
         suitcase.visibleOutfits
             .filter { !$0.garments.isEmpty }
@@ -148,6 +160,7 @@ struct SuitcaseOutfitsFeedTab: View {
             suitcase: suitcase,
             store: appEnvironment.imageStore,
             pageSize: pageSize,
+            stride: stride,
             morph: morph,
             createID: "create-\(index)",
             isPicking: sheet != nil,
@@ -254,6 +267,9 @@ private struct SuitcaseDayFeed: View {
     let suitcase: Suitcase
     let store: ImageStore
     let pageSize: CGSize
+    /// Lo que mide un hueco de verdad: la pantalla menos lo que tapan las
+    /// barras de la maleta. Ver `SuitcaseOutfitsFeedTab.stride`.
+    let stride: CGFloat
     let morph: Namespace.ID
     let createID: String
     let isPicking: Bool
@@ -279,7 +295,7 @@ private struct SuitcaseDayFeed: View {
                         onDelete: { onDelete(outfit) }
                     )
                     .matchedGeometryEffect(id: outfit.stableID, in: morph)
-                    .modifier(PlanCardSize(page: pageSize))
+                    .modifier(PlanCardSize(page: pageSize, stride: stride))
                     .id(AnyHashable(outfit.stableID))
                 }
 
@@ -287,7 +303,7 @@ private struct SuitcaseDayFeed: View {
                 if outfits.isEmpty {
                     PlanCreateCard(title: "Añadir un outfit")
                         .matchedGeometryEffect(id: createID, in: morph)
-                        .modifier(PlanCardSize(page: pageSize))
+                        .modifier(PlanCardSize(page: pageSize, stride: stride))
                         .onTapGesture { onCreate() }
                 }
             }

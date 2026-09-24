@@ -113,43 +113,98 @@ struct SuitcasePickerSheet: View {
 /// Sin día no es una excepción ni un caso raro: la mitad de lo que se mete en
 /// una maleta se mete sin saber todavía qué día se va a llevar. Sin esa
 /// opción, decidirlo era obligatorio, y lo obligatorio se contesta a boleo.
+///
+/// En tacos y no en renglones: un día de viaje es un número, y una lista de
+/// "Día 1 / Día 2 / Día 3" obliga a leer tres palabras iguales para encontrar
+/// el número que las distingue. Es el mismo taco de calendario que llevan los
+/// outfits planeados, a tamaño de tocarlo.
 struct SuitcaseDayList: View {
     let suitcase: Suitcase
     let onPick: (Int?) -> Void
 
-    var body: some View {
-        List {
-            Section {
-                Button { onPick(nil) } label: {
-                    HStack {
-                        Text("Sin día")
-                            .foregroundStyle(WK.Palette.primaryText)
-                        Spacer()
-                        Text("Preparado")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                    }
-                }
-            }
+    private var days: Int { max(1, suitcase.tripDayCount ?? 3) }
 
-            Section {
-                ForEach(0..<max(1, suitcase.tripDayCount ?? 3), id: \.self) { index in
-                    Button { onPick(index) } label: {
-                        HStack {
-                            Text("Día \(index + 1)")
-                                .foregroundStyle(WK.Palette.primaryText)
-                            Spacer()
-                            if let date = suitcase.date(forDayIndex: index) {
-                                Text(date.formatted(.dateTime.weekday(.abbreviated).day().month()))
-                                    .font(WK.Font.caption)
-                                    .foregroundStyle(WK.Palette.secondaryText)
-                            }
+    var body: some View {
+        ScrollView {
+            VStack(spacing: WK.Spacing.l) {
+                // Ancho entero y el primero: es la respuesta más común.
+                Button { onPick(nil) } label: {
+                    VStack(spacing: WK.Spacing.xs) {
+                        Image(systemName: "tray")
+                            .font(.title2)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                        Text("Sin día")
+                            .font(WK.Font.headline)
+                            .foregroundStyle(WK.Palette.primaryText)
+                        Text("Preparado en la maleta")
+                            .font(WK.Font.caption)
+                            .foregroundStyle(WK.Palette.tertiaryText)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, WK.Spacing.l)
+                    .background(
+                        WK.Palette.shelf,
+                        in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
+                    )
+                    .contentShape(.rect)
+                }
+                .buttonStyle(WKPressStyle())
+
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: WK.Spacing.m), count: 3),
+                    spacing: WK.Spacing.m
+                ) {
+                    ForEach(0..<days, id: \.self) { index in
+                        Button { onPick(index) } label: {
+                            TripDayPad(
+                                index: index,
+                                date: suitcase.date(forDayIndex: index)
+                            )
                         }
+                        .buttonStyle(WKPressStyle())
                     }
                 }
             }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.vertical, WK.Spacing.l)
         }
+        .scrollIndicators(.hidden)
+        .background(WK.Palette.canvas)
         .navigationTitle(suitcase.name)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Un día del viaje, con la forma de un taco de calendario.
+private struct TripDayPad: View {
+    let index: Int
+    let date: Date?
+
+    var body: some View {
+        VStack(spacing: 2) {
+            // "DÍA" en pequeño arriba, como la banda de un taco, y el número
+            // grande debajo: el número es lo que se busca.
+            Text("DÍA")
+                .font(.caption2.weight(.semibold))
+                .tracking(1)
+                .foregroundStyle(WK.Palette.tertiaryText)
+            Text("\(index + 1)")
+                .font(.system(size: 34, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(WK.Palette.primaryText)
+            if let date {
+                Text(date.formatted(.dateTime.weekday(.abbreviated).day()))
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, WK.Spacing.m)
+        .background(
+            WK.Palette.shelf,
+            in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
+        )
+        .contentShape(.rect)
     }
 }

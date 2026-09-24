@@ -210,3 +210,44 @@ public final class ScanSession {
         totalAssets > 0 ? Double(photosProcessed) / Double(totalAssets) : 0
     }
 }
+
+/// Un probado que ya se hizo.
+///
+/// ## Por qué se guarda
+///
+/// Porque cuesta dinero y cuesta tiempo. Generar cómo te queda un conjunto son
+/// unos segundos de espera y una moneda del bote, y hasta ahora el resultado
+/// vivía en memoria: cerrabas la hoja y se iba. Volver a verlo significaba
+/// volver a pagarlo, y comparar dos conjuntos probados era imposible.
+///
+/// Guarda **la clave** de la imagen, no los bytes: van al disco como cualquier
+/// otra foto de la app. Ver `ImageStore`.
+@Model
+public final class TryOnResult {
+    public var id: UUID = UUID()
+    /// La imagen generada, en el almacén de imágenes.
+    public var imageKey: String = ""
+    /// Dónde se puso. Ver `TryOnScene` en la app.
+    public var sceneRaw: String?
+    public var createdAt: Date = Date()
+
+    /// De qué conjunto es. Opcional y con `nullify`: borrar un outfit no tiene
+    /// por qué llevarse por delante la foto de cómo te quedaba.
+    @Relationship(inverse: \Outfit.tryOns) public var outfit: Outfit?
+    /// Y con qué perfil se hizo, para saber quién es el de la foto.
+    public var profile: BodyProfile?
+
+    public init(
+        imageKey: String,
+        sceneRaw: String? = nil,
+        outfit: Outfit? = nil,
+        profile: BodyProfile? = nil
+    ) {
+        self.id = UUID()
+        self.imageKey = imageKey
+        self.sceneRaw = sceneRaw
+        self.createdAt = Date()
+        self.outfit = outfit
+        self.profile = profile
+    }
+}

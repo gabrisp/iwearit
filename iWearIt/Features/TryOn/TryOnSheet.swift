@@ -24,6 +24,8 @@ struct TryOnSheet: View {
     private var profiles: [BodyProfile]
 
     @State private var model: TryOnModel?
+    /// Cuál de los probados de antes se está mirando. `nil` = el último.
+    @State private var showing: TryOnResult?
     /// Qué perfil se está editando, o `nil` para uno nuevo. El `Bool` de al
     /// lado es el que abre la hoja: con `item:` haría falta un identificable
     /// para el caso "nuevo", que no tiene identidad todavía.
@@ -78,6 +80,7 @@ struct TryOnSheet: View {
         ScrollView {
             VStack(spacing: WK.Spacing.l) {
                 canvas
+                past
                 if !profiles.isEmpty { strip }
                 scenes
                 if case let .failed(reason) = model?.state {
@@ -93,12 +96,59 @@ struct TryOnSheet: View {
         .scrollIndicators(.hidden)
     }
 
+    /// Lo que ya te has probado de este conjunto, lo último primero.
+    private var history: [TryOnResult] {
+        (outfit.tryOns ?? []).sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// La tira de lo ya probado. Solo si hay algo: un carrusel vacío es una
+    /// promesa sin cumplir.
+    @ViewBuilder
+    private var past: some View {
+        if !history.isEmpty {
+            ScrollView(.horizontal) {
+                HStack(spacing: WK.Spacing.s) {
+                    ForEach(history) { item in
+                        Button { showing = item } label: {
+                            StoredImage(
+                                key: item.imageKey,
+                                variant: .thumb,
+                                store: appEnvironment.imageStore
+                            )
+                            .frame(width: 54, height: 72)
+                            .clipShape(.rect(cornerRadius: 10, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(
+                                        WK.Palette.accent,
+                                        lineWidth: showing?.id == item.id ? 2 : 0
+                                    )
+                            }
+                        }
+                        .buttonStyle(WKPressStyle())
+                    }
+                }
+                .padding(.horizontal, WK.Spacing.screenInset)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
     /// Lo que se está mirando: el resultado si lo hay, tu foto si no, y el
     /// hueco con su invitación si todavía no hay foto.
     @ViewBuilder
     private var canvas: some View {
         ZStack {
-            if let result = model?.result {
+            // Uno guardado, si has tocado la tira; si no, el recién hecho.
+            if let showing {
+                StoredImage(
+                    key: showing.imageKey,
+                    variant: .display,
+                    store: appEnvironment.imageStore
+                )
+                .background(WK.Palette.canvas)
+                .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+            } else if let result = model?.result {
                 Image(uiImage: result)
                     .resizable()
                     .scaledToFit()
@@ -306,8 +356,31 @@ struct TryOnSheet: View {
                 garments: outfit.garments,
                 scene: scene
             )
-            if done { store.note(.generation, detail: outfit.name) }
+            guard done, let image = model.result?.cgImage else { return }
+            store.note(.generation, detail: outfit.name)
+            // Lo recién hecho manda sobre lo que estuvieras mirando de antes.
+            showing = nil
+            await save(image)
         }
+    }
+
+    /// **Lo probado se guarda.**
+    ///
+    /// Cuesta unos segundos y una moneda del bote, y hasta ahora vivía en
+    /// memoria: cerrabas la hoja y se iba, así que volver a verlo era volver a
+    /// pagarlo. La imagen va al disco como cualquier otra foto de la app y en
+    /// la base de datos solo viaja su clave. Ver `TryOnResult`.
+    private func save(_ image: CGImage) async {
+        guard let key = try? await appEnvironment.imageStore.store(image) else { return }
+        let saved = TryOnResult(
+            imageKey: key,
+            sceneRaw: scene.rawValue,
+            outfit: outfit,
+            profile: profile
+        )
+        modelContext.insert(saved)
+        try? modelContext.save()
+        DiagnosticsLog.record("PROBADOR", "guardado")
     }
 
     /// Quitar la foto **es revocar el permiso**: se va la imagen y se va la
