@@ -87,7 +87,7 @@ enum SnazzyExport {
     /// La marca: "Snazzy". En blanco con sombra sobre fotos y fondos oscuros;
     /// en tinta sobre papel claro, donde el blanco no se leía.
     private static func drawWatermark(in bounds: CGRect, onLight: Bool) {
-        let fontSize = max(14, bounds.width * 0.045)
+        let fontSize = max(16, bounds.width * 0.055)
         let font = UIFont(name: "PlusJakartaSans-Bold", size: fontSize) ?? .systemFont(ofSize: fontSize, weight: .bold)
         let shadow = NSShadow()
         shadow.shadowColor = UIColor.black.withAlphaComponent(onLight ? 0 : 0.35)
@@ -99,12 +99,38 @@ enum SnazzyExport {
                 ? UIColor.black.withAlphaComponent(0.55)
                 : UIColor.white.withAlphaComponent(0.92),
             .shadow: shadow,
-            .kern: fontSize * 0.02,
+            // Aire entre letras: aplastada, las letras se juntan y se montaban.
+            .kern: fontSize * 0.06,
         ]
         let text = NSAttributedString(string: "Snazzy", attributes: attributes)
         let size = text.size()
+        // **Aplastada**: ancha y baja, como un sello. Ver `SnazzyWatermark`.
+        let squash = watermarkSquash
+        let drawn = CGSize(width: size.width, height: size.height * squash)
         let margin = bounds.width * 0.04
-        text.draw(at: CGPoint(x: bounds.maxX - size.width - margin, y: bounds.maxY - size.height - margin))
+        let origin = CGPoint(x: bounds.maxX - drawn.width - margin, y: bounds.maxY - drawn.height - margin)
+
+        guard let cg = UIGraphicsGetCurrentContext() else { return }
+        cg.saveGState()
+        cg.translateBy(x: origin.x, y: origin.y)
+        cg.scaleBy(x: 1, y: squash)
+        text.draw(at: .zero)
+        cg.restoreGState()
+    }
+
+    /// Cuánto se aplasta la marca en vertical.
+    static let watermarkSquash: CGFloat = 0.72
+
+    /// El hueco que ocupa la marca, para no dibujar puntos debajo.
+    private static func watermarkClearance(in bounds: CGRect) -> CGRect {
+        let fontSize = max(16, bounds.width * 0.055)
+        let width = fontSize * 4.6
+        let height = fontSize * 1.3 * watermarkSquash
+        let margin = bounds.width * 0.04
+        return CGRect(
+            x: bounds.maxX - width - margin, y: bounds.maxY - height - margin,
+            width: width, height: height
+        ).insetBy(dx: -fontSize * 0.6, dy: -fontSize * 0.5)
     }
 
     /// El papel de los lienzos: su color y la retícula de puntos.
@@ -113,11 +139,13 @@ enum SnazzyExport {
         cg.fill(rect)
         let diameter = dotSpacing * 0.18
         cg.setFillColor(UIColor.black.withAlphaComponent(0.08).cgColor)
+        let clear = watermarkClearance(in: rect)
         var y = dotSpacing
         while y < rect.maxY {
             var x = dotSpacing
             while x < rect.maxX {
-                cg.fillEllipse(in: CGRect(x: x, y: y, width: diameter, height: diameter))
+                let dot = CGRect(x: x, y: y, width: diameter, height: diameter)
+                if !clear.intersects(dot) { cg.fillEllipse(in: dot) }
                 x += dotSpacing
             }
             y += dotSpacing
@@ -145,9 +173,12 @@ struct SnazzyWatermark: View {
 
     var body: some View {
         Text("Snazzy")
-            .font(.custom("PlusJakartaSans-Bold", size: 15, relativeTo: .footnote))
+            .font(.custom("PlusJakartaSans-Bold", size: 17, relativeTo: .footnote))
+            .tracking(1)
             .foregroundStyle(onLight ? Color.black.opacity(0.55) : .white.opacity(0.92))
             .shadow(color: .black.opacity(onLight ? 0 : 0.35), radius: 4, y: 1)
+            // Aplastada, como en lo exportado.
+            .scaleEffect(x: 1, y: SnazzyExport.watermarkSquash, anchor: .bottomTrailing)
             .padding(WK.Spacing.m)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
