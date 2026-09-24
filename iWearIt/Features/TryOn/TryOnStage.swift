@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 import WKCanvas
 import WKCore
@@ -23,6 +24,13 @@ struct TryOnStage: View {
 
     /// Las dos tarjetas del escenario.
     private enum Card { case photo, outfit }
+
+    /// **Las pruebas no se prueban.** Si el outfit ya lleva una prueba puesta
+    /// como sticker, aquí no se pinta: es el único sitio donde se ignoran,
+    /// porque lo que se ve es lo que te vas a probar —la ropa—, no una foto
+    /// tuya de otra vez. Todas, de este outfit o de otros.
+    @Query private var tryOns: [TryOnResult]
+    private var tryOnKeys: Set<String> { Set(tryOns.map(\.imageKey)) }
 
     /// Cuál va delante. Tocar la otra —o arrastrarla lejos— las cambia.
     @State private var front: Card = .photo
@@ -93,7 +101,8 @@ struct TryOnStage: View {
                         store: store,
                         backdrop: PlanFeedScreen.backdrop(of: outfit),
                         outfit: outfit,
-                        showsBorder: true
+                        showsBorder: true,
+                        hiddenPhotoKeys: tryOnKeys
                     )
                     .allowsHitTesting(false)
                     // Mientras se funde, el efecto corre sobre el outfit.
@@ -347,91 +356,255 @@ struct TryOnStage: View {
 ///
 /// Con `TimelineView` y no con `repeatForever`: la animación infinita no
 /// siempre arranca dentro de una hoja, y esto se mueve siempre.
+/// **Mientras te viste.** Manchas de color que se funden y cambian de forma,
+/// brillos que barren a ritmos distintos y chispas que flotan: imperfecto a
+/// propósito, para que parezca que algo se está cociendo y no una barra de
+/// carga con purpurina. Lo que está haciendo va debajo, en texto. Ver
+/// `TryOnGeneratingCaption`.
 struct TryOnGeneratingEffect: View {
-    private static let phrases = [
-        String(localized: "tryon.tryonstage.lookingAtYourSilhouette", defaultValue: "Looking at your silhouette"),
-        String(localized: "tryon.tryonstage.placingEachPiece", defaultValue: "Placing each piece"),
-        String(localized: "tryon.tryonstage.adjustingFitAndDrape", defaultValue: "Adjusting fit and drape"),
-        String(localized: "tryon.tryonstage.matchingTheLight", defaultValue: "Matching the light"),
-        String(localized: "tryon.tryonstage.finalTouches", defaultValue: "Final touches"),
-    ]
     @State private var start = Date()
+
+    /// Las manchas: color, recorrido y ritmo. Cada una a su aire, así que
+    /// nunca se repite la misma figura.
+    private static let blobs: [(color: Color, speed: Double, phase: Double, size: CGFloat)] = [
+        (Color(red: 1, green: 0.62, blue: 0.45), 0.55, 0, 0.75),
+        (Color(red: 0.95, green: 0.45, blue: 0.75), 0.42, 2.1, 0.65),
+        (Color(red: 0.55, green: 0.5, blue: 1), 0.5, 4.0, 0.7),
+        (Color(red: 0.4, green: 0.85, blue: 0.9), 0.36, 5.3, 0.55),
+    ]
 
     var body: some View {
         TimelineView(.animation) { context in
-            let elapsed = context.date.timeIntervalSince(start)
+            let t = context.date.timeIntervalSince(start)
             GeometryReader { proxy in
+                let size = proxy.size
                 ZStack {
                     // Un velo que respira.
-                    Color.black.opacity(0.12 + 0.06 * sin(elapsed * 2))
+                    Color.black.opacity(0.1 + 0.05 * sin(t * 2))
 
-                    // El brillo, en diagonal, barriendo cada 1,6 s.
-                    let sweep = CGFloat((elapsed / 1.6).truncatingRemainder(dividingBy: 1))
-                    LinearGradient(
-                        colors: [.white.opacity(0), .white.opacity(0.55), .white.opacity(0)],
-                        startPoint: .leading,
-                        endPoint: .trailing
+                    // **Las manchas**, que se mueven, crecen y se deforman
+                    // cada una a su ritmo.
+                    ForEach(Self.blobs.indices, id: \.self) { index in
+                        let blob = Self.blobs[index]
+                        let a = t * blob.speed + blob.phase
+                        Ellipse()
+                            .fill(blob.color.opacity(0.55))
+                            .frame(
+                                width: size.width * blob.size * (1 + 0.25 * sin(a * 1.7)),
+                                height: size.width * blob.size * (1 + 0.25 * cos(a * 1.3))
+                            )
+                            .rotationEffect(.radians(a * 0.8))
+                            .position(
+                                x: size.width * (0.5 + 0.34 * sin(a)),
+                                y: size.height * (0.5 + 0.3 * cos(a * 0.9 + Double(index)))
+                            )
+                            .blur(radius: size.width * 0.14)
+                    }
+                    .blendMode(.plusLighter)
+                    .opacity(0.8)
+
+                    // **Brillos**, dos, que no van al compás: uno ancho y
+                    // lento, otro fino y rápido, con otro ángulo.
+                    sweep(t: t, period: 1.9, angle: 20, width: 0.55, opacity: 0.5, in: size)
+                    sweep(t: t + 0.7, period: 1.15, angle: -32, width: 0.18, opacity: 0.7, in: size)
+
+                    // Un destello que aparece de vez en cuando.
+                    let flash = max(0, sin(t * 0.9)) 
+                    RadialGradient(
+                        colors: [.white.opacity(0.35 * flash * flash), .clear],
+                        center: UnitPoint(x: 0.5 + 0.3 * sin(t * 0.4), y: 0.4 + 0.2 * cos(t * 0.5)),
+                        startRadius: 0,
+                        endRadius: size.width * 0.6
                     )
-                    .frame(width: proxy.size.width * 0.55, height: proxy.size.height * 1.6)
-                    .rotationEffect(.degrees(20))
-                    .offset(x: (sweep * 2 - 1) * proxy.size.width * 1.1)
                     .blendMode(.plusLighter)
 
-                    // Chispas que laten en sitios fijos.
-                    ForEach(0..<6, id: \.self) { index in
-                        let phase = elapsed * 1.4 + Double(index) * 1.1
-                        Image(systemName: "sparkle")
-                            .font(.system(size: CGFloat(10 + (index % 3) * 6), weight: .bold))
+                    // **Chispas que flotan**: suben despacio y laten.
+                    ForEach(0..<10, id: \.self) { index in
+                        let seed = Double(index) * 1.37
+                        let rise = (t * (0.05 + 0.02 * Double(index % 3)) + seed).truncatingRemainder(dividingBy: 1)
+                        let beat = max(0, sin(t * 1.6 + seed * 2))
+                        Image(systemName: index % 3 == 0 ? "sparkles" : "sparkle")
+                            .font(.system(size: CGFloat(9 + (index % 4) * 5), weight: .bold))
                             .foregroundStyle(.white)
-                            .opacity(0.25 + 0.75 * max(0, sin(phase)))
-                            .scaleEffect(0.6 + 0.5 * max(0, sin(phase)))
+                            .opacity(0.2 + 0.8 * beat)
+                            .scaleEffect(0.5 + 0.6 * beat)
+                            .rotationEffect(.degrees(t * 40 + seed * 30))
                             .position(
-                                x: proxy.size.width * [0.2, 0.78, 0.35, 0.68, 0.15, 0.85][index],
-                                y: proxy.size.height * [0.18, 0.26, 0.55, 0.7, 0.8, 0.5][index]
+                                x: size.width * (0.1 + 0.8 * ((seed * 0.618).truncatingRemainder(dividingBy: 1)) + 0.04 * sin(t + seed)),
+                                y: size.height * (1.05 - 1.1 * rise)
                             )
                     }
 
-                    // Lo que está haciendo, en una píldora de cristal.
+                    // Un avance que nunca llega al final hasta que llega.
                     VStack {
                         Spacer()
-                        let phrase = Self.phrases[Int(elapsed / 2.2) % Self.phrases.count]
-                        HStack(spacing: WK.Spacing.s) {
-                            Image(systemName: "sparkles")
-                                .symbolEffect(.pulse, options: .repeating)
-                            Text(phrase + "…")
-                                .contentTransition(.opacity)
-                                .id(phrase)
-                                .transition(.blurReplace)
-                        }
-                        .font(WK.Font.captionMedium)
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .padding(.horizontal, WK.Spacing.m)
-                        .padding(.vertical, WK.Spacing.s)
-                        .adaptiveGlass(in: .capsule)
-                        .animation(.smooth(duration: 0.4), value: phrase)
-
-                        // Un avance que nunca llega al final hasta que llega.
-                        let progress = 1 - exp(-elapsed / 9)
+                        let progress = 1 - exp(-t / 9)
                         Capsule()
                             .fill(.white.opacity(0.35))
-                            .frame(height: 4)
+                            .frame(width: size.width * 0.5, height: 4)
                             .overlay(alignment: .leading) {
                                 Capsule()
                                     .fill(.white)
-                                    .frame(width: proxy.size.width * 0.6 * CGFloat(progress))
+                                    .frame(width: size.width * 0.5 * CGFloat(progress))
                             }
-                            .frame(width: proxy.size.width * 0.6)
-                            .padding(.top, WK.Spacing.s)
                             .padding(.bottom, WK.Spacing.l)
                     }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
+                .frame(width: size.width, height: size.height)
             }
         }
         .allowsHitTesting(false)
         .onAppear { start = Date() }
     }
+
+    /// Un brillo en diagonal que barre la tarjeta cada `period` segundos.
+    private func sweep(t: Double, period: Double, angle: Double, width: CGFloat, opacity: Double, in size: CGSize) -> some View {
+        let progress = CGFloat((t / period).truncatingRemainder(dividingBy: 1))
+        return LinearGradient(
+            colors: [.white.opacity(0), .white.opacity(opacity), .white.opacity(0)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: size.width * width, height: size.height * 1.7)
+        .rotationEffect(.degrees(angle))
+        .offset(x: (progress * 2 - 1) * size.width * 1.15)
+        .blendMode(.plusLighter)
+    }
 }
+
+/// **Qué está haciendo**, debajo del lienzo mientras te viste: frases que
+/// cambian, con el sitio y la postura que elegiste dentro.
+struct TryOnGeneratingCaption: View {
+    let scene: String
+    let pose: String
+
+    @State private var start = Date()
+
+    private var phrases: [String] {
+        [
+            String(localized: "tryon.generating.scene", defaultValue: "Setting up the scene: \(String(describing: scene))"),
+            String(localized: "tryon.generating.pose", defaultValue: "Striking the pose: \(String(describing: pose))"),
+            String(localized: "tryon.generating.clothes", defaultValue: "Fitting every piece"),
+            String(localized: "tryon.generating.face", defaultValue: "Making sure it's really you"),
+            String(localized: "tryon.generating.light", defaultValue: "Matching the light"),
+            String(localized: "tryon.generating.final", defaultValue: "Final touches"),
+        ]
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2.4)) { context in
+            let index = Int(context.date.timeIntervalSince(start) / 2.4) % phrases.count
+            VStack(spacing: WK.Spacing.xs) {
+                HStack(spacing: WK.Spacing.s) {
+                    Image(systemName: "sparkles")
+                        .symbolEffect(.variableColor.iterative, options: .repeating)
+                    // Un solo texto que cambia letra a letra, como un
+                    // contador: ver `numericText`.
+                    Text(phrases[index] + "…")
+                        .contentTransition(.numericText())
+                }
+                .font(WK.Font.body.weight(.medium))
+                .foregroundStyle(WK.Palette.primaryText)
+                .frame(maxWidth: .infinity)
+                .animation(.smooth(duration: 0.5), value: index)
+
+                Text(String(localized: "tryon.generating.hint", defaultValue: "It usually takes about 20 seconds"))
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .onAppear { start = Date() }
+    }
+}
+
+// El efecto de antes: velo, un brillo, chispas fijas y la frase en una
+// píldora dentro de la tarjeta.
+// struct TryOnGeneratingEffect: View {
+//     private static let phrases = [
+//         String(localized: "tryon.tryonstage.lookingAtYourSilhouette", defaultValue: "Looking at your silhouette"),
+//         String(localized: "tryon.tryonstage.placingEachPiece", defaultValue: "Placing each piece"),
+//         String(localized: "tryon.tryonstage.adjustingFitAndDrape", defaultValue: "Adjusting fit and drape"),
+//         String(localized: "tryon.tryonstage.matchingTheLight", defaultValue: "Matching the light"),
+//         String(localized: "tryon.tryonstage.finalTouches", defaultValue: "Final touches"),
+//     ]
+//     @State private var start = Date()
+
+//     var body: some View {
+//         TimelineView(.animation) { context in
+//             let elapsed = context.date.timeIntervalSince(start)
+//             GeometryReader { proxy in
+//                 ZStack {
+//                     // Un velo que respira.
+//                     Color.black.opacity(0.12 + 0.06 * sin(elapsed * 2))
+
+//                     // El brillo, en diagonal, barriendo cada 1,6 s.
+//                     let sweep = CGFloat((elapsed / 1.6).truncatingRemainder(dividingBy: 1))
+//                     LinearGradient(
+//                         colors: [.white.opacity(0), .white.opacity(0.55), .white.opacity(0)],
+//                         startPoint: .leading,
+//                         endPoint: .trailing
+//                     )
+//                     .frame(width: proxy.size.width * 0.55, height: proxy.size.height * 1.6)
+//                     .rotationEffect(.degrees(20))
+//                     .offset(x: (sweep * 2 - 1) * proxy.size.width * 1.1)
+//                     .blendMode(.plusLighter)
+
+//                     // Chispas que laten en sitios fijos.
+//                     ForEach(0..<6, id: \.self) { index in
+//                         let phase = elapsed * 1.4 + Double(index) * 1.1
+//                         Image(systemName: "sparkle")
+//                             .font(.system(size: CGFloat(10 + (index % 3) * 6), weight: .bold))
+//                             .foregroundStyle(.white)
+//                             .opacity(0.25 + 0.75 * max(0, sin(phase)))
+//                             .scaleEffect(0.6 + 0.5 * max(0, sin(phase)))
+//                             .position(
+//                                 x: proxy.size.width * [0.2, 0.78, 0.35, 0.68, 0.15, 0.85][index],
+//                                 y: proxy.size.height * [0.18, 0.26, 0.55, 0.7, 0.8, 0.5][index]
+//                             )
+//                     }
+
+//                     // Lo que está haciendo, en una píldora de cristal.
+//                     VStack {
+//                         Spacer()
+//                         let phrase = Self.phrases[Int(elapsed / 2.2) % Self.phrases.count]
+//                         HStack(spacing: WK.Spacing.s) {
+//                             Image(systemName: "sparkles")
+//                                 .symbolEffect(.pulse, options: .repeating)
+//                             Text(phrase + "…")
+//                                 .contentTransition(.opacity)
+//                                 .id(phrase)
+//                                 .transition(.blurReplace)
+//                         }
+//                         .font(WK.Font.captionMedium)
+//                         .foregroundStyle(WK.Palette.primaryText)
+//                         .padding(.horizontal, WK.Spacing.m)
+//                         .padding(.vertical, WK.Spacing.s)
+//                         .adaptiveGlass(in: .capsule)
+//                         .animation(.smooth(duration: 0.4), value: phrase)
+
+//                         // Un avance que nunca llega al final hasta que llega.
+//                         let progress = 1 - exp(-elapsed / 9)
+//                         Capsule()
+//                             .fill(.white.opacity(0.35))
+//                             .frame(height: 4)
+//                             .overlay(alignment: .leading) {
+//                                 Capsule()
+//                                     .fill(.white)
+//                                     .frame(width: proxy.size.width * 0.6 * CGFloat(progress))
+//                             }
+//                             .frame(width: proxy.size.width * 0.6)
+//                             .padding(.top, WK.Spacing.s)
+//                             .padding(.bottom, WK.Spacing.l)
+//                     }
+//                 }
+//                 .frame(width: proxy.size.width, height: proxy.size.height)
+//             }
+//         }
+//         .allowsHitTesting(false)
+//         .onAppear { start = Date() }
+//     }
+// }
 
 /// **Dónde te pones**, en tarjetas que se ven: cada escena con su color y su
 /// icono, y la elegida con el anillo por fuera.

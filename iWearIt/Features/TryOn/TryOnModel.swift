@@ -49,6 +49,15 @@ final class TryOnModel {
 
     var canGenerate: Bool { resolver != nil }
 
+    #if DEBUG
+    /// Para mirar la animación de "vistiéndote" sin pagar una prueba:
+    /// `-fakeTryOn`. Se queda trabajando hasta que se cierra la hoja.
+    func simulateWorking() {
+        state = .working
+        result = nil
+    }
+    #endif
+
     /// Genera la prueba.
     ///
     /// - Parameters:

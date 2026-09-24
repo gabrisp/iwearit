@@ -35,6 +35,9 @@ struct LookCanvasView: View {
     /// —o al abrirlo después— **las prendas se movían**. Quien pinta la
     /// propuesta pasa aquí la misma semilla que usará al materializarla.
     var seed: UInt64 = 0
+    /// Fotos del lienzo que no se pintan aquí. El probador pasa las de sus
+    /// pruebas: ver `TryOnStage`.
+    var hiddenPhotoKeys: Set<String> = []
     /// Tocar una prenda para ver **qué prenda es**.
     ///
     /// Sin esto, la tarjeta enseña un conjunto y no dice de qué está hecho: la
@@ -64,7 +67,11 @@ struct LookCanvasView: View {
     /// cada scroll.
     /// Los stickers del outfit guardado. Una propuesta sin guardar no tiene.
     private var stickers: [CanvasItem] {
-        outfit?.items.filter { $0.sticker != nil } ?? []
+        outfit?.items.filter { item in
+            guard let sticker = item.sticker else { return false }
+            if case let .photo(key) = sticker, hiddenPhotoKeys.contains(key) { return false }
+            return true
+        } ?? []
     }
 
     private var placed: [(garment: Garment, transform: ItemTransform, isFlipped: Bool)] {

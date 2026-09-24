@@ -95,6 +95,18 @@ struct TryOnSheet: View {
                 )
                 .frame(maxHeight: .infinity)
 
+                // **Mientras te viste, solo el lienzo y lo que está
+                // haciendo.** Todo lo demás se va y el lienzo queda en el
+                // centro.
+                if isWorking {
+                    TryOnGeneratingCaption(
+                        scene: scene == .custom && !customScene.isEmpty ? customScene : scene.label,
+                        pose: pose == .custom && !customPose.isEmpty ? customPose : pose.label
+                    )
+                    .padding(.bottom, WK.Spacing.xl)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+
                 if case let .failed(reason) = model?.state {
                     Text(reason)
                         .font(WK.Font.caption)
@@ -106,6 +118,7 @@ struct TryOnSheet: View {
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.top, WK.Spacing.s)
+            .animation(.smooth(duration: 0.6), value: isWorking)
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -118,6 +131,7 @@ struct TryOnSheet: View {
                             .tint(WK.Palette.primaryText)
                     }
                 }
+                if !isWorking {
                 ToolbarItem(placement: .principal) {
                     ProfileSwitcher(
                         profiles: profiles,
@@ -128,6 +142,7 @@ struct TryOnSheet: View {
                         onEdit: { edit($0) },
                         onNew: { edit(nil) }
                     )
+                }
                 }
                 if let result = model?.result {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -449,10 +464,16 @@ struct TryOnSheet: View {
         .accessibilityLabel(String(localized: "tryon.tryonsheet.background", defaultValue: "Background: \(String(describing: scene.label))"))
     }
 
+    /// Si se está vistiendo ahora mismo.
+    private var isWorking: Bool { model?.state == .working }
+
     @ViewBuilder
     private var bottom: some View {
         VStack(spacing: WK.Spacing.s) {
-            if profile == nil {
+            if isWorking {
+                // Nada: mientras te viste, el lienzo solo. Ver el cuerpo.
+                EmptyView()
+            } else if profile == nil {
                 WKPrimaryButton(String(localized: "tryon.tryonsheet.createAProfile", defaultValue: "Create a profile"), surface: .glass) { edit(nil) }
             } else if profile?.hasPhoto == true, profile?.canLeaveDevice != true {
                 WKPrimaryButton(String(localized: "tryon.tryonsheet.acceptAndTryItOn", defaultValue: "Accept and try it on"), surface: .glass) { accept() }
@@ -535,6 +556,7 @@ struct TryOnSheet: View {
         .padding(.bottom, WK.Spacing.xs)
         .animation(WKAnimation.content, value: profile?.canLeaveDevice)
         .animation(WKAnimation.content, value: isCreating)
+        .animation(.smooth(duration: 0.6), value: isWorking)
     }
 
     // MARK: Lo que hace
@@ -583,6 +605,12 @@ struct TryOnSheet: View {
 
     private func generate() {
         guard let profile, let model else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-fakeTryOn") {
+            withAnimation(.smooth(duration: 0.6)) { model.simulateWorking() }
+            return
+        }
+        #endif
         // Vale una moneda de las de probar. Ver `StoreIDs.Cost`.
         let store = appEnvironment.store
         guard store.canAfford(.generation) else {
