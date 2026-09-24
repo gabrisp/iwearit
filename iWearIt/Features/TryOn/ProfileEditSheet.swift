@@ -23,73 +23,51 @@ struct ProfileEditSheet: View {
 
     @State private var picked: PhotosPickerItem?
     @State private var isPickingPhoto = false
-    @State private var isTakingPhoto = false
     @State private var isLoadingPhoto = false
     @State private var isConfirmingDelete = false
+    /// Qué dato se está cambiando, en su hoja. Igual que en la ficha de una
+    /// prenda: cada fila abre la suya. Ver `GarmentEditSheet`.
+    @State private var editing: Field?
 
+    private enum Field: String, Identifiable {
+        case height, shape, presentation, skin
+        /// La cámara, en la misma hoja: dos `.sheet` en una vista dejan mudo
+        /// a uno.
+        case camera
+        var id: String { rawValue }
+    }
+
+    // **La misma forma que editar una prenda**: la imagen arriba, los datos
+    // en filas que abren su hoja de opciones, y la foto en su sección al
+    // final. Antes eran menús y muestras sueltas, y no se parecía a nada.
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: WK.Spacing.l) {
+                VStack(spacing: WK.Spacing.m) {
                     hero
-                    WKSection("Datos") {
-                        NameRow(name: $profile.label)
-                        MenuRow(
-                            label: "Altura",
-                            value: "\(height.wrappedValue) cm",
-                            options: Array(140...210),
-                            selection: height
-                        ) { "\($0) cm" }
-                        MenuRow(
-                            label: "Complexión",
-                            value: shape.wrappedValue.label,
-                            options: BodyProfile.Shape.allCases,
-                            selection: shape
-                        ) { $0.label }
-                        MenuRow(
-                            label: "Viste como",
-                            value: presentation.wrappedValue.label,
-                            options: BodyProfile.Presentation.allCases,
-                            selection: presentation,
-                            showsSeparator: false
-                        ) { $0.label }
-                    }
-                    WKSection("Piel") {
-                        SkinToneSwatches(selection: skinTone)
-                            .padding(.vertical, WK.Spacing.m)
-                    }
-                    WKSection("Algo más", footer: "Se dibujará " + profile.described + ".") {
-                        NotesRow(notes: notes)
-                    }
+                    rows
+                    photoSection
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.top, WK.Spacing.m)
                 .padding(.bottom, WK.Spacing.xxl)
             }
             .scrollIndicators(.hidden)
-            .scrollClipDisabled()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(WK.Palette.canvas.ignoresSafeArea())
-            .navigationTitle("Editar perfil")
+            .navigationTitle("Editar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { isConfirmingDelete = true } label: {
                         Image(systemName: "trash")
                             .font(WK.Font.headline)
                             .foregroundStyle(.red)
+                            .contentShape(.rect)
                     }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        try? modelContext.save()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "checkmark")
-                            .font(WK.Font.headline)
-                    }
-                    .tint(WK.Palette.primaryText)
                 }
             }
+            .sheet(item: $editing) { field in sheet(for: field) }
             .alert("¿Borrar este perfil?", isPresented: $isConfirmingDelete) {
                 Button("Borrar", role: .destructive) { remove() }
                 Button("Cancelar", role: .cancel) {}
@@ -98,41 +76,125 @@ struct ProfileEditSheet: View {
             }
             .photosPicker(isPresented: $isPickingPhoto, selection: $picked, matching: .images)
             .task(id: picked) { await storePicked() }
-            .sheet(isPresented: $isTakingPhoto) {
-                CameraScreen { images in
-                    guard let first = images.first else { return }
-                    Task { await store(first) }
-                }
-            }
+            .onDisappear { try? modelContext.save() }
         }
         .presentationDetents([.large])
     }
 
-    // MARK: Foto
+    // MARK: Imagen
 
-    /// La foto en grande, redonda, y cómo cambiarla debajo.
+    /// La foto, del mismo alto que la prenda en su ficha.
     private var hero: some View {
-        VStack(spacing: WK.Spacing.m) {
-            ZStack {
-                if profile.hasPhoto {
-                    StoredImage(key: profile.imageKey, variant: .display, store: appEnvironment.imageStore)
-                        .scaledToFill()
-                } else {
-                    ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: 150)
-                }
-                if isLoadingPhoto { ProgressView() }
-            }
-            .frame(width: 150, height: 150)
-            .clipShape(.circle)
-            .wkShimmer(isActive: isLoadingPhoto)
-            .shadow(color: .black.opacity(0.12), radius: 14, y: 8)
-
-            HStack(spacing: WK.Spacing.s) {
-                GlassLabelButton(title: "Hacer una foto", symbol: "camera") { isTakingPhoto = true }
-                GlassLabelButton(title: "Cambiar", symbol: "photo.on.rectangle") { isPickingPhoto = true }
+        Group {
+            if profile.hasPhoto {
+                StoredImage(
+                    key: profile.imageKey,
+                    variant: .display,
+                    store: appEnvironment.imageStore,
+                    shadow: .init(opacity: 0.35, radius: 18, y: 11)
+                )
+                .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+            } else {
+                ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: 150)
             }
         }
+        .frame(height: 230)
         .frame(maxWidth: .infinity)
+        .wkShimmer(isActive: isLoadingPhoto)
+    }
+
+    // MARK: Datos
+
+    private var rows: some View {
+        VStack(spacing: 0) {
+            NameRow(name: $profile.label)
+            EditRow(value: "\(height) cm", label: "Altura") { editing = .height }
+            EditRow(value: shape.label, label: "Complexión") { editing = .shape }
+            EditRow(value: presentation.label, label: "Viste como") { editing = .presentation }
+            EditRow(value: skinTone.label, label: "Piel") { editing = .skin }
+            NotesRow(notes: notes)
+        }
+    }
+
+    /// La hoja de cada dato: las mismas hojas de opciones que la prenda.
+    @ViewBuilder
+    private func sheet(for field: Field) -> some View {
+        switch field {
+        case .height:
+            WKChipSheet(
+                title: "Altura",
+                subtitle: "Elige la tuya o escríbela en centímetros",
+                options: stride(from: 145, through: 205, by: 5).map { .init(id: "\($0)", label: "\($0) cm") },
+                selection: Binding(
+                    get: { ["\(height)"] },
+                    set: { set in
+                        let digits = set.first?.filter(\.isNumber) ?? ""
+                        if let value = Int(digits), (120...230).contains(value) {
+                            profile.heightCentimetres = value
+                        }
+                    }
+                ),
+                limit: 1,
+                allowsCustom: true
+            )
+        case .shape:
+            WKChipSheet(
+                title: "Complexión",
+                subtitle: "Da a la ropa tus proporciones",
+                options: BodyProfile.Shape.allCases.map { .init(id: $0.rawValue, label: $0.label) },
+                selection: Binding(
+                    get: { [shape.rawValue] },
+                    set: { if let raw = $0.first { profile.shapeRaw = raw } }
+                ),
+                limit: 1
+            )
+        case .presentation:
+            WKChipSheet(
+                title: "Viste como",
+                subtitle: "Cómo se dibuja la ropa sobre ti",
+                options: BodyProfile.Presentation.allCases.map { .init(id: $0.rawValue, label: $0.label) },
+                selection: Binding(
+                    get: { [presentation.rawValue] },
+                    set: { if let raw = $0.first { profile.presentationRaw = raw } }
+                ),
+                limit: 1
+            )
+        case .camera:
+            CameraScreen { images in
+                guard let first = images.first else { return }
+                Task { await store(first) }
+            }
+        case .skin:
+            WKChipSheet(
+                title: "Piel",
+                subtitle: "El tono con el que se te dibuja",
+                options: BodyProfile.SkinTone.allCases.map { .init(id: $0.rawValue, label: $0.label) },
+                selection: Binding(
+                    get: { [skinTone.rawValue] },
+                    set: { if let raw = $0.first { profile.skinToneRaw = raw } }
+                ),
+                limit: 1
+            )
+        }
+    }
+
+    /// La foto, al final, como la sección de imagen de la prenda.
+    private var photoSection: some View {
+        WKSection("Foto", footer: "Se dibujará " + profile.described + ".") {
+            WKRow(action: { editing = .camera }) {
+                Label("Hacer una foto", systemImage: "camera")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Spacer()
+            }
+            WKRow(showsSeparator: false, action: { isPickingPhoto = true }) {
+                Label("Elegir otra de la galería", systemImage: "photo.on.rectangle")
+                    .font(WK.Font.rowTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Spacer()
+            }
+        }
+        .disabled(isLoadingPhoto)
     }
 
     private func storePicked() async {
@@ -154,7 +216,7 @@ struct ProfileEditSheet: View {
         let old = profile.imageKey
         withAnimation(WKAnimation.content) { profile.imageKey = key }
         try? modelContext.save()
-        isTakingPhoto = false
+        editing = nil
         if !old.isEmpty, old != key { try? await appEnvironment.imageStore.delete(key: old) }
     }
 
@@ -167,23 +229,12 @@ struct ProfileEditSheet: View {
         dismiss()
     }
 
-    // MARK: Datos
+    // MARK: Valores
 
-    private var height: Binding<Int> {
-        Binding(get: { profile.heightCentimetres ?? 170 }, set: { profile.heightCentimetres = $0 })
-    }
-
-    private var shape: Binding<BodyProfile.Shape> {
-        Binding(get: { profile.shape ?? .average }, set: { profile.shapeRaw = $0.rawValue })
-    }
-
-    private var presentation: Binding<BodyProfile.Presentation> {
-        Binding(get: { profile.presentation ?? .neutral }, set: { profile.presentationRaw = $0.rawValue })
-    }
-
-    private var skinTone: Binding<BodyProfile.SkinTone> {
-        Binding(get: { profile.skinTone ?? .medium }, set: { profile.skinToneRaw = $0.rawValue })
-    }
+    private var height: Int { profile.heightCentimetres ?? 170 }
+    private var shape: BodyProfile.Shape { profile.shape ?? .average }
+    private var presentation: BodyProfile.Presentation { profile.presentation ?? .neutral }
+    private var skinTone: BodyProfile.SkinTone { profile.skinTone ?? .medium }
 
     private var notes: Binding<String> {
         Binding(get: { profile.notes ?? "" }, set: { profile.notes = $0 })

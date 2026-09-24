@@ -262,11 +262,19 @@ private struct TryOnTile: View {
                 Color.clear
                     .frame(width: 108)
                     .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                    // **Contenida**, entera: recortada al rellenar se
+                    // perdían la cabeza o los pies.
                     .overlay {
                         StoredImage(key: result.imageKey, variant: .thumb, store: store)
-                            .scaledToFill()
+                            .scaledToFit()
                     }
-                    .background(WK.Palette.shelf)
+                    .background {
+                        if result.sceneRaw == TryOnScene.none.rawValue {
+                            TryOnPaper(outfit: result.outfit)
+                        } else {
+                            WK.Palette.shelf
+                        }
+                    }
                     .clipShape(.rect(cornerRadius: WK.Radius.medium, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
@@ -296,9 +304,12 @@ private struct TryOnViewer: View {
     let onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var image: UIImage?
     @State private var isConfirmingDelete = false
     @State private var page: Int? = 0
+    /// Si ya se metió en su outfit como sticker.
+    @State private var addedToOutfit = false
 
     private var pageCount: Int { result.outfit == nil ? 1 : 2 }
 
@@ -356,6 +367,25 @@ private struct TryOnViewer: View {
             .padding(.vertical, WK.Spacing.m)
             .frame(maxHeight: .infinity)
             .background(WK.Palette.canvas.ignoresSafeArea())
+            // **Al outfit con el que se probó**: la prueba guarda a cuál va,
+            // y se mete en él como sticker —sin fondo o con su escena—.
+            .adaptiveSafeAreaBar(edge: .bottom) {
+                if let outfit = result.outfit {
+                    WKPrimaryButton(
+                        addedToOutfit ? "Añadida al outfit" : "Añadir al outfit",
+                        systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle",
+                        surface: .glass
+                    ) {
+                        let size = image.map { $0.size } ?? CGSize(width: 3, height: 4)
+                        TryOnSticker.add(key: result.imageKey, imageSize: size, to: outfit, context: modelContext)
+                        withAnimation(WKAnimation.content) { addedToOutfit = true }
+                    }
+                    .disabled(addedToOutfit)
+                    .sensoryFeedback(.success, trigger: addedToOutfit)
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                    .padding(.bottom, WK.Spacing.s)
+                }
+            }
             .navigationTitle(result.createdAt.formatted(date: .abbreviated, time: .shortened))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

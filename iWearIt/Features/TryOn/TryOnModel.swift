@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftData
 import UIKit
+import WKCanvas
 import WKCore
 import WKPersistence
 import WKVision
@@ -242,5 +243,25 @@ enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
         case .office: "briefcase"
         case .night: "moon.stars"
         }
+    }
+}
+
+/// **Una prueba como sticker del propio outfit**: sin fondo, la persona
+/// recortada; con escena, la foto entera. La usan el probador y el historial.
+@MainActor
+enum TryOnSticker {
+    /// Ancho con el que entra en el lienzo, en puntos de lienzo.
+    static let width: CGFloat = 520
+
+    static func add(key: String, imageSize: CGSize, to outfit: Outfit, context: ModelContext) {
+        let ratio = imageSize.width > 0 ? imageSize.height / imageSize.width : 4.0 / 3.0
+        _ = CanvasEditing.insert(
+            sticker: .photo(key: key),
+            size: CGSize(width: width, height: width * ratio),
+            in: outfit,
+            context: context
+        )
+        try? context.save()
+        DiagnosticsLog.record("PROBADOR", "prueba añadida al outfit como sticker")
     }
 }

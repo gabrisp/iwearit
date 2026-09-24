@@ -21,37 +21,189 @@ struct TryOnStage: View {
     let isPlainScene: Bool
     let store: ImageStore
 
+    /// Las dos tarjetas del escenario.
+    private enum Card { case photo, outfit }
+
+    /// Cuál va delante. Tocar la otra —o arrastrarla lejos— las cambia.
+    @State private var front: Card = .photo
+    /// Lo que se está arrastrando cada una ahora mismo.
+    @State private var photoDrag: CGSize = .zero
+    @State private var outfitDrag: CGSize = .zero
+
+    /// Si ya hay prueba que enseñar: la recién hecha o una del historial.
+    private var showsResult: Bool { result != nil || showing != nil }
+
+    /// Cuál va delante de verdad: sin prueba, el outfit solo.
+    private var effectiveFront: Card { showsResult ? front : .outfit }
+
+    /// El tamaño del outfit: con su proporción de lienzo y sin salirse del
+    /// alto que hay.
+    private func outfitSize(front: Bool, in size: CGSize, photoWidth: CGFloat) -> CGSize {
+        let aspect = CanvasSpace.height / CanvasSpace.width
+        let wanted = front ? photoWidth : photoWidth * 0.62
+        let width = min(wanted, size.height * (front ? 0.94 : 0.62) / aspect)
+        return CGSize(width: width, height: width * aspect)
+    }
+
+    /// Cuánto hay que arrastrar para que las tarjetas cambien de sitio.
+    private static let swapDistance: CGFloat = 90
+
     var body: some View {
         GeometryReader { proxy in
             let photoWidth = min(proxy.size.width * 0.78, proxy.size.height * 0.75)
+            let outfitFront = outfitSize(front: true, in: proxy.size, photoWidth: photoWidth)
             ZStack {
-                // Detrás, a la izquierda: el outfit.
-                LookCanvasView(
-                    garments: outfit.garments,
-                    store: store,
-                    backdrop: PlanFeedScreen.backdrop(of: outfit),
-                    outfit: outfit,
-                    showsBorder: true
-                )
-                .frame(width: photoWidth * 0.66)
-                .rotationEffect(.degrees(-9))
-                .offset(x: -proxy.size.width * 0.28, y: proxy.size.height * 0.08)
-                .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
-                .allowsHitTesting(false)
-                .zIndex(0)
+                // **Tocables y movibles.** Delante una, detrás la otra
+                // inclinada; tocar la de detrás la trae, y arrastrar mueve la
+                // tarjeta con el dedo. Ver `card(_:in:)`.
+                //
+                // **Antes de probar, el outfit y tu cara.** Al pulsar, la cara
+                // vuela al outfit y se funde con él mientras corre el efecto;
+                // al terminar aparece la tarjeta de la prueba.
+                card(.outfit, in: proxy.size, photoWidth: photoWidth) {
+                    LookCanvasView(
+                        garments: outfit.garments,
+                        store: store,
+                        backdrop: PlanFeedScreen.backdrop(of: outfit),
+                        outfit: outfit,
+                        showsBorder: true
+                    )
+                    .allowsHitTesting(false)
+                    // Mientras se funde, el efecto corre sobre el outfit.
+                    .overlay {
+                        if isWorking && !showsResult {
+                            TryOnGeneratingEffect()
+                                .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+                                .transition(.opacity)
+                        }
+                    }
+                }
 
-                // Delante: la prueba, o tu foto mientras no la hay.
-                photoCard
-                    .frame(width: photoWidth, height: photoWidth * 4 / 3)
-                    .rotationEffect(.degrees(isWorking ? 0 : 2))
-                    .offset(x: proxy.size.width * 0.06)
-                    .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
-                    .zIndex(1)
+                if showsResult {
+                    card(.photo, in: proxy.size, photoWidth: photoWidth) {
+                        photoCard
+                            .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                    }
+                    // Aparece desde el centro del outfit, donde se fundió.
+                    .transition(.scale(scale: 0.4).combined(with: .opacity))
+                } else {
+                    // Tu cara, pequeña, en la esquina del outfit; al empezar
+                    // vuela a su centro y desaparece dentro.
+                    ProfileFace(profile: profile, store: store)
+                        .scaleEffect(isWorking ? 0.25 : 1)
+                        .opacity(isWorking ? 0 : 1)
+                        .offset(
+                            x: isWorking ? 0 : outfitFront.width * 0.42,
+                            y: isWorking ? 0 : outfitFront.height * 0.40
+                        )
+                        .animation(.easeIn(duration: 0.7), value: isWorking)
+                        .zIndex(2)
+                        .transition(.opacity)
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
+            .animation(.spring(duration: 0.5, bounce: 0.25), value: front)
+            .animation(.spring(duration: 0.6, bounce: 0.25), value: showsResult)
             .animation(.spring(duration: 0.5, bounce: 0.2), value: isWorking)
+            .sensoryFeedback(.impact(weight: .light), trigger: front)
+        }
+        // Al llegar una prueba, delante: es lo que se venía a ver.
+        .onChange(of: result) { _, new in
+            if new != nil { front = .photo }
+        }
+        .onChange(of: isWorking) { _, working in
+            if working { front = .photo }
         }
     }
+
+    /// Una tarjeta en su sitio —delante o detrás— con sus gestos.
+    private func card<Content: View>(
+        _ which: Card,
+        in size: CGSize,
+        photoWidth: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let isFront = effectiveFront == which
+        let drag = which == .photo ? photoDrag : outfitDrag
+        let width = which == .outfit
+            ? outfitSize(front: isFront, in: size, photoWidth: photoWidth).width
+            : (isFront ? photoWidth : photoWidth * 0.62)
+        // Sola —antes de la prueba—, el outfit va centrado.
+        let rest = isFront
+            ? CGSize(width: showsResult ? size.width * 0.06 : 0, height: 0)
+            : CGSize(width: -size.width * 0.28, height: size.height * 0.1)
+        let tilt: Double = isFront ? (isWorking || !showsResult ? 0 : 2) : -9
+
+        return content()
+            .frame(width: width)
+            .shadow(color: .black.opacity(isFront ? 0.18 : 0.12), radius: isFront ? 18 : 12, y: isFront ? 10 : 6)
+            // Se inclina un poco hacia donde la llevas, como una carta.
+            .rotationEffect(.degrees(tilt + Double(drag.width) / 25))
+            .scaleEffect(drag == .zero ? 1 : 1.03)
+            .offset(x: rest.width + drag.width, y: rest.height + drag.height)
+            .zIndex(isFront ? 1 : 0)
+            .contentShape(.rect)
+            // Con una sola tarjeta no hay nada que cambiar.
+            .allowsHitTesting(showsResult)
+            .onTapGesture {
+                front = isFront ? (which == .photo ? .outfit : .photo) : which
+            }
+            .gesture(
+                DragGesture(minimumDistance: 6)
+                    .onChanged { value in
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            if which == .photo { photoDrag = value.translation } else { outfitDrag = value.translation }
+                        }
+                    }
+                    .onEnded { value in
+                        let distance = hypot(value.translation.width, value.translation.height)
+                        withAnimation(.spring(duration: 0.5, bounce: 0.3)) {
+                            // Lejos de su sitio, cambian: la de detrás viene
+                            // delante y la de delante se va detrás.
+                            if distance > Self.swapDistance {
+                                front = isFront ? (which == .photo ? .outfit : .photo) : which
+                            }
+                            photoDrag = .zero
+                            outfitDrag = .zero
+                        }
+                    }
+            )
+    }
+
+    // El escenario de antes, fijo: el outfit detrás sin tocar.
+    // var body: some View {
+    //     GeometryReader { proxy in
+    //         let photoWidth = min(proxy.size.width * 0.78, proxy.size.height * 0.75)
+    //         ZStack {
+    //             // Detrás, a la izquierda: el outfit.
+    //             LookCanvasView(
+    //                 garments: outfit.garments,
+    //                 store: store,
+    //                 backdrop: PlanFeedScreen.backdrop(of: outfit),
+    //                 outfit: outfit,
+    //                 showsBorder: true
+    //             )
+    //             .frame(width: photoWidth * 0.66)
+    //             .rotationEffect(.degrees(-9))
+    //             .offset(x: -proxy.size.width * 0.28, y: proxy.size.height * 0.08)
+    //             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+    //             .allowsHitTesting(false)
+    //             .zIndex(0)
+
+    //             // Delante: la prueba, o tu foto mientras no la hay.
+    //             photoCard
+    //                 .frame(width: photoWidth, height: photoWidth * 4 / 3)
+    //                 .rotationEffect(.degrees(isWorking ? 0 : 2))
+    //                 .offset(x: proxy.size.width * 0.06)
+    //                 .shadow(color: .black.opacity(0.18), radius: 18, y: 10)
+    //                 .zIndex(1)
+    //         }
+    //         .frame(width: proxy.size.width, height: proxy.size.height)
+    //         .animation(.spring(duration: 0.5, bounce: 0.2), value: isWorking)
+    //     }
+    // }
 
     /// Si lo que se ve es la prueba "sin fondo", sobre el papel.
     private var showsPaper: Bool {
@@ -355,11 +507,13 @@ struct ProfileSwitcher: View {
                     }
                 }
             }
-            if let selected {
-                Button { onEdit(selected) } label: {
-                    Label("Editar \(selected.label)", systemImage: "pencil")
-                }
-            }
+            // Editar no va aquí: el menú es para elegir quién se prueba la
+            // ropa. Los perfiles se editan en el probador virtual.
+            // if let selected {
+            //     Button { onEdit(selected) } label: {
+            //         Label("Editar \(selected.label)", systemImage: "pencil")
+            //     }
+            // }
             if canAddMore {
                 Button(action: onNew) {
                     Label("Nuevo perfil", systemImage: "plus")
@@ -422,5 +576,30 @@ struct TryOnPaper: View {
             }
             .opacity(0.5)
         }
+    }
+}
+
+
+/// Tu cara, pequeña y redonda, con un aro blanco: quién se va a probar el
+/// outfit. Ver `TryOnStage`.
+private struct ProfileFace: View {
+    let profile: BodyProfile?
+    let store: ImageStore
+
+    var body: some View {
+        Group {
+            if let profile, profile.hasPhoto {
+                StoredImage(key: profile.imageKey, variant: .thumb, store: store)
+                    .scaledToFill()
+            } else {
+                ToneIcon("person.fill", tone: .camel, size: 84)
+            }
+        }
+        .frame(width: 84, height: 84)
+        .clipShape(.circle)
+        .overlay { Circle().stroke(.white, lineWidth: 4) }
+        .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

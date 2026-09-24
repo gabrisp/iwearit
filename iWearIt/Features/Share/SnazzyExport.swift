@@ -13,6 +13,10 @@ import WKPersistence
 /// cargan primero y se dibujan después.
 enum SnazzyExport {
 
+    /// **Todo lo exportado, en 3:4 vertical y del mismo tamaño**: pruebas y
+    /// lienzos se ven iguales una al lado de otra en el carrete o en un post.
+    static let size = CGSize(width: 1200, height: 1600)
+
     // MARK: Pruebas
 
     /// Una prueba lista para compartir.
@@ -21,14 +25,20 @@ enum SnazzyExport {
     ///   persona recortada va sola sobre el papel, como en la app. `nil` para
     ///   las escenas, que ya traen su fondo.
     static func tryOn(_ image: UIImage, paper: UIColor?) -> UIImage {
-        let size = image.size
+        let size = Self.size
+        let bounds = CGRect(origin: .zero, size: size)
         let format = UIGraphicsImageRendererFormat()
-        format.scale = image.scale
+        format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
             if let paper {
-                drawPaper(paper, in: CGRect(origin: .zero, size: size), dotSpacing: size.width / 18, in: context.cgContext)
+                // Sin fondo: la persona entera, encajada sobre el papel.
+                drawPaper(paper, in: bounds, dotSpacing: size.width / 18, in: context.cgContext)
+                image.draw(in: fit(image.size, in: bounds.insetBy(dx: 0, dy: size.height * 0.03)))
+            } else {
+                // Con escena: la foto llena el 3:4, recortada al centro si
+                // no viniera exacta.
+                image.draw(in: fill(image.size, in: bounds))
             }
-            image.draw(in: CGRect(origin: .zero, size: size))
             // Sobre el papel, oscura si es claro; sobre una escena, blanca.
             drawWatermark(in: CGRect(origin: .zero, size: size), onLight: paper.map(isLight) ?? false)
         }
@@ -39,6 +49,10 @@ enum SnazzyExport {
     /// El lienzo de un outfit, a su tamaño lógico —1000 × 1400— y con la marca.
     static func outfit(_ outfit: Outfit, backdrop: UIColor, store: ImageStore) async -> UIImage? {
         let canvas = CGSize(width: CanvasSpace.width, height: CanvasSpace.height)
+        let output = Self.size
+        // El lienzo entero encajado en el 3:4; el papel sigue por los lados.
+        let placed = fit(canvas, in: CGRect(origin: .zero, size: output))
+        let scale = placed.width / canvas.width
 
         // Las prendas, cargadas **antes** de dibujar. La versión de catálogo si
         // existe, que es la que se ve en la app. Ver `StoredImage`.
@@ -56,9 +70,11 @@ enum SnazzyExport {
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
-        return UIGraphicsImageRenderer(size: canvas, format: format).image { context in
+        return UIGraphicsImageRenderer(size: output, format: format).image { context in
             let cg = context.cgContext
-            drawPaper(backdrop, in: CGRect(origin: .zero, size: canvas), dotSpacing: CanvasSpace.gridSpacing * 3, in: cg)
+            drawPaper(backdrop, in: CGRect(origin: .zero, size: output), dotSpacing: CanvasSpace.gridSpacing * 3 * scale, in: cg)
+            cg.translateBy(x: placed.minX, y: placed.minY)
+            cg.scaleBy(x: scale, y: scale)
 
             for piece in pieces {
                 let transform = piece.transform
@@ -78,7 +94,10 @@ enum SnazzyExport {
                 cg.restoreGState()
             }
 
-            drawWatermark(in: CGRect(origin: .zero, size: canvas), onLight: isLight(backdrop))
+            // La marca, en las coordenadas del 3:4 y no del lienzo.
+            cg.scaleBy(x: 1 / scale, y: 1 / scale)
+            cg.translateBy(x: -placed.minX, y: -placed.minY)
+            drawWatermark(in: CGRect(origin: .zero, size: output), onLight: isLight(backdrop))
         }
     }
 
@@ -157,6 +176,20 @@ enum SnazzyExport {
         var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
         guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return true }
         return 0.299 * red + 0.587 * green + 0.114 * blue > 0.6
+    }
+
+    /// Un tamaño encajado entero dentro de un rectángulo, centrado.
+    private static func fit(_ size: CGSize, in rect: CGRect) -> CGRect {
+        let fitted = aspectFit(size, in: rect.size)
+        return CGRect(x: rect.midX - fitted.width / 2, y: rect.midY - fitted.height / 2, width: fitted.width, height: fitted.height)
+    }
+
+    /// Un tamaño que llena un rectángulo, centrado y desbordando lo justo.
+    private static func fill(_ size: CGSize, in rect: CGRect) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return rect }
+        let scale = max(rect.width / size.width, rect.height / size.height)
+        let filled = CGSize(width: size.width * scale, height: size.height * scale)
+        return CGRect(x: rect.midX - filled.width / 2, y: rect.midY - filled.height / 2, width: filled.width, height: filled.height)
     }
 
     private static func aspectFit(_ size: CGSize, in box: CGSize) -> CGSize {

@@ -39,6 +39,8 @@ struct TryOnSheet: View {
     @State private var selectedID: UUID?
     /// Dónde ponerte. Ver `TryOnScene`.
     @State private var scene: TryOnScene = .none
+    /// Si la prueba que se ve ya se metió en el outfit como sticker.
+    @State private var addedToOutfit = false
 
     /// El perfil con el que se prueba: el elegido, o el primero que haya.
     private var profile: BodyProfile? {
@@ -81,9 +83,14 @@ struct TryOnSheet: View {
             .background(WK.Palette.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
-                        .tint(WK.Palette.primaryText)
+                // **Mientras te viste, no se cierra**: ni la X —se esconde—
+                // ni arrastrando la hoja. Cerrar a mitad tiraba la prueba ya
+                // pagada.
+                if model?.state != .working {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { dismiss() } label: { Image(systemName: "xmark") }
+                            .tint(WK.Palette.primaryText)
+                    }
                 }
                 ToolbarItem(placement: .principal) {
                     ProfileSwitcher(
@@ -112,6 +119,7 @@ struct TryOnSheet: View {
                 }
             }
             .adaptiveSafeAreaBar(edge: .bottom) { bottom }
+            .interactiveDismissDisabled(model?.state == .working)
             .task { prepare() }
             .sheet(isPresented: $isEditingProfile) {
                 // Editar uno que ya existe, con todo a la vista; crear uno
@@ -418,6 +426,28 @@ struct TryOnSheet: View {
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
             } else {
+                // **Al propio outfit**, como sticker: sin fondo, la persona
+                // recortada; con escena, la foto entera.
+                if model?.state != .working, model?.result != nil || showing != nil {
+                    Button { Task { await addToOutfit() } } label: {
+                        Label(
+                            addedToOutfit ? "Añadida al outfit" : "Añadir al outfit",
+                            systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle"
+                        )
+                        .font(WK.Font.captionMedium)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .contentTransition(.symbolEffect(.replace))
+                        .padding(.horizontal, WK.Spacing.m)
+                        .padding(.vertical, WK.Spacing.s + 2)
+                        .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .adaptiveGlassInteractive(in: .capsule)
+                    .disabled(addedToOutfit)
+                    .sensoryFeedback(.success, trigger: addedToOutfit)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
+
                 // El fondo, en tarjetas que se ven. Ver `ScenePicker`.
                 ScenePicker(selection: $scene)
                     .padding(.horizontal, -WK.Spacing.screenInset)
@@ -445,6 +475,24 @@ struct TryOnSheet: View {
     }
 
     // MARK: Lo que hace
+
+    /// Mete la prueba que se ve en el outfit, como sticker.
+    private func addToOutfit() async {
+        if let showing {
+            let size = (try? await appEnvironment.imageStore.image(for: showing.imageKey, variant: .display))
+                .map { CGSize(width: $0.width, height: $0.height) } ?? CGSize(width: 3, height: 4)
+            TryOnSticker.add(key: showing.imageKey, imageSize: size, to: outfit, context: modelContext)
+        } else if let image = model?.result?.cgImage,
+                  let key = try? await appEnvironment.imageStore.store(image) {
+            TryOnSticker.add(
+                key: key, imageSize: CGSize(width: image.width, height: image.height),
+                to: outfit, context: modelContext
+            )
+        } else {
+            return
+        }
+        withAnimation(WKAnimation.content) { addedToOutfit = true }
+    }
 
     private func prepare() {
         guard model == nil else { return }
@@ -476,6 +524,8 @@ struct TryOnSheet: View {
             return
         }
         Task {
+            // Una prueba nueva todavía no está en el outfit.
+            addedToOutfit = false
             let done = await model.generate(
                 for: profile,
                 garments: outfit.garments,

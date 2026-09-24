@@ -807,9 +807,15 @@ private struct CanvasEditorScreen: View {
                 editedOutfitID: outfit.stableID
             )
         case .stickers:
-            StickerPicker { kind in
-                add(kind)
-                withAnimation(WKAnimation.arrival) { trayKind = nil }
+            VStack(alignment: .leading, spacing: WK.Spacing.m) {
+                StickerPicker { kind in
+                    add(kind)
+                    withAnimation(WKAnimation.arrival) { trayKind = nil }
+                }
+                // Tus pruebas como stickers. Ver `TryOnStickerStrip`.
+                TryOnStickerStrip(outfit: outfit, store: store) {
+                    withAnimation(WKAnimation.arrival) { trayKind = nil }
+                }
             }
         case .drawing:
             DrawingPicker(drawing: drawing)
