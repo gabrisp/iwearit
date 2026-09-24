@@ -122,7 +122,8 @@ public struct WKFlowScreen<Content: View>: View {
                 .transition(transition)
                 .id(stepID)
 
-            WKPrimaryButton(primaryTitle, action: onPrimary)
+            // En cristal, como el resto de botones principales.
+            WKPrimaryButton(primaryTitle, surface: .glass, action: onPrimary)
                 .disabled(!isPrimaryEnabled)
                 .opacity(isPrimaryEnabled ? 1 : 0.45)
                 .animation(.smooth(duration: 0.2), value: isPrimaryEnabled)
@@ -135,12 +136,14 @@ public struct WKFlowScreen<Content: View>: View {
             Button(action: onLeading) {
                 Image(systemName: isAtRoot ? "xmark" : "chevron.left")
                     .font(.headline)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .frame(width: 32, height: 32)
-                    .background(WK.Palette.ink(0.07), in: .circle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 36, height: 36)
+                    // .background(WK.Palette.ink(0.07), in: .circle)
                     .contentShape(.circle)
             }
-            .buttonStyle(WKPressStyle())
+            // Un botón de cristal de verdad, no un círculo gris pintado.
+            .buttonStyle(.plain)
+            .adaptiveGlassInteractive(in: .circle)
             Spacer()
         }
     }
@@ -206,15 +209,17 @@ public struct WKSheetChrome<Trailing: View>: View {
             Button(action: onLeading) {
                 Image(systemName: isAtRoot ? "xmark" : "chevron.left")
                     .font(.headline)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .frame(width: 32, height: 32)
-                    .background(WK.Palette.ink(0.07), in: .circle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .frame(width: 36, height: 36)
+                    // .background(WK.Palette.ink(0.07), in: .circle)
                     .contentShape(.circle)
                     // El icono también se funde: es el mismo botón diciendo
                     // otra cosa, no otro botón.
                     .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(WKPressStyle())
+            // Un botón de cristal de verdad, no un círculo gris pintado.
+            .buttonStyle(.plain)
+            .adaptiveGlassInteractive(in: .circle)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .frame(height: Self.height)

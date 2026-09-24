@@ -167,13 +167,15 @@ struct SuitcaseDayList: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, WK.Spacing.l)
-                        .background(
-                            WK.Palette.shelf,
-                            in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
-                        )
-                        .contentShape(.rect)
+                        // .background(
+                        //     WK.Palette.shelf,
+                        //     in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
+                        // )
+                        .contentShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
                     }
-                    .buttonStyle(WKPressStyle())
+                    // Cristal interactivo: un botón de verdad.
+                    .buttonStyle(.plain)
+                    .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
                 }
 
                 LazyVGrid(
@@ -187,7 +189,8 @@ struct SuitcaseDayList: View {
                                 date: suitcase.date(forDayIndex: index)
                             )
                         }
-                        .buttonStyle(WKPressStyle())
+                        .buttonStyle(.plain)
+                        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
                     }
                 }
             }
@@ -227,10 +230,11 @@ private struct TripDayPad: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, WK.Spacing.m)
-        .background(
-            WK.Palette.shelf,
-            in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
-        )
-        .contentShape(.rect)
+        // El fondo lo pone el cristal del botón. Ver `SuitcaseDayList`.
+        // .background(
+        //     WK.Palette.shelf,
+        //     in: .rect(cornerRadius: WK.Radius.large, style: .continuous)
+        // )
+        .contentShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
     }
 }
