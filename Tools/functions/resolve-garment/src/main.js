@@ -44,6 +44,21 @@ const IMAGE_MODEL = process.env.OPENROUTER_IMAGE_MODEL || 'google/gemini-3.1-fla
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
+ * El modelo de la versión de catálogo: **con fondo transparente de verdad**.
+ *
+ * Gemini no sabe devolver alfa: por mucho que se le pida, entrega un fondo
+ * pintado, y había que pedirle un gris liso y quitarlo después en el iPhone
+ * por croma — con bordes sucios y trozos de prenda comidos cuando la prenda
+ * era gris. Los de imagen de OpenAI sí aceptan `background: "transparent"` y
+ * devuelven un PNG con canal alfa: la prenda y nada más.
+ *
+ * Medido con una camiseta: 19 s, 0,013 $, PNG RGBA 1024×1536, color intacto.
+ * `IMAGE_MODEL` se queda para probarse outfits, que sí quiere fondo.
+ */
+const CATALOG_MODEL = process.env.OPENROUTER_CATALOG_MODEL || 'openai/gpt-image-1-mini';
+const IMAGES_ENDPOINT = 'https://openrouter.ai/api/v1/images';
+
+/**
  * Lo que se le pide al modelo de imagen.
  *
  * Todo el texto empuja en la misma dirección: **es la misma prenda, puesta
@@ -51,13 +66,18 @@ const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
  * "dibújame una camiseta parecida" — y lo segundo destruye el armario, porque
  * el usuario acaba con ropa que no tiene.
  */
+// El fondo de antes, cuando el modelo no sabía devolver alfa:
+// FONDO — OBLIGATORIO:
+// - Fondo LISO y de UN SOLO TONO GRIS CLARO (#F2F2F2), cubriendo todo lo que no sea la prenda, hasta los bordes.
+// - SIN degradados, SIN viñeteado, SIN sombra proyectada y SIN suelo ni superficie: solo ese gris.
+// - NO dibujes el patrón de cuadros grises y blancos con el que los editores representan la transparencia: eso son píxeles pintados, no un fondo vacío.
+// - El borde de la prenda, nítido contra el fondo.
 const RESTYLE_PROMPT = `Convierte esto en la foto de producto que usaría una tienda online para ESTA prenda.
 
 FONDO — OBLIGATORIO:
-- Fondo LISO y de UN SOLO TONO GRIS CLARO (#F2F2F2), cubriendo todo lo que no sea la prenda, hasta los bordes.
-- SIN degradados, SIN viñeteado, SIN sombra proyectada y SIN suelo ni superficie: solo ese gris.
-- NO dibujes el patrón de cuadros grises y blancos con el que los editores representan la transparencia: eso son píxeles pintados, no un fondo vacío.
-- El borde de la prenda, nítido contra el fondo.
+- FONDO TRANSPARENTE: todo lo que no sea la prenda, vacío. Solo la prenda recortada.
+- SIN sombra proyectada, SIN suelo, SIN superficie, SIN reflejo, SIN marco.
+- El borde de la prenda, nítido y limpio.
 
 SOLO ESTA PRENDA — OBLIGATORIO:
 - En la foto puede haber más cosas: un bolso, un cinturón, otra prenda, una persona, una percha, una mano. NO FORMAN PARTE de la prenda y no deben aparecer.
@@ -264,9 +284,56 @@ async function tryOn(person, describedPerson, garments, scene, key, log, error) 
   };
 }
 
+// La petición de antes, por chat con Gemini y fondo gris:
+// /** Pide la versión de catálogo y devuelve la imagen en base64. */
+// async function restyle(image, key, log, error) {
+//   const response = await fetch(ENDPOINT, {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Authorization: `Bearer ${key}`,
+//       'HTTP-Referer': 'https://iwearit.app',
+//       'X-Title': 'iWearIt',
+//     },
+//     body: JSON.stringify({
+//       model: IMAGE_MODEL,
+//       modalities: ['image', 'text'],
+//       messages: [{
+//         role: 'user',
+//         content: [
+//           { type: 'text', text: RESTYLE_PROMPT },
+//           { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${image}` } },
+//         ],
+//       }],
+//     }),
+//     signal: AbortSignal.timeout(90000),
+//   });
+//
+//   if (response.status === 429) return { status: 429, body: { error: 'rate_limited' } };
+//   if (!response.ok) {
+//     error(`OpenRouter ${response.status}: ${(await response.text()).slice(0, 400)}`);
+//     return { status: 502, body: { error: 'upstream_error' } };
+//   }
+//
+//   const completion = await response.json();
+//   const message = completion?.choices?.[0]?.message;
+//   // Los modelos de imagen la devuelven en `images`, como data URL. No en
+//   // `content`, que trae el texto que la acompaña y que aquí no interesa.
+//   const url = message?.images?.[0]?.image_url?.url;
+//   if (!url || !url.startsWith('data:image')) {
+//     // **Con el motivo dentro.** Un `no_image` a secas obliga a reproducir la
+//     // llamada a mano para saber si fue una negativa del modelo, un filtro de
+//     // contenido o un cambio en la forma de la respuesta.
+//     const reason = message?.refusal || String(message?.content || '').slice(0, 200) || 'sin images[]';
+//     error(`sin imagen: ${reason}`);
+//     return { status: 502, body: { error: 'no_image', reason } };
+//   }
+
 /** Pide la versión de catálogo y devuelve la imagen en base64. */
 async function restyle(image, key, log, error) {
-  const response = await fetch(ENDPOINT, {
+  // **Por la API de imágenes, con fondo transparente.** Por chat —como
+  // antes— no hay forma de pedir alfa: ver `CATALOG_MODEL`.
+  const response = await fetch(IMAGES_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -275,17 +342,17 @@ async function restyle(image, key, log, error) {
       'X-Title': 'iWearIt',
     },
     body: JSON.stringify({
-      model: IMAGE_MODEL,
-      modalities: ['image', 'text'],
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: RESTYLE_PROMPT },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${image}` } },
-        ],
-      }],
+      model: CATALOG_MODEL,
+      prompt: RESTYLE_PROMPT,
+      input_references: [
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${image}` } },
+      ],
+      background: 'transparent',
+      output_format: 'png',
+      quality: 'medium',
+      n: 1,
     }),
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(120000),
   });
 
   if (response.status === 429) return { status: 429, body: { error: 'rate_limited' } };
@@ -295,21 +362,17 @@ async function restyle(image, key, log, error) {
   }
 
   const completion = await response.json();
-  const message = completion?.choices?.[0]?.message;
-  // Los modelos de imagen la devuelven en `images`, como data URL. No en
-  // `content`, que trae el texto que la acompaña y que aquí no interesa.
-  const url = message?.images?.[0]?.image_url?.url;
-  if (!url || !url.startsWith('data:image')) {
-    // **Con el motivo dentro.** Un `no_image` a secas obliga a reproducir la
-    // llamada a mano para saber si fue una negativa del modelo, un filtro de
-    // contenido o un cambio en la forma de la respuesta.
-    const reason = message?.refusal || String(message?.content || '').slice(0, 200) || 'sin images[]';
+  const picture = completion?.data?.[0];
+  if (!picture?.b64_json) {
+    const reason = JSON.stringify(completion).slice(0, 200);
     error(`sin imagen: ${reason}`);
     return { status: 502, body: { error: 'no_image', reason } };
   }
 
   const usage = completion?.usage || {};
-  const generated = url.slice(url.indexOf(',') + 1);
+  const generated = picture.b64_json;
+
+
 
   // **Y se comprueba.**
   //
@@ -380,7 +443,7 @@ async function verify(original, generated, key, log, error) {
                 'La primera imagen es la foto original de una prenda. La segunda es una '
                 + 'reconstrucción de catálogo de ESA MISMA prenda.\n\n'
                 + 'IGNORA POR COMPLETO EL FONDO, LA ILUMINACIÓN, LA POSTURA Y LAS ARRUGAS: '
-                + 'la reconstrucción cambia el fondo a un gris liso a propósito, quita la percha y '
+                + 'la reconstrucción quita el fondo a propósito (queda transparente), quita la percha y '
                 + 'alisa la prenda. Eso NO es un fallo. Juzga ÚNICAMENTE la prenda.\n\n'
                 // **Y que esté plana.** Es la mitad del trabajo: si devuelve la
                 // prenda puesta en alguien, el armario acaba con fotos de
