@@ -15,39 +15,78 @@ struct OnboardingFlow: View {
     @State private var safeInsets = EdgeInsets()
 
     var body: some View {
-        // `NavigationStack` propio: es lo que hace que iOS 26 difumine solo el
-        // contenido que pasa por debajo de las barras. Sin él, `safeAreaBar`
-        // reserva el hueco pero no tiene nada a lo que engancharse.
-        NavigationStack {
-            OnboardingStepContent(step: model.step, model: model, onFinish: onFinish)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // **Cada pantalla con su fondo**: ahora pasan como tarjetas,
-                // y una tarjeta transparente no se ve encoger. Ver
-                // `WKPageCardTransition`.
-                .background(WK.Palette.canvas.ignoresSafeArea())
-                .transition(model.transition(insets: safeInsets))
-                .id(model.step)
-                // El cristal del botón se funde de un paso al siguiente en vez
-                // de desaparecer y volver: el botón es el mismo objeto, solo
-                // cambia lo que dice.
-                .adaptiveGlassTransition()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Detrás, un escalón más oscuro: solo se ve mientras las
-                // tarjetas pasan, y es lo que las despega del fondo.
-                .background {
-                    ZStack {
-                        WK.Palette.canvas
-                        WK.Palette.ink(0.08)
-                    }
-                    .ignoresSafeArea()
-                }
-                // .background(WK.Palette.canvas.ignoresSafeArea())
-                .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: {
-                    safeInsets = $0
-                }
-                .adaptiveSafeAreaBar(edge: .top) { header }
-                .toolbarVisibility(.hidden, for: .navigationBar)
+        // **Sin `NavigationStack`.** Estaba para que `safeAreaBar` difuminara
+        // lo de debajo de la barra de arriba, y esa barra ya no es
+        // `safeAreaBar`. Además la pila pinta su propio efecto de borde
+        // arriba aunque la barra esté oculta, y al encoger la pantalla a
+        // tarjeta se veía como una franja blanca.
+        // NavigationStack {
+        ZStack {
+            // Detrás, un escalón más oscuro: solo se ve mientras las
+            // pantallas pasan como tarjetas, y es lo que las despega.
+            //
+            // **Una capa fija debajo y no un `.background`** del contenedor
+            // que cambia de identidad: puesta así no llegaba a pintarse y
+            // detrás de las tarjetas se veía la ventana en blanco.
+            ZStack {
+                WK.Palette.canvas
+                WK.Palette.ink(0.08)
+            }
+            .ignoresSafeArea()
+
+            // Las dos pantallas mientras pasa la página —la que sale y la que
+            // entra—, por su paso para que cada una conserve su estado. Ver
+            // `OnboardingModel.move`.
+            ForEach(pages, id: \.self) { page in
+                OnboardingStepContent(step: page, model: model, onFinish: onFinish)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // El fondo de cada pantalla lo pinta la tarjeta, con la
+                    // forma con la que se recorta y que abarca la pantalla
+                    // entera. Ver `PageCardEffect`.
+                    .modifier(card(for: page))
+                    // La que entra, encima: llega tapando a la que se va.
+                    .zIndex(page == model.outgoing ? 0 : 1)
+                    // Solo se toca la que se queda.
+                    .allowsHitTesting(page == model.step)
+            }
         }
+        // El cristal del botón se funde de un paso al siguiente en vez
+        // de desaparecer y volver: el botón es el mismo objeto, solo
+        // cambia lo que dice.
+        .adaptiveGlassTransition()
+        .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: {
+            safeInsets = $0
+        }
+        // `safeAreaInset` y no `safeAreaBar`: la barra de iOS 26
+        // difumina lo que pasa por debajo, y mientras la pantalla se
+        // encoge a tarjeta ese difuminado se veía como una franja
+        // blanca en el canto de arriba.
+        // .adaptiveSafeAreaBar(edge: .top) { header }
+        .safeAreaInset(edge: .top, spacing: 0) { header }
+    }
+
+    /// La que sale primero, la que entra después.
+    private var pages: [OnboardingStep] {
+        [model.outgoing, model.step].compactMap { $0 }
+    }
+
+    /// El efecto de tarjeta de cada pantalla, según el paso de página.
+    private func card(for page: OnboardingStep) -> PageCardEffect {
+        let forward: CGFloat = model.isGoingBack ? -1 : 1
+        let isLeaving = page == model.outgoing
+        let progress: Double
+        if isLeaving {
+            progress = model.pageProgress
+        } else {
+            progress = model.outgoing == nil ? 0 : 1 - model.pageProgress
+        }
+        return PageCardEffect(
+            progress: progress,
+            isLeaving: isLeaving,
+            side: isLeaving ? -forward : forward,
+            insets: safeInsets,
+            background: WK.Palette.canvas
+        )
     }
 
     @ViewBuilder

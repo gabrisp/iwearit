@@ -82,7 +82,9 @@ struct TryOnSheet: View {
                 canvas
                 past
                 if !profiles.isEmpty { strip }
-                scenes
+                // Las píldoras de escena, fuera: el fondo se elige con el
+                // botón de al lado de "Probármelo". Ver `sceneMenu`.
+                // scenes
                 if case let .failed(reason) = model?.state {
                     Text(reason)
                         .font(WK.Font.caption)
@@ -200,10 +202,17 @@ struct TryOnSheet: View {
     /// forma más rápida de que nadie use esto dos veces.
     private var strip: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: WK.Spacing.m) {
+            HStack(alignment: .top, spacing: WK.Spacing.l) {
                 ForEach(profiles) { item in
                     Button { selectedID = item.id } label: {
-                        ProfileChip(
+                        // ProfileChip(
+                        //     profile: item,
+                        //     isSelected: item.id == profile?.id,
+                        //     store: appEnvironment.imageStore
+                        // )
+                        // Avatares y no píldoras: una persona se reconoce por
+                        // la cara, no por una etiqueta.
+                        ProfileAvatar(
                             profile: item,
                             isSelected: item.id == profile?.id,
                             store: appEnvironment.imageStore
@@ -222,21 +231,23 @@ struct TryOnSheet: View {
 
                 if canAddMore {
                     Button { edit(nil) } label: {
-                        Label("Nuevo", systemImage: "plus")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                            .padding(.horizontal, WK.Spacing.m)
-                            .padding(.vertical, WK.Spacing.s)
-                            .overlay {
-                                Capsule().stroke(
-                                    WK.Palette.ink(0.18),
-                                    style: StrokeStyle(lineWidth: 1, dash: [6, 4])
-                                )
-                            }
+                        // Label("Nuevo", systemImage: "plus") … en píldora
+                        // discontinua, antes.
+                        VStack(spacing: WK.Spacing.xs) {
+                            Image(systemName: "plus")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(WK.Palette.primaryText)
+                                .frame(width: ProfileAvatar.side, height: ProfileAvatar.side)
+                                .adaptiveGlassInteractive(in: .circle)
+                            Text("Nuevo")
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.secondaryText)
+                        }
                     }
-                    .buttonStyle(WKPressStyle())
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.vertical, WK.Spacing.xs)
         }
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
@@ -288,6 +299,31 @@ struct TryOnSheet: View {
         .scrollClipDisabled()
     }
 
+    /// Dónde te pones, en un menú junto al botón.
+    ///
+    /// Antes era una fila de seis píldoras entre la foto y el botón: ocupaba
+    /// sitio, se leía como un formulario y lo que casi nadie cambia estaba a
+    /// la misma altura que lo que todo el mundo toca. En el botón se ve qué
+    /// fondo va a salir —su icono— y cambiarlo son dos toques.
+    private var sceneMenu: some View {
+        Menu {
+            Picker("Fondo", selection: $scene) {
+                ForEach(TryOnScene.allCases) { option in
+                    Label(option.label, systemImage: option.symbol).tag(option)
+                }
+            }
+        } label: {
+            Image(systemName: scene.symbol)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(WK.Palette.primaryText)
+                .frame(width: 56, height: 56)
+                .contentShape(.circle)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .adaptiveGlassInteractive(in: .circle)
+        .accessibilityLabel("Fondo: \(scene.label)")
+    }
+
     @ViewBuilder
     private var bottom: some View {
         VStack(spacing: WK.Spacing.s) {
@@ -302,10 +338,13 @@ struct TryOnSheet: View {
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
             } else {
-                WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo") {
-                    generate()
+                HStack(spacing: WK.Spacing.s) {
+                    WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo") {
+                        generate()
+                    }
+                    .disabled(model?.state == .working)
+                    sceneMenu
                 }
-                .disabled(model?.state == .working)
 
                 if let profile {
                     Button("Editar \(profile.label)") { edit(profile) }
@@ -422,6 +461,44 @@ private struct ProfileChip: View {
         .padding(.vertical, WK.Spacing.s)
         .background {
             Capsule().fill(isSelected ? WK.Palette.accent : WK.Palette.ink(0.06))
+        }
+    }
+}
+
+
+/// Un perfil como avatar: la foto en un círculo, o una silueta si es descrito,
+/// con el nombre debajo. El elegido lleva un anillo **por fuera**, separado
+/// del círculo, como las historias: se ve cuál es sin tapar la cara.
+private struct ProfileAvatar: View {
+    let profile: BodyProfile
+    let isSelected: Bool
+    let store: ImageStore
+
+    static let side: CGFloat = 60
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.xs) {
+            Group {
+                if profile.hasPhoto {
+                    StoredImage(key: profile.imageKey, variant: .thumb, store: store)
+                        .scaledToFill()
+                } else {
+                    ToneIcon("person.fill", tone: .at(abs(profile.id.hashValue)), size: Self.side)
+                }
+            }
+            .frame(width: Self.side, height: Self.side)
+            .clipShape(.circle)
+            .padding(4)
+            .overlay {
+                Circle().stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2.5)
+            }
+            .animation(WKAnimation.selection, value: isSelected)
+
+            Text(profile.label)
+                .font(isSelected ? WK.Font.captionMedium : WK.Font.caption)
+                .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                .lineLimit(1)
+                .frame(maxWidth: Self.side + 12)
         }
     }
 }

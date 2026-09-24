@@ -81,7 +81,7 @@ public struct SingleSelectList: View {
     }
 
     public var body: some View {
-        VStack(spacing: WK.Spacing.s) {
+        VStack(spacing: WK.Spacing.s + 4) {
             ForEach(options) { option in
                 OptionRow(option: option, isSelected: selection == option.id) {
                     selection = option.id
@@ -103,7 +103,7 @@ public struct MultiSelectList: View {
     }
 
     public var body: some View {
-        VStack(spacing: WK.Spacing.s) {
+        VStack(spacing: WK.Spacing.s + 4) {
             ForEach(options) { option in
                 OptionRow(option: option, isSelected: selection.contains(option.id), isCheckbox: true) {
                     if selection.contains(option.id) {
@@ -167,10 +167,14 @@ private struct OptionRow: View {
         // y la fila daba dos respuestas a un solo toque—.
         .buttonStyle(.plain)
         .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-        // El borde de acento, fuera del cristal para que no lo muestree.
+        // El borde de la selección **por fuera** del cristal, separado: dentro
+        // se montaba sobre el canto del cristal y se leían dos bordes, uno
+        // encima del otro. El radio crece lo mismo que la separación para
+        // que las esquinas sigan siendo paralelas.
         .overlay {
-            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                .strokeBorder(isSelected ? option.tone.color : .clear, lineWidth: 2)
+            RoundedRectangle(cornerRadius: WK.Radius.medium + 4, style: .continuous)
+                .stroke(isSelected ? option.tone.color : .clear, lineWidth: 2)
+                .padding(-4)
         }
         .animation(.snappy(duration: 0.18), value: isSelected)
     }

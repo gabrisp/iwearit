@@ -56,6 +56,37 @@ def packaged(source: pathlib.Path) -> bytes:
     return buffer.getvalue()
 
 
+RESULTS_BUCKET = "ai-results"
+
+
+def ensure_results_bucket(client: Appwrite) -> None:
+    """El bucket donde la función deja cada resultado para quien lo pidió.
+
+    **Seguridad por fichero y ningún permiso de bucket**: cada fichero lo crea
+    la función con lectura y borrado solo para el usuario que lo encargó. Nadie
+    puede listar el bucket ni leer lo de otro.
+    """
+    body = {
+        "name": "Resultados de IA",
+        "permissions": [],
+        "fileSecurity": True,
+        "enabled": True,
+        "maximumFileSize": 15_000_000,
+        "allowedFileExtensions": ["png", "jpg", "jpeg", "json"],
+        "compression": "none",
+        "encryption": True,
+        "antivirus": False,
+    }
+    status, _ = client.request("GET", f"/storage/buckets/{RESULTS_BUCKET}")
+    if status == 200:
+        status, payload = client.request("PUT", f"/storage/buckets/{RESULTS_BUCKET}", body)
+    else:
+        status, payload = client.request("POST", "/storage/buckets", {"bucketId": RESULTS_BUCKET, **body})
+    if status not in (200, 201):
+        sys.exit(f"  ERROR bucket {status}: {payload.get('message', payload)}")
+    print(f"  bucket {RESULTS_BUCKET} ✓")
+
+
 def main() -> int:
     if not SOURCE.exists():
         sys.exit(f"No existe {SOURCE}")
@@ -80,6 +111,12 @@ def main() -> int:
         # se parece en nada a la causa.
         "timeout": 120,
         "logging": True,
+        # **Para dejar los resultados en `ai-results`.** Appwrite corta las
+        # ejecuciones síncronas a los 30 s —el probador tarda más— y de las
+        # asíncronas no guarda la respuesta, así que la función escribe la
+        # imagen en Storage con la clave dinámica que recibe, y la app la
+        # recoge de ahí.
+        "scopes": ["files.read", "files.write"],
     }
 
     if exists:
@@ -95,6 +132,8 @@ def main() -> int:
     if status not in (200, 201):
         sys.exit(f"  ERROR {status}: {payload.get('message', payload)}")
 
+    ensure_results_bucket(client)
+
     print("Publicando OPENROUTER_API_KEY como variable de entorno…")
     status, variables = client.request("GET", f"/functions/{FUNCTION_ID}/variables")
     existing = {v["key"]: v["$id"] for v in variables.get("variables", [])}
@@ -102,6 +141,11 @@ def main() -> int:
         ("OPENROUTER_API_KEY", key),
         ("OPENROUTER_MODEL", "google/gemini-2.5-flash-lite"),
         ("OPENROUTER_IMAGE_MODEL", "google/gemini-3.1-flash-lite-image"),
+        # El endpoint **público**: el que Appwrite inyecta en la función
+        # (`APPWRITE_FUNCTION_API_ENDPOINT`) viene mal configurado en este
+        # servidor —apunta a `/v1/realtime/v1`— y cualquier llamada ahí
+        # devuelve un 400 sin explicación.
+        ("RESULTS_API_ENDPOINT", client.endpoint),
     ]:
         if name in existing:
             status, payload = client.request(

@@ -123,24 +123,45 @@ public actor RemoteClothingResolver: ClothingResolving {
         return answer
     }
 
+    // Síncrona, antes: se cortaba a los 30 s.
+    // public func restyle(_ imageJPEG: Data) async throws -> Data {
+    //     await acquireSlot()
+    //     defer { releaseSlot() }
+    //     try await ensureSession()
+
+    //     let start = ContinuousClock.now
+    //     let body = RestylePayload(action: "restyle", imageBase64: imageJPEG.base64EncodedString())
+    //     // Más margen que al describir: describir son 1,5 s y **dibujar** son
+    //     // entre cinco y cuarenta, según el modelo y la carga del proveedor.
+    //     let answer: RestyleAnswer = try await execute(body: body, timeout: 150)
+
+    //     guard let data = Data(base64Encoded: answer.imageBase64) else {
+    //         throw ClothingResolverError.badResponse("la imagen no venía en base64")
+    //     }
+    //     DiagnosticsLog.record(
+    //         "CATÁLOGO",
+    //         "generada en \(start.duration(to: .now)) · \(data.count / 1024) KB"
+    //             + " · \(answer.tokens.map(String.init) ?? "?") tokens"
+    //     )
+    //     return data
+    // }
+
     public func restyle(_ imageJPEG: Data) async throws -> Data {
         await acquireSlot()
         defer { releaseSlot() }
         try await ensureSession()
 
         let start = ContinuousClock.now
-        let body = RestylePayload(action: "restyle", imageBase64: imageJPEG.base64EncodedString())
-        // Más margen que al describir: describir son 1,5 s y **dibujar** son
-        // entre cinco y cuarenta, según el modelo y la carga del proveedor.
-        let answer: RestyleAnswer = try await execute(body: body, timeout: 150)
-
-        guard let data = Data(base64Encoded: answer.imageBase64) else {
-            throw ClothingResolverError.badResponse("la imagen no venía en base64")
-        }
+        let jobID = Self.newJobID()
+        let body = RestylePayload(
+            action: "restyle", imageBase64: imageJPEG.base64EncodedString(), jobID: jobID
+        )
+        // **Por encargo.** Dibujar con fondo transparente tarda 20-25 s, y
+        // Appwrite corta las ejecuciones síncronas a los 30: un día lento
+        // y se perdía la imagen ya pagada. Ver `runJob`.
+        let data = try await runJob(body: body, jobID: jobID, timeout: 150)
         DiagnosticsLog.record(
-            "CATÁLOGO",
-            "generada en \(start.duration(to: .now)) · \(data.count / 1024) KB"
-                + " · \(answer.tokens.map(String.init) ?? "?") tokens"
+            "CATÁLOGO", "generada en \(start.duration(to: .now)) · \(data.count / 1024) KB"
         )
         return data
     }
@@ -156,20 +177,20 @@ public actor RemoteClothingResolver: ClothingResolving {
         try await ensureSession()
 
         let start = ContinuousClock.now
+        let jobID = Self.newJobID()
         let body = TryOnPayload(
             action: "tryon",
             personBase64: personJPEG?.base64EncodedString(),
             personDescription: personDescription,
             garmentsBase64: garmentsPNG.map { $0.base64EncodedString() },
-            scene: scene
+            scene: scene,
+            jobID: jobID
         )
         // Lo más lento que pide la app: varias imágenes de entrada y una de
-        // salida.
-        let answer: RestyleAnswer = try await execute(body: body, timeout: 180)
-
-        guard let data = Data(base64Encoded: answer.imageBase64) else {
-            throw ClothingResolverError.badResponse("la imagen no venía en base64")
-        }
+        // salida. **Por encargo**: en síncrono Appwrite lo cortaba a los 30 s
+        // y el probador se quedaba sin resultado. Ver `runJob`.
+        // let answer: RestyleAnswer = try await execute(body: body, timeout: 180)
+        let data = try await runJob(body: body, jobID: jobID, timeout: 180)
         DiagnosticsLog.record(
             "PROBADOR",
             "generada en \(start.duration(to: .now)) · \(data.count / 1024) KB"
@@ -217,6 +238,130 @@ public actor RemoteClothingResolver: ClothingResolving {
             throw ClothingResolverError.badResponse(envelope.responseBody)
         }
         return try JSONDecoder().decode(Answer.self, from: payload)
+    }
+
+    // MARK: - Encargos
+
+    /// El bucket donde la función deja cada resultado, legible solo por quien
+    /// lo pidió.
+    private static let resultsBucket = "ai-results"
+
+    private static func newJobID() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+    }
+
+    /// Pide un trabajo largo **por encargo** y espera a su resultado.
+    ///
+    /// ## Por qué no síncrono
+    ///
+    /// Appwrite corta las ejecuciones síncronas a los 30 s, y de las
+    /// asíncronas no guarda la respuesta. Así que la ejecución va en
+    /// asíncrono con un `jobID`, la función deja la imagen —o un JSON con el
+    /// error— en `ai-results/<jobID>` con permiso solo para este usuario, y
+    /// aquí se espera a que aparezca.
+    ///
+    /// - Returns: los bytes de la imagen.
+    private func runJob<Body: Encodable>(
+        body: Body,
+        jobID: String,
+        timeout: TimeInterval
+    ) async throws -> Data {
+        var request = URLRequest(
+            url: endpoint.appending(path: "functions/\(functionID)/executions")
+        )
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(projectID, forHTTPHeaderField: "X-Appwrite-Project")
+        let encoder = JSONEncoder()
+        let inner = String(decoding: try encoder.encode(body), as: UTF8.self)
+        request.httpBody = try encoder.encode(
+            Execution(body: inner, async: true, path: "/", method: "POST")
+        )
+
+        let (created, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw ClothingResolverError.transport("sin respuesta")
+        }
+        guard (200...202).contains(http.statusCode) else {
+            if http.statusCode == 429 { throw ClothingResolverError.rateLimited }
+            throw ClothingResolverError.transport("HTTP \(http.statusCode)")
+        }
+        let executionID = (try? JSONDecoder().decode(CreatedExecution.self, from: created))?.id
+
+        let deadline = ContinuousClock.now.advanced(by: .seconds(timeout))
+        var polls = 0
+        // Lo que tarda como poco: no tiene sentido preguntar antes.
+        try await Task.sleep(for: .seconds(3))
+        while ContinuousClock.now < deadline {
+            try Task.checkCancellation()
+            if let data = try await download(jobID) {
+                Task { await self.deleteResult(jobID) }
+                return try Self.unwrap(data)
+            }
+            polls += 1
+            // De vez en cuando, si la ejecución se ha caído: esperar el
+            // tiempo entero a un fichero que ya no va a llegar sería el
+            // "se queda colgado" de siempre.
+            if polls.isMultiple(of: 4), let executionID, await executionFailed(executionID) {
+                throw ClothingResolverError.transport("la ejecución falló en el servidor")
+            }
+            try await Task.sleep(for: .milliseconds(1500))
+        }
+        throw ClothingResolverError.transport("tardó demasiado")
+    }
+
+    /// El resultado, si ya está. `nil` mientras no exista.
+    private func download(_ jobID: String) async throws -> Data? {
+        var request = URLRequest(url: endpoint.appending(
+            path: "storage/buckets/\(Self.resultsBucket)/files/\(jobID)/download"
+        ))
+        request.setValue(projectID, forHTTPHeaderField: "X-Appwrite-Project")
+        request.timeoutInterval = 30
+        guard
+            let (data, response) = try? await session.data(for: request),
+            let http = response as? HTTPURLResponse,
+            http.statusCode == 200
+        else { return nil }
+        return data
+    }
+
+    /// Una imagen, o el error que la función dejó en su lugar.
+    private static func unwrap(_ data: Data) throws -> Data {
+        guard data.first == UInt8(ascii: "{") else { return data }
+        let failure = try? JSONDecoder().decode(JobFailure.self, from: data)
+        DiagnosticsLog.record(
+            "REMOTO",
+            "el encargo falló: \(failure?.status ?? 0) \(failure?.error ?? "?") \(failure?.reason ?? "")",
+            isProblem: true
+        )
+        if failure?.status == 429 { throw ClothingResolverError.rateLimited }
+        throw ClothingResolverError.badResponse(
+            [failure?.error, failure?.reason].compactMap { $0 }.joined(separator: ": ")
+        )
+    }
+
+    private func executionFailed(_ id: String) async -> Bool {
+        var request = URLRequest(url: endpoint.appending(
+            path: "functions/\(functionID)/executions/\(id)"
+        ))
+        request.setValue(projectID, forHTTPHeaderField: "X-Appwrite-Project")
+        guard
+            let (data, _) = try? await session.data(for: request),
+            let execution = try? JSONDecoder().decode(ExecutionStatus.self, from: data)
+        else { return false }
+        return execution.status == "failed"
+    }
+
+    /// Recogido, se borra: es una foto tuya y no tiene por qué quedarse en
+    /// el servidor.
+    private func deleteResult(_ jobID: String) async {
+        var request = URLRequest(url: endpoint.appending(
+            path: "storage/buckets/\(Self.resultsBucket)/files/\(jobID)"
+        ))
+        request.httpMethod = "DELETE"
+        request.setValue(projectID, forHTTPHeaderField: "X-Appwrite-Project")
+        _ = try? await session.data(for: request)
     }
 
     // MARK: - Turnos
@@ -298,11 +443,28 @@ public actor RemoteClothingResolver: ClothingResolving {
         let personDescription: String
         let garmentsBase64: [String]
         let scene: String
+        let jobID: String
     }
 
     private struct RestylePayload: Encodable {
         let action: String
         let imageBase64: String
+        let jobID: String
+    }
+
+    private struct CreatedExecution: Decodable {
+        let id: String
+        enum CodingKeys: String, CodingKey { case id = "$id" }
+    }
+
+    private struct ExecutionStatus: Decodable {
+        let status: String
+    }
+
+    private struct JobFailure: Decodable {
+        let status: Int?
+        let error: String?
+        let reason: String?
     }
 
     private struct RestyleAnswer: Decodable {

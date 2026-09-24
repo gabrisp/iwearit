@@ -138,8 +138,23 @@ final class TryOnModel {
     /// **El recorte va en PNG**, que es lo único que conserva el alfa: en JPEG
     /// la prenda llegaría dentro de un rectángulo blanco y el modelo lo
     /// pintaría como parte de la ropa.
+    ///
+    /// **Y reducido a 640 px.** A 1024 cada prenda eran 1-1,5 MB, y con tres o
+    /// cuatro el encargo pasaba del tope del servidor: el probador contestaba
+    /// "demasiado grande" antes de intentar nada. Para vestir a alguien sobra.
     private static func png(from image: CGImage) -> Data? {
-        UIImage(cgImage: image).pngData()
+        let maxSide: CGFloat = 640
+        let longest = CGFloat(max(image.width, image.height))
+        guard longest > maxSide else { return UIImage(cgImage: image).pngData() }
+        let scale = maxSide / longest
+        let size = CGSize(width: CGFloat(image.width) * scale, height: CGFloat(image.height) * scale)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let drawn = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            UIImage(cgImage: image).draw(in: CGRect(origin: .zero, size: size))
+        }
+        return drawn.pngData()
     }
 
     /// Tu foto, **sin cuadrarla**.
@@ -154,7 +169,12 @@ final class TryOnModel {
             width: Double(image.width) * scale,
             height: Double(image.height) * scale
         )
-        let renderer = UIGraphicsImageRenderer(size: size)
+        // **A escala 1.** Por defecto el renderer dibuja a la escala de la
+        // pantalla —×3 en un iPhone—, así que "1024 px" salían 3072 y la foto
+        // sola se comía el tope del servidor.
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
         let drawn = renderer.image { context in
             UIImage(cgImage: image).draw(in: CGRect(origin: .zero, size: size))
             _ = context

@@ -560,7 +560,12 @@ const SCHEMA = {
   },
 };
 
-export default async ({ req, res, log, error }) => {
+/**
+ * Lo que hace la función, **sin decidir cómo se entrega**: cada `res.json`
+ * de aquí dentro devuelve `{ payload, status }` en vez de responder. Ver
+ * `export default`.
+ */
+const handle = async ({ req, res, log, error }) => {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) {
     error('Falta OPENROUTER_API_KEY en el entorno de la función');
@@ -713,3 +718,121 @@ export default async ({ req, res, log, error }) => {
   log(`resuelto en ${Date.now() - started} ms · ${answer.kind ?? '?'} / ${answer.subcategory ?? '?'}`);
   return res.json(answer);
 };
+
+
+/** El bucket donde se dejan los resultados de los trabajos asíncronos. */
+const RESULTS_BUCKET = 'ai-results';
+
+/**
+ * La entrada de verdad.
+ *
+ * ## Síncrono o por encargo
+ *
+ * Appwrite corta **a los 30 s** las ejecuciones síncronas, y de las
+ * asíncronas no guarda la respuesta. El probador tarda más de 30 s y la
+ * versión de catálogo se acerca, así que la app las pide por encargo: manda
+ * un `jobID`, la ejecución va en asíncrono, y el resultado —la imagen, o un
+ * JSON con el error— se deja en `ai-results/<jobID>`, legible **solo por el
+ * usuario que lo pidió**. La app lo recoge de ahí.
+ *
+ * Sin `jobID` responde como siempre: las versiones de la app que ya están
+ * instaladas siguen funcionando.
+ */
+export default async ({ req, res, log, error }) => {
+  const capture = { json: (payload, status = 200) => ({ payload, status }) };
+  const outcome = await handle({ req, res: capture, log, error });
+
+  let jobID = null;
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (typeof body?.jobID === 'string' && /^[a-z0-9]{8,36}$/.test(body.jobID)) jobID = body.jobID;
+  } catch { /* sin cuerpo legible no hay encargo */ }
+
+  if (!jobID) return res.json(outcome.payload, outcome.status);
+
+  const userID = req.headers['x-appwrite-user-id'];
+  const apiKey = req.headers['x-appwrite-key'];
+  if (!userID || !apiKey) {
+    error('encargo sin usuario o sin clave dinámica: no hay dónde dejarlo');
+    return res.json({ error: 'no_storage' }, 500);
+  }
+
+  try {
+    await storeResult(jobID, userID, apiKey, outcome);
+    log(`encargo ${jobID} guardado · ${outcome.status}`);
+  } catch (err) {
+    error(`no se pudo guardar el encargo ${jobID}: ${err} ${err?.cause ? `· causa ${err.cause}` : ''}`);
+  }
+  return res.json({ stored: true, status: outcome.status });
+};
+
+/**
+ * Deja el resultado de un encargo en Storage, a nombre de quien lo pidió.
+ *
+ * Una imagen si salió bien; si no, un JSON con el código y el motivo, para
+ * que la app pueda decir lo mismo que diría con la respuesta directa.
+ */
+async function storeResult(jobID, userID, apiKey, outcome) {
+  const image = outcome.status === 200 ? outcome.payload?.imageBase64 : null;
+  let bytes;
+  let type;
+  let name;
+  if (image) {
+    bytes = Buffer.from(image, 'base64');
+    // Por la firma, no por lo que se pidió: el modelo decide el formato.
+    const isPNG = bytes[0] === 0x89 && bytes[1] === 0x50;
+    type = isPNG ? 'image/png' : 'image/jpeg';
+    name = `${jobID}.${isPNG ? 'png' : 'jpg'}`;
+  } else {
+    bytes = Buffer.from(JSON.stringify({ status: outcome.status, ...outcome.payload }));
+    type = 'application/json';
+    name = `${jobID}.json`;
+  }
+
+  // **El multipart, a mano y de una pieza.** Con `FormData` Node lo manda
+  // troceado —sin longitud— y el servidor de Appwrite (Swoole) lo rechaza con
+  // un 400 sin explicación.
+  const boundary = `----iwearit${jobID}`;
+  const field = (key, value) => Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}\r\n`,
+  );
+  const body = Buffer.concat([
+    field('fileId', jobID),
+    field('permissions[]', `read("user:${userID}")`),
+    field('permissions[]', `delete("user:${userID}")`),
+    Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\n`
+      + `Content-Type: ${type}\r\n\r\n`,
+    ),
+    bytes,
+    Buffer.from(`\r\n--${boundary}--\r\n`),
+  ]);
+
+  // El público primero: el inyectado viene mal en este servidor. Ver
+  // `deploy_function.py`.
+  const endpoint = process.env.RESULTS_API_ENDPOINT || process.env.APPWRITE_FUNCTION_API_ENDPOINT;
+  const response = await fetch(`${endpoint}/storage/buckets/${RESULTS_BUCKET}/files`, {
+    method: 'POST',
+    headers: {
+      'X-Appwrite-Project': process.env.APPWRITE_FUNCTION_PROJECT_ID,
+      'X-Appwrite-Key': apiKey,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    },
+    // En un `Blob`: el `Buffer` de `concat` sale del bloque compartido de
+    // Node y `fetch` no puede transferirlo ("detached ArrayBuffer").
+    body: new Blob([body]),
+  });
+  if (!response.ok) {
+    // Diagnóstico: con qué se ha intentado, sin enseñar la clave.
+    const probe = await fetch(`${endpoint}/storage/buckets/${RESULTS_BUCKET}`, {
+      headers: {
+        'X-Appwrite-Project': process.env.APPWRITE_FUNCTION_PROJECT_ID,
+        'X-Appwrite-Key': apiKey,
+      },
+    }).then((r) => r.status).catch((e) => `err ${e}`);
+    throw new Error(
+      `${response.status} ${(await response.text()).slice(0, 200)}`
+      + ` · endpoint ${endpoint} · clave ${apiKey.length} car. · bytes ${body.length} · GET bucket ${probe}`,
+    );
+  }
+}

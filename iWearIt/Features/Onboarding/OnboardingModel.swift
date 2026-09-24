@@ -87,23 +87,45 @@ final class OnboardingModel {
         move(to: previous)
     }
 
+    /// La pantalla que está saliendo, mientras sale. Ver `OnboardingFlow`.
+    private(set) var outgoing: OnboardingStep?
+    /// De 0 a 1: cuánto ha avanzado el paso de página.
+    private(set) var pageProgress: Double = 0
+
     private func move(to next: OnboardingStep) {
-        // La dirección **antes** de la transacción animada: la transición de
-        // salida es la que la vista que se va recibió en su último render, así
-        // que fijarla dentro de la misma animación no llega a tiempo y la
-        // pantalla entrante anima en un sentido y la saliente en el otro.
+        // Una a la vez: a mitad de un paso de página, otro toque dejaría tres
+        // pantallas en el aire.
+        guard outgoing == nil, next != step else { return }
         isGoingBack = next.flowDepth < step.flowDepth
-        // withAnimation(WKAnimation.content) { step = next }
-        // Más lenta y lineal: las curvas van dentro de cada tramo. Ver
-        // `WKPageCardTransition`.
-        withAnimation(WKPageCardTransition.animation) { step = next }
+
+        // **A mano y no con `.transition`.** El sistema de transiciones no le
+        // aplicaba el efecto a la pantalla que salía —se quedaba a pantalla
+        // completa, vacía, tapando el fondo— y la tarjeta que se encogía
+        // enseñaba franjas blancas. Así las dos pantallas se pintan a la vez y
+        // un solo progreso las mueve a las dos. Ver `OnboardingFlow`.
+        //
+        // Primero, sin animar: la nueva aparece fuera de la pantalla y la
+        // vieja sigue en su sitio. En la vuelta siguiente, a correr.
+        outgoing = step
+        pageProgress = 0
+        step = next
+        Task { @MainActor in
+            withAnimation(WKPageCardTransition.animation) {
+                pageProgress = 1
+            } completion: {
+                self.outgoing = nil
+                self.pageProgress = 0
+            }
+        }
     }
 
     // var transition: AnyTransition { .wkSlide(fromLeading: isGoingBack) }
     /// Las pantallas pasan como tarjetas: la que se va encoge y sale hacia un
     /// lado, la nueva entra por el otro y crece.
     func transition(insets: EdgeInsets) -> AnyTransition {
-        WKPageCardTransition.transition(isGoingBack: isGoingBack, insets: insets)
+        WKPageCardTransition.transition(
+            isGoingBack: isGoingBack, insets: insets, background: WK.Palette.canvas
+        )
     }
 
     // MARK: - El cálculo

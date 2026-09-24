@@ -37,14 +37,22 @@ public enum WKPageCardTransition {
     /// último, con el efecto dentro, no llegaba a aplicarse y SwiftUI caía a un
     /// fundido. Así cada lado lleva su efecto fijo y solo se interpola el
     /// progreso.
-    public static func transition(isGoingBack: Bool, insets: EdgeInsets) -> AnyTransition {
+    ///   - background: el fondo de la pantalla. Lo pinta la tarjeta con su
+    ///     propia forma: un `.background(…ignoresSafeArea())` en la pantalla
+    ///     solo cubría la zona segura mientras duraba la transición.
+    public static func transition(
+        isGoingBack: Bool,
+        insets: EdgeInsets,
+        background: Color
+    ) -> AnyTransition {
         let forward: CGFloat = isGoingBack ? -1 : 1
         func effect(_ progress: Double, leaving: Bool) -> PageCardEffect {
             PageCardEffect(
                 progress: progress,
                 isLeaving: leaving,
                 side: leaving ? -forward : forward,
-                insets: insets
+                insets: insets,
+                background: background
             )
         }
         return .asymmetric(
@@ -56,13 +64,29 @@ public enum WKPageCardTransition {
 
 /// El efecto, con un único progreso animable: 0 es la pantalla en reposo y 1
 /// la tarjeta fuera de la pantalla.
-nonisolated struct PageCardEffect: ViewModifier, Animatable {
-    var progress: Double
+public nonisolated struct PageCardEffect: ViewModifier, Animatable, Sendable {
+    public var progress: Double
     let isLeaving: Bool
     let side: CGFloat
     let insets: EdgeInsets
+    let background: Color
 
-    var animatableData: Double {
+    /// Para usarlo a mano, sin el sistema de transiciones: ver
+    /// `OnboardingFlow`.
+    ///
+    /// - Parameters:
+    ///   - progress: 0 en reposo, 1 fuera de la pantalla.
+    ///   - isLeaving: la que sale y la que entra recorren tramos distintos.
+    ///   - side: hacia qué lado queda fuera: -1 izquierda, 1 derecha.
+    public init(progress: Double, isLeaving: Bool, side: CGFloat, insets: EdgeInsets, background: Color) {
+        self.progress = progress
+        self.isLeaving = isLeaving
+        self.side = side
+        self.insets = insets
+        self.background = background
+    }
+
+    public var animatableData: Double {
         get { progress }
         set { progress = newValue }
     }
@@ -72,7 +96,7 @@ nonisolated struct PageCardEffect: ViewModifier, Animatable {
     private static let minimumScale = 0.86
     private static let cornerRadius: CGFloat = 44
 
-    func body(content: Content) -> some View {
+    public func body(content: Content) -> some View {
         // Los tramos, en tiempo de la animación. La que sale recorre el
         // progreso de 0 a 1 y la que entra de 1 a 0, así que sus ventanas se
         // escriben distintas para caer en el mismo momento.
@@ -90,6 +114,7 @@ nonisolated struct PageCardEffect: ViewModifier, Animatable {
         let card = ExpandedRoundedRectangle(cornerRadius: radius, insets: insets)
 
         return content
+            .background { card.fill(background) }
             .clipShape(card)
             .overlay {
                 card.stroke(Color.primary.opacity(0.14 * shrink), lineWidth: 1)

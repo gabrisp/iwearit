@@ -238,9 +238,11 @@ private struct PlanRow: View {
         // Cristal interactivo, como las opciones del resto del onboarding.
         .buttonStyle(.plain)
         .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+        // Por fuera del cristal: ver `OptionRow`.
         .overlay {
-            RoundedRectangle(cornerRadius: WK.Radius.medium, style: .continuous)
-                .strokeBorder(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+            RoundedRectangle(cornerRadius: WK.Radius.medium + 4, style: .continuous)
+                .stroke(isSelected ? WK.Palette.accent : .clear, lineWidth: 2)
+                .padding(-4)
         }
     }
 }
