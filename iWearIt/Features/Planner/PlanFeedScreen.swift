@@ -142,8 +142,44 @@ struct PlanFeedScreen: View {
             // Aquí manda ella: la tira es la de siempre, con su cápsula y su
             // botón al lado, y la barra le reserva el sitio —así el scroll de
             // debajo sabe lo que tiene encima sin que nadie lo cuente a mano.
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
+            // **En la barra de navegación, y midiendo lo que cabe.**
+            //
+            // La primera vez que estuvo aquí desaparecía en ventanas
+            // estrechas: la barra de iOS 26 no encoge lo que no cabe — lo de
+            // los lados lo mete en un menú "…" y lo del centro lo recorta — y
+            // la tira pedía un ancho sacado del pager, que no es el de la
+            // barra. Ahora la tira va en el **centro** —que nunca acaba en el
+            // menú "…"— con el ancho que de verdad queda entre los botones de
+            // los lados, y el cambio de modo es un solo botón a la derecha,
+            // que siempre cabe. Es la misma forma que la maleta.
+            //
+            // Lo de antes, flotando en una barra de área segura:
+            // .toolbarVisibility(.hidden, for: .navigationBar)
+            // .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    DayStripCapsule(
+                        anchorDay: anchor,
+                        selectedOffset: selectedOffset,
+                        onOpenCalendar: { sheet = .day },
+                        isInBar: true
+                    )
+                    // Se reserva el mismo hueco a los dos lados aunque a la
+                    // izquierda no haya nada: así la tira queda centrada.
+                    .frame(width: WKTabBarMetrics.principalWidth(sideButtons: 1))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(WKAnimation.content) {
+                            layout = layout == .feed ? .grid : .feed
+                        }
+                    } label: {
+                        Image(systemName: layout == .feed ? "square.grid.2x2" : "rectangle.portrait")
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
+            }
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
             .navigationDestination(item: $editingOutfit) { outfit in
                 AdvancedCanvasScreen(

@@ -49,8 +49,14 @@ struct DayStripCapsule: View {
     let anchorDay: Date
     @Binding var selectedOffset: Int
     let onOpenCalendar: () -> Void
-    /// Si se pinta su propio cristal. Apagado dentro de una barra.
+    /// Si se pinta su propio cristal.
+    ///
+    /// Encendido **también dentro de la barra de navegación**: los botones de
+    /// los lados reciben cristal del sistema, pero lo del centro no, y sin él
+    /// los días flotaban sueltos sin forma.
     var hasBackground = true
+    /// Dentro de la barra de navegación: chips más bajos para no estirarla.
+    var isInBar = false
 
     /// Cuántos días a cada lado se materializan. Suficiente para que el scroll
     /// nunca llegue al borde, sin construir un calendario infinito.
@@ -72,7 +78,8 @@ struct DayStripCapsule: View {
                             DayChip(
                                 date: date(for: offset),
                                 isSelected: offset == selectedOffset,
-                                isToday: offset == 0
+                                isToday: offset == 0,
+                                isCompact: isInBar
                             )
                             .id(offset)
                             .onTapGesture { selectedOffset = offset }
@@ -116,7 +123,7 @@ struct DayStripCapsule: View {
                 .opacity(selectedOffset == 0 ? 0.3 : 1)
                 .disabled(selectedOffset == 0)
         }
-        .frame(height: 56)
+        .frame(height: isInBar ? 44 : 56)
         .clipShape(.capsule)
         // Cristal interactivo: flota sobre el lienzo y lo deja verse por
         // debajo. Una cápsula opaca sobre papel de puntos corta el papel.
