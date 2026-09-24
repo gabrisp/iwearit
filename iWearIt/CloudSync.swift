@@ -100,11 +100,24 @@ final class CloudSync {
     /// ese es el momento en que hay algo nuevo que mirar y solo pasa una vez.
     var onImportFinished: (@MainActor () -> Void)?
 
-    init(container: ModelContainer, isEnabled: Bool) {
+    /// Por qué no se pudo abrir con réplica, si se intentó y falló.
+    ///
+    /// No es lo mismo que no haber cuenta: si la había y el almacén no abrió
+    /// —un esquema que CloudKit no acepta, un permiso que falta— ofrecer
+    /// "encender iCloud" es ofrecer algo que va a fallar igual. Preguntar en
+    /// cada arranque por eso era lo que convertía un fallo en un bucle.
+    private(set) var openFailure: String?
+
+    init(container: ModelContainer, isEnabled: Bool, openFailure: String? = nil) {
         self.container = container
         self.isEnabled = isEnabled
+        self.openFailure = openFailure
         if isEnabled {
             observe()
+        } else if let openFailure {
+            // Se intentó y no abrió: es un fallo, no una ausencia.
+            status = .failed(openFailure)
+            observeAccount()
         } else {
             status = .unavailable("sin iCloud")
             // **La cuenta se vigila igual.** Si no hay sesión al arrancar se
@@ -267,7 +280,8 @@ final class CloudSync {
                 // abrirse en local con una cuenta disponible delante: es decir,
                 // exactamente la condición que levanta esta pregunta. Sin esta
                 // marca, contestar que sí la volvía a hacer, y otra vez, y otra.
-                if !isEnabled, AppConfiguration.syncsWithCloud, !Self.hasOffered {
+                // Y solo si no se intentó ya y falló: ver `openFailure`.
+                if !isEnabled, AppConfiguration.syncsWithCloud, !Self.hasOffered, openFailure == nil {
                     Self.hasOffered = true
                     canEnableNow = true
                 }

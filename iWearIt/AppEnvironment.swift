@@ -141,10 +141,15 @@ public final class AppEnvironment {
         container: ModelContainer,
         imageStore: ImageStore,
         modelStore: ModelStore,
-        syncsWithCloud: Bool = false
+        syncsWithCloud: Bool = false,
+        cloudFailure: String? = nil
     ) {
         self.modelSource = modelSource
-        self.sync = CloudSync(container: container, isEnabled: syncsWithCloud)
+        self.sync = CloudSync(
+            container: container,
+            isEnabled: syncsWithCloud,
+            openFailure: cloudFailure
+        )
         self.container = container
         self.imageStore = imageStore
         self.modelStore = modelStore
@@ -233,6 +238,7 @@ public final class AppEnvironment {
         //
         // Lo que **nunca** se hace es borrar y recrear el store: un fallo al
         // abrir se resuelve abriendo de otra manera, no tirando los datos.
+        var cloudFailure: String?
         if wantsCloud {
             do {
                 return AppEnvironment(
@@ -248,6 +254,7 @@ public final class AppEnvironment {
                     "no se pudo abrir con réplica (\(error)); se sigue en local",
                     isProblem: true
                 )
+                cloudFailure = "No se pudo abrir la copia en iCloud: \(error.localizedDescription)"
             }
         }
 
@@ -256,7 +263,8 @@ public final class AppEnvironment {
                 modelSource: source,
                 container: try WardrobeStore.makeContainer(),
                 imageStore: try ImageStore(),
-                modelStore: try ModelStore(repository: makeRepository(for: source))
+                modelStore: try ModelStore(repository: makeRepository(for: source)),
+                cloudFailure: cloudFailure
             )
         } catch {
             assertionFailure("No se pudo abrir el contenedor en disco: \(error)")

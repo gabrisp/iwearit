@@ -14,6 +14,11 @@ public final class BodyProfile {
     /// el consentimiento es explícito, separado y revocable.
     public var consentAcceptedAt: Date?
 
+    /// Lo que se ha probado con este perfil. La vuelta de `TryOnResult.profile`,
+    /// que CloudKit exige. Sin borrado en cascada: quitar un perfil no tiene por
+    /// qué llevarse las fotos de lo que te probaste.
+    @Relationship(deleteRule: .nullify) public var tryOns: [TryOnResult]? = []
+
     // MARK: Quién es
     //
     // **Un perfil no es una foto: es una descripción.** Una foto tuya de
@@ -235,7 +240,11 @@ public final class TryOnResult {
     /// por qué llevarse por delante la foto de cómo te quedaba.
     @Relationship(inverse: \Outfit.tryOns) public var outfit: Outfit?
     /// Y con qué perfil se hizo, para saber quién es el de la foto.
-    public var profile: BodyProfile?
+    ///
+    /// **Con su inversa en `BodyProfile.tryOns`.** Sin ella CloudKit no abre
+    /// el almacén —exige que toda relación tenga vuelta—, la app caía a local
+    /// y en cada arranque volvía a ofrecer encender iCloud.
+    @Relationship(inverse: \BodyProfile.tryOns) public var profile: BodyProfile?
 
     public init(
         imageKey: String,
