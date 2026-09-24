@@ -249,6 +249,7 @@ struct PlanFeedScreen: View {
         // volvían al principio.
         PlanDayFeed(
             entries: entries(of: date),
+            day: date,
             store: appEnvironment.imageStore,
             pageSize: pageSize,
             stride: stride,
@@ -304,16 +305,24 @@ struct PlanFeedScreen: View {
 
                 // **La misma tarjeta de crear**, con la misma identidad: al
                 // cambiar de modo no aparece una nueva, viaja la que ya había.
-                PlanCreateCard()
+                PlanCreateCard(date: date)
                     .matchedGeometryEffect(id: Self.createID + date.description, in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
                     .onTapGesture { isPicking = true }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
+            // **Seis puntos más que en la revista.** Ahí la tarjeta trae su
+            // propio aire dentro del hueco —ver `PlanCardSize`—, y aquí las
+            // celdas empiezan a ras: con el mismo número, la primera fila
+            // quedaba más pegada a la tira de días que el lienzo de al lado.
+            .padding(.top, Self.gridTopExtra)
             .padding(.bottom, WKTabBarMetrics.clearance)
         }
         .scrollIndicators(.hidden)
     }
+
+    /// Lo que la rejilla respira de más por arriba. Ver `grid(of:)`.
+    private static let gridTopExtra: CGFloat = 6
 
     // MARK: Acciones
 
@@ -404,6 +413,8 @@ struct PlanFeedScreen: View {
 /// acuerda de por dónde iba.
 private struct PlanDayFeed: View {
     let entries: [PlanFeedScreen.Entry]
+    /// Qué día es este. Solo para el taco de la tarjeta vacía.
+    let day: Date
     let store: ImageStore
     let pageSize: CGSize
     let stride: CGFloat
@@ -443,7 +454,7 @@ private struct PlanDayFeed: View {
                 // empujones—. Con el día vacío sí: entonces no hay nada que
                 // mirar y la tarjeta es lo único que dice qué hacer.
                 if entries.isEmpty {
-                    PlanCreateCard()
+                    PlanCreateCard(date: day)
                         .matchedGeometryEffect(id: createID, in: morph)
                         .modifier(PlanCardSize(page: pageSize, stride: stride))
                         .onTapGesture { onCreate() }
@@ -614,6 +625,11 @@ private struct PlanGridCell: View {
 /// acaba lo que hay.
 struct PlanCreateCard: View {
     var title = "Crear un outfit"
+    /// El día al que iría. Con él, la tarjeta lleva su taco de calendario en
+    /// la esquina: es el mismo sticker que se le pone a un outfit planeado, y
+    /// lo que hace que el hueco vacío se lea como **ese día** y no como un
+    /// botón suelto en medio de la pantalla.
+    var date: Date?
 
     var body: some View {
         RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
@@ -621,6 +637,13 @@ struct PlanCreateCard: View {
             .overlay {
                 RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
                     .stroke(WK.Palette.ink(0.12), style: StrokeStyle(lineWidth: 1, dash: [8, 6]))
+            }
+            .overlay(alignment: .topLeading) {
+                if let date {
+                    DatePadGlyph(date: date, size: 26)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .padding(WK.Spacing.m)
+                }
             }
             .overlay {
                 VStack(spacing: WK.Spacing.s) {

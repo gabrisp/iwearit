@@ -19,6 +19,17 @@ public struct CanvasItemView<Content: View>: View {
         var anchor: UnitPoint = .center
 
         var isIdle: Bool { scale == 1 && rotation == 0 && drag == .zero }
+
+        /// Si esto fue un toque y no una manipulación: el dedo bajó y subió
+        /// sin llevarse la prenda a ningún sitio.
+        ///
+        /// Con holgura de tres puntos porque un dedo sobre cristal nunca se
+        /// queda exactamente quieto, y exigir cero convertía el toque en algo
+        /// que sale una de cada tres veces.
+        var isTap: Bool {
+            scale == 1 && rotation == 0
+                && abs(drag.width) < 3 && abs(drag.height) < 3
+        }
     }
 
     private let transform: ItemTransform
@@ -232,6 +243,23 @@ public struct CanvasItemView<Content: View>: View {
             }
         }
         .onEnded { _ in
+            // **Un toque sobre la prenda cogida la suelta.**
+            //
+            // Mientras está cogida, su gesto de toque está apagado a
+            // propósito —tocar y arrastrar compiten, y el arrastre se
+            // cancelaba dejando la prenda de vuelta de un salto—, así que el
+            // toque hay que reconocerlo **dentro** del arrastre: dedo que baja
+            // y sube sin mover nada, sin pellizcar y sin girar. Antes no había
+            // forma de soltarla salvo acertar en el papel, y en un lienzo
+            // lleno el papel es lo que menos hay.
+            if live.isTap {
+                live = Live()
+                reported = CanvasMath.Centering()
+                onCentering(reported)
+                onSelect()
+                return
+            }
+
             // Una única escritura, con el valor exacto. Nada de redondear
             // —salvo el imán del centro, que es una intención y no una
             // posición: ver `CanvasMath.constrained`.

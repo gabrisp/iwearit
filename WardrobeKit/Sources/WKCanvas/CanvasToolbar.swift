@@ -37,7 +37,10 @@ public struct CanvasToolbar: View {
 
     public var body: some View {
         AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-            HStack(spacing: WK.Spacing.m) {
+            // Sin aire entre ellos: cada botón ya lleva el suyo dentro —44
+            // puntos para un icono de 30—, y sumarle separación dejaba la
+            // barra más ancha que un iPhone pequeño.
+            HStack(spacing: 0) {
                 // En rojo y con confirmación. Quitar no destruye la prenda
                 // —sigue en el armario— pero sí deshace el trabajo de
                 // colocarla, y en una barra de seis botones el de la papelera
@@ -57,7 +60,7 @@ public struct CanvasToolbar: View {
                 CanvasToolButton(symbol: "square.2.layers.3d.top.filled", action: onBringForward)
                 CanvasToolButton(symbol: "ellipsis", action: onMore)
             }
-            .padding(.horizontal, WK.Spacing.l)
+            .padding(.horizontal, WK.Spacing.xs)
             // La misma altura que "Agregar" y que el color: los tres ocupan el
             // mismo sitio y se turnan, así que tienen que medir lo mismo o el
             // cristal salta al cambiar de uno a otro.
@@ -82,7 +85,12 @@ private struct CanvasToolButton: View {
             Image(systemName: symbol)
                 .font(WK.Font.headline)
                 .foregroundStyle(tint ?? WK.Palette.primaryText)
-                .frame(width: 30, height: 30)
+                // **Lo que se toca mide lo que mide un dedo.** El icono son
+                // treinta puntos y el área de toque era la misma: seis dianas
+                // de 30×30 pegadas unas a otras, así que la papelera fallaba o
+                // —peor— acertaba la de al lado. El icono no cambia de tamaño;
+                // lo que crece es el hueco que escucha.
+                .frame(width: 44, height: CanvasTray.controlHeight)
                 // `background` dibuja pero **no** extiende el área de toque.
                 .contentShape(.rect)
         }

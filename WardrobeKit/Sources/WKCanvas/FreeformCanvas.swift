@@ -28,6 +28,8 @@ public struct FreeformCanvas: View {
     /// darles un estado que no van a usar.
     private let drawing: CanvasDrawing?
     @State private var masks: MaskCache
+    /// La última escala con la que se pintó de verdad.
+    @State private var lastScale: Double = 1
 
     public init(
         outfit: Outfit,
@@ -47,7 +49,12 @@ public struct FreeformCanvas: View {
         let _ = Self._logChanges()
         #endif
         return GeometryReader { proxy in
-            let scale = CanvasSpace.scaleToFit(in: proxy.size)
+            // La última escala buena mientras el hueco no mide nada: en un
+            // iPad que cambia de tamaño se proponen ceros durante un
+            // fotograma, y a escala cero desaparece el lienzo entero —papel y
+            // prendas—. Ver `LookCanvasView`, que tiene el mismo guardia.
+            let measured = CanvasSpace.scaleToFit(in: proxy.size)
+            let scale = measured > 0 ? measured : lastScale
             ZStack {
                 // El papel, **detrás de todo**, es quien deselecciona.
                 //
@@ -73,7 +80,15 @@ public struct FreeformCanvas: View {
                         canvasScale: scale,
                         store: store,
                         masks: masks,
-                        onSelect: { selection.select(item.id) },
+                        // Coger y soltar con el mismo gesto: si ya está
+                        // cogida, tocarla la suelta. Ver `Live.isTap`.
+                        onSelect: {
+                            if selection.isSelected(item.id) {
+                                selection.clear()
+                            } else {
+                                selection.select(item.id)
+                            }
+                        },
                         onCentering: { selection.centering = $0 }
                     )
                 }
@@ -114,6 +129,10 @@ public struct FreeformCanvas: View {
             // en un iPhone SE y en un iPad, y vuelve exacto.
             .scaleEffect(scale)
             .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+            .onChange(of: measured, initial: true) { _, newValue in
+                guard newValue > 0, newValue != lastScale else { return }
+                lastScale = newValue
+            }
             // La retícula va **fuera** de la capa escalada, a tamaño de
             // pantalla. Dentro se escalaba con el lienzo, así que los puntos
             // del editor salían de otro tamaño que los de la pantalla de
