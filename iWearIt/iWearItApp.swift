@@ -76,6 +76,20 @@ struct iWearItApp: App {
                 .modelContainer(environment.container)
                 .environment(toasts)
                 .wkToastLayer(toasts)
+                // **El aviso de "ya eres Pro"**, por encima de todo: se compra
+                // desde el onboarding, desde un tope o restaurando, y la
+                // celebración tiene que salir igual en los tres.
+                .overlay {
+                    if environment.gate.celebratesUpgrade {
+                        ProCelebration {
+                            withAnimation(WKAnimation.content) {
+                                environment.gate.celebratesUpgrade = false
+                            }
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .animation(WKAnimation.content, value: environment.gate.celebratesUpgrade)
                 .task { await environment.bootstrap() }
                 // **iCloud que aparece más tarde.**
                 //
@@ -103,6 +117,12 @@ struct iWearItApp: App {
                 // `probe-toast` enseña un aviso al arrancar, para poder
                 // capturarlo sin tener que recorrer una importación entera.
                 .task {
+                    // `probe-pro`: la celebración de hacerse Pro, sin comprar.
+                    if ProcessInfo.processInfo.arguments.contains("probe-pro") {
+                        try? await Task.sleep(for: .seconds(2))
+                        environment.gate.celebratesUpgrade = true
+                        return
+                    }
                     guard ProcessInfo.processInfo.arguments.contains("probe-toast") else { return }
                     try? await Task.sleep(for: .seconds(2))
                     toasts.show(WKToast("Prenda guardada"))

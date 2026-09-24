@@ -21,6 +21,12 @@ public final class FeatureGate {
     /// motivo en vez de un muro genérico.
     var pendingFeature: Feature?
     var isPresentingPaywall = false
+    /// **Acabas de hacerte Pro**: lo enseña la raíz de la app. Ver
+    /// `ProCelebration`.
+    var celebratesUpgrade = false
+    /// El primer refresco solo toma nota: al arrancar siendo ya Pro no hay
+    /// nada que celebrar.
+    private var hasLoaded = false
 
     private let entitlements: EntitlementsService
     private let container: ModelContainer
@@ -32,7 +38,12 @@ public final class FeatureGate {
 
     func refresh() async {
         await entitlements.refresh()
+        let wasPro = isPro
         isPro = await entitlements.isPro
+        // De no a sí, y no en el arranque: comprar o restaurar. Da igual desde
+        // qué pantalla: la celebración sale en la raíz.
+        if hasLoaded, !wasPro, isPro { celebratesUpgrade = true }
+        hasLoaded = true
     }
 
     /// Qué puede hacer con una feature, contando lo que ya tiene.
