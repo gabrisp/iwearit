@@ -713,6 +713,8 @@ struct InspoLookCard: View {
 
         var symbol: String { self == .favourite ? "heart" : "plus" }
         var doneSymbol: String { self == .favourite ? "heart.fill" : "checkmark" }
+        /// De qué se llena: el corazón, de rojo; el "+" de la maleta, de tinta.
+        var fill: Color { self == .favourite ? .red : WK.Palette.primaryText }
     }
 
     /// Lo que se ha arrastrado de lado ahora mismo.
@@ -932,27 +934,29 @@ struct FillingSymbol: View {
 
     var body: some View {
         ZStack {
+            // **El contorno se va mientras se llena.** Con el contorno negro
+            // entero hasta el final, el corazón rojo quedaba enmarcado en una
+            // raya negra que en el lleno no existe: se veían dos corazones, uno
+            // dentro del otro. Desvaneciéndose con el progreso, al llegar
+            // arriba solo queda el lleno.
             Image(systemName: empty)
                 .foregroundStyle(WK.Palette.primaryText)
-            if progress > 0 {
-                Image(systemName: full)
-                    .foregroundStyle(fill)
-                    .mask(alignment: .bottom) {
-                        GeometryReader { proxy in
-                            Rectangle()
-                                .frame(height: proxy.size.height * progress)
-                                .frame(
-                                    maxWidth: .infinity,
-                                    maxHeight: .infinity,
-                                    alignment: .bottom
-                                )
-                        }
-                    }
-            }
+                .opacity(1 - progress)
+
+            // **Desde el centro.** Un círculo que crece en el medio del
+            // símbolo, no una cortina que sube: se lee como que el corazón se
+            // enciende, no como que se va llenando un vaso. A 1,6 el círculo
+            // ya cubre las esquinas del símbolo —la diagonal es √2—.
+            Image(systemName: full)
+                .foregroundStyle(fill)
+                .mask {
+                    Circle().scaleEffect(progress * 1.6)
+                }
         }
-        // Sin animación propia: el progreso viene del dedo y ya se mueve con
-        // él. Animarlo lo dejaría siempre un poco por detrás.
-        .animation(nil, value: progress)
+        // Sin animación propia **ni anulada**: mientras arrastras, el progreso
+        // llega sin animar y va pegado al dedo; al tocar el botón llega
+        // animado y el corazón se enciende creciendo desde el centro. Quien
+        // cambia el progreso decide cómo.
     }
 }
 
@@ -1194,17 +1198,13 @@ struct InspoVerdictPill: View {
     let swipe: InspoSwipe
     /// Qué pasa al tirar a la derecha: un corazón en la inspiración, un "+"
     /// dentro de una maleta.
-    var savedSymbol = "heart.fill"
+    /// Qué significa guardar aquí. Ver `InspoLookCard.Keep`.
+    var keep: InspoLookCard.Keep = .favourite
 
     /// Lo mismo que le cuesta a la tarjeta comprometerse. Ver
     /// `InspoLookCard.threshold`.
     private static let threshold: CGFloat = 120
 
-    /// El símbolo vacío que va debajo del lleno: `heart.fill` → `heart`. Los
-    /// que no tienen versión vacía —el "+" de la maleta— se quedan como están.
-    private static func outline(of symbol: String) -> String {
-        symbol.hasSuffix(".fill") ? String(symbol.dropLast(".fill".count)) : symbol
-    }
 
     var body: some View {
         let progress = min(1, abs(swipe.amount) / Self.threshold)
@@ -1223,9 +1223,10 @@ struct InspoVerdictPill: View {
                     // botón y lo que dice el centro de la pantalla es lo mismo,
                     // así que se tiene que ver igual. Ver `KeepButton`.
                     FillingSymbol(
-                        empty: Self.outline(of: savedSymbol),
-                        full: savedSymbol,
-                        progress: progress
+                        empty: keep.symbol,
+                        full: keep.doneSymbol,
+                        progress: progress,
+                        fill: keep.fill
                     )
                 } else {
                     Image(systemName: "hand.thumbsdown.fill")

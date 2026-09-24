@@ -49,14 +49,20 @@ struct LookActions: View {
         // **El corazón se llena con el dedo.** Arrastrando a la derecha se
         // tiñe de rojo desde abajo —lleno justo cuando el gesto ya cuenta—, y
         // tocándolo se enciende de golpe; volver a tocarlo lo apaga.
+        //
+        // **Una sola pieza, un solo camino.** Guardado no es otro dibujo: es
+        // el mismo símbolo con el progreso a tope. Así el botón y el
+        // indicador del centro de la pantalla —que es `FillingSymbol` también—
+        // no pueden dejar de parecerse.
         WKCircleButton(size: .compact, action: onSave) {
-            if isSaved {
-                Image(systemName: keep.doneSymbol)
-                    .foregroundStyle(keep == .favourite ? Color.red : WK.Palette.primaryText)
-            } else {
-                FillingSymbol(empty: keep.symbol, full: keep.doneSymbol, progress: keepProgress)
-            }
+            FillingSymbol(
+                empty: keep.symbol,
+                full: keep.doneSymbol,
+                progress: isSaved ? 1 : keepProgress,
+                fill: keep.fill
+            )
         }
+        .animation(WKAnimation.selection, value: isSaved)
         if showsPlan { circle("calendar", action: onPlan) }
         // Lo que se propone para un viaje no es un favorito ni es del jueves.
         if let onPack { circle("suitcase", action: onPack) }

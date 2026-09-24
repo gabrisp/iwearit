@@ -227,7 +227,7 @@ struct SuitcaseInspoTab: View {
         .scrollTargetBehavior(.viewAligned)
         .scrollPosition(id: $scrolled, anchor: .center)
         .scrollIndicators(.hidden)
-        .overlay { InspoVerdictPill(swipe: swipe, savedSymbol: "plus") }
+        .overlay { InspoVerdictPill(swipe: swipe, keep: .trip) }
         // **Lo que da de sí la maleta, a la vista.** Con lo justo para un par
         // de conjuntos la inspiración se repite y parece rota; decir cuántos
         // salen —y qué prenda los doblaría— convierte eso en algo que puedes
