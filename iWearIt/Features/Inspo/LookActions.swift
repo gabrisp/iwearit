@@ -9,9 +9,9 @@ import WKDesign
 /// —el corazón que se llena, el rojo al guardar— la otra se quedaba atrás.
 /// Ahora hay una y las dos pantallas la ponen.
 ///
-/// Lo único que cambia entre ellas es **cómo se colocan**: en columna a un
-/// lado de la tarjeta grande de la inspiración, y en fila arriba de la tarjeta
-/// del chat, que es más baja que ancha.
+/// Y se colocan igual en las dos: en columna junto al canto de la tarjeta.
+/// La fila sigue disponible (`layout: .row`) para algún sitio donde el lienzo
+/// sea apaisado, que hoy no hay ninguno.
 struct LookActions: View {
     enum Layout {
         case column

@@ -609,8 +609,10 @@ private struct StylistResultCard: View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
             LookCanvasView(garments: garments, store: store, outfit: outfit, showsBorder: true)
                 .overlay(alignment: .topTrailing) {
-                    // Los mismos cinco que en la inspiración, en fila: la
-                    // tarjeta del chat es más ancha que alta. Ver `LookActions`.
+                    // Los mismos cinco que en la inspiración, **y colocados
+                    // igual**: en columna junto al canto. La tarjeta del chat
+                    // también es un lienzo de pie, así que no hay motivo para
+                    // que aquí vayan en fila. Ver `LookActions`.
                     LookActions(
                         isSaved: isSaved,
                         onSave: onSave,
@@ -618,7 +620,7 @@ private struct StylistResultCard: View {
                         onPack: onPack,
                         onEdit: onEdit,
                         onDislike: onDislike,
-                        layout: .row
+                        layout: .column
                     )
                     // El mismo aire que en la inspiración: pegados al canto se
                     // leen como si se salieran de la tarjeta.
