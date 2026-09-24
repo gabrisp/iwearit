@@ -34,7 +34,7 @@ struct PlannerBottomBar: View {
     private var content: some View {
         Button(action: onEdit) {
             Label(
-                hasOutfit ? "Editar outfit" : "Crear outfit",
+                hasOutfit ? String(localized: "planner.plannerbottombar.editOutfit", defaultValue: "Edit outfit") : String(localized: "common.createOutfit", defaultValue: "Create outfit"),
                 systemImage: hasOutfit ? "pencil" : "tshirt"
             )
             .font(.headline)

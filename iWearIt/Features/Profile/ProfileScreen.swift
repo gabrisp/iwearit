@@ -39,7 +39,7 @@ struct ProfileScreen: View {
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas.ignoresSafeArea())
         .adaptiveScrollEdge(.top)
-        .navigationTitle("Ajustes")
+        .navigationTitle(String(localized: "profile.profilescreen.settings", defaultValue: "Settings"))
         .navigationBarTitleDisplayMode(.inline)
         // **El saldo, arriba a la derecha.** Es lo que se viene a mirar, y
         // enterrado en una fila entre iCloud y los modelos no se encuentra.
@@ -88,7 +88,7 @@ private struct SyncSection: View {
     var body: some View {
         WKSection("iCloud", footer: footer) {
             WKRow {
-                Text("Sincronizar")
+                Text(String(localized: "profile.profilescreen.sync", defaultValue: "Sync"))
                     .font(WK.Font.rowTitle)
             } trailing: {
                 Toggle("", isOn: $isEnabled)
@@ -98,11 +98,11 @@ private struct SyncSection: View {
                     }
             }
 
-            WKValueRow("Estado", value: description)
+            WKValueRow(String(localized: "profile.profilescreen.status", defaultValue: "Status"), value: description)
 
             if let last = appEnvironment.sync.lastSyncedAt {
                 WKValueRow(
-                    "Última vez",
+                    String(localized: "profile.profilescreen.lastTime", defaultValue: "Last time"),
                     value: Self.lastSync.string(from: last),
                     showsSeparator: false
                 )
@@ -112,9 +112,9 @@ private struct SyncSection: View {
 
     private var description: String {
         switch appEnvironment.sync.status {
-        case .idle: "Al día"
+        case .idle: String(localized: "profile.profilescreen.upToDate", defaultValue: "Up to date")
         case .syncing: "Sincronizando…"
-        case .offline: "Sin conexión"
+        case .offline: String(localized: "profile.profilescreen.offline", defaultValue: "Offline")
         case let .unavailable(reason): reason.capitalized
         case let .failed(message): message
         }
@@ -123,8 +123,8 @@ private struct SyncSection: View {
     /// Y el aviso que importa: apagarlo **no borra nada**.
     private var footer: String {
         isEnabled == appEnvironment.sync.isEnabled
-            ? "Tu armario está en este iPhone. iCloud solo lo copia a tus otros dispositivos."
-            : "Se aplica al abrir la app otra vez. Tus datos se quedan donde están."
+            ? String(localized: "profile.profilescreen.yourClosetLivesOnThis", defaultValue: "Your closet lives on this iPhone. iCloud only copies it to your other devices.")
+            : String(localized: "profile.profilescreen.itAppliesTheNextTime", defaultValue: "It applies the next time you open the app. Your data stays where it is.")
     }
 }
 
@@ -157,7 +157,7 @@ private struct DevicesSection: View {
 
     var body: some View {
         if !active.isEmpty {
-            WKSection("Dispositivos", footer: footer) {
+            WKSection(String(localized: "profile.profilescreen.devices", defaultValue: "Devices"), footer: footer) {
                 ForEach(Array(active.enumerated()), id: \.element.installationID) { index, device in
                     WKRow(showsSeparator: index < active.count - 1) {
                         VStack(alignment: .leading, spacing: 1) {
@@ -170,7 +170,7 @@ private struct DevicesSection: View {
                         }
                     } trailing: {
                         if device !== founder {
-                            Button("Quitar") {
+                            Button(String(localized: "common.remove", defaultValue: "Remove")) {
                                 withAnimation(WKAnimation.content) { device.removedAt = Date() }
                             }
                             .font(WK.Font.caption)
@@ -185,13 +185,13 @@ private struct DevicesSection: View {
 
     private func label(for device: SyncDevice) -> String {
         var text = device.name
-        if device === founder { text += " · principal" }
-        if device.installationID == SyncDevice.currentInstallationID { text += " · este" }
+        if device === founder { text += String(localized: "profile.profilescreen.main", defaultValue: " · main") }
+        if device.installationID == SyncDevice.currentInstallationID { text += String(localized: "profile.profilescreen.thisOne", defaultValue: " · this one") }
         return text
     }
 
     private var footer: String {
-        "Quitar un dispositivo no borra nada suyo. Si vuelves a abrir la app en él, aparece otra vez."
+        String(localized: "profile.profilescreen.removingADeviceDeletesNothing", defaultValue: "Removing a device deletes nothing on it. If you open the app there again, it shows up again.")
     }
 }
 
@@ -199,13 +199,13 @@ private struct SubscriptionSection: View {
     @Environment(AppEnvironment.self) private var appEnvironment
 
     var body: some View {
-        WKSection("Plan") {
-            WKValueRow("Estado", value: appEnvironment.gate.isPro ? "Pro" : "Gratis")
+        WKSection(String(localized: "profile.profilescreen.plan", defaultValue: "Plan")) {
+            WKValueRow(String(localized: "profile.profilescreen.status", defaultValue: "Status"), value: appEnvironment.gate.isPro ? String(localized: "profile.profilescreen.pro", defaultValue: "Pro") : String(localized: "profile.profilescreen.free", defaultValue: "Free"))
 
             if !appEnvironment.gate.isPro {
-                RemainingRow(feature: .garments, label: "Prendas")
-                RemainingRow(feature: .suitcases, label: "Maletas")
-                RemainingRow(feature: .customCategories, label: "Baldas propias")
+                RemainingRow(feature: .garments, label: String(localized: "common.clothes", defaultValue: "Clothes"))
+                RemainingRow(feature: .suitcases, label: String(localized: "common.suitcases", defaultValue: "Suitcases"))
+                RemainingRow(feature: .customCategories, label: String(localized: "profile.profilescreen.customShelves", defaultValue: "Custom shelves"))
             }
 
             // El saldo ya no va aquí: vive en la píldora de la barra, que está
@@ -217,7 +217,7 @@ private struct SubscriptionSection: View {
                         await appEnvironment.gate.refresh()
                     }
                 } leading: {
-                    Text("Restaurar compras")
+                    Text(String(localized: "profile.profilescreen.restorePurchases", defaultValue: "Restore purchases"))
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(WK.Palette.primaryText)
                 } trailing: {
@@ -230,7 +230,7 @@ private struct SubscriptionSection: View {
             #if DEBUG
             if appEnvironment.gate.isDebugControllable {
                 WKRow(showsSeparator: false) {
-                    Text("Pro (solo depuración)")
+                    Text(String(localized: "profile.profilescreen.proDebugOnly", defaultValue: "Pro (debug only)"))
                         .font(WK.Font.rowTitle)
                 } trailing: {
                     Toggle("", isOn: Binding(
@@ -254,7 +254,7 @@ private struct RemainingRow: View {
 
     var body: some View {
         if case let .limited(remaining, total) = appEnvironment.gate.access(feature) {
-            WKValueRow(label, value: "\(total - remaining) de \(total)")
+            WKValueRow(label, value: String(localized: "common.of", defaultValue: "\(String(describing: total - remaining)) of \(String(describing: total))"))
         }
     }
 }
@@ -265,9 +265,9 @@ private struct WardrobeStatsSection: View {
     @Query(sort: \GarmentCategory.sortOrder) private var categories: [GarmentCategory]
 
     var body: some View {
-        WKSection("Armario") {
-            WKValueRow("Prendas", value: garments.count.formatted())
-            WKValueRow("Baldas", value: categories.count.formatted(), showsSeparator: false)
+        WKSection(String(localized: "profile.profilescreen.closet", defaultValue: "Closet")) {
+            WKValueRow(String(localized: "common.clothes", defaultValue: "Clothes"), value: garments.count.formatted())
+            WKValueRow(String(localized: "common.shelves", defaultValue: "Shelves"), value: categories.count.formatted(), showsSeparator: false)
         }
     }
 }
@@ -280,31 +280,31 @@ private struct ModelSection: View {
     @State private var isWorking = false
 
     var body: some View {
-        WKSection("Modelos", footer: footer) {
-            WKValueRow("Origen", value: appEnvironment.modelSource.rawValue)
-            WKValueRow("Estado", value: appEnvironment.modelState.description)
+        WKSection(String(localized: "profile.profilescreen.models", defaultValue: "Models"), footer: footer) {
+            WKValueRow(String(localized: "profile.profilescreen.source", defaultValue: "Source"), value: appEnvironment.modelSource.rawValue)
+            WKValueRow(String(localized: "profile.profilescreen.status", defaultValue: "Status"), value: appEnvironment.modelState.description)
 
             // Qué hay cargado **en memoria**, que no es lo mismo que qué hay
             // descargado: el fichero puede estar en disco y el modelo no haber
             // terminado de cargarse, y esa diferencia es justo la que explica
             // por qué el recorte no funciona todavía.
-            WKValueRow("Segmentador", value: appEnvironment.segmenter == nil ? "no cargado" : "cargado")
-            WKValueRow("Embedder", value: appEnvironment.embedder == nil ? "no cargado" : "cargado")
-            WKValueRow("Banco de prompts", value: appEnvironment.promptBank == nil ? "no cargado" : "cargado")
+            WKValueRow(String(localized: "profile.profilescreen.segmenter", defaultValue: "Segmenter"), value: appEnvironment.segmenter == nil ? String(localized: "profile.profilescreen.notLoaded", defaultValue: "not loaded") : "cargado")
+            WKValueRow(String(localized: "profile.profilescreen.embedder", defaultValue: "Embedder"), value: appEnvironment.embedder == nil ? String(localized: "profile.profilescreen.notLoaded", defaultValue: "not loaded") : "cargado")
+            WKValueRow(String(localized: "profile.profilescreen.promptBank", defaultValue: "Prompt bank"), value: appEnvironment.promptBank == nil ? String(localized: "profile.profilescreen.notLoaded", defaultValue: "not loaded") : "cargado")
 
             // La segunda opinión. Se enseña porque es lo único del pipeline que
             // sale del dispositivo, y el usuario tiene derecho a saber si está
             // encendido sin leer el código.
             WKValueRow(
-                "Segunda opinión",
-                value: appEnvironment.resolver == nil ? "desactivada" : "vía Appwrite",
+                String(localized: "profile.profilescreen.secondOpinion", defaultValue: "Second opinion"),
+                value: appEnvironment.resolver == nil ? "desactivada" : String(localized: "profile.profilescreen.viaAppwrite", defaultValue: "via Appwrite"),
                 showsSeparator: !installed.isEmpty
             )
 
             ForEach(Array(installed.enumerated()), id: \.element.id) { index, model in
                 WKValueRow(
                     model.modelID,
-                    value: "v\(model.version) · \(model.inputSize)px · \(byteCount(model.sizeOnDisk))",
+                    value: String(localized: "profile.profilescreen.vPx", defaultValue: "v\(String(describing: model.version)) · \(String(describing: model.inputSize))px · \(String(describing: byteCount(model.sizeOnDisk)))"),
                     showsSeparator: index < installed.count - 1
                 )
             }
@@ -320,14 +320,14 @@ private struct ModelSection: View {
     private var footer: String? {
         switch appEnvironment.modelState {
         case .unavailable:
-            "Sin modelo, el recorte usa solo las APIs del sistema y es más tosco."
+            String(localized: "profile.profilescreen.withoutAModelCroppingUses", defaultValue: "Without a model, cropping uses only the system APIs and is rougher.")
         case .loading:
-            "Mientras carga, el Neural Engine está ocupado y el reconocimiento del sistema no responde."
+            String(localized: "profile.profilescreen.whileItLoadsTheNeural", defaultValue: "While it loads, the Neural Engine is busy and system recognition doesn't respond.")
         case .ready where appEnvironment.resolver != nil:
-            "La segunda opinión solo se consulta cuando la categoría es dudosa o hay una marca a medio leer, "
-                + "y solo viaja el recorte de la prenda: nunca la foto original."
+            String(localized: "profile.profilescreen.theSecondOpinionIsOnly", defaultValue: "The second opinion is only consulted when the category is uncertain or there's a half-read brand, ")
+                + String(localized: "profile.profilescreen.andOnlyThePieceS", defaultValue: "and only the piece's cutout travels: never the original photo.")
         default:
-            installed.isEmpty ? "Nada descargado todavía." : nil
+            installed.isEmpty ? String(localized: "profile.profilescreen.nothingDownloadedYet", defaultValue: "Nothing downloaded yet.") : nil
         }
     }
 
@@ -356,32 +356,32 @@ private struct TipsSection: View {
     var body: some View {
         let tips = appEnvironment.tips
         WKSection(
-            "Tutorial",
-            footer: "Los avisos vuelven a salir según entres en cada pantalla. Repetir la bienvenida no borra nada: tu armario, outfits y maletas se quedan como están."
+            String(localized: "profile.profilescreen.tutorial", defaultValue: "Tutorial"),
+            footer: String(localized: "profile.profilescreen.tipsComeBackAsYou", defaultValue: "Tips come back as you enter each screen. Replaying the welcome deletes nothing: your closet, outfits and suitcases stay as they are.")
         ) {
             // **Solo la marca, nada más.** El onboarding no borra en ningún
             // paso, y el escaneo se salta lo que ya está en el armario o
             // pendiente —ver `ScanDeduper`—, así que repetirlo no duplica
             // prendas.
             WKRow(action: { isConfirmingRestart = true }) {
-                Text("Repetir la bienvenida")
+                Text(String(localized: "profile.profilescreen.replayTheWelcome2", defaultValue: "Replay the welcome"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.accent)
                 Spacer()
             }
 
             WKRow {
-                Text("Avisos vistos")
+                Text(String(localized: "profile.profilescreen.tipsSeen", defaultValue: "Tips seen"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.primaryText)
                 Spacer()
-                Text("\(tips.seenCount) de \(WKTip.allCases.count)")
+                Text(String(localized: "common.of", defaultValue: "\(String(describing: tips.seenCount)) of \(String(describing: WKTip.allCases.count))"))
                     .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
 
             WKRow(action: { tips.resetAll() }) {
-                Text("Volver a enseñarlos")
+                Text(String(localized: "profile.profilescreen.showThemAgain", defaultValue: "Show them again"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.accent)
                 Spacer()
@@ -389,11 +389,11 @@ private struct TipsSection: View {
             .disabled(tips.seenCount == 0)
             .opacity(tips.seenCount == 0 ? 0.4 : 1)
         }
-        .alert("¿Repetir la bienvenida?", isPresented: $isConfirmingRestart) {
-            Button("Repetir") { hasCompletedOnboarding = false }
-            Button("Cancelar", role: .cancel) {}
+        .alert(String(localized: "profile.profilescreen.replayTheWelcome", defaultValue: "Replay the welcome?"), isPresented: $isConfirmingRestart) {
+            Button(String(localized: "profile.profilescreen.redo", defaultValue: "Redo")) { hasCompletedOnboarding = false }
+            Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
         } message: {
-            Text("Vuelves al principio del onboarding. No se borra nada de tu armario.")
+            Text(String(localized: "profile.profilescreen.youGoBackToThe", defaultValue: "You go back to the start of onboarding. Nothing in your closet is deleted."))
         }
     }
 }
@@ -405,9 +405,9 @@ private struct DiagnosticsSection: View {
     @State private var isWorking = false
 
     var body: some View {
-        WKSection("Diagnóstico", footer: "\(log.lines.count) líneas registradas.") {
+        WKSection(String(localized: "profile.profilescreen.diagnostics", defaultValue: "Diagnostics"), footer: String(localized: "profile.profilescreen.linesLogged", defaultValue: "\(String(describing: log.lines.count)) lines logged.")) {
             WKRow(action: { isExpanded.toggle() }) {
-                Text(isExpanded ? "Ocultar registro" : "Ver registro")
+                Text(isExpanded ? String(localized: "profile.profilescreen.hideLog", defaultValue: "Hide log") : String(localized: "profile.profilescreen.viewLog", defaultValue: "View log"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.accent)
             }
@@ -419,13 +419,13 @@ private struct DiagnosticsSection: View {
             }
 
             WKRow(action: { UIPasteboard.general.string = log.transcript }) {
-                Text("Copiar registro")
+                Text(String(localized: "profile.profilescreen.copyLog", defaultValue: "Copy log"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.accent)
             }
 
             WKRow(action: { log.clear() }) {
-                Text("Vaciar registro")
+                Text(String(localized: "profile.profilescreen.clearLog", defaultValue: "Clear log"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -438,7 +438,7 @@ private struct DiagnosticsSection: View {
                     isWorking = false
                 }
             }) {
-                Text(isWorking ? "Descargando…" : "Forzar redescarga de modelos")
+                Text(isWorking ? "Descargando…" : String(localized: "profile.profilescreen.forceModelReDownload", defaultValue: "Force model re-download"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(isWorking ? WK.Palette.secondaryText : .red)
             }
@@ -454,14 +454,14 @@ private struct DebugSection: View {
     @State private var lastResult: String?
 
     var body: some View {
-        WKSection("Depuración", footer: lastResult) {
+        WKSection(String(localized: "profile.profilescreen.debug", defaultValue: "Debug"), footer: lastResult) {
             NavigationLink {
                 AdaptiveGallery()
-                    .navigationTitle("Adaptativos")
+                    .navigationTitle(String(localized: "profile.profilescreen.adaptive", defaultValue: "Adaptive"))
                     .navigationBarTitleDisplayMode(.inline)
             } label: {
                 HStack {
-                    Text("Modificadores adaptativos").font(WK.Font.rowTitle)
+                    Text(String(localized: "profile.profilescreen.adaptiveModifiers", defaultValue: "Adaptive modifiers")).font(WK.Font.rowTitle)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.footnote)
@@ -479,26 +479,26 @@ private struct DebugSection: View {
                 .padding(.leading, WK.Spacing.cardInset)
 
             WKRow(action: { seed(count: 30) }) {
-                Text("Sembrar 30 prendas").font(WK.Font.rowTitle)
+                Text(String(localized: "profile.profilescreen.seed30Pieces", defaultValue: "Seed 30 pieces")).font(WK.Font.rowTitle)
             }
             WKRow(action: { seed(count: 300) }) {
-                Text("Sembrar 300 prendas").font(WK.Font.rowTitle)
+                Text(String(localized: "profile.profilescreen.seed300Pieces", defaultValue: "Seed 300 pieces")).font(WK.Font.rowTitle)
             }
             WKRow(action: { seed(count: 12, asPending: true) }) {
-                Text("Sembrar 12 pendientes").font(WK.Font.rowTitle)
+                Text(String(localized: "profile.profilescreen.seed12Pending", defaultValue: "Seed 12 pending")).font(WK.Font.rowTitle)
             }
             WKRow(showsSeparator: false, action: { isConfirmingErase = true }) {
-                Text("Restablecer de fábrica")
+                Text(String(localized: "profile.profilescreen.factoryReset", defaultValue: "Factory reset"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(.red)
             }
         }
         .disabled(isSeeding)
-        .alert("¿Borrar todo?", isPresented: $isConfirmingErase) {
-            Button("Borrar todo", role: .destructive) { eraseEverything() }
-            Button("Cancelar", role: .cancel) {}
+        .alert(String(localized: "profile.profilescreen.deleteEverything2", defaultValue: "Delete everything?"), isPresented: $isConfirmingErase) {
+            Button(String(localized: "profile.profilescreen.deleteEverything", defaultValue: "Delete everything"), role: .destructive) { eraseEverything() }
+            Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
         } message: {
-            Text("Se borran el armario, los outfits, las maletas, las fotos y lo sincronizado en iCloud, también en tus otros dispositivos. La app se cerrará y empezará de cero. No se puede deshacer.")
+            Text(String(localized: "profile.profilescreen.yourClosetOutfitsSuitcasesPhotos", defaultValue: "Your closet, outfits, suitcases, photos and everything synced to iCloud are deleted, also on your other devices. The app will close and start from scratch. This can't be undone."))
         }
     }
 
@@ -515,7 +515,7 @@ private struct DebugSection: View {
                     UserDefaults.standard.removePersistentDomain(forName: domain)
                 }
                 appEnvironment.tips.resetAll()
-                lastResult = "Borrado: \(removed) registros"
+                lastResult = String(localized: "profile.profilescreen.deletedRecords", defaultValue: "Deleted: \(String(describing: removed)) records")
                 // **Y se cierra la app.** Con todo borrado, lo que hay en
                 // memoria —consultas, cachés de imágenes, la pantalla en la
                 // que estás— sigue siendo lo de antes. Salir y volver a abrir
@@ -527,7 +527,7 @@ private struct DebugSection: View {
                 try? await Task.sleep(for: .milliseconds(400))
                 exit(0)
             } catch {
-                lastResult = "Falló: \(error)"
+                lastResult = String(localized: "profile.profilescreen.failed", defaultValue: "Failed: \(String(describing: error))")
             }
             isSeeding = false
         }
@@ -544,9 +544,9 @@ private struct DebugSection: View {
                     count: count,
                     asPending: asPending
                 )
-                lastResult = "\(created) prendas en \(start.duration(to: .now).formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2))))"
+                lastResult = String(localized: "profile.profilescreen.piecesIn", defaultValue: "\(String(describing: created)) pieces in \(String(describing: start.duration(to: .now).formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2)))))")
             } catch {
-                lastResult = "Falló: \(error)"
+                lastResult = String(localized: "profile.profilescreen.failed", defaultValue: "Failed: \(String(describing: error))")
             }
             isSeeding = false
         }

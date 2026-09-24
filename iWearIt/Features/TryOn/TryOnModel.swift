@@ -62,17 +62,17 @@ final class TryOnModel {
         scene: TryOnScene = .none
     ) async -> Bool {
         guard let resolver else {
-            state = .failed("Esto necesita conexión con el servidor.")
+            state = .failed(String(localized: "tryon.tryonmodel.thisNeedsAConnectionTo", defaultValue: "This needs a connection to the server."))
             return false
         }
         // **El permiso solo hace falta si hay foto.** Un perfil descrito no
         // lleva nada tuyo: es una estatura y una complexión.
         if profile.hasPhoto, !profile.canLeaveDevice {
-            state = .failed("Falta aceptar que la foto salga del teléfono.")
+            state = .failed(String(localized: "tryon.tryonmodel.youStillNeedToAllow", defaultValue: "You still need to allow the photo to leave the phone."))
             return false
         }
         guard !garments.isEmpty else {
-            state = .failed("Este conjunto no tiene prendas.")
+            state = .failed(String(localized: "tryon.tryonmodel.thisOutfitHasNoClothes", defaultValue: "This outfit has no clothes."))
             return false
         }
 
@@ -85,7 +85,7 @@ final class TryOnModel {
                 let person = try? await imageStore.image(for: profile.imageKey, variant: .display),
                 let encoded = Self.jpeg(from: person, maxSide: 1024)
             else {
-                state = .failed("No se pudo preparar tu foto.")
+                state = .failed(String(localized: "tryon.tryonmodel.couldnTPrepareYourPhoto", defaultValue: "Couldn't prepare your photo."))
                 return false
             }
             personJPEG = encoded
@@ -102,7 +102,7 @@ final class TryOnModel {
             pieces.append(png)
         }
         guard !pieces.isEmpty else {
-            state = .failed("No se pudieron preparar las prendas.")
+            state = .failed(String(localized: "tryon.tryonmodel.couldnTPrepareTheClothes", defaultValue: "Couldn't prepare the clothes."))
             return false
         }
 
@@ -114,7 +114,7 @@ final class TryOnModel {
                 scene: scene.rawValue
             )
             guard let generated = UIImage(data: data)?.cgImage else {
-                state = .failed("El servidor devolvió algo que no es una imagen.")
+                state = .failed(String(localized: "tryon.tryonmodel.theServerReturnedSomethingThat", defaultValue: "The server returned something that isn't an image."))
                 return false
             }
             // **La transparencia la pone el teléfono.**
@@ -185,19 +185,19 @@ final class TryOnModel {
 
     private static func describe(_ error: Error) -> String {
         guard let resolverError = error as? ClothingResolverError else {
-            return "No se pudo generar la prueba."
+            return String(localized: "tryon.tryonmodel.couldnTGenerateTheTry", defaultValue: "Couldn't generate the try-on.")
         }
         switch resolverError {
         case .rateLimited:
-            return "El servidor está saturado. Prueba en un minuto."
+            return String(localized: "tryon.tryonmodel.theServerIsBusyTry", defaultValue: "The server is busy. Try again in a minute.")
         case let .badResponse(reason) where reason.contains("no_image"):
-            return "El modelo no ha querido generar esta imagen."
+            return String(localized: "tryon.tryonmodel.theModelRefusedToGenerate", defaultValue: "The model refused to generate this image.")
         case .notConfigured:
-            return "Esto necesita conexión con el servidor."
+            return String(localized: "tryon.tryonmodel.thisNeedsAConnectionTo", defaultValue: "This needs a connection to the server.")
         case let .transport(reason):
-            return "No se pudo conectar: \(reason)"
+            return String(localized: "tryon.tryonmodel.couldnTConnect", defaultValue: "Couldn't connect: \(String(describing: reason))")
         case .badResponse:
-            return "No se pudo generar la prueba."
+            return String(localized: "tryon.tryonmodel.couldnTGenerateTheTry", defaultValue: "Couldn't generate the try-on.")
         }
     }
 }
@@ -225,12 +225,12 @@ enum TryOnScene: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .none: "Sin fondo"
-        case .studio: "Estudio"
-        case .street: "Calle"
-        case .beach: "Playa"
-        case .office: "Oficina"
-        case .night: "Noche"
+        case .none: String(localized: "tryon.tryonmodel.noBackground", defaultValue: "No background")
+        case .studio: String(localized: "tryon.tryonmodel.studio", defaultValue: "Studio")
+        case .street: String(localized: "tryon.tryonmodel.street", defaultValue: "Street")
+        case .beach: String(localized: "common.beach", defaultValue: "Beach")
+        case .office: String(localized: "tryon.tryonmodel.office", defaultValue: "Office")
+        case .night: String(localized: "tryon.tryonmodel.night", defaultValue: "Night")
         }
     }
 

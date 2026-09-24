@@ -69,7 +69,7 @@ public struct PlaceSearchService: Sendable {
     /// Ciudad y país. "Calle Mayor 3, Madrid" no es un destino de viaje, y el
     /// nombre acaba impreso en un sticker.
     private static func name(for placemark: CLPlacemark) -> String {
-        let city = placemark.locality ?? placemark.name ?? "Sin nombre"
+        let city = placemark.locality ?? placemark.name ?? String(localized: "wkservices.placesearchservice.noName", defaultValue: "No name", bundle: .module)
         guard let country = placemark.country, country != city else { return city }
         return "\(city), \(country)"
     }

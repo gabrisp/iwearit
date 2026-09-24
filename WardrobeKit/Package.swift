@@ -9,7 +9,7 @@ import PackageDescription
 /// `WKCore` y `WKDesign` no dependen de nadie. Solo `WKDesign` y `WKCanvas` importan SwiftUI.
 let package = Package(
     name: "WardrobeKit",
-    defaultLocalization: "es",
+    defaultLocalization: "en",
     platforms: [.iOS(.v18)],
     products: [
         .library(name: "WKCore", targets: ["WKCore"]),
@@ -21,19 +21,20 @@ let package = Package(
         .library(name: "WKScanning", targets: ["WKScanning"]),
     ],
     targets: [
-        .target(name: "WKCore"),
-        .target(name: "WKDesign"),
-        .target(name: "WKPersistence", dependencies: ["WKCore", "WKDesign"]),
-        .target(name: "WKServices", dependencies: ["WKCore"]),
-        .target(name: "WKVision", dependencies: ["WKCore"]),
-        .target(name: "WKCanvas", dependencies: ["WKCore", "WKDesign", "WKPersistence"]),
+        .target(name: "WKCore", resources: [.process("Resources")]),
+        .target(name: "WKDesign", resources: [.process("Resources")]),
+        .target(name: "WKPersistence", dependencies: ["WKCore", "WKDesign"], resources: [.process("Resources")]),
+        .target(name: "WKServices", dependencies: ["WKCore"], resources: [.process("Resources")]),
+        .target(name: "WKVision", dependencies: ["WKCore"], resources: [.process("Resources")]),
+        .target(name: "WKCanvas", dependencies: ["WKCore", "WKDesign", "WKPersistence"], resources: [.process("Resources")]),
         // La capa que compone: escanear la galería necesita PhotoKit
         // (WKServices), el pipeline (WKVision) y dónde guardar (WKPersistence).
         // Tiene su propio target para no obligar a ninguno de los tres a
         // conocer a los otros dos.
         .target(
             name: "WKScanning",
-            dependencies: ["WKCore", "WKVision", "WKPersistence", "WKServices"]
+            dependencies: ["WKCore", "WKVision", "WKPersistence", "WKServices"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "WardrobeKitTests",

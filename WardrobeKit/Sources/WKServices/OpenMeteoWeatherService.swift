@@ -47,8 +47,8 @@ public struct OpenMeteoWeatherService: WeatherService {
 
         public var errorDescription: String? {
             switch self {
-            case .badRequest: "No se pudo preguntar por el tiempo"
-            case .server: "El servicio del tiempo no responde"
+            case .badRequest: String(localized: "wkservices.openmeteoweatherservice.couldnTAskForThe", defaultValue: "Couldn't ask for the weather", bundle: .module)
+            case .server: String(localized: "wkservices.openmeteoweatherservice.theWeatherServiceIsnT", defaultValue: "The weather service isn't responding", bundle: .module)
             }
         }
     }

@@ -13,11 +13,11 @@ struct WelcomeStep: View {
             // Ropa antes que palabras: ver `OnboardingHangingRail`.
             OnboardingHangingRail()
                 .padding(.bottom, WK.Spacing.xl)
-            Text("Ya tienes el armario lleno.\nFalta poder verlo.")
+            Text(String(localized: "onboarding.onboardingsteps.yourClosetIsAlreadyFull", defaultValue: "Your closet is already full.\nYou just can't see it yet."))
                 .font(WK.Font.largeTitle)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(WK.Palette.primaryText)
-            Text("Snazzy encuentra tu ropa en tus propias fotos y te enseña todo lo que puedes ponerte sin comprar nada.")
+            Text(String(localized: "onboarding.onboardingsteps.snazzyFindsYourClothesIn", defaultValue: "Snazzy finds your clothes in your own photos and shows you everything you can wear without buying anything."))
                 .font(WK.Font.body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(WK.Palette.secondaryText)
@@ -26,7 +26,7 @@ struct WelcomeStep: View {
         .padding(.horizontal, WK.Spacing.screenInset)
         .adaptiveSafeAreaBar(edge: .bottom) {
             AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                WKPrimaryButton("Empezar", surface: .glass) { model.advance() }
+                WKPrimaryButton(String(localized: "onboarding.onboardingsteps.getStarted", defaultValue: "Get started"), surface: .glass) { model.advance() }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.bottom, WK.Spacing.s)
@@ -40,8 +40,8 @@ struct GoalStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "¿Qué quieres conseguir?",
-            subtitle: "Para empezar por donde más te sirva.",
+            title: String(localized: "onboarding.onboardingsteps.whatDoYouWantTo", defaultValue: "What do you want to achieve?"),
+            subtitle: String(localized: "onboarding.onboardingsteps.soWeStartWhereIt", defaultValue: "So we start where it helps you most."),
             isEnabled: selection != nil,
             onPrimary: {
                 model.goal = selection
@@ -60,8 +60,8 @@ struct PainStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "¿Qué te lo impide?",
-            subtitle: "Marca todo lo que te suene.",
+            title: String(localized: "onboarding.onboardingsteps.whatSStoppingYou", defaultValue: "What's stopping you?"),
+            subtitle: String(localized: "onboarding.onboardingsteps.pickEverythingThatSoundsFamiliar", defaultValue: "Pick everything that sounds familiar."),
             isEnabled: !selection.isEmpty,
             onPrimary: {
                 model.pains = selection
@@ -80,10 +80,10 @@ struct StatementsStep: View {
     var body: some View {
         VStack(spacing: WK.Spacing.l) {
             VStack(spacing: WK.Spacing.s) {
-                Text("¿Te suena alguna?")
+                Text(String(localized: "onboarding.onboardingsteps.soundFamiliar", defaultValue: "Sound familiar?"))
                     .font(WK.Font.largeTitle)
                     .multilineTextAlignment(.center)
-                Text("A la derecha si te pasa, a la izquierda si no.")
+                Text(String(localized: "onboarding.onboardingsteps.rightIfItHappensTo", defaultValue: "Right if it happens to you, left if not."))
                     .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -114,8 +114,8 @@ struct SpendStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "¿Cuánto gastas en ropa al mes?",
-            subtitle: "Aproximado. Es para calcular lo que te puedes ahorrar.",
+            title: String(localized: "onboarding.onboardingsteps.howMuchDoYouSpend", defaultValue: "How much do you spend on clothes a month?"),
+            subtitle: String(localized: "onboarding.onboardingsteps.roughlyItSToWork", defaultValue: "Roughly. It's to work out what you could save."),
             onPrimary: {
                 model.monthlySpend = value
                 model.advance()
@@ -136,8 +136,8 @@ struct WardrobeSizeStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "¿Cuántas prendas dirías que tienes?",
-            subtitle: "A ojo. Nadie las cuenta.",
+            title: String(localized: "onboarding.onboardingsteps.howManyPiecesWouldYou", defaultValue: "How many pieces would you say you have?"),
+            subtitle: String(localized: "onboarding.onboardingsteps.justAGuessNobodyCounts", defaultValue: "Just a guess. Nobody counts them."),
             onPrimary: {
                 model.wardrobeSize = value
                 model.advance()
@@ -157,7 +157,7 @@ struct SocialProofStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "No eres la única persona\na la que le pasa",
+            title: String(localized: "onboarding.onboardingsteps.youReNotTheOnly", defaultValue: "You're not the only one\nit happens to"),
             onPrimary: { model.advance() }
         ) {
             VStack(spacing: WK.Spacing.m) {
@@ -172,11 +172,11 @@ struct CalculatingStep: View {
 
     var body: some View {
         ProcessingView(
-            title: "Echando cuentas…",
+            title: String(localized: "onboarding.onboardingsteps.doingTheMaths", defaultValue: "Doing the maths…"),
             steps: [
-                "Lo que gastas al año",
-                "Cuánto de tu armario se queda sin usar",
-                "Lo que puedes dejar de comprar",
+                String(localized: "onboarding.onboardingsteps.whatYouSpendAYear", defaultValue: "What you spend a year"),
+                String(localized: "onboarding.onboardingsteps.howMuchOfYourCloset", defaultValue: "How much of your closet goes unworn"),
+                String(localized: "onboarding.onboardingsteps.whatYouCouldStopBuying", defaultValue: "What you could stop buying"),
             ]
         )
         .padding(.horizontal, WK.Spacing.screenInset)
@@ -194,15 +194,15 @@ struct SavingsStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "Esto es lo que tienes parado",
-            primaryTitle: "Quiero aprovecharlo",
+            title: String(localized: "onboarding.onboardingsteps.thisIsWhatSSitting", defaultValue: "This is what's sitting idle"),
+            primaryTitle: String(localized: "onboarding.onboardingsteps.iWantToMakeThe", defaultValue: "I want to make the most of it"),
             onPrimary: { model.advance() }
         ) {
             VStack(spacing: WK.Spacing.xl) {
                 StatReveal(
                     value: model.money(model.idleValue),
-                    caption: "en ropa que casi no te pones",
-                    detail: "Estimado a partir de las \(Int(model.wardrobeSize)) prendas que nos has dicho.",
+                    caption: String(localized: "onboarding.onboardingsteps.inClothesYouBarelyWear", defaultValue: "in clothes you barely wear"),
+                    detail: String(localized: "onboarding.onboardingsteps.estimatedFromThePiecesYou", defaultValue: "Estimated from the \(String(describing: Int(model.wardrobeSize))) pieces you told us about."),
                     // Granate lo parado, oliva lo que se ahorra.
                     tone: .granate
                 )
@@ -212,12 +212,12 @@ struct SavingsStep: View {
 
                 StatReveal(
                     value: model.money(model.yearlySaving),
-                    caption: "al año que podrías no gastar",
-                    detail: "Si combinas lo que ya tienes en vez de comprar parecido.",
+                    caption: String(localized: "onboarding.onboardingsteps.aYearYouCouldAvoid", defaultValue: "a year you could avoid spending"),
+                    detail: String(localized: "onboarding.onboardingsteps.ifYouCombineWhatYou", defaultValue: "If you combine what you have instead of buying similar things."),
                     tone: .oliva
                 )
 
-                Text("Son estimaciones a partir de lo que nos has contado, no una promesa.")
+                Text(String(localized: "onboarding.onboardingsteps.theseAreEstimatesBasedOn", defaultValue: "These are estimates based on what you told us, not a promise."))
                     .font(.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
@@ -231,7 +231,7 @@ struct ComparisonStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "Desliza y compara",
+            title: String(localized: "onboarding.onboardingsteps.swipeAndCompare", defaultValue: "Swipe and compare"),
             onPrimary: { model.advance() }
         ) {
             // La tabla de dos columnas con ✓ y ✕, antes:

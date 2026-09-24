@@ -324,7 +324,7 @@ private struct AnalyzingBadge: View {
         HStack(spacing: 6) {
             ProgressView()
                 .controlSize(.mini)
-            Text("Analizando")
+            Text(String(localized: "onboarding.scanstage.analysing", defaultValue: "Analysing"))
                 .font(WK.Font.captionMedium)
         }
         .foregroundStyle(WK.Palette.primaryText)
@@ -478,7 +478,7 @@ struct ScanStageDemo: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
-            Text("Buscando tu ropa").font(.system(.title, weight: .bold))
+            Text(String(localized: "onboarding.scanstage.lookingForYourClothes", defaultValue: "Looking for your clothes")).font(.system(.title, weight: .bold))
             ScanPhotoStack(model: stage).frame(maxHeight: .infinity)
             ScanCollection(model: stage)
         }

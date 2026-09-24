@@ -130,10 +130,10 @@ private struct DatedGrid: View {
                     }
                     .buttonStyle(WKPressStyle())
                     .contextMenu {
-                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                        Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(outfit)
                         }
-                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "common.delete", defaultValue: "Delete"), systemImage: "trash", role: .destructive) {
                             withAnimation(WKAnimation.content) { outfit.markDeleted() }
                         }
                     }
@@ -161,7 +161,7 @@ private struct DatedGrid: View {
 
     /// Un outfit más para ese día, con las prendas elegidas ya colocadas.
     private func createOutfit(with garments: [Garment]) -> Outfit {
-        let outfit = Outfit(name: "Día \(dayIndex + 1)")
+        let outfit = Outfit(name: String(localized: "suitcases.suitcaseoutfitstab.day", defaultValue: "Day \(String(describing: dayIndex + 1))"))
         outfit.suitcaseDayIndex = dayIndex
         modelContext.insert(outfit)
         outfit.suitcase = suitcase
@@ -175,7 +175,7 @@ private struct DatedGrid: View {
     }
 
     private func duplicate(_ outfit: Outfit) {
-        let copy = Outfit(name: outfit.name.map { "\($0) (copia)" })
+        let copy = Outfit(name: outfit.name.map { String(localized: "suitcases.suitcaseoutfitstab.copy", defaultValue: "\(String(describing: $0)) (copy)") })
         copy.backdropRaw = outfit.backdropRaw
         copy.suitcaseDayIndex = outfit.suitcaseDayIndex
         modelContext.insert(copy)
@@ -292,7 +292,7 @@ struct TripDayChip: View {
                     isSelected ? WK.Palette.onAccent.opacity(0.75) : WK.Palette.secondaryText
                 )
 
-            Text(date.map { Self.month.string(from: $0).uppercased() } ?? "DÍA")
+            Text(date.map { Self.month.string(from: $0).uppercased() } ?? String(localized: "suitcases.suitcaseoutfitstab.day2", defaultValue: "DAY"))
                 .font(.system(size: isCompact ? 12 : 15, weight: .bold))
                 .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
 
@@ -381,7 +381,7 @@ struct TripDayPage: View {
         .overscrollAction(
             threshold: 84,
             symbol: "plus",
-            label: "Crear nuevo outfit",
+            label: String(localized: "common.createNewOutfit", defaultValue: "Create new outfit"),
             // **Más alto que en el plan.** Aquí debajo hay dos cosas: la barra
             // de Outfits · Equipaje y el lápiz del lienzo, y pegado al borde
             // el botón caía justo encima de los dos.
@@ -496,7 +496,7 @@ struct TripDayPage: View {
     }
 
     private func createOutfit() -> Outfit {
-        let outfit = Outfit(name: "Día \(dayIndex + 1)")
+        let outfit = Outfit(name: String(localized: "suitcases.suitcaseoutfitstab.day", defaultValue: "Day \(String(describing: dayIndex + 1))"))
         outfit.suitcaseDayIndex = dayIndex
         modelContext.insert(outfit)
         outfit.suitcase = suitcase
@@ -608,10 +608,10 @@ private struct PreparedOutfits: View {
                     .buttonStyle(WKPressStyle())
                     .adaptiveZoomSource(id: outfit.stableID, in: zoom)
                     .contextMenu {
-                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                        Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(outfit)
                         }
-                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "common.delete", defaultValue: "Delete"), systemImage: "trash", role: .destructive) {
                             withAnimation(WKAnimation.content) {
                                 outfit.markDeleted()
                             }
@@ -658,7 +658,7 @@ private struct PreparedOutfits: View {
     }
 
     private func createOutfit() -> Outfit {
-        let outfit = Outfit(name: "Outfit \(suitcase.outfits.count + 1)")
+        let outfit = Outfit(name: String(localized: "suitcases.suitcaseoutfitstab.outfit", defaultValue: "Outfit \(String(describing: suitcase.outfits.count + 1))"))
         modelContext.insert(outfit)
         outfit.suitcase = suitcase
         return outfit
@@ -668,7 +668,7 @@ private struct PreparedOutfits: View {
     /// stickers: duplicar uno para cambiarle los zapatos es el caso real, y una
     /// copia vacía no ahorraría nada.
     private func duplicate(_ outfit: Outfit) {
-        let copy = Outfit(name: outfit.name.map { "\($0) (copia)" })
+        let copy = Outfit(name: outfit.name.map { String(localized: "suitcases.suitcaseoutfitstab.copy", defaultValue: "\(String(describing: $0)) (copy)") })
         copy.backdropRaw = outfit.backdropRaw
         modelContext.insert(copy)
         copy.suitcase = suitcase
@@ -698,7 +698,7 @@ struct OutfitCanvasOrEmpty: View {
             FreeformCanvas(outfit: outfit, store: store, selection: selection)
         } else {
             ContentUnavailableView {
-                Label("Sin outfit", systemImage: "square.dashed")
+                Label(String(localized: "suitcases.suitcaseoutfitstab.noOutfit", defaultValue: "No outfit"), systemImage: "square.dashed")
             } description: {
                 Text(emptyHint)
             }

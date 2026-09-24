@@ -170,7 +170,7 @@ struct ImportSheet: View {
     /// El título según por dónde va: mientras mira, qué está haciendo; al
     /// acabar, qué se espera de ti.
     private var title: String {
-        if case .review = model?.phase { return "Revisar prendas" }
+        if case .review = model?.phase { return String(localized: "import.importsheet.reviewClothes", defaultValue: "Review clothes") }
         // Sin título mientras analiza. Con un espacio como título, la barra
         // lo pintaba entre comillas —“ ”—, así que el hueco lo ocupa una
         // vista transparente: ver la barra de arriba.
@@ -271,7 +271,7 @@ struct ImportSheet: View {
             }
             guard saved > 0 else { return }
             await MainActor.run {
-                toasts.show(WKToast(saved == 1 ? "Prenda guardada" : "\(saved) prendas guardadas"))
+                toasts.show(WKToast(saved == 1 ? String(localized: "common.itemSaved", defaultValue: "Item saved") : String(localized: "import.importsheet.itemsSaved", defaultValue: "\(String(describing: saved)) items saved")))
             }
         }
     }
@@ -318,14 +318,14 @@ private struct ImportPhaseContent: View {
                 ImportDetectedStep(model: model, photos: photos)
                     .transition(AnyTransition(.blurReplace))
             } else {
-                reveal(isScanning: false, status: "Recortando")
+                reveal(isScanning: false, status: String(localized: "import.importsheet.cropping", defaultValue: "Cropping"))
                     .transition(AnyTransition(.blurReplace))
             }
         case let .nothingFound(reason):
             failure(title: reason.title, symbol: reason.symbol, message: reason.message)
         case let .failed(message):
             failure(
-                title: "No se pudo procesar",
+                title: String(localized: "import.importsheet.couldnTProcessIt", defaultValue: "Couldn't process it"),
                 symbol: "exclamationmark.triangle",
                 message: message
             )
@@ -348,11 +348,11 @@ private struct ImportPhaseContent: View {
     private var status: String {
         switch model.phase {
         case let .generating(done, total):
-            total > 1 ? "Redibujando prendas… \(done) de \(total)" : "Redibujando la prenda…"
+            total > 1 ? String(localized: "import.importsheet.redrawingClothesOf", defaultValue: "Redrawing clothes… \(String(describing: done)) of \(String(describing: total))") : String(localized: "import.importsheet.redrawingThePiece", defaultValue: "Redrawing the piece…")
         case .review:
-            "Recortando"
+            String(localized: "import.importsheet.cropping", defaultValue: "Cropping")
         default:
-            "Buscando prendas…"
+            String(localized: "import.importsheet.lookingForClothes", defaultValue: "Looking for clothes…")
         }
     }
 
@@ -443,7 +443,7 @@ private extension ImportPhaseContent {
             )
             .padding(.horizontal, WK.Spacing.screenInset)
 
-            Button("Copiar registro") {
+            Button(String(localized: "import.importsheet.copyLog", defaultValue: "Copy log")) {
                 UIPasteboard.general.string = DiagnosticsLog.shared.transcript
             }
             .font(WK.Font.callout)
@@ -507,12 +507,12 @@ private struct ImportStatusTicker: View {
     @State private var step = 0
 
     private static let steps = [
-        "Mirando la foto…",
-        "Buscando la prenda…",
-        "Separándola del fondo…",
-        "Repasando el contorno…",
-        "Midiendo los colores…",
-        "Casi está…",
+        String(localized: "import.importsheet.lookingAtThePhoto", defaultValue: "Looking at the photo…"),
+        String(localized: "import.importsheet.lookingForThePiece", defaultValue: "Looking for the piece…"),
+        String(localized: "import.importsheet.separatingItFromTheBackground", defaultValue: "Separating it from the background…"),
+        String(localized: "import.importsheet.goingOverTheOutline", defaultValue: "Going over the outline…"),
+        String(localized: "import.importsheet.measuringTheColors", defaultValue: "Measuring the colors…"),
+        String(localized: "import.importsheet.almostThere", defaultValue: "Almost there…"),
     ]
 
     /// Cuánto dura cada frase.
@@ -558,7 +558,7 @@ private struct ImportSaveButton: View {
         .opacity(isReviewing ? 1 : 0)
     }
 
-    private var title: String { "Añadir \(model?.keptCount ?? 0)" }
+    private var title: String { String(localized: "common.add", defaultValue: "Add \(String(describing: model?.keptCount ?? 0))") }
 
     private var isReviewing: Bool {
         if case .review = model?.phase { return true }

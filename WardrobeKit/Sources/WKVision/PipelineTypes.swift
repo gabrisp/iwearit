@@ -135,19 +135,19 @@ extension PipelineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .noPersonFound:
-            "No se reconoce a nadie en la foto."
+            String(localized: "wkvision.pipelinetypes.nobodyIsRecognisedInThe", defaultValue: "Nobody is recognised in the photo.", bundle: .module)
         case .noSubjectFound:
-            "No se pudo separar el sujeto del fondo."
+            String(localized: "wkvision.pipelinetypes.couldnTSeparateTheSubject", defaultValue: "Couldn't separate the subject from the background.", bundle: .module)
         case .maskGenerationFailed:
-            "No se pudo generar la máscara de recorte."
+            String(localized: "wkvision.pipelinetypes.couldnTGenerateTheCutout", defaultValue: "Couldn't generate the cutout mask.", bundle: .module)
         case .renderFailed:
-            "No se pudo dibujar el recorte."
+            String(localized: "wkvision.pipelinetypes.couldnTDrawTheCutout", defaultValue: "Couldn't draw the cutout.", bundle: .module)
         case .timedOut:
-            "Está tardando demasiado"
+            String(localized: "wkvision.pipelinetypes.itSTakingTooLong", defaultValue: "It's taking too long", bundle: .module)
         case .visionUnavailable:
-            "El reconocimiento de imágenes no está disponible ahora mismo."
+            String(localized: "wkvision.pipelinetypes.imageRecognitionIsnTAvailable", defaultValue: "Image recognition isn't available right now.", bundle: .module)
         case .modelNotReady:
-            "El modelo todavía se está preparando"
+            String(localized: "wkvision.pipelinetypes.theModelIsStillGetting", defaultValue: "The model is still getting ready", bundle: .module)
         }
     }
 
@@ -156,18 +156,18 @@ extension PipelineError: LocalizedError {
     public var recoverySuggestion: String? {
         switch self {
         case .noPersonFound:
-            "Prueba con una foto de cuerpo entero donde se te vea de frente."
+            String(localized: "wkvision.pipelinetypes.tryAFullBodyPhoto", defaultValue: "Try a full-body photo where you're seen from the front.", bundle: .module)
         case .timedOut:
-            "Vuelve a intentarlo. Si sigue pasando, cierra y abre la app."
+            String(localized: "wkvision.pipelinetypes.tryAgainIfItKeeps", defaultValue: "Try again. If it keeps happening, close and reopen the app.", bundle: .module)
         case .noSubjectFound, .maskGenerationFailed:
-            "Prueba con una foto de fondo despejado y buena luz."
+            String(localized: "wkvision.pipelinetypes.tryAPhotoWithA", defaultValue: "Try a photo with a clear background and good light.", bundle: .module)
         case .renderFailed:
-            "Prueba con otra foto."
+            String(localized: "wkvision.pipelinetypes.tryAnotherPhoto", defaultValue: "Try another photo.", bundle: .module)
         case .visionUnavailable:
-            "El Neural Engine está ocupado —normalmente cargando un modelo o con la cámara abierta—. "
-                + "Espera unos segundos y vuelve a intentarlo."
+            String(localized: "wkvision.pipelinetypes.theNeuralEngineIsBusy", defaultValue: "The Neural Engine is busy —usually loading a model or with the camera open—. ", bundle: .module)
+                + String(localized: "wkvision.pipelinetypes.waitAFewSecondsAnd", defaultValue: "Wait a few seconds and try again.", bundle: .module)
         case .modelNotReady:
-            "Espera a que termine de descargarse y cargarse. Lo verás en Ajustes › Modelos."
+            String(localized: "wkvision.pipelinetypes.waitForItToFinish", defaultValue: "Wait for it to finish downloading and loading. You'll see it in Settings › Models.", bundle: .module)
         }
     }
 }

@@ -141,14 +141,14 @@ public struct WKRowButtonStyle: ButtonStyle {
 #Preview {
     ScrollView {
         VStack(spacing: WK.Spacing.l) {
-            WKSection("Plan", footer: "Puedes cancelar cuando quieras.") {
-                WKValueRow("Estado", value: "Gratis")
-                WKValueRow("Prendas", value: "12 de 25")
-                WKValueRow("Maletas", value: "0 de 1", showsSeparator: false)
+            WKSection(String(localized: "wkdesign.wklist.plan", defaultValue: "Plan", bundle: .module), footer: String(localized: "wkdesign.wklist.cancelAnytime", defaultValue: "Cancel anytime.", bundle: .module)) {
+                WKValueRow(String(localized: "wkdesign.wklist.status", defaultValue: "Status", bundle: .module), value: String(localized: "wkdesign.wklist.free", defaultValue: "Free", bundle: .module))
+                WKValueRow(String(localized: "common.clothes", defaultValue: "Clothes", bundle: .module), value: "12 de 25")
+                WKValueRow(String(localized: "common.suitcases", defaultValue: "Suitcases", bundle: .module), value: "0 de 1", showsSeparator: false)
             }
-            WKSection("Modelos") {
-                WKValueRow("Origen", value: "appwrite")
-                WKValueRow("Segmentador", value: "listo (v1)", showsSeparator: false)
+            WKSection(String(localized: "wkdesign.wklist.models", defaultValue: "Models", bundle: .module)) {
+                WKValueRow(String(localized: "wkdesign.wklist.source", defaultValue: "Source", bundle: .module), value: "appwrite")
+                WKValueRow(String(localized: "wkdesign.wklist.segmenter", defaultValue: "Segmenter", bundle: .module), value: "listo (v1)", showsSeparator: false)
             }
         }
         .padding(WK.Spacing.screenInset)

@@ -28,7 +28,7 @@ struct ShelfOrderScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: WK.Spacing.s) {
-                Text("Mantén pulsada una balda para moverla.")
+                Text(String(localized: "closet.shelforderscreen.pressAndHoldAShelf", defaultValue: "Press and hold a shelf to move it."))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .padding(.horizontal, WK.Spacing.cardInset)
@@ -45,7 +45,7 @@ struct ShelfOrderScreen: View {
                 .wkCard()
 
                 Button { isCreating = true } label: {
-                    Label("Nueva balda", systemImage: "plus")
+                    Label(String(localized: "closet.shelforderscreen.newShelf", defaultValue: "New shelf"), systemImage: "plus")
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(WK.Palette.accent)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -66,7 +66,7 @@ struct ShelfOrderScreen: View {
         // colocar el título, darle su cristal al botón en iOS 26 y difuminar
         // solo el contenido que pasa por debajo. Y quedaba distinta de la otra
         // hoja, que es lo que se nota.
-        .navigationTitle("Baldas")
+        .navigationTitle(String(localized: "common.shelves", defaultValue: "Shelves"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -109,7 +109,7 @@ private struct ShelfOrderRow: View {
                     .font(.footnote)
                     .foregroundStyle(WK.Palette.tertiaryText)
 
-                TextField("Nombre", text: $category.name)
+                TextField(String(localized: "common.name", defaultValue: "Name"), text: $category.name)
                     .font(WK.Font.rowTitle)
                     .textFieldStyle(.plain)
 

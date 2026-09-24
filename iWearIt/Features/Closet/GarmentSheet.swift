@@ -53,20 +53,20 @@ struct GarmentSheet: View {
     /// decisión de un segundo en una pantalla que hay que leer.
     private var actions: some View {
         HStack(alignment: .top, spacing: WK.Spacing.m) {
-            GarmentAction(symbol: "tshirt", label: "Crear outfit") {
+            GarmentAction(symbol: "tshirt", label: String(localized: "common.createOutfit", defaultValue: "Create outfit")) {
                 isPresentingComposer = true
             }
             GarmentAction(
                 symbol: garment.isFavorite ? "heart.fill" : "heart",
-                label: "Favorito",
+                label: String(localized: "closet.garmentsheet.favorite", defaultValue: "Favorite"),
                 tint: garment.isFavorite ? .red : nil
             ) {
                 withAnimation(WKAnimation.selection) { garment.isFavorite.toggle() }
             }
-            GarmentAction(symbol: "slider.horizontal.3", label: "Editar") {
+            GarmentAction(symbol: "slider.horizontal.3", label: String(localized: "common.edit", defaultValue: "Edit")) {
                 isPresentingEditor = true
             }
-            GarmentAction(symbol: "square.and.arrow.up", label: "Compartir") {
+            GarmentAction(symbol: "square.and.arrow.up", label: String(localized: "closet.garmentsheet.share", defaultValue: "Share")) {
                 // TODO(F11): ShareLink con el recorte en PNG.
             }
         }

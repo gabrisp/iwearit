@@ -247,7 +247,7 @@ public struct WeatherStickerView: View {
                     .font(.system(size: unit * 0.26, weight: .bold))
                     .foregroundStyle(.black.opacity(0.85))
 
-                Text("mín \(Self.degrees(snapshot.lowCelsius))")
+                Text(String(localized: "wkcanvas.canvasstickerview.min", defaultValue: "min \(String(describing: Self.degrees(snapshot.lowCelsius)))", bundle: .module))
                     .font(.system(size: unit * 0.11, weight: .medium))
                     .foregroundStyle(.black.opacity(0.5))
 

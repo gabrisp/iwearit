@@ -50,7 +50,7 @@ struct GarmentTraySheet: View {
                 .scrollIndicators(.hidden)
             }
             .background(WK.Palette.canvas)
-            .navigationTitle("Añadir prenda")
+            .navigationTitle(String(localized: "planner.garmenttraysheet.addPiece", defaultValue: "Add piece"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -77,7 +77,7 @@ private struct CategoryFilterBar: View {
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.s) {
-                FilterChip(title: "Todo", isSelected: selectedSlug == nil) {
+                FilterChip(title: String(localized: "planner.garmenttraysheet.all", defaultValue: "All"), isSelected: selectedSlug == nil) {
                     selectedSlug = nil
                 }
                 ForEach(categories, id: \.slug) { category in

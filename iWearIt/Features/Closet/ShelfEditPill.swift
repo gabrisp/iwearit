@@ -32,7 +32,7 @@ struct ShelfEditPill: View {
             // Y un lápiz, no los tiradores de un ecualizador: `slider` dice
             // "ajustar valores", que es lo que hace un filtro. Aquí se
             // renombra, se reordena y se borra, y eso es editar.
-            Label("Editar baldas", systemImage: "pencil")
+            Label(String(localized: "closet.shelfeditpill.editShelves", defaultValue: "Edit shelves"), systemImage: "pencil")
                 .font(WK.Font.captionMedium)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .padding(.horizontal, WK.Spacing.m)

@@ -474,15 +474,15 @@ private struct CanvasEditorScreen: View {
         // Descartar es **no guardar**: el contexto de la sesión se va con la
         // pantalla y se lleva los cambios con él. Por eso la pregunta puede
         // prometer lo que promete.
-        .alert("¿Descartar los cambios?", isPresented: $isConfirmingDiscard) {
-            Button("Descartar", role: .destructive) {
+        .alert(String(localized: "planner.advancedcanvasscreen.discardChanges", defaultValue: "Discard changes?"), isPresented: $isConfirmingDiscard) {
+            Button(String(localized: "planner.advancedcanvasscreen.discard", defaultValue: "Discard"), role: .destructive) {
                 session.discard()
                 closeEverything()
                 dismiss()
             }
-            Button("Seguir editando", role: .cancel) {}
+            Button(String(localized: "planner.advancedcanvasscreen.keepEditing", defaultValue: "Keep editing"), role: .cancel) {}
         } message: {
-            Text("Se perderá todo lo que hayas hecho desde que abriste el editor.")
+            Text(String(localized: "planner.advancedcanvasscreen.everythingYouVeDoneSince", defaultValue: "Everything you've done since opening the editor will be lost."))
         }
         // **Con la bandeja puesta, la barra se apaga y deja su hueco.**
         //
@@ -654,7 +654,7 @@ private struct CanvasEditorScreen: View {
                     .presentationDetents([.medium, .large])
             }
         case .place:
-            PlaceSearchSheet(title: "¿Dónde?") { picked in
+            PlaceSearchSheet(title: String(localized: "planner.advancedcanvasscreen.where", defaultValue: "Where?")) { picked in
                 appEnvironment.weather.use(picked)
                 // Encadenado: has dicho dónde para poner el sticker, así que se
                 // pone. Obligar a volver a tocar "Tiempo" sería hacer repetir
@@ -979,14 +979,14 @@ private struct CanvasEditorScreen: View {
 
     @ViewBuilder
     private var moreSheet: some View {
-        WKMenuSheet(title: "Elemento", items: [
-            WKMenuItem(id: "center", title: "Centrar", systemImage: "scope") {
+        WKMenuSheet(title: String(localized: "planner.advancedcanvasscreen.item", defaultValue: "Item"), items: [
+            WKMenuItem(id: "center", title: String(localized: "planner.advancedcanvasscreen.center", defaultValue: "Center"), systemImage: "scope") {
                 if let item = selectedItem { CanvasEditing.center(item) }
             },
-            WKMenuItem(id: "upright", title: "Enderezar", systemImage: "arrow.counterclockwise") {
+            WKMenuItem(id: "upright", title: String(localized: "planner.advancedcanvasscreen.straighten", defaultValue: "Straighten"), systemImage: "arrow.counterclockwise") {
                 if let item = selectedItem { CanvasEditing.straighten(item) }
             },
-            WKMenuItem(id: "reset", title: "Restablecer tamaño", systemImage: "arrow.up.left.and.arrow.down.right") {
+            WKMenuItem(id: "reset", title: String(localized: "planner.advancedcanvasscreen.resetSize", defaultValue: "Reset size"), systemImage: "arrow.up.left.and.arrow.down.right") {
                 if let item = selectedItem { CanvasEditing.resetScale(item) }
             },
         ])
@@ -1271,7 +1271,7 @@ private struct CanvasGarmentTray: View {
         .frame(maxHeight: .infinity)
         .overlay {
             if visible.isEmpty {
-                Text("Nada con este filtro")
+                Text(String(localized: "planner.advancedcanvasscreen.nothingWithThisFilter", defaultValue: "Nothing with this filter"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -1287,13 +1287,13 @@ private struct CanvasGarmentTray: View {
         .adaptiveSafeAreaBar(edge: .top, spacing: 0) {
             TrayFilterBars(
                 sections: [
-                    .init(title: "Atajos", filters: [.recent]),
+                    .init(title: String(localized: "planner.advancedcanvasscreen.shortcuts", defaultValue: "Shortcuts"), filters: [.recent]),
                     // Solo las partes que de verdad hay en el armario.
-                    .init(title: "Parte", filters: GarmentKind.allCases
+                    .init(title: String(localized: "planner.advancedcanvasscreen.part", defaultValue: "Part"), filters: GarmentKind.allCases
                         .filter { kind in garments.contains { $0.kind == kind } }
                         .map { .part($0) }),
-                    .init(title: "Baldas", filters: shelves),
-                    .init(title: "Color", filters: colors),
+                    .init(title: String(localized: "common.shelves", defaultValue: "Shelves"), filters: shelves),
+                    .init(title: String(localized: "common.color", defaultValue: "Color"), filters: colors),
                     // Sin estilo: se queda comentado.
                     // .init(title: "Estilo", filters: styles),
                 ],
@@ -1331,7 +1331,7 @@ private struct CanvasGarmentTray: View {
             return Group(id: category.slug, name: category.name, garments: items)
         }
         if let loose = byShelf[""], !loose.isEmpty {
-            result.append(Group(id: "sin-balda", name: "Sin balda", garments: loose))
+            result.append(Group(id: "sin-balda", name: String(localized: "planner.advancedcanvasscreen.noShelf", defaultValue: "No shelf"), garments: loose))
         }
         return result
     }
@@ -1357,7 +1357,7 @@ enum TrayFilter: Hashable {
 
     var label: String {
         switch self {
-        case .recent: "Reciente"
+        case .recent: String(localized: "planner.advancedcanvasscreen.recent", defaultValue: "Recent")
         case let .part(kind): TrayFilter.partLabel(kind)
         case let .category(_, name): name
         case let .tag(tag): tag.capitalized
@@ -1367,14 +1367,14 @@ enum TrayFilter: Hashable {
 
     static func partLabel(_ kind: GarmentKind) -> String {
         switch kind {
-        case .upperBody: "Parte de arriba"
+        case .upperBody: String(localized: "planner.advancedcanvasscreen.top", defaultValue: "Top")
         case .outerLayer: "Abrigo"
-        case .lowerBody: "Parte de abajo"
-        case .wholeBody: "Cuerpo entero"
-        case .feet: "Calzado"
-        case .head: "Cabeza"
-        case .bag: "Bolsos"
-        case .other: "Otros"
+        case .lowerBody: String(localized: "planner.advancedcanvasscreen.bottom", defaultValue: "Bottom")
+        case .wholeBody: String(localized: "planner.advancedcanvasscreen.fullBody", defaultValue: "Full body")
+        case .feet: String(localized: "planner.advancedcanvasscreen.footwear", defaultValue: "Footwear")
+        case .head: String(localized: "planner.advancedcanvasscreen.head", defaultValue: "Head")
+        case .bag: String(localized: "common.bags", defaultValue: "Bags")
+        case .other: String(localized: "common.other", defaultValue: "Other")
         }
     }
 
@@ -1515,7 +1515,7 @@ private struct TrayFilterMenu: View {
 
             if !chosen.isEmpty {
                 Divider()
-                Button("Quitar", systemImage: "xmark") {
+                Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "xmark") {
                     withAnimation(WKAnimation.selection) {
                         selection.subtract(filters)
                     }
@@ -1669,7 +1669,7 @@ private struct SavedOutfitsStrip: View {
     var body: some View {
         if !visible.isEmpty {
             VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                Text("Tus conjuntos")
+                Text(String(localized: "planner.advancedcanvasscreen.yourOutfits", defaultValue: "Your outfits"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .padding(.horizontal, WK.Spacing.m)

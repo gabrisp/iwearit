@@ -76,8 +76,8 @@ struct SuitcasePickerSheet: View {
 
     private var title: String {
         switch flow.step {
-        case .suitcase: "¿A qué maleta?"
-        case .day: chosen?.name ?? "¿Qué día?"
+        case .suitcase: String(localized: "inspo.suitcasepickersheet.whichSuitcase", defaultValue: "Which suitcase?")
+        case .day: chosen?.name ?? String(localized: "common.whichDay", defaultValue: "Which day?")
         }
     }
 
@@ -158,10 +158,10 @@ struct SuitcaseDayList: View {
                             Image(systemName: "tray")
                                 .font(.title2)
                                 .foregroundStyle(WK.Palette.secondaryText)
-                            Text("Sin día")
+                            Text(String(localized: "inspo.suitcasepickersheet.noDay", defaultValue: "No day"))
                                 .font(WK.Font.headline)
                                 .foregroundStyle(WK.Palette.primaryText)
-                            Text("Preparado en la maleta")
+                            Text(String(localized: "inspo.suitcasepickersheet.packedInTheSuitcase", defaultValue: "Packed in the suitcase"))
                                 .font(WK.Font.caption)
                                 .foregroundStyle(WK.Palette.tertiaryText)
                         }
@@ -213,7 +213,7 @@ private struct TripDayPad: View {
         VStack(spacing: 2) {
             // "DÍA" en pequeño arriba, como la banda de un taco, y el número
             // grande debajo: el número es lo que se busca.
-            Text("DÍA")
+            Text(String(localized: "inspo.suitcasepickersheet.day", defaultValue: "DAY"))
                 .font(.caption2.weight(.semibold))
                 .tracking(1)
                 .foregroundStyle(WK.Palette.tertiaryText)

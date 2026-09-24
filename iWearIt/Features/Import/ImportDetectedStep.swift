@@ -194,7 +194,7 @@ struct ImportDetectedStep: View {
                 recropping = nil
                 isCroppingByHand = true
             } label: {
-                Label("recortar a mano", systemImage: "lasso")
+                Label(String(localized: "import.importdetectedstep.cropByHand2", defaultValue: "crop by hand"), systemImage: "lasso")
                     .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.primaryText)
                     .padding(.horizontal, WK.Spacing.m)
@@ -211,7 +211,7 @@ struct ImportDetectedStep: View {
                     model.reanalysing == current
                         // Qué está probando, porque no es lo mismo otra vez:
                         // "separando piezas" o "siendo más estricto".
-                        ? (model.reanalysingLabel ?? "mirando otra vez…")
+                        ? (model.reanalysingLabel ?? String(localized: "import.importdetectedstep.lookingAgain", defaultValue: "looking again…"))
                         : "reintentar",
                     systemImage: "arrow.clockwise"
                 )
@@ -233,19 +233,19 @@ struct ImportDetectedStep: View {
         VStack(spacing: 2) {
             Text(
                 model.searchingInRegion
-                    ? "Levantando la prenda de lo que has rodeado…"
+                    ? String(localized: "import.importdetectedstep.liftingThePieceFromWhat", defaultValue: "Lifting the piece from what you circled…")
                     : model.manualCropMissed
-                        ? "No hemos encontrado ninguna prenda en lo que has rodeado. Prueba con un poco más de margen."
+                        ? String(localized: "import.importdetectedstep.weCouldnTFindAny", defaultValue: "We couldn't find any piece in what you circled. Try with a bit more margin.")
                     : model.candidates.isEmpty
-                        ? "No hemos visto ninguna prenda: rodéala con el dedo."
-                        : "Mueve o estira un recuadro, y quita con la X lo que no sea ropa."
+                        ? String(localized: "import.importdetectedstep.weDidnTSeeAny", defaultValue: "We didn't see any piece: circle it with your finger.")
+                        : String(localized: "import.importdetectedstep.moveOrStretchABox", defaultValue: "Move or stretch a box, and remove anything that isn't clothing with the X.")
             )
             .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)
             .multilineTextAlignment(.center)
 
             if photos.count > 1 {
-                Text("Foto \(current + 1) de \(photos.count)")
+                Text(String(localized: "import.importdetectedstep.photoOf", defaultValue: "Photo \(String(describing: current + 1)) of \(String(describing: photos.count))"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .contentTransition(.numericText(value: Double(current)))
@@ -257,7 +257,7 @@ struct ImportDetectedStep: View {
 
     private var continueBar: some View {
         WKPrimaryButton(
-            keptCount == 0 ? "Recorta o añade una prenda" : "Continuar con \(keptCount)"
+            keptCount == 0 ? String(localized: "import.importdetectedstep.cropOrAddAPiece", defaultValue: "Crop or add a piece") : String(localized: "import.importdetectedstep.continueWith", defaultValue: "Continue with \(String(describing: keptCount))")
         ) {
             Task { await model.confirmDetection() }
         }
@@ -357,8 +357,8 @@ private struct DetectedCell: View {
         }
         .buttonStyle(WKPressStyle())
         .contextMenu {
-            Button("Recortar a mano", systemImage: "lasso", action: onRecrop)
-            Button("Quitar de la lista", systemImage: "xmark", role: .destructive, action: onDiscard)
+            Button(String(localized: "import.importdetectedstep.cropByHand", defaultValue: "Crop by hand"), systemImage: "lasso", action: onRecrop)
+            Button(String(localized: "import.importdetectedstep.removeFromList", defaultValue: "Remove from list"), systemImage: "xmark", role: .destructive, action: onDiscard)
         }
         .animation(WKAnimation.selection, value: candidate.isKept)
     }

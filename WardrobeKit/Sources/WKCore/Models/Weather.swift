@@ -54,14 +54,14 @@ public enum WeatherCondition: String, Sendable, Codable, CaseIterable {
 
     public var label: String {
         switch self {
-        case .clear: "Despejado"
-        case .cloudy: "Nubes y claros"
-        case .overcast: "Cubierto"
-        case .rain: "Lluvia"
-        case .snow: "Nieve"
-        case .storm: "Tormenta"
-        case .fog: "Niebla"
-        case .wind: "Viento"
+        case .clear: String(localized: "wkcore.weather.clear", defaultValue: "Clear", bundle: .module)
+        case .cloudy: String(localized: "wkcore.weather.partlyCloudy", defaultValue: "Partly cloudy", bundle: .module)
+        case .overcast: String(localized: "wkcore.weather.overcast", defaultValue: "Overcast", bundle: .module)
+        case .rain: String(localized: "wkcore.weather.rain", defaultValue: "Rain", bundle: .module)
+        case .snow: String(localized: "wkcore.weather.snow", defaultValue: "Snow", bundle: .module)
+        case .storm: String(localized: "wkcore.weather.storm", defaultValue: "Storm", bundle: .module)
+        case .fog: String(localized: "wkcore.weather.fog", defaultValue: "Fog", bundle: .module)
+        case .wind: String(localized: "wkcore.weather.wind", defaultValue: "Wind", bundle: .module)
         }
     }
 

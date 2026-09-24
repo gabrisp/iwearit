@@ -97,7 +97,7 @@ public final class LocationProvider: NSObject {
             ?? placemark.subAdministrativeArea
             ?? placemark.administrativeArea
             ?? placemark.country
-            ?? "Aquí"
+            ?? String(localized: "wkservices.locationprovider.here", defaultValue: "Here", bundle: .module)
     }
 }
 
@@ -114,7 +114,7 @@ extension LocationProvider: CLLocationManagerDelegate {
             // nombre es solo lo que se lee arriba.
             let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first
             let place = GeoPlace(
-                name: placemark.map(Self.name(for:)) ?? "Aquí",
+                name: placemark.map(Self.name(for:)) ?? String(localized: "wkservices.locationprovider.here", defaultValue: "Here", bundle: .module),
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude
             )

@@ -21,7 +21,7 @@ struct ImportReviewList: View {
     var body: some View {
         ScrollView {
             WKSection(
-                footer: "Las categorías son una propuesta. Corrígelas si hace falta."
+                footer: String(localized: "import.importreviewlist.theCategoriesAreASuggestion", defaultValue: "The categories are a suggestion. Correct them if needed.")
             ) {
                 ForEach(Array(model.candidates.enumerated()), id: \.element.id) { index, candidate in
                     ImportCandidateRow(
@@ -59,7 +59,7 @@ private struct ImportCandidateRow: View {
                 .opacity(candidate.isKept ? 1 : 0.3)
 
             VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                Picker("Tipo", selection: Binding(
+                Picker(String(localized: "common.type", defaultValue: "Type"), selection: Binding(
                     get: { candidate.kind },
                     set: { onChangeKind($0) }
                 )) {
@@ -74,7 +74,7 @@ private struct ImportCandidateRow: View {
                     // **Con el nombre de la prenda a la que se parece.** Un
                     // "ya la tienes" a secas obliga a ir al armario a buscar
                     // cuál, y a decidir a ciegas mientras tanto.
-                    Label("Ya la tienes: \(duplicateOf)", systemImage: "square.on.square")
+                    Label(String(localized: "import.importreviewlist.youAlreadyHaveIt", defaultValue: "You already have it: \(String(describing: duplicateOf))"), systemImage: "square.on.square")
                         .font(.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(2)

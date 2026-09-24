@@ -33,14 +33,14 @@ public struct DrawingPicker: View {
     private var tools: some View {
         HStack(spacing: WK.Spacing.xs) {
             ToolChip(
-                label: "Pincel",
+                label: String(localized: "wkcanvas.drawingpicker.brush", defaultValue: "Brush", bundle: .module),
                 symbol: "scribble",
                 isSelected: drawing.tool == .brush
             ) {
                 withAnimation(WKAnimation.selection) { drawing.tool = .brush }
             }
             ToolChip(
-                label: "Goma",
+                label: String(localized: "wkcanvas.drawingpicker.eraser", defaultValue: "Eraser", bundle: .module),
                 symbol: "eraser",
                 isSelected: drawing.tool == .eraser
             ) {
@@ -101,12 +101,12 @@ public struct DrawingPicker: View {
 
     private var actions: some View {
         HStack(spacing: WK.Spacing.s) {
-            ActionChip(label: "Deshacer", symbol: "arrow.uturn.backward") {
+            ActionChip(label: String(localized: "wkcanvas.drawingpicker.undo", defaultValue: "Undo", bundle: .module), symbol: "arrow.uturn.backward") {
                 withAnimation(WKAnimation.content) { drawing.undo() }
             }
             .disabled(drawing.strokes.isEmpty)
 
-            ActionChip(label: "Borrar todo", symbol: "trash") {
+            ActionChip(label: String(localized: "wkcanvas.drawingpicker.deleteEverything", defaultValue: "Delete everything", bundle: .module), symbol: "trash") {
                 withAnimation(WKAnimation.content) { drawing.clear() }
             }
             .disabled(drawing.strokes.isEmpty)

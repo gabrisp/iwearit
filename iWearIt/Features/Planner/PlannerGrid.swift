@@ -100,16 +100,16 @@ struct PlannerGrid: View {
                     // a otro día. En revista no tendría sentido —solo ves uno—
                     // y por eso el menú vive aquí.
                     .contextMenu {
-                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                        Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(outfit)
                         }
-                        Button("Mover a otro día", systemImage: "calendar") {
+                        Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar") {
                             movingOutfit = outfit
                         }
                         // Destructivo y el último: en un menú corto, lo que
                         // borra va abajo y en rojo, para que el dedo no lo
                         // encuentre de camino a otra cosa.
-                        Button("Eliminar", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "common.delete", defaultValue: "Delete"), systemImage: "trash", role: .destructive) {
                             withAnimation(WKAnimation.content) {
                                 outfit.markDeleted()
                             }
@@ -145,7 +145,7 @@ struct PlannerGrid: View {
         .overscrollAction(
             threshold: 84,
             symbol: "plus",
-            label: "Crear nuevo outfit",
+            label: String(localized: "common.createNewOutfit", defaultValue: "Create new outfit"),
             bottomInset: bottomInset
         ) { onCreate() }
         .sheet(item: $movingOutfit) { outfit in
@@ -247,7 +247,7 @@ private struct MoveOutfitSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            Text("Mover a otro día")
+            Text(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"))
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
 
@@ -256,7 +256,7 @@ private struct MoveOutfitSheet: View {
                 .labelsHidden()
                 .tint(WK.Palette.accent)
 
-            WKPrimaryButton("Mover") { move() }
+            WKPrimaryButton(String(localized: "planner.plannergrid.move", defaultValue: "Move")) { move() }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()

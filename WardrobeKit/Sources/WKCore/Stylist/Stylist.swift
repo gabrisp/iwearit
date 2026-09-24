@@ -476,7 +476,7 @@ public struct Stylist: Sendable {
 
         return StylistLook(
             garmentIDs: pieces.sorted { $0.role.sortOrder < $1.role.sortOrder }.map(\.id),
-            headline: headlineCandidates(for: pieces).first ?? "Conjunto",
+            headline: headlineCandidates(for: pieces).first ?? String(localized: "wkcore.stylist.outfit", defaultValue: "Outfit", bundle: .module),
             reason: reason(
                 for: pieces,
                 brief: brief,
@@ -625,19 +625,19 @@ public struct Stylist: Sendable {
 
         if families.count >= 2 {
             candidates.append("\(families[0].capitalizedFirst) y \(families[1])")
-            candidates.append("\(families[1].capitalizedFirst) con \(families[0])")
+            candidates.append(String(localized: "wkcore.stylist.with2", defaultValue: "\(String(describing: families[1].capitalizedFirst)) with \(String(describing: families[0]))", bundle: .module))
         }
 
         if let heroType, let family = families.first {
             candidates.append("\(heroType.capitalizedFirst) \(Self.agreeing(family, with: heroType))")
         }
         if let heroType, families.isEmpty {
-            candidates.append("\(heroType.capitalizedFirst) y neutros")
+            candidates.append(String(localized: "wkcore.stylist.andNeutrals", defaultValue: "\(String(describing: heroType.capitalizedFirst)) and neutrals", bundle: .module))
         }
 
         if let family = families.first, families.count == 1 {
-            candidates.append("\(family.capitalizedFirst) sobre neutros")
-            candidates.append("Un toque de \(family)")
+            candidates.append(String(localized: "wkcore.stylist.overNeutrals", defaultValue: "\(String(describing: family.capitalizedFirst)) over neutrals", bundle: .module))
+            candidates.append(String(localized: "wkcore.stylist.aTouchOf", defaultValue: "A touch of \(String(describing: family))", bundle: .module))
         }
 
         // El contraste, cuando es lo que define al conjunto.
@@ -647,9 +647,9 @@ public struct Stylist: Sendable {
         {
             let delta = top.tone.lightness - bottom.tone.lightness
             if delta > 0.25 {
-                candidates.append("Claro arriba, oscuro abajo")
+                candidates.append(String(localized: "wkcore.stylist.lightOnTopDarkBelow", defaultValue: "Light on top, dark below", bundle: .module))
             } else if delta < -0.25 {
-                candidates.append("Oscuro arriba, claro abajo")
+                candidates.append(String(localized: "wkcore.stylist.darkOnTopLightBelow", defaultValue: "Dark on top, light below", bundle: .module))
             }
         }
 
@@ -657,29 +657,29 @@ public struct Stylist: Sendable {
         let tags = ordered.flatMap(\.tags)
         for tag in Self.uniqued(tags) where tags.count(where: { $0 == tag }) >= 2 {
             switch tag {
-            case "Deporte": candidates.append("Para entrenar")
-            case "Trabajo": candidates.append("De oficina")
-            case "Formal": candidates.append("Para arreglarse")
-            case "Fiesta": candidates.append("Para salir")
-            case "Playa": candidates.append("De playa")
-            case "Viaje": candidates.append("De viaje")
-            case "Casa": candidates.append("De estar en casa")
+            case "Deporte": candidates.append(String(localized: "wkcore.stylist.forTraining", defaultValue: "For training", bundle: .module))
+            case "Trabajo": candidates.append(String(localized: "wkcore.stylist.officeReady", defaultValue: "Office ready", bundle: .module))
+            case "Formal": candidates.append(String(localized: "wkcore.stylist.dressedUp", defaultValue: "Dressed up", bundle: .module))
+            case "Fiesta": candidates.append(String(localized: "wkcore.stylist.nightOut", defaultValue: "Night out", bundle: .module))
+            case "Playa": candidates.append(String(localized: "wkcore.stylist.beachDay", defaultValue: "Beach day", bundle: .module))
+            case "Viaje": candidates.append(String(localized: "wkcore.stylist.travel", defaultValue: "Travel", bundle: .module))
+            case "Casa": candidates.append(String(localized: "wkcore.stylist.loungingAtHome", defaultValue: "Lounging at home", bundle: .module))
             default: break
             }
         }
 
         if let outer = ordered.first(where: { $0.role == .outer }),
            let type = GarmentVocabulary.displayType(outer.subcategory)?.lowercased() {
-            candidates.append("Con la \(type)")
+            candidates.append(String(localized: "wkcore.stylist.withThe", defaultValue: "With the \(String(describing: type))", bundle: .module))
         }
 
         // Y el de siempre, al final: cuando no hay nada más específico que
         // decir, decir el color sigue siendo lo más útil.
         if let family = families.first {
-            candidates.append("\(family.capitalizedFirst) y neutros")
+            candidates.append(String(localized: "wkcore.stylist.andNeutrals", defaultValue: "\(String(describing: family.capitalizedFirst)) and neutrals", bundle: .module))
         } else {
             let light = ordered.map(\.tone.lightness).reduce(0, +) / Double(max(1, ordered.count))
-            candidates.append(light > 0.6 ? "Neutros claros" : "Todo en neutros")
+            candidates.append(light > 0.6 ? String(localized: "wkcore.stylist.lightNeutrals", defaultValue: "Light neutrals", bundle: .module) : String(localized: "wkcore.stylist.allNeutrals", defaultValue: "All neutrals", bundle: .module))
         }
 
         return Self.uniqued(candidates)
@@ -709,13 +709,13 @@ public struct Stylist: Sendable {
 
         if let weather = brief.weather {
             let degrees = Int(((weather.highCelsius + weather.lowCelsius) / 2).rounded())
-            parts.append("para \(degrees)° y \(weather.condition.label.lowercased())")
+            parts.append(String(localized: "wkcore.stylist.forAnd", defaultValue: "for \(String(describing: degrees))° and \(String(describing: weather.condition.label.lowercased()))", bundle: .module))
         }
 
         if !brief.pinned.isEmpty {
             let names = pieces.filter { brief.pinned.contains($0.id) }.map(\.name)
             if let first = names.first {
-                parts.append("con \(first.lowercasedFirst)")
+                parts.append(String(localized: "wkcore.stylist.with", defaultValue: "with \(String(describing: first.lowercasedFirst))", bundle: .module))
             }
         }
 
@@ -724,7 +724,7 @@ public struct Stylist: Sendable {
         }
 
         if freshness > 0.4 {
-            parts.append("sin nada de esta semana")
+            parts.append(String(localized: "wkcore.stylist.nothingFromThisWeek", defaultValue: "nothing from this week", bundle: .module))
         }
 
         return parts.joined(separator: " · ")

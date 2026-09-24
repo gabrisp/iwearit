@@ -140,11 +140,11 @@ private struct CameraStateContent: View {
         case .denied:
             CameraMessage(
                 icon: "camera.fill",
-                title: "Sin acceso a la cámara",
-                detail: "Actívalo en Ajustes › Snazzy para hacer fotos a tus prendas."
+                title: String(localized: "import.camerascreen.noCameraAccess", defaultValue: "No camera access"),
+                detail: String(localized: "import.camerascreen.turnItOnInSettings", defaultValue: "Turn it on in Settings › Snazzy to take photos of your clothes.")
             )
         case let .failed(reason):
-            CameraMessage(icon: "exclamationmark.triangle", title: "No se pudo abrir la cámara", detail: reason)
+            CameraMessage(icon: "exclamationmark.triangle", title: String(localized: "import.camerascreen.couldnTOpenTheCamera", defaultValue: "Couldn't open the camera"), detail: reason)
         }
     }
 }
@@ -160,7 +160,7 @@ private struct FramingGuide: View {
             //     .frame(maxWidth: .infinity)
             //     .aspectRatio(0.78, contentMode: .fit)
             //     .padding(.horizontal, WK.Spacing.xl)
-            Text("Coloca la prenda sola sobre un fondo liso")
+            Text(String(localized: "import.camerascreen.placeThePieceOnIts", defaultValue: "Place the piece on its own on a plain background"))
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.8))
                 .padding(.top, WK.Spacing.m)
@@ -195,7 +195,7 @@ private struct CameraTopBar: View {
 
     var body: some View {
         HStack {
-            Button("Cerrar", systemImage: "xmark") { onClose() }
+            Button(String(localized: "import.camerascreen.close", defaultValue: "Close"), systemImage: "xmark") { onClose() }
                 .labelStyle(.iconOnly)
             Spacer()
             Button {

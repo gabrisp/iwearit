@@ -61,7 +61,7 @@ public struct TextStickerEditor: View {
             ChromeButton(symbol: "textformat") { cycleBackground() }
             ChromeButton(symbol: alignmentSymbol) { cycleAlignment() }
             Spacer()
-            Button("Listo") { finish() }
+            Button(String(localized: "wkcanvas.textstickereditor.done", defaultValue: "Done", bundle: .module)) { finish() }
                 .font(WK.Font.headline)
                 .foregroundStyle(.white)
                 .padding(.horizontal, WK.Spacing.m)

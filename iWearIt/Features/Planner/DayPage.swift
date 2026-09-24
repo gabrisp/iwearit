@@ -135,7 +135,7 @@ struct DayPage: View {
         .overscrollAction(
             threshold: 84,
             symbol: "plus",
-            label: "Crear nuevo outfit",
+            label: String(localized: "common.createNewOutfit", defaultValue: "Create new outfit"),
             // Por encima de la barra de pestañas: pegado al borde quedaba
             // debajo de ella y solo se veía la mitad de arriba. Lo mide la
             // pantalla, que es la única que respeta el área segura.
@@ -464,12 +464,12 @@ struct EmptyDayPrompt: View {
                 .foregroundStyle(WK.Palette.secondaryText)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(isPast ? "Registra qué llevaste" : "Planea tu outfit")
+                Text(isPast ? String(localized: "planner.daypage.logWhatYouWore", defaultValue: "Log what you wore") : String(localized: "planner.daypage.planYourOutfit", defaultValue: "Plan your outfit"))
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.primaryText)
                 Text(isPast
-                     ? "Guarda el look de ese día en tu historial"
-                     : "Obtén una sugerencia de tu guardarropa")
+                     ? String(localized: "planner.daypage.saveThatDaySLook", defaultValue: "Save that day's look to your history")
+                     : String(localized: "planner.daypage.getASuggestionFromYour", defaultValue: "Get a suggestion from your wardrobe"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -498,7 +498,7 @@ private struct GarmentProgressPill: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
-            Text("\(count) de \(total) prendas")
+            Text(String(localized: "planner.daypage.ofPieces", defaultValue: "\(String(describing: count)) of \(String(describing: total)) pieces"))
                 .font(WK.Font.rowTitle)
                 .foregroundStyle(WK.Palette.primaryText)
                 .monospacedDigit()
@@ -519,7 +519,7 @@ private struct GarmentProgressPill: View {
                 }
                 .frame(height: 6)
 
-            Text("Añade unas cuantas más y podrás planificar.")
+            Text(String(localized: "planner.daypage.addAFewMoreAnd", defaultValue: "Add a few more and you'll be able to plan."))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .multilineTextAlignment(.center)

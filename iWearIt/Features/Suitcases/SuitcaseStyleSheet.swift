@@ -17,11 +17,11 @@ struct SuitcaseStyleSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.l) {
-            Text("Maleta")
+            Text(String(localized: "suitcases.suitcasestylesheet.suitcase", defaultValue: "Suitcase"))
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
 
-            TextField("Nombre", text: $suitcase.name)
+            TextField(String(localized: "common.name", defaultValue: "Name"), text: $suitcase.name)
                 .font(WK.Font.rowTitle)
                 .padding(WK.Spacing.m)
                 .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
@@ -36,10 +36,10 @@ struct SuitcaseStyleSheet: View {
             WKSection {
                 WKRow(showsSeparator: false, action: { isPickingPlace = true }) {
                     HStack {
-                        Label("Destino", systemImage: "mappin.and.ellipse")
+                        Label(String(localized: "suitcases.suitcasestylesheet.destination", defaultValue: "Destination"), systemImage: "mappin.and.ellipse")
                             .foregroundStyle(WK.Palette.primaryText)
                         Spacer()
-                        Text(suitcase.destinationName ?? "Elegir")
+                        Text(suitcase.destinationName ?? String(localized: "suitcases.suitcasestylesheet.choose", defaultValue: "Choose"))
                             .foregroundStyle(WK.Palette.secondaryText)
                             .lineLimit(1)
                         Image(systemName: "chevron.right")
@@ -52,7 +52,7 @@ struct SuitcaseStyleSheet: View {
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()
         .sheet(isPresented: $isPickingPlace) {
-            PlaceSearchSheet(title: "¿A dónde vas?") { place in
+            PlaceSearchSheet(title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?")) { place in
                 suitcase.destination = place
             }
         }

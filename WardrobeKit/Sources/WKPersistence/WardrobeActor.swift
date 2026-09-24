@@ -779,7 +779,7 @@ public actor WardrobeActor {
         modelContext.insert(trip)
 
         for day in 0..<2 {
-            let outfit = Outfit(name: "Día \(day + 1)")
+            let outfit = Outfit(name: String(localized: "wkpersistence.wardrobeactor.day", defaultValue: "Day \(String(describing: day + 1))", bundle: .module))
             outfit.suitcaseDayIndex = day
             modelContext.insert(outfit)
             outfit.suitcase = trip

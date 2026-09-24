@@ -35,10 +35,10 @@ struct ScanReviewStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: pending.isEmpty ? "No hemos encontrado prendas" : "Esto hemos encontrado",
+            title: pending.isEmpty ? String(localized: "onboarding.scanreviewstep.weDidnTFindAny", defaultValue: "We didn't find any clothes") : String(localized: "onboarding.scanreviewstep.hereSWhatWeFound", defaultValue: "Here's what we found"),
             subtitle: pending.isEmpty
-                ? "Puedes añadirlas a mano cuando quieras, una foto cada vez."
-                : "Elige las que quieras en tu armario. Las demás se quedan para revisarlas luego desde el armario.",
+                ? String(localized: "onboarding.scanreviewstep.youCanAddThemBy", defaultValue: "You can add them by hand whenever you like, one photo at a time.")
+                : String(localized: "onboarding.scanreviewstep.chooseTheOnesYouWant", defaultValue: "Choose the ones you want in your closet. The rest stay to review later from the closet."),
             primaryTitle: primaryTitle,
             isEnabled: !isSaving,
             // El scroll de prendas pasa por debajo del botón.
@@ -57,9 +57,9 @@ struct ScanReviewStep: View {
     }
 
     private var primaryTitle: String {
-        if pending.isEmpty { return "Continuar" }
+        if pending.isEmpty { return String(localized: "common.continue", defaultValue: "Continue") }
         if isSaving { return "Guardando…" }
-        return selection.isEmpty ? "Ahora no" : "Añadir \(selection.count)"
+        return selection.isEmpty ? String(localized: "common.notNow", defaultValue: "Not now") : String(localized: "common.add", defaultValue: "Add \(String(describing: selection.count))")
     }
 
     private func preselect() {

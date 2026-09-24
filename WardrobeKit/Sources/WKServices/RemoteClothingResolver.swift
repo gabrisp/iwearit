@@ -95,7 +95,7 @@ public actor RemoteClothingResolver: ClothingResolving {
         let start = ContinuousClock.now
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw ClothingResolverError.transport("sin respuesta")
+            throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.noResponse", defaultValue: "no response", bundle: .module))
         }
         guard http.statusCode == 200 || http.statusCode == 201 else {
             if http.statusCode == 429 { throw ClothingResolverError.rateLimited }
@@ -219,7 +219,7 @@ public actor RemoteClothingResolver: ClothingResolving {
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw ClothingResolverError.transport("sin respuesta")
+            throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.noResponse", defaultValue: "no response", bundle: .module))
         }
         guard http.statusCode == 200 || http.statusCode == 201 else {
             if http.statusCode == 429 { throw ClothingResolverError.rateLimited }
@@ -281,7 +281,7 @@ public actor RemoteClothingResolver: ClothingResolving {
 
         let (created, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw ClothingResolverError.transport("sin respuesta")
+            throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.noResponse", defaultValue: "no response", bundle: .module))
         }
         guard (200...202).contains(http.statusCode) else {
             if http.statusCode == 429 { throw ClothingResolverError.rateLimited }
@@ -304,11 +304,11 @@ public actor RemoteClothingResolver: ClothingResolving {
             // tiempo entero a un fichero que ya no va a llegar sería el
             // "se queda colgado" de siempre.
             if polls.isMultiple(of: 4), let executionID, await executionFailed(executionID) {
-                throw ClothingResolverError.transport("la ejecución falló en el servidor")
+                throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.theExecutionFailedOnThe", defaultValue: "the execution failed on the server", bundle: .module))
             }
             try await Task.sleep(for: .milliseconds(1500))
         }
-        throw ClothingResolverError.transport("tardó demasiado")
+        throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.itTookTooLong", defaultValue: "it took too long", bundle: .module))
     }
 
     /// El resultado, si ya está. `nil` mientras no exista.
@@ -411,7 +411,7 @@ public actor RemoteClothingResolver: ClothingResolving {
             let http = response as? HTTPURLResponse,
             http.statusCode == 200 || http.statusCode == 201
         else {
-            throw ClothingResolverError.transport("no se pudo abrir sesión anónima")
+            throw ClothingResolverError.transport(String(localized: "wkservices.remoteclothingresolver.couldnTOpenAnAnonymous", defaultValue: "couldn't open an anonymous session", bundle: .module))
         }
         hasSession = true
         DiagnosticsLog.record("REMOTO", "sesión anónima abierta")

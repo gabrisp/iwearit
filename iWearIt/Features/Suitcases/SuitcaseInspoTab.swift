@@ -387,7 +387,7 @@ struct SuitcaseDayPicker: View {
                 onPick(index)
                 dismiss()
             }
-            .navigationTitle("¿Qué día?")
+            .navigationTitle(String(localized: "common.whichDay", defaultValue: "Which day?"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -453,12 +453,12 @@ struct InspoReadiness {
 
     /// Qué falta, en una frase corta. Lo primero que más multiplica.
     var missing: String {
-        if tops == 0 { return "Falta algo de arriba: una camiseta, una camisa o un vestido." }
-        if bottoms == 0, dresses == 0 { return "Falta algo de abajo: un pantalón, una falda o un vestido." }
-        if pairables > 0, bottoms == 1 { return "Con otro pantalón saldrían \(combinations * 2)." }
-        if bottoms > 0, pairables == 1 { return "Con otra prenda de arriba saldrían \(combinations * 2)." }
-        if shoes == 0 { return "Con unos zapatos los conjuntos quedan completos." }
-        return "Mete alguna prenda más y saldrán más combinaciones."
+        if tops == 0 { return String(localized: "suitcases.suitcaseinspotab.somethingForTheTopIs", defaultValue: "Something for the top is missing: a T-shirt, a shirt or a dress.") }
+        if bottoms == 0, dresses == 0 { return String(localized: "suitcases.suitcaseinspotab.somethingForTheBottomIs", defaultValue: "Something for the bottom is missing: trousers, a skirt or a dress.") }
+        if pairables > 0, bottoms == 1 { return String(localized: "suitcases.suitcaseinspotab.withAnotherPairOfTrousers", defaultValue: "With another pair of trousers you'd get \(String(describing: combinations * 2)).") }
+        if bottoms > 0, pairables == 1 { return String(localized: "suitcases.suitcaseinspotab.withAnotherTopYouD", defaultValue: "With another top you'd get \(String(describing: combinations * 2)).") }
+        if shoes == 0 { return String(localized: "suitcases.suitcaseinspotab.withSomeShoesTheOutfits", defaultValue: "With some shoes the outfits are complete.") }
+        return String(localized: "suitcases.suitcaseinspotab.packOneMorePieceAnd", defaultValue: "Pack one more piece and more combinations will appear.")
     }
 }
 
@@ -468,25 +468,25 @@ private struct SuitcaseInspoGate: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("Todavía no hay con qué", systemImage: "suitcase")
+            Label(String(localized: "suitcases.suitcaseinspotab.nothingToWorkWithYet", defaultValue: "Nothing to work with yet"), systemImage: "suitcase")
         } description: {
             VStack(spacing: WK.Spacing.m) {
                 Text(
                     readiness.counted == 0
-                        ? "Mete ropa en el equipaje y aquí verás qué conjuntos salen con ella."
+                        ? String(localized: "suitcases.suitcaseinspotab.putClothesInTheLuggage", defaultValue: "Put clothes in the luggage and you'll see here which outfits come out of them.")
                         : readiness.missing
                 )
 
                 // El mínimo, dicho con lo que llevas puesto al lado: así no es
                 // una regla abstracta, es lo que te falta.
                 HStack(spacing: WK.Spacing.l) {
-                    tally("Arriba", count: readiness.tops, needs: 2, symbol: "tshirt")
-                    tally("Abajo", count: readiness.bottoms + readiness.dresses, needs: 2, symbol: "rectangle.portrait")
-                    tally("Calzado", count: readiness.shoes, needs: 1, symbol: "shoe")
+                    tally(String(localized: "suitcases.suitcaseinspotab.top", defaultValue: "Top"), count: readiness.tops, needs: 2, symbol: "tshirt")
+                    tally(String(localized: "suitcases.suitcaseinspotab.bottom", defaultValue: "Bottom"), count: readiness.bottoms + readiness.dresses, needs: 2, symbol: "rectangle.portrait")
+                    tally(String(localized: "suitcases.suitcaseinspotab.footwear", defaultValue: "Footwear"), count: readiness.shoes, needs: 1, symbol: "shoe")
                 }
                 .padding(.top, WK.Spacing.xs)
 
-                Text("Con 2 de arriba y 2 de abajo ya van cambiando.")
+                Text(String(localized: "suitcases.suitcaseinspotab.with2TopsAnd2", defaultValue: "With 2 tops and 2 bottoms they start to vary."))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -536,9 +536,9 @@ private struct InspoReadinessPill: View {
 
     private var count: String {
         switch readiness.combinations {
-        case 0: "Sin conjuntos"
-        case 1: "1 conjunto"
-        default: "\(readiness.combinations) conjuntos"
+        case 0: String(localized: "suitcases.suitcaseinspotab.noOutfits", defaultValue: "No outfits")
+        case 1: String(localized: "suitcases.suitcaseinspotab.1Outfit", defaultValue: "1 outfit")
+        default: String(localized: "suitcases.suitcaseinspotab.outfits", defaultValue: "\(String(describing: readiness.combinations)) outfits")
         }
     }
 }

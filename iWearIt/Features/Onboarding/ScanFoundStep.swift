@@ -20,9 +20,9 @@ struct ScanFoundStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "+\(pending.count.formatted()) prendas",
+            title: String(localized: "onboarding.scanfoundstep.pieces", defaultValue: "+\(String(describing: pending.count.formatted())) pieces"),
             subtitle: subtitle,
-            primaryTitle: "Elegir cuáles guardo",
+            primaryTitle: String(localized: "onboarding.scanfoundstep.chooseWhichToKeep", defaultValue: "Choose which to keep"),
             onPrimary: { model.advance() }
         ) {
             // **Por encima y no dentro del paso**: las filas son más anchas
@@ -44,9 +44,9 @@ struct ScanFoundStep: View {
     private var subtitle: String {
         let outfits = outfitCount
         guard outfits > 0 else {
-            return "En cuanto tengas algo para abajo, empiezan los outfits."
+            return String(localized: "onboarding.scanfoundstep.asSoonAsYouHave", defaultValue: "As soon as you have something for the bottom, the outfits begin.")
         }
-        return "Puedes hacer más de \(outfits.formatted()) outfits con ellas."
+        return String(localized: "onboarding.scanfoundstep.youCanMakeMoreThan", defaultValue: "You can make more than \(String(describing: outfits.formatted())) outfits with them.")
     }
 
     /// Arriba × abajo × calzado, más vestidos × calzado.

@@ -164,18 +164,18 @@ struct ClosetBulkActionBar: View {
         VStack(spacing: 10) {
             HStack(spacing: 12) {
                 action(
-                    "Favorita",
+                    String(localized: "closet.closetbulkedit.favorite", defaultValue: "Favorite"),
                     symbol: isAllFavourite ? "heart.fill" : "heart",
                     tint: isAllFavourite ? .red : WK.Palette.primaryText,
                     action: onFavourite
                 )
-                action("Etiquetas", symbol: "tag", action: onTags)
-                action("Calidez", symbol: "thermometer.medium", action: onWarmth)
+                action(String(localized: "closet.closetbulkedit.tags", defaultValue: "Tags"), symbol: "tag", action: onTags)
+                action(String(localized: "common.warmth", defaultValue: "Warmth"), symbol: "thermometer.medium", action: onWarmth)
             }
             HStack(spacing: 12) {
-                action("Mover", symbol: "tray.full", action: onMove)
-                action("Editar", symbol: "slider.horizontal.3", action: onEdit)
-                action("Eliminar", symbol: "trash", tint: .red, action: onDelete)
+                action(String(localized: "closet.closetbulkedit.move", defaultValue: "Move"), symbol: "tray.full", action: onMove)
+                action(String(localized: "common.edit", defaultValue: "Edit"), symbol: "slider.horizontal.3", action: onEdit)
+                action(String(localized: "common.delete", defaultValue: "Delete"), symbol: "trash", tint: .red, action: onDelete)
             }
         }
         .disabled(count == 0)
@@ -222,10 +222,10 @@ struct ClosetBulkTagsSheet: View {
 
     var body: some View {
         WKChipSheet(
-            title: "Etiquetas",
+            title: String(localized: "closet.closetbulkedit.tags", defaultValue: "Tags"),
             subtitle: garments.count == 1
-                ? "Se pone en 1 prenda"
-                : "Se ponen en \(garments.count) prendas",
+                ? String(localized: "closet.closetbulkedit.appliesTo1Item", defaultValue: "Applies to 1 item")
+                : String(localized: "closet.closetbulkedit.appliesToItems2", defaultValue: "Applies to \(String(describing: garments.count)) items"),
             options: GarmentVocabulary.usageTags.map { .init(id: $0, label: $0) },
             selection: Binding(
                 get: { tags },
@@ -258,10 +258,10 @@ struct ClosetBulkWarmthSheet: View {
 
     var body: some View {
         WKChipSheet(
-            title: "Calidez",
+            title: String(localized: "common.warmth", defaultValue: "Warmth"),
             subtitle: garments.count == 1
-                ? "Se pone en 1 prenda"
-                : "Se pone en \(garments.count) prendas",
+                ? String(localized: "closet.closetbulkedit.appliesTo1Item", defaultValue: "Applies to 1 item")
+                : String(localized: "closet.closetbulkedit.appliesToItems", defaultValue: "Applies to \(String(describing: garments.count)) items"),
             options: GarmentVocabulary.Warmth.allCases.map { .init(id: $0.rawValue, label: $0.label) },
             selection: Binding(
                 get: { picked },
@@ -299,7 +299,7 @@ struct ClosetBulkShelfSheet: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
-            Text(garments.count == 1 ? "Mover 1 prenda" : "Mover \(garments.count) prendas")
+            Text(garments.count == 1 ? String(localized: "closet.closetbulkedit.move1Item", defaultValue: "Move 1 item") : String(localized: "closet.closetbulkedit.moveItems", defaultValue: "Move \(String(describing: garments.count)) items"))
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
 
@@ -309,7 +309,7 @@ struct ClosetBulkShelfSheet: View {
             }
             .frame(height: 220)
 
-            WKPrimaryButton("Mover aquí") { apply() }
+            WKPrimaryButton(String(localized: "closet.closetbulkedit.moveHere", defaultValue: "Move here")) { apply() }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()
@@ -356,7 +356,7 @@ struct ClosetBulkEditSheet: View {
             }
             .scrollIndicators(.hidden)
             .background(WK.Palette.canvas.ignoresSafeArea())
-            .navigationTitle(garments.count == 1 ? "Editar prenda" : "Editar \(garments.count) prendas")
+            .navigationTitle(garments.count == 1 ? String(localized: "closet.closetbulkedit.editItem", defaultValue: "Edit item") : String(localized: "closet.closetbulkedit.editItems2", defaultValue: "Edit \(String(describing: garments.count)) items"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -470,7 +470,7 @@ struct ClosetBulkEditPill: View {
 
     var body: some View {
         Button(action: action) {
-            Label("Editar prendas", systemImage: "square.grid.2x2")
+            Label(String(localized: "closet.closetbulkedit.editItems", defaultValue: "Edit items"), systemImage: "square.grid.2x2")
                 .font(WK.Font.captionMedium)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .padding(.horizontal, WK.Spacing.m)
@@ -548,11 +548,11 @@ struct ClosetBulkActionsModifier: ViewModifier {
                 }
             }
             .alert(
-                garments.count == 1 ? "¿Eliminar esta prenda?" : "¿Eliminar \(garments.count) prendas?",
+                garments.count == 1 ? String(localized: "closet.closetbulkedit.deleteThisItem", defaultValue: "Delete this item?") : String(localized: "closet.closetbulkedit.deleteItems", defaultValue: "Delete \(String(describing: garments.count)) items?"),
                 isPresented: $isConfirmingDelete
             ) {
-                Button("Eliminar", role: .destructive) { delete() }
-                Button("Cancelar", role: .cancel) {}
+                Button(String(localized: "common.delete", defaultValue: "Delete"), role: .destructive) { delete() }
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
             }
     }
 

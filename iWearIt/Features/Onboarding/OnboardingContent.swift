@@ -33,58 +33,58 @@ enum OnboardingContent {
 
     static let goals: [OnboardingOption] = [
         .init(id: "faster", symbol: "timer", tone: .denim,
-              label: "Vestirme más rápido",
-              detail: "Dejar de decidir delante del armario"),
+              label: String(localized: "onboarding.onboardingcontent.getDressedFaster", defaultValue: "Get dressed faster"),
+              detail: String(localized: "onboarding.onboardingcontent.stopDecidingInFrontOf", defaultValue: "Stop deciding in front of the closet")),
         .init(id: "save", symbol: "banknote", tone: .oliva,
-              label: "Dejar de comprar de más",
-              detail: "Aprovechar lo que ya tengo"),
+              label: String(localized: "onboarding.onboardingcontent.stopOverbuying", defaultValue: "Stop overbuying"),
+              detail: String(localized: "onboarding.onboardingcontent.makeTheMostOfWhat", defaultValue: "Make the most of what I have")),
         .init(id: "see", symbol: "eye", tone: .camel,
-              label: "Ver todo lo que tengo",
-              detail: "Sin vaciar los cajones"),
+              label: String(localized: "onboarding.onboardingcontent.seeEverythingIOwn", defaultValue: "See everything I own"),
+              detail: String(localized: "onboarding.onboardingcontent.withoutEmptyingTheDrawers", defaultValue: "Without emptying the drawers")),
         .init(id: "combine", symbol: "paintpalette", tone: .granate,
-              label: "Combinar mejor",
-              detail: "Sacarle partido a cada prenda"),
+              label: String(localized: "onboarding.onboardingcontent.matchBetter", defaultValue: "Match better"),
+              detail: String(localized: "onboarding.onboardingcontent.getTheMostOutOf", defaultValue: "Get the most out of every piece")),
         .init(id: "travel", symbol: "suitcase.rolling", tone: .salvia,
-              label: "Preparar viajes sin agobios"),
+              label: String(localized: "onboarding.onboardingcontent.planTripsStressFree", defaultValue: "Plan trips stress-free")),
     ]
 
     static let pains: [OnboardingOption] = [
         .init(id: "nothing", symbol: "hanger", tone: .granate,
-              label: "Tengo el armario lleno y nada que ponerme"),
+              label: String(localized: "onboarding.onboardingcontent.myClosetIsFullAnd", defaultValue: "My closet is full and I have nothing to wear")),
         .init(id: "forget", symbol: "eye.slash", tone: .lavanda,
-              label: "Me olvido de la ropa que tengo al fondo"),
+              label: String(localized: "onboarding.onboardingcontent.iForgetTheClothesAt", defaultValue: "I forget the clothes at the back")),
         .init(id: "duplicate", symbol: "square.on.square", tone: .camel,
-              label: "Compro cosas parecidas a las que ya tengo"),
+              label: String(localized: "onboarding.onboardingcontent.iBuyThingsSimilarTo", defaultValue: "I buy things similar to what I already have")),
         .init(id: "time", symbol: "hourglass", tone: .denim,
-              label: "Pierdo tiempo cada mañana"),
+              label: String(localized: "onboarding.onboardingcontent.iWasteTimeEveryMorning", defaultValue: "I waste time every morning")),
         .init(id: "packing", symbol: "suitcase", tone: .salvia,
-              label: "Hacer la maleta me estresa"),
+              label: String(localized: "onboarding.onboardingcontent.packingStressesMeOut", defaultValue: "Packing stresses me out")),
         .init(id: "combine", symbol: "puzzlepiece", tone: .terracota,
-              label: "No sé combinar lo que tengo"),
+              label: String(localized: "onboarding.onboardingcontent.iDonTKnowHow", defaultValue: "I don't know how to combine what I have")),
     ]
 
     /// En primera persona a propósito: asentir a "yo hago esto" compromete de
     /// una forma que asentir a "la gente hace esto" no.
     static let statements: [SwipeStatement] = [
-        .init(id: "same", text: "Me pongo siempre la misma ropa", symbol: "arrow.triangle.2.circlepath"),
-        .init(id: "bought", text: "He comprado algo y luego he visto que ya tenía uno igual", symbol: "bag"),
-        .init(id: "forgot", text: "Tengo ropa con la etiqueta todavía puesta", symbol: "tag"),
-        .init(id: "morning", text: "Me cambio dos veces antes de salir de casa", symbol: "arrow.uturn.backward"),
-        .init(id: "suitcase", text: "Meto en la maleta cosas que luego no uso", symbol: "suitcase"),
+        .init(id: "same", text: String(localized: "onboarding.onboardingcontent.iAlwaysWearTheSame", defaultValue: "I always wear the same clothes"), symbol: "arrow.triangle.2.circlepath"),
+        .init(id: "bought", text: String(localized: "onboarding.onboardingcontent.iBoughtSomethingAndThen", defaultValue: "I bought something and then realised I already had one just like it"), symbol: "bag"),
+        .init(id: "forgot", text: String(localized: "onboarding.onboardingcontent.iHaveClothesWithThe", defaultValue: "I have clothes with the tag still on"), symbol: "tag"),
+        .init(id: "morning", text: String(localized: "onboarding.onboardingcontent.iChangeTwiceBeforeLeaving", defaultValue: "I change twice before leaving the house"), symbol: "arrow.uturn.backward"),
+        .init(id: "suitcase", text: String(localized: "onboarding.onboardingcontent.iPackThingsINever", defaultValue: "I pack things I never end up wearing"), symbol: "suitcase"),
     ]
 
     /// - Note: testimonios de ejemplo hasta que haya reseñas reales. Publicar
     ///   una app con testimonios inventados presentados como reales es engañoso
     ///   y además está prohibido en la App Store.
     static let testimonials: [Testimonial] = [
-        .init(id: "1", initials: "MG", name: "María", tag: "Compra compulsiva",
-              text: "Me di cuenta de que tenía cuatro camisas blancas casi iguales. Llevo tres meses sin comprar nada.",
+        .init(id: "1", initials: "MG", name: String(localized: "onboarding.onboardingcontent.marA", defaultValue: "María"), tag: String(localized: "onboarding.onboardingcontent.impulseBuyer", defaultValue: "Impulse buyer"),
+              text: String(localized: "onboarding.onboardingcontent.iRealisedIHadFour", defaultValue: "I realised I had four almost identical white shirts. I haven't bought anything in three months."),
               tone: .granate),
-        .init(id: "2", initials: "JL", name: "Javi", tag: "Poco tiempo",
-              text: "Dejo los outfits de la semana el domingo. Por la mañana ya no pienso.",
+        .init(id: "2", initials: "JL", name: String(localized: "onboarding.onboardingcontent.javi", defaultValue: "Javi"), tag: String(localized: "onboarding.onboardingcontent.shortOnTime", defaultValue: "Short on time"),
+              text: String(localized: "onboarding.onboardingcontent.iPlanTheWeekS", defaultValue: "I plan the week's outfits on Sunday. In the morning I don't have to think."),
               tone: .denim),
-        .init(id: "3", initials: "AR", name: "Ana", tag: "Viaja a menudo",
-              text: "Hacer la maleta era lo que peor llevaba. Ahora la preparo en diez minutos.",
+        .init(id: "3", initials: "AR", name: String(localized: "onboarding.onboardingcontent.ana", defaultValue: "Ana"), tag: String(localized: "onboarding.onboardingcontent.travelsOften", defaultValue: "Travels often"),
+              text: String(localized: "onboarding.onboardingcontent.packingWasWhatIHated", defaultValue: "Packing was what I hated most. Now I do it in ten minutes."),
               tone: .oliva),
     ]
 
@@ -92,22 +92,22 @@ enum OnboardingContent {
     /// mismo orden para que cada fila se transforme en su pareja.
     static let comparisonPairs: [ComparisonPair] = [
         .init(id: "see", symbol: "eye", tone: .camel,
-              with: "Ves todo lo que tienes", without: "Lo del fondo del armario no existe"),
+              with: String(localized: "onboarding.onboardingcontent.youSeeEverythingYouOwn", defaultValue: "You see everything you own"), without: String(localized: "onboarding.onboardingcontent.theBackOfTheCloset", defaultValue: "The back of the closet doesn't exist")),
         .init(id: "combine", symbol: "paintpalette", tone: .granate,
-              with: "Sabes qué combina con qué", without: "Siempre las mismas tres combinaciones"),
+              with: String(localized: "onboarding.onboardingcontent.youKnowWhatGoesWith", defaultValue: "You know what goes with what"), without: String(localized: "onboarding.onboardingcontent.alwaysTheSameThreeCombinations", defaultValue: "Always the same three combinations")),
         .init(id: "repeat", symbol: "square.on.square", tone: .denim,
-              with: "Dejas de comprar repetido", without: "Otra camisa blanca casi igual"),
+              with: String(localized: "onboarding.onboardingcontent.youStopBuyingDuplicates", defaultValue: "You stop buying duplicates"), without: String(localized: "onboarding.onboardingcontent.anotherAlmostIdenticalWhiteShirt", defaultValue: "Another almost identical white shirt")),
         .init(id: "plan", symbol: "calendar", tone: .oliva,
-              with: "La semana, ya planificada", without: "Decidir cada mañana con prisa"),
+              with: String(localized: "onboarding.onboardingcontent.theWeekAlreadyPlanned", defaultValue: "The week, already planned"), without: String(localized: "onboarding.onboardingcontent.decidingEveryMorningInA", defaultValue: "Deciding every morning in a rush")),
         .init(id: "pack", symbol: "suitcase", tone: .salvia,
-              with: "La maleta, hecha sin pensar", without: "Maleta llena de lo que no usas"),
+              with: String(localized: "onboarding.onboardingcontent.theSuitcasePackedWithoutThinking", defaultValue: "The suitcase, packed without thinking"), without: String(localized: "onboarding.onboardingcontent.aSuitcaseFullOfThings", defaultValue: "A suitcase full of things you don't use")),
     ]
 
     static let comparison: [ComparisonRow] = [
-        .init(id: "see", label: "Ves todo lo que tienes"),
-        .init(id: "combine", label: "Sabes qué combina con qué"),
-        .init(id: "repeat", label: "Evitas comprar repetido"),
-        .init(id: "plan", label: "Dejas la semana planificada"),
-        .init(id: "pack", label: "La maleta, hecha sin pensar"),
+        .init(id: "see", label: String(localized: "onboarding.onboardingcontent.youSeeEverythingYouOwn", defaultValue: "You see everything you own")),
+        .init(id: "combine", label: String(localized: "onboarding.onboardingcontent.youKnowWhatGoesWith", defaultValue: "You know what goes with what")),
+        .init(id: "repeat", label: String(localized: "onboarding.onboardingcontent.youAvoidBuyingDuplicates", defaultValue: "You avoid buying duplicates")),
+        .init(id: "plan", label: String(localized: "onboarding.onboardingcontent.yourWeekIsPlanned", defaultValue: "Your week is planned")),
+        .init(id: "pack", label: String(localized: "onboarding.onboardingcontent.theSuitcasePackedWithoutThinking", defaultValue: "The suitcase, packed without thinking")),
     ]
 }

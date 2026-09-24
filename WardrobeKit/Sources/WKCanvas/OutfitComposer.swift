@@ -238,7 +238,7 @@ private struct SlotGarmentStrip: View {
         .frame(height: 120)
         .overlay {
             if candidates.isEmpty {
-                Text("Nada en \(slot.label.lowercased()) todavía")
+                Text(String(localized: "wkcanvas.outfitcomposer.nothingInYet", defaultValue: "Nothing in \(String(describing: slot.label.lowercased())) yet", bundle: .module))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
             }

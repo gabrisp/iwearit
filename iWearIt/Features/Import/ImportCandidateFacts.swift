@@ -13,14 +13,14 @@ enum ImportCandidateLabels {
         // En cristiano y no en jerga de base de datos: "Parte superior", no
         // "Top". Es lo que se lee en la tarjeta de la prenda.
         switch kind {
-        case .upperBody: "Parte superior"
-        case .outerLayer: "Chaquetas"
-        case .lowerBody: "Parte inferior"
-        case .wholeBody: "Cuerpo entero"
-        case .feet: "Zapatos"
-        case .head: "Accesorios"
-        case .bag: "Bolsos"
-        case .other: "Otros"
+        case .upperBody: String(localized: "import.importcandidatefacts.top", defaultValue: "Top")
+        case .outerLayer: String(localized: "common.jackets", defaultValue: "Jackets")
+        case .lowerBody: String(localized: "import.importcandidatefacts.bottom", defaultValue: "Bottom")
+        case .wholeBody: String(localized: "import.importcandidatefacts.fullBody", defaultValue: "Full body")
+        case .feet: String(localized: "common.shoes", defaultValue: "Shoes")
+        case .head: String(localized: "import.importcandidatefacts.accessories", defaultValue: "Accessories")
+        case .bag: String(localized: "common.bags", defaultValue: "Bags")
+        case .other: String(localized: "common.other", defaultValue: "Other")
         }
     }
 }
@@ -52,19 +52,19 @@ struct CandidateFactsRow: View {
     @ViewBuilder
     private var pills: some View {
         if let brand = candidate.detected.brand {
-            FactPill(label: "Marca", value: brand)
+            FactPill(label: String(localized: "import.importcandidatefacts.brand", defaultValue: "Brand"), value: brand)
         }
         if let color = candidate.detected.colors.first {
-            FactPill(label: "Color", value: color.nameKey)
+            FactPill(label: String(localized: "common.color", defaultValue: "Color"), value: color.nameKey)
         }
         if let subcategory = candidate.detected.subcategory {
-            FactPill(label: "Tipo", value: subcategory)
+            FactPill(label: String(localized: "common.type", defaultValue: "Type"), value: subcategory)
         }
         if let material = candidate.detected.material {
-            FactPill(label: "Material", value: material)
+            FactPill(label: String(localized: "common.material", defaultValue: "Material"), value: material)
         }
         if let season = Self.seasonLabel(candidate.detected.seasons) {
-            FactPill(label: "Temporada", value: season)
+            FactPill(label: String(localized: "import.importcandidatefacts.season", defaultValue: "Season"), value: season)
         }
     }
 

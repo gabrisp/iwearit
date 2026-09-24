@@ -95,7 +95,7 @@ struct ManualCropScreen: View {
 
     private var chrome: some View {
         HStack {
-            Button("Cancelar") { dismiss() }
+            Button(String(localized: "common.cancel", defaultValue: "Cancel")) { dismiss() }
                 .font(WK.Font.callout)
                 .foregroundStyle(WK.Palette.secondaryText)
             Spacer()
@@ -104,16 +104,16 @@ struct ManualCropScreen: View {
             // la gente intente rodear una manga al píxel con el dedo, que no
             // se puede y encima sale peor.
             VStack(spacing: 2) {
-                Text("Rodea la prenda")
+                Text(String(localized: "import.manualcropscreen.circleThePiece", defaultValue: "Circle the piece"))
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.primaryText)
 
-                Text("Nos vale aproximado: lo usamos de referencia")
+                Text(String(localized: "import.manualcropscreen.roughlyIsFineWeUse", defaultValue: "Roughly is fine: we use it as a reference"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
             Spacer()
-            Button("Repetir") { path = [] }
+            Button(String(localized: "import.manualcropscreen.redo", defaultValue: "Redo")) { path = [] }
                 .font(WK.Font.callout)
                 .foregroundStyle(canCrop ? WK.Palette.accent : WK.Palette.tertiaryText)
                 .disabled(!canCrop)
@@ -136,13 +136,13 @@ struct ManualCropScreen: View {
     }
 
     private var status: String {
-        if canCrop { return "Se queda lo de dentro del trazo." }
+        if canCrop { return String(localized: "import.manualcropscreen.whatSInsideTheLine", defaultValue: "What's inside the line stays.") }
         if cropped > 0 { return "Recortada." }
-        return "Dibuja alrededor de la prenda sin levantar el dedo."
+        return String(localized: "import.manualcropscreen.drawAroundThePieceWithout", defaultValue: "Draw around the piece without lifting your finger.")
     }
 
     private var primaryTitle: String {
-        isWorking ? "Recortando…" : "Usar este recorte"
+        isWorking ? "Recortando…" : String(localized: "import.manualcropscreen.useThisCrop", defaultValue: "Use this crop")
     }
 
     /// Dónde cae la imagen dentro del hueco, con `scaledToFit`.

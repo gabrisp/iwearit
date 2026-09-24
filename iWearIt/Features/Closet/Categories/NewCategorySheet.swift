@@ -41,17 +41,17 @@ struct NewCategorySheet: View {
 
     private var nameStep: some View {
         WKFlowScreen(
-            title: "¿Cómo se llama?",
-            subtitle: "Gorras, ropa de running, lo que te sirva a ti.",
+            title: String(localized: "closet.newcategorysheet.whatSItCalled", defaultValue: "What's it called?"),
+            subtitle: String(localized: "closet.newcategorysheet.capsRunningGearWhateverWorks", defaultValue: "Caps, running gear, whatever works for you."),
             stepID: Step.name,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isPrimaryEnabled: !trimmedName.isEmpty,
             isAtRoot: flow.isAtRoot,
             onLeading: { dismiss() },
             onPrimary: { flow.move(to: .examples) }
         ) {
-            TextField("Nombre de la balda", text: $name)
+            TextField(String(localized: "closet.newcategorysheet.shelfName", defaultValue: "Shelf name"), text: $name)
                 .font(WK.Font.title)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
@@ -62,11 +62,11 @@ struct NewCategorySheet: View {
 
     private var examplesStep: some View {
         WKFlowScreen(
-            title: "Enséñame cuáles van aquí",
-            subtitle: "Marca al menos \(GarmentCategory.minimumExamplesForCentroid). Con menos no me puedo fiar de lo que aprenda.",
+            title: String(localized: "closet.newcategorysheet.showMeWhichOnesGo", defaultValue: "Show me which ones go here"),
+            subtitle: String(localized: "closet.newcategorysheet.pickAtLeastWithFewer", defaultValue: "Pick at least \(String(describing: GarmentCategory.minimumExamplesForCentroid)). With fewer I can't trust what I learn."),
             stepID: Step.examples,
             transition: flow.transition,
-            primaryTitle: selectedExamples.isEmpty ? "Crear vacía" : "Crear con \(selectedExamples.count)",
+            primaryTitle: selectedExamples.isEmpty ? String(localized: "closet.newcategorysheet.createEmpty", defaultValue: "Create empty") : String(localized: "closet.newcategorysheet.createWith", defaultValue: "Create with \(String(describing: selectedExamples.count))"),
             isAtRoot: false,
             onLeading: { flow.move(to: .name) },
             onPrimary: { create() }

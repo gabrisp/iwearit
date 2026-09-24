@@ -86,7 +86,7 @@ struct GarmentEditSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .navigationTitle("Editar")
+        .navigationTitle(String(localized: "common.edit", defaultValue: "Edit"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { chrome }
         // **La única a pantalla completa.** Mirar una prenda es un vistazo y
@@ -150,13 +150,13 @@ struct GarmentEditSheet: View {
         //     isPresented: $isConfirmingDelete,
         //     titleVisibility: .visible
         // ) {
-        .alert("No hemos encontrado ninguna prenda", isPresented: $isManualCropMissed) {
-            Button("Vale", role: .cancel) {}
+        .alert(String(localized: "closet.garmenteditsheet.weCouldnTFindAny", defaultValue: "We couldn't find any piece"), isPresented: $isManualCropMissed) {
+            Button(String(localized: "closet.garmenteditsheet.ok", defaultValue: "OK"), role: .cancel) {}
         } message: {
-            Text("Rodéala otra vez con un poco más de margen. La prenda se queda como estaba.")
+            Text(String(localized: "closet.garmenteditsheet.circleItAgainWithA", defaultValue: "Circle it again with a bit more margin. The piece stays as it was."))
         }
-        .alert("¿Eliminar esta prenda?", isPresented: $isConfirmingDelete) {
-            Button("Eliminar", role: .destructive) {
+        .alert(String(localized: "closet.garmenteditsheet.deleteThisItem", defaultValue: "Delete this item?"), isPresented: $isConfirmingDelete) {
+            Button(String(localized: "common.delete", defaultValue: "Delete"), role: .destructive) {
                 if let onDelete {
                     onDelete()
                 } else {
@@ -164,7 +164,7 @@ struct GarmentEditSheet: View {
                 }
                 dismiss()
             }
-            Button("Cancelar", role: .cancel) {}
+            Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
         }
     }
 
@@ -246,12 +246,12 @@ struct GarmentEditSheet: View {
             // "Balda" y no "Parte": la balda es camisetas, pantalones… La parte
             // del cuerpo es un filtro para buscar, no un sitio.
             EditRow(
-                value: garment.category?.name ?? "Sin balda",
-                label: "Balda"
+                value: garment.category?.name ?? String(localized: "closet.garmenteditsheet.noShelf", defaultValue: "No shelf"),
+                label: String(localized: "common.shelf", defaultValue: "Shelf")
             ) { editing = .shelf }
             EditRow(
-                value: GarmentVocabulary.displayType(garment.subcategory) ?? "Sin definir",
-                label: "Tipo"
+                value: GarmentVocabulary.displayType(garment.subcategory) ?? String(localized: "closet.garmenteditsheet.notSet", defaultValue: "Not set"),
+                label: String(localized: "common.type", defaultValue: "Type")
             ) { editing = .type }
 
             // Sin estilo: se queda comentado.
@@ -261,7 +261,7 @@ struct GarmentEditSheet: View {
             // ) { editing = .tags }
             EditRow(
                 value: GarmentVocabulary.Warmth.label(for: garment.seasons),
-                label: "Calidez"
+                label: String(localized: "common.warmth", defaultValue: "Warmth")
             ) { editing = .warmth }
 
             // **Material, editable.** Lo propone el modelo y acierta a medias:
@@ -269,8 +269,8 @@ struct GarmentEditSheet: View {
             // casi siempre. Enseñarlo sin poder tocarlo obliga a guardar algo
             // que ya sabes que está mal.
             EditRow(
-                value: garment.material?.capitalized ?? "Sin definir",
-                label: "Material"
+                value: garment.material?.capitalized ?? String(localized: "closet.garmenteditsheet.notSet", defaultValue: "Not set"),
+                label: String(localized: "common.material", defaultValue: "Material")
             ) { editing = .material }
 
             // **Notas.** Un enlace a la ficha de la tienda, la talla que
@@ -311,7 +311,7 @@ struct GarmentEditSheet: View {
     private var typeOptions: [WKChipSheet.Option] {
         let own = GarmentVocabulary.types(for: garment.kind)
         let rest = GarmentVocabulary.allTypes.filter { !own.contains($0) }
-        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: "Sin definir")]
+        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: String(localized: "closet.garmenteditsheet.notSet", defaultValue: "Not set"))]
     }
 
     /// Escribe el tipo y, con él, **la parte del cuerpo**.
@@ -370,8 +370,8 @@ struct GarmentEditSheet: View {
             // no se edita. Ahora la manda el tipo, que es lo que el usuario sí
             // sabe. Los de su parte van primero, que son los de siempre.
             WKChipSheet(
-                title: "Cambiar tipo",
-                subtitle: "Selecciona el tipo que mejor describe esta prenda",
+                title: String(localized: "closet.garmenteditsheet.changeType", defaultValue: "Change type"),
+                subtitle: String(localized: "closet.garmenteditsheet.pickTheTypeThatBest", defaultValue: "Pick the type that best describes this piece"),
                 options: typeOptions,
                 selection: Binding(
                     get: { Set([garment.subcategory?.capitalized].compactMap { $0 }) },
@@ -381,8 +381,8 @@ struct GarmentEditSheet: View {
             )
         case .tags:
             WKChipSheet(
-                title: "Seleccionar etiquetas",
-                subtitle: "Selecciona hasta \(GarmentVocabulary.maximumTags) etiquetas",
+                title: String(localized: "closet.garmenteditsheet.chooseTags", defaultValue: "Choose tags"),
+                subtitle: String(localized: "closet.garmenteditsheet.chooseUpToTags", defaultValue: "Choose up to \(String(describing: GarmentVocabulary.maximumTags)) tags"),
                 options: GarmentVocabulary.tags.map { .init(id: $0, label: $0) },
                 selection: Binding(
                     get: { Set(garment.tags) },
@@ -392,8 +392,8 @@ struct GarmentEditSheet: View {
             )
         case .cut:
             WKChipSheet(
-                title: GarmentVocabulary.cutTitle(for: garment.kind) ?? "Corte",
-                subtitle: "Elige uno o escribe el tuyo",
+                title: GarmentVocabulary.cutTitle(for: garment.kind) ?? String(localized: "closet.garmenteditsheet.cut", defaultValue: "Cut"),
+                subtitle: String(localized: "closet.garmenteditsheet.pickOneOrWriteYour", defaultValue: "Pick one or write your own"),
                 options: GarmentVocabulary.cuts(for: garment.kind).map { .init(id: $0, label: $0) },
                 selection: Binding(
                     get: { Set([garment.cut].compactMap { $0 }) },
@@ -404,10 +404,10 @@ struct GarmentEditSheet: View {
             )
         case .material:
             WKChipSheet(
-                title: "Material",
-                subtitle: "De qué está hecha, tal y como la llevas",
+                title: String(localized: "common.material", defaultValue: "Material"),
+                subtitle: String(localized: "closet.garmenteditsheet.whatItSMadeOf", defaultValue: "What it's made of, as you wear it"),
                 options: GarmentVocabulary.materials.map { .init(id: $0, label: $0) }
-                    + [.init(id: "", label: "Sin definir")],
+                    + [.init(id: "", label: String(localized: "closet.garmenteditsheet.notSet", defaultValue: "Not set"))],
                 selection: Binding(
                     get: { Set([garment.material?.capitalized].compactMap { $0 }) },
                     set: { garment.material = $0.first?.isEmpty == false ? $0.first : nil }
@@ -416,8 +416,8 @@ struct GarmentEditSheet: View {
             )
         case .warmth:
             WKChipSheet(
-                title: "Cambiar calidez",
-                subtitle: "Quítala si vale para todo el año",
+                title: String(localized: "closet.garmenteditsheet.changeWarmth", defaultValue: "Change warmth"),
+                subtitle: String(localized: "closet.garmenteditsheet.removeItIfItWorks", defaultValue: "Remove it if it works all year round"),
                 options: GarmentVocabulary.Warmth.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
@@ -452,7 +452,7 @@ struct GarmentEditSheet: View {
     /// importarla, perdiendo el nombre, la balda y todo lo demás.
     @ViewBuilder
     private var imageSection: some View {
-        WKSection("Imagen") {
+        WKSection(String(localized: "closet.garmenteditsheet.image", defaultValue: "Image")) {
             // Todas las que tiene esta prenda, para elegir cuál se ve.
             WKRow {
                 GarmentImageStrip(
@@ -467,8 +467,8 @@ struct GarmentEditSheet: View {
             if cropSource != nil {
                 WKRow(action: { isCroppingByHand = true }) {
                     ImageActionRow(
-                        title: "Recortar a mano",
-                        detail: "Rodea la prenda con el dedo y manda sobre lo detectado",
+                        title: String(localized: "closet.garmenteditsheet.cropByHand", defaultValue: "Crop by hand"),
+                        detail: String(localized: "closet.garmenteditsheet.circleThePieceWithYour", defaultValue: "Circle the piece with your finger and override what was detected"),
                         symbol: "lasso",
                         isWorking: false
                     )
@@ -477,8 +477,8 @@ struct GarmentEditSheet: View {
 
             WKRow(action: { isPickingPhoto = true }) {
                 ImageActionRow(
-                    title: "Cambiar la foto",
-                    detail: "Se vuelve a recortar y a medir el color",
+                    title: String(localized: "closet.garmenteditsheet.changeThePhoto", defaultValue: "Change the photo"),
+                    detail: String(localized: "closet.garmenteditsheet.itSCutOutAgain", defaultValue: "It's cut out again and the color is measured again"),
                     symbol: "photo.on.rectangle",
                     isWorking: isWorkingOnImage
                 )
@@ -490,8 +490,8 @@ struct GarmentEditSheet: View {
                     action: { Task { await regenerateCatalog() } }
                 ) {
                     ImageActionRow(
-                        title: "Volver a generar el catálogo",
-                        detail: "Otra reconstrucción de la misma foto",
+                        title: String(localized: "closet.garmenteditsheet.generateTheCatalogVersionAgain", defaultValue: "Generate the catalog version again"),
+                        detail: String(localized: "closet.garmenteditsheet.anotherReconstructionOfTheSame", defaultValue: "Another reconstruction of the same photo"),
                         symbol: "wand.and.sparkles",
                         isWorking: isWorkingOnImage
                     )
@@ -503,8 +503,8 @@ struct GarmentEditSheet: View {
             if hasCatalog {
                 WKRow(showsSeparator: false, action: { Task { await dropCatalog() } }) {
                     ImageActionRow(
-                        title: "Usar el recorte real",
-                        detail: "Tira la reconstrucción y deja la foto recortada",
+                        title: String(localized: "closet.garmenteditsheet.useTheRealCutout", defaultValue: "Use the real cutout"),
+                        detail: String(localized: "closet.garmenteditsheet.discardsTheReconstructionAndKeeps", defaultValue: "Discards the reconstruction and keeps the cut-out photo"),
                         symbol: "arrow.uturn.backward",
                         isWorking: false
                     )
@@ -686,7 +686,7 @@ private struct GarmentImageStrip: View {
             HStack(spacing: WK.Spacing.m) {
                 if hasCatalog {
                     ImageChoice(
-                        title: "Catálogo",
+                        title: String(localized: "closet.garmenteditsheet.catalog", defaultValue: "Catalog"),
                         isCurrent: true,
                         key: garment.normalizedImageKey,
                         prefersCatalog: true,
@@ -696,7 +696,7 @@ private struct GarmentImageStrip: View {
                 }
 
                 ImageChoice(
-                    title: "Recorte",
+                    title: String(localized: "closet.garmenteditsheet.cutout", defaultValue: "Cutout"),
                     isCurrent: !hasCatalog,
                     key: garment.normalizedImageKey,
                     prefersCatalog: false,

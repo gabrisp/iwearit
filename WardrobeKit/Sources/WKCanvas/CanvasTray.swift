@@ -294,10 +294,10 @@ public struct StickerPicker: View {
 
     public var body: some View {
         HStack(spacing: WK.Spacing.m) {
-            StickerTile(symbol: "photo", label: "Foto") { onPick(.photo) }
-            StickerTile(symbol: "calendar", label: "Fecha") { onPick(.date) }
-            StickerTile(symbol: "textformat", label: "Texto") { onPick(.text) }
-            StickerTile(symbol: "cloud.sun", label: "Tiempo") { onPick(.weather) }
+            StickerTile(symbol: "photo", label: String(localized: "common.photo", defaultValue: "Photo", bundle: .module)) { onPick(.photo) }
+            StickerTile(symbol: "calendar", label: String(localized: "wkcanvas.canvastray.date", defaultValue: "Date", bundle: .module)) { onPick(.date) }
+            StickerTile(symbol: "textformat", label: String(localized: "wkcanvas.canvastray.text", defaultValue: "Text", bundle: .module)) { onPick(.text) }
+            StickerTile(symbol: "cloud.sun", label: String(localized: "wkcanvas.canvastray.weather", defaultValue: "Weather", bundle: .module)) { onPick(.weather) }
         }
         .padding(.horizontal, WK.Spacing.m)
     }

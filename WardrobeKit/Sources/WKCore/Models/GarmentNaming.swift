@@ -126,10 +126,10 @@ public enum GarmentNaming {
         case .outerLayer: "Chaqueta"
         case .lowerBody: "Pantalón"
         case .wholeBody: "Vestido"
-        case .feet: "Zapatos"
+        case .feet: String(localized: "common.shoes", defaultValue: "Shoes", bundle: .module)
         case .head: "Gorra"
         case .bag: "Bolso"
-        case .other: "Prenda"
+        case .other: String(localized: "wkcore.garmentnaming.item", defaultValue: "Item", bundle: .module)
         }
     }
 }

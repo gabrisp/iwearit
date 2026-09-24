@@ -98,20 +98,20 @@ struct iWearItApp: App {
                 // a abrir el store: se reconstruye el entorno entero —mismo
                 // fichero, mismos datos— y la app sigue.
                 .alert(
-                    "Se ha detectado iCloud",
+                    String(localized: "app.iwearitapp.icloudDetected", defaultValue: "iCloud detected"),
                     isPresented: Binding(
                         get: { environment.sync.canEnableNow },
                         set: { if !$0 { environment.sync.dismissEnablePrompt() } }
                     )
                 ) {
-                    Button("Ahora no", role: .cancel) {
+                    Button(String(localized: "common.notNow", defaultValue: "Not now"), role: .cancel) {
                         environment.sync.dismissEnablePrompt()
                     }
-                    Button("Sincronizar") {
+                    Button(String(localized: "app.iwearitapp.sync", defaultValue: "Sync")) {
                         environment = AppEnvironment.live()
                     }
                 } message: {
-                    Text("Tu armario puede copiarse a tus otros dispositivos. Nada sale de este iPhone hasta que lo actives.")
+                    Text(String(localized: "app.iwearitapp.yourClosetCanBeCopied", defaultValue: "Your closet can be copied to your other devices. Nothing leaves this iPhone until you turn it on."))
                 }
                 #if DEBUG
                 // `probe-toast` enseña un aviso al arrancar, para poder
@@ -125,7 +125,7 @@ struct iWearItApp: App {
                     }
                     guard ProcessInfo.processInfo.arguments.contains("probe-toast") else { return }
                     try? await Task.sleep(for: .seconds(2))
-                    toasts.show(WKToast("Prenda guardada"))
+                    toasts.show(WKToast(String(localized: "common.itemSaved", defaultValue: "Item saved")))
                 }
                 #endif
         }
@@ -156,7 +156,7 @@ private struct RootView: View {
         } else if ProcessInfo.processInfo.arguments.contains("gallery") {
             NavigationStack {
                 AdaptiveGallery()
-                    .navigationTitle("Adaptativos")
+                    .navigationTitle(String(localized: "app.iwearitapp.adaptive", defaultValue: "Adaptive"))
                     .navigationBarTitleDisplayMode(.inline)
             }
         } else if hasCompletedOnboarding {

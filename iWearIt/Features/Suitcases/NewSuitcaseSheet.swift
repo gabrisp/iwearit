@@ -41,7 +41,7 @@ struct NewSuitcaseSheet: View {
         }
         .wkDynamicSheet()
         .sheet(isPresented: $isPickingPlace) {
-            PlaceSearchSheet(title: "¿A dónde vas?") { destination = $0 }
+            PlaceSearchSheet(title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?")) { destination = $0 }
         }
     }
 
@@ -51,17 +51,17 @@ struct NewSuitcaseSheet: View {
 
     private var nameStep: some View {
         WKFlowScreen(
-            title: "¿A dónde vas?",
-            subtitle: "Le pondremos ese nombre a la maleta.",
+            title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?"),
+            subtitle: String(localized: "suitcases.newsuitcasesheet.weLlNameTheSuitcase", defaultValue: "We'll name the suitcase after it."),
             stepID: Step.name,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isPrimaryEnabled: !trimmedName.isEmpty,
             isAtRoot: flow.isAtRoot,
             onLeading: { dismiss() },
             onPrimary: { flow.move(to: .place) }
         ) {
-            TextField("Lisboa, finde en la sierra…", text: $name)
+            TextField(String(localized: "suitcases.newsuitcasesheet.lisbonWeekendInTheMountains", defaultValue: "Lisbon, weekend in the mountains…"), text: $name)
                 .font(WK.Font.title)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
@@ -78,11 +78,11 @@ struct NewSuitcaseSheet: View {
     /// preparado tres días llega tarde.
     private var placeStep: some View {
         WKFlowScreen(
-            title: "¿A qué sitio?",
-            subtitle: "Con el destino puesto, cada día del viaje trae el tiempo que va a hacer.",
+            title: String(localized: "suitcases.newsuitcasesheet.whichPlace", defaultValue: "Which place?"),
+            subtitle: String(localized: "suitcases.newsuitcasesheet.withTheDestinationSetEach", defaultValue: "With the destination set, each day of the trip brings the weather forecast."),
             stepID: Step.place,
             transition: flow.transition,
-            primaryTitle: destination == nil ? "Ahora no" : "Siguiente",
+            primaryTitle: destination == nil ? String(localized: "common.notNow", defaultValue: "Not now") : String(localized: "common.next", defaultValue: "Next"),
             isAtRoot: false,
             onLeading: { flow.move(to: .name) },
             onPrimary: { flow.move(to: .look) }
@@ -91,7 +91,7 @@ struct NewSuitcaseSheet: View {
                 HStack(spacing: WK.Spacing.m) {
                     Image(systemName: "mappin.and.ellipse")
                         .foregroundStyle(WK.Palette.secondaryText)
-                    Text(destination?.name ?? "Buscar una ciudad")
+                    Text(destination?.name ?? String(localized: "suitcases.newsuitcasesheet.searchForACity", defaultValue: "Search for a city"))
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(
                             destination == nil ? WK.Palette.secondaryText : WK.Palette.primaryText
@@ -112,11 +112,11 @@ struct NewSuitcaseSheet: View {
     /// velocidad a la que se mira una balda; la forma y el color sí.
     private var lookStep: some View {
         WKFlowScreen(
-            title: "¿Cómo la reconoces?",
-            subtitle: "Un icono y un color para encontrarla de un vistazo.",
+            title: String(localized: "suitcases.newsuitcasesheet.howDoYouRecogniseIt", defaultValue: "How do you recognise it?"),
+            subtitle: String(localized: "suitcases.newsuitcasesheet.anIconAndAColor", defaultValue: "An icon and a color to spot it at a glance."),
             stepID: Step.look,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isAtRoot: false,
             onLeading: { flow.move(to: .place) },
             onPrimary: { flow.move(to: .dates) }
@@ -171,11 +171,11 @@ struct NewSuitcaseSheet: View {
 
     private var datesStep: some View {
         WKFlowScreen(
-            title: "¿Sabes las fechas?",
-            subtitle: "Con fechas preparas un outfit por día. Sin ellas, los dejas simplemente listos.",
+            title: String(localized: "suitcases.newsuitcasesheet.doYouKnowTheDates", defaultValue: "Do you know the dates?"),
+            subtitle: String(localized: "suitcases.newsuitcasesheet.withDatesYouPrepareAn", defaultValue: "With dates you prepare an outfit per day. Without them, you simply get them ready."),
             stepID: Step.dates,
             transition: flow.transition,
-            primaryTitle: hasDates ? "Elegir fechas" : "Crear maleta",
+            primaryTitle: hasDates ? String(localized: "suitcases.newsuitcasesheet.chooseDates", defaultValue: "Choose dates") : String(localized: "suitcases.newsuitcasesheet.createSuitcase", defaultValue: "Create suitcase"),
             isAtRoot: false,
             onLeading: { flow.move(to: .look) },
             onPrimary: {
@@ -183,31 +183,31 @@ struct NewSuitcaseSheet: View {
             }
         ) {
             VStack(spacing: WK.Spacing.s) {
-                DateChoiceRow(title: "Sí, tengo fechas", isSelected: hasDates) { hasDates = true }
-                DateChoiceRow(title: "Todavía no", isSelected: !hasDates) { hasDates = false }
+                DateChoiceRow(title: String(localized: "suitcases.newsuitcasesheet.yesIHaveDates", defaultValue: "Yes, I have dates"), isSelected: hasDates) { hasDates = true }
+                DateChoiceRow(title: String(localized: "suitcases.newsuitcasesheet.notYet", defaultValue: "Not yet"), isSelected: !hasDates) { hasDates = false }
             }
         }
     }
 
     private var whenStep: some View {
         WKFlowScreen(
-            title: "¿Cuándo?",
+            title: String(localized: "suitcases.newsuitcasesheet.when", defaultValue: "When?"),
             stepID: Step.when,
             transition: flow.transition,
-            primaryTitle: "Crear maleta",
+            primaryTitle: String(localized: "suitcases.newsuitcasesheet.createSuitcase", defaultValue: "Create suitcase"),
             isAtRoot: false,
             onLeading: { flow.move(to: .dates) },
             onPrimary: { create() }
         ) {
             WKSection {
                 WKRow {
-                    Text("Salida").font(WK.Font.rowTitle)
+                    Text(String(localized: "suitcases.newsuitcasesheet.departure", defaultValue: "Departure")).font(WK.Font.rowTitle)
                 } trailing: {
                     DatePicker("", selection: $startDate, displayedComponents: .date)
                         .labelsHidden()
                 }
                 WKRow(showsSeparator: false) {
-                    Text("Vuelta").font(WK.Font.rowTitle)
+                    Text(String(localized: "suitcases.newsuitcasesheet.return", defaultValue: "Return")).font(WK.Font.rowTitle)
                 } trailing: {
                     DatePicker("", selection: $endDate, in: startDate..., displayedComponents: .date)
                         .labelsHidden()

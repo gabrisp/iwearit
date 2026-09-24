@@ -125,7 +125,7 @@ private struct ImportCandidateStrip: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.xs) {
-            Text("\(keptCount) de \(candidates.count) se van a guardar")
+            Text(String(localized: "import.importreviewpager.ofWillBeSaved", defaultValue: "\(String(describing: keptCount)) of \(String(describing: candidates.count)) will be saved"))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .contentTransition(.numericText())

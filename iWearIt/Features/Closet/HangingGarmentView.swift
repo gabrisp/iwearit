@@ -129,7 +129,7 @@ struct GarmentDetailLoader: View {
         if let garment = modelContext.model(for: persistentID) as? Garment {
             GarmentSheet(garment: garment, onDelete: onDelete)
         } else {
-            ContentUnavailableView("Prenda no encontrada", systemImage: "questionmark.circle")
+            ContentUnavailableView(String(localized: "closet.hanginggarmentview.itemNotFound", defaultValue: "Item not found"), systemImage: "questionmark.circle")
         }
     }
 }

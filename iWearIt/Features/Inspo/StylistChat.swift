@@ -224,7 +224,7 @@ struct StylistConversation: Identifiable, Hashable, Codable {
     /// No se inventa un título ni se le pide a nadie que lo resuma: la primera
     /// frase **es** el título, porque es lo que ibas buscando.
     var title: String {
-        messages.first { $0.role == .user }?.text ?? "Sin nada todavía"
+        messages.first { $0.role == .user }?.text ?? String(localized: "inspo.stylistchat.nothingYet", defaultValue: "Nothing yet")
     }
 
     var lookCount: Int {

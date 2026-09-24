@@ -109,16 +109,16 @@ private struct DeleteConfirmation: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
-            Text("¿Quitar del outfit?")
+            Text(String(localized: "wkcanvas.canvastoolbar.removeFromTheOutfit", defaultValue: "Remove from the outfit?", bundle: .module))
                 .font(WK.Font.headline)
                 .foregroundStyle(WK.Palette.primaryText)
-            Text("La prenda sigue en tu armario.")
+            Text(String(localized: "wkcanvas.canvastoolbar.thePieceStaysInYour", defaultValue: "The piece stays in your closet.", bundle: .module))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .multilineTextAlignment(.center)
 
             Button(role: .destructive, action: onConfirm) {
-                Text("Quitar")
+                Text(String(localized: "common.remove", defaultValue: "Remove", bundle: .module))
                     .font(WK.Font.headline)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)

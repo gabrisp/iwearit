@@ -28,26 +28,26 @@ public enum WKTip: String, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .overscrollNewOutfit: "Tira para crear"
-        case .dragGarment: "Mueve tu ropa"
-        case .bulkImport: "Varias a la vez"
-        case .reviewCard: "Toca para ajustar"
-        case .swipeLook: "Dilo con el dedo"
+        case .overscrollNewOutfit: String(localized: "wkdesign.wktips.pullToCreate", defaultValue: "Pull to create", bundle: .module)
+        case .dragGarment: String(localized: "wkdesign.wktips.moveYourClothes", defaultValue: "Move your clothes", bundle: .module)
+        case .bulkImport: String(localized: "wkdesign.wktips.severalAtOnce", defaultValue: "Several at once", bundle: .module)
+        case .reviewCard: String(localized: "wkdesign.wktips.tapToAdjust", defaultValue: "Tap to adjust", bundle: .module)
+        case .swipeLook: String(localized: "wkdesign.wktips.sayItWithASwipe", defaultValue: "Say it with a swipe", bundle: .module)
         }
     }
 
     public var message: String {
         switch self {
         case .overscrollNewOutfit:
-            "Tira hacia abajo del todo y suelta para montar un outfit nuevo."
+            String(localized: "wkdesign.wktips.pullAllTheWayDown", defaultValue: "Pull all the way down and let go to put together a new outfit.", bundle: .module)
         case .dragGarment:
-            "Mantén pulsada una prenda para llevártela a otra balda o cambiarla de sitio."
+            String(localized: "wkdesign.wktips.pressAndHoldAPiece", defaultValue: "Press and hold a piece to take it to another shelf or move it around.", bundle: .module)
         case .bulkImport:
-            "Puedes elegir varias fotos de golpe: se analizan una detrás de otra."
+            String(localized: "wkdesign.wktips.youCanPickSeveralPhotos", defaultValue: "You can pick several photos at once: they're analysed one after another.", bundle: .module)
         case .reviewCard:
-            "Toca una prenda para cambiar su tipo, su color o recortarla otra vez."
+            String(localized: "wkdesign.wktips.tapAPieceToChange", defaultValue: "Tap a piece to change its type, its color or crop it again.", bundle: .module)
         case .swipeLook:
-            "Arrastra a la derecha lo que te guste y a la izquierda lo que no: lo que descartes pesa menos en lo que venga."
+            String(localized: "wkdesign.wktips.swipeRightOnWhatYou", defaultValue: "Swipe right on what you like and left on what you don't: what you discard counts less in what comes next.", bundle: .module)
         }
     }
 

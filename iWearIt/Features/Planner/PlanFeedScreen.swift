@@ -234,20 +234,20 @@ struct PlanFeedScreen: View {
             // Quitar un outfit del plan **pregunta**: es trabajo de colocar
             // prendas, y al lado del lápiz un resbalón lo tiraría entero.
             .alert(
-                "¿Quitar este outfit?",
+                String(localized: "planner.planfeedscreen.removeThisOutfit", defaultValue: "Remove this outfit?"),
                 isPresented: Binding(
                     get: { deleting != nil },
                     set: { if !$0 { deleting = nil } }
                 ),
                 presenting: deleting
             ) { outfit in
-                Button("Quitar", role: .destructive) {
+                Button(String(localized: "common.remove", defaultValue: "Remove"), role: .destructive) {
                     withAnimation(WKAnimation.content) { outfit.markDeleted() }
                     deleting = nil
                 }
-                Button("Cancelar", role: .cancel) { deleting = nil }
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) { deleting = nil }
             } message: { _ in
-                Text("Las prendas siguen en tu armario.")
+                Text(String(localized: "planner.planfeedscreen.theClothesStayInYour", defaultValue: "The clothes stay in your closet."))
             }
             .animation(WKAnimation.content, value: layout)
         }
@@ -470,17 +470,17 @@ struct PlanFeedScreen: View {
                     // que el ojo: mantener pulsado es como se pide un menú en
                     // cualquier otra rejilla del sistema.
                     .contextMenu {
-                        Button("Editar", systemImage: "pencil") { edit(entry.outfit) }
-                        Button("Probármelo", systemImage: "person.crop.rectangle") {
+                        Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil") { edit(entry.outfit) }
+                        Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle") {
                             sheet = .tryOn(entry.outfit)
                         }
-                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                        Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(entry.outfit)
                         }
-                        Button("Mover a otro día", systemImage: "calendar") {
+                        Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar") {
                             sheet = .move(entry.outfit)
                         }
-                        Button("Quitar", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "trash", role: .destructive) {
                             deleting = entry.outfit
                         }
                     }
@@ -601,8 +601,8 @@ struct PlanFeedScreen: View {
 
     static func dayLabel(for date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "Hoy" }
-        if calendar.isDateInTomorrow(date) { return "Mañana" }
+        if calendar.isDateInToday(date) { return String(localized: "planner.planfeedscreen.today", defaultValue: "Today") }
+        if calendar.isDateInTomorrow(date) { return String(localized: "planner.planfeedscreen.tomorrow", defaultValue: "Tomorrow") }
         return date.formatted(.dateTime.weekday(.wide).day().month())
     }
 }
@@ -724,7 +724,7 @@ struct CreateOnOverscroll: ViewModifier {
                 // barra contada a mano encima de eso, la píldora salía un
                 // palmo más arriba que la del armario.
                 threshold: 84,
-                label: "Crear un outfit",
+                label: String(localized: "planner.planfeedscreen.createAnOutfit", defaultValue: "Create an outfit"),
                 bottomInset: WK.Spacing.m,
                 // El retraso ya no se pone aquí: lo lleva el propio gesto,
                 // que sabe cuándo ha terminado de volver el lienzo. Ver
@@ -883,11 +883,11 @@ private struct PlanGridCell: View {
             // todas, incluidas las que en grande no están.
             AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
                 Menu {
-                    Button("Editar", systemImage: "pencil", action: onEdit)
-                    Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
-                    Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
-                    Button("Mover a otro día", systemImage: "calendar", action: onMove)
-                    Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
+                    Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil", action: onEdit)
+                    Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle", action: onTryOn)
+                    Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square", action: onDuplicate)
+                    Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar", action: onMove)
+                    Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "trash", role: .destructive, action: onDelete)
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 15, weight: .semibold))
@@ -911,7 +911,7 @@ private struct PlanGridCell: View {
 /// la rejilla: no son dos botones que hacen lo mismo, es uno que está donde
 /// acaba lo que hay.
 struct PlanCreateCard: View {
-    var title = "Crear un outfit"
+    var title = String(localized: "planner.planfeedscreen.createAnOutfit", defaultValue: "Create an outfit")
     /// El día al que iría. Con él, la tarjeta lleva el taco de calendario —el
     /// mismo sticker que se le pone a un outfit planeado—, y el hueco vacío se
     /// lee como **ese día** y no como un botón suelto en medio de la pantalla.

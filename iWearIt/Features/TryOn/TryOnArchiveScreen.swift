@@ -50,7 +50,7 @@ struct TryOnArchiveScreen: View {
         .background(WK.Palette.canvas.ignoresSafeArea())
         // "Probador virtual" y no "Probados": aquí están quiénes se prueban
         // la ropa **y** lo que se han probado.
-        .navigationTitle("Probador virtual")
+        .navigationTitle(String(localized: "tryon.tryonarchivescreen.virtualFittingRoom", defaultValue: "Virtual fitting room"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $sheet) { which in
             switch which {
@@ -77,7 +77,7 @@ struct TryOnArchiveScreen: View {
 
     private var profilesSection: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            SectionTitle(title: "Perfiles", detail: "Quién se prueba la ropa. Toca uno para editarlo.")
+            SectionTitle(title: String(localized: "tryon.tryonarchivescreen.profiles", defaultValue: "Profiles"), detail: String(localized: "tryon.tryonarchivescreen.whoTriesTheClothesOn", defaultValue: "Who tries the clothes on. Tap one to edit it."))
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: WK.Spacing.m) {
                     ForEach(profiles) { profile in
@@ -87,10 +87,10 @@ struct TryOnArchiveScreen: View {
                         .buttonStyle(.plain)
                         .contextMenu {
                             Button { sheet = .profile(profile) } label: {
-                                Label("Editar", systemImage: "pencil")
+                                Label(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil")
                             }
                             Button(role: .destructive) { remove(profile) } label: {
-                                Label("Borrar perfil", systemImage: "trash")
+                                Label(String(localized: "tryon.tryonarchivescreen.deleteProfile", defaultValue: "Delete profile"), systemImage: "trash")
                             }
                         }
                     }
@@ -111,9 +111,9 @@ struct TryOnArchiveScreen: View {
     @ViewBuilder
     private var historySection: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            SectionTitle(title: "Historial", detail: "Lo que te has probado, lo último primero.")
+            SectionTitle(title: String(localized: "tryon.tryonarchivescreen.history", defaultValue: "History"), detail: String(localized: "tryon.tryonarchivescreen.whatYouVeTriedOn", defaultValue: "What you've tried on, newest first."))
             if results.isEmpty {
-                Text("Abre un outfit y toca el probador: lo que te pruebes se queda aquí.")
+                Text(String(localized: "tryon.tryonarchivescreen.openAnOutfitAndTap", defaultValue: "Open an outfit and tap the fitting room: what you try on stays here."))
                     .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -128,7 +128,7 @@ struct TryOnArchiveScreen: View {
                         .buttonStyle(WKPressStyle())
                         .contextMenu {
                             Button(role: .destructive) { remove(result) } label: {
-                                Label("Borrar", systemImage: "trash")
+                                Label(String(localized: "tryon.tryonarchivescreen.delete", defaultValue: "Delete"), systemImage: "trash")
                             }
                         }
                     }
@@ -198,7 +198,7 @@ private struct ProfileCard: View {
             }
 
             VStack(spacing: 2) {
-                Text(profile.label.isEmpty ? "Sin nombre" : profile.label)
+                Text(profile.label.isEmpty ? String(localized: "tryon.tryonarchivescreen.noName", defaultValue: "No name") : profile.label)
                     .font(WK.Font.captionMedium)
                     .foregroundStyle(WK.Palette.primaryText)
                     .lineLimit(1)
@@ -224,7 +224,7 @@ private struct NewProfileCard: View {
                 .foregroundStyle(WK.Palette.primaryText)
                 .frame(width: 84, height: 84)
                 .adaptiveGlassInteractive(in: .circle)
-            Text("Nuevo perfil")
+            Text(String(localized: "tryon.tryonarchivescreen.newProfile", defaultValue: "New profile"))
                 .font(WK.Font.captionMedium)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .frame(width: 120)
@@ -372,7 +372,7 @@ private struct TryOnViewer: View {
             .adaptiveSafeAreaBar(edge: .bottom) {
                 if let outfit = result.outfit {
                     WKPrimaryButton(
-                        addedToOutfit ? "Añadida al outfit" : "Añadir al outfit",
+                        addedToOutfit ? String(localized: "tryon.tryonarchivescreen.addedToTheOutfit", defaultValue: "Added to the outfit") : String(localized: "tryon.tryonarchivescreen.addToOutfit", defaultValue: "Add to outfit"),
                         systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle",
                         surface: .glass
                     ) {
@@ -401,7 +401,7 @@ private struct TryOnViewer: View {
                                 ? result.outfit.map { UIColor(PlanFeedScreen.backdrop(of: $0)) } ?? UIColor(WK.Palette.canvas)
                                 : nil
                         )
-                        ShareLink(item: Image(uiImage: shared), preview: .init("Probado", image: Image(uiImage: shared))) {
+                        ShareLink(item: Image(uiImage: shared), preview: .init(String(localized: "tryon.tryonarchivescreen.triedOn", defaultValue: "Tried on"), image: Image(uiImage: shared))) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .tint(WK.Palette.primaryText)
@@ -412,9 +412,9 @@ private struct TryOnViewer: View {
                         .tint(WK.Palette.primaryText)
                 }
             }
-            .alert("¿Borrar esta prueba?", isPresented: $isConfirmingDelete) {
-                Button("Borrar", role: .destructive, action: onDelete)
-                Button("Cancelar", role: .cancel) {}
+            .alert(String(localized: "tryon.tryonarchivescreen.deleteThisTryOn", defaultValue: "Delete this try-on?"), isPresented: $isConfirmingDelete) {
+                Button(String(localized: "tryon.tryonarchivescreen.delete", defaultValue: "Delete"), role: .destructive, action: onDelete)
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
             }
         }
         .task {

@@ -46,9 +46,9 @@ final class ImportModel {
 
         var title: String {
             switch self {
-            case .visionUnavailable: "Necesita un iPhone de verdad"
-            case .pipeline(let error): error.errorDescription ?? "No se pudo procesar"
-            default: "Nada que recortar"
+            case .visionUnavailable: String(localized: "import.importmodel.needsARealIphone", defaultValue: "Needs a real iPhone")
+            case .pipeline(let error): error.errorDescription ?? String(localized: "import.importmodel.couldnTProcessIt", defaultValue: "Couldn't process it")
+            default: String(localized: "import.importmodel.nothingToCutOut", defaultValue: "Nothing to cut out")
             }
         }
 
@@ -63,13 +63,13 @@ final class ImportModel {
         var message: String {
             switch self {
             case .noPerson:
-                "No se reconoce a nadie en la foto. Por ahora el recorte se apoya en el cuerpo para saber qué es cada prenda."
+                String(localized: "import.importmodel.nobodyIsRecognisedInThe", defaultValue: "Nobody is recognised in the photo. For now the cutout relies on the body to know what each piece is.")
             case .noGarments:
-                "Se reconoce a alguien, pero no se pudo separar ninguna prenda. Prueba con una foto de cuerpo entero y fondo despejado."
+                String(localized: "import.importmodel.someoneIsRecognisedButNo", defaultValue: "Someone is recognised, but no piece could be separated. Try a full-body photo with a clear background.")
             case .visionUnavailable:
-                "El reconocimiento de imágenes no funciona en el simulador: necesita el Neural Engine de un dispositivo real. En un iPhone funciona con normalidad."
+                String(localized: "import.importmodel.imageRecognitionDoesnTWork", defaultValue: "Image recognition doesn't work in the simulator: it needs the Neural Engine of a real device. On an iPhone it works normally.")
             case .pipeline(let error):
-                error.recoverySuggestion ?? "Prueba con otra foto."
+                error.recoverySuggestion ?? String(localized: "import.importmodel.tryAnotherPhoto", defaultValue: "Try another photo.")
             }
         }
     }
@@ -161,8 +161,8 @@ final class ImportModel {
 
         var label: String {
             switch self {
-            case .splitPieces: "separando piezas"
-            case .stricter: "siendo más estricto"
+            case .splitPieces: String(localized: "import.importmodel.splittingPieces", defaultValue: "splitting pieces")
+            case .stricter: String(localized: "import.importmodel.beingStricter", defaultValue: "being stricter")
             }
         }
     }
@@ -568,8 +568,8 @@ final class ImportModel {
         )
         for index in redundant {
             candidates[index].duplicateOf = photos.count > 1
-                ? "otra de estas fotos"
-                : "otra de esta misma foto"
+                ? String(localized: "import.importmodel.anotherOfThesePhotos", defaultValue: "another of these photos")
+                : String(localized: "import.importmodel.anotherPartOfThisSame", defaultValue: "another part of this same photo")
             candidates[index].isKept = false
         }
 
@@ -626,11 +626,11 @@ final class ImportModel {
             // - No queda casi nada → **tampoco** se reconstruye: con eso el
             //   modelo no completa, inventa, y lo inventado se cobra igual.
             let verdict = if report.isGoodEnough {
-                "vale tal cual"
+                String(localized: "import.importmodel.goodAsItIs", defaultValue: "good as it is")
             } else if report.isBeyondRepair {
-                "demasiado roto: mejor recortarlo a mano"
+                String(localized: "import.importmodel.tooBrokenBetterToCrop", defaultValue: "too broken: better to crop it by hand")
             } else {
-                "se reconstruye"
+                String(localized: "import.importmodel.beingRebuilt", defaultValue: "being rebuilt")
             }
             DiagnosticsLog.record("RECORTE", "\(candidate.displayName): \(report.summary) → \(verdict)")
             return report.needsReconstruction
@@ -666,7 +666,7 @@ final class ImportModel {
         }
 
         guard let jpeg = NormalizedJPEG.encode(candidates[index].cutout.cgImage) else {
-            fail(id, "no se pudo preparar el JPEG del recorte")
+            fail(id, String(localized: "import.importmodel.couldnTPrepareTheCutout", defaultValue: "couldn't prepare the cutout's JPEG"))
             return
         }
         DiagnosticsLog.record("CATÁLOGO", "pidiendo la versión de catálogo · \(jpeg.count / 1024) KB")
@@ -690,7 +690,7 @@ final class ImportModel {
             let source = CGImageSourceCreateWithData(data as CFData, nil),
             let generated = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else {
-            fail(id, "la respuesta no es una imagen legible (\(data.count) bytes)")
+            fail(id, String(localized: "import.importmodel.theAnswerIsnTA", defaultValue: "the answer isn't a readable image (\(String(describing: data.count)) bytes)"))
             return
         }
 
@@ -701,7 +701,7 @@ final class ImportModel {
         // recorte de la foto real.
         let kind = candidates.first { $0.id == id }?.kind ?? .other
         guard let cutout = await CatalogExtractor.extract(generated, kind: kind) else {
-            fail(id, "se generó pero no se pudo recortar del fondo")
+            fail(id, String(localized: "import.importmodel.itWasGeneratedButCouldn", defaultValue: "it was generated but couldn't be cut from the background"))
             return
         }
         guard let index = candidates.firstIndex(where: { $0.id == id }) else { return }
@@ -721,13 +721,13 @@ final class ImportModel {
         guard let resolverError = error as? ClothingResolverError else {
             let urlError = error as? URLError
             return urlError?.code == .notConnectedToInternet
-                ? "sin conexión"
+                ? String(localized: "import.importmodel.offline", defaultValue: "offline")
                 : error.localizedDescription
         }
         switch resolverError {
-        case .notConfigured: return "el resolutor no está configurado"
-        case .rateLimited: return "el servidor va saturado; inténtalo en un momento"
-        case let .transport(detail): return "no se pudo conectar — \(detail)"
+        case .notConfigured: return String(localized: "import.importmodel.theResolverIsnTConfigured", defaultValue: "the resolver isn't configured")
+        case .rateLimited: return String(localized: "import.importmodel.theServerIsBusyTry", defaultValue: "the server is busy; try again in a moment")
+        case let .transport(detail): return String(localized: "import.importmodel.couldnTConnect", defaultValue: "couldn't connect — \(String(describing: detail))")
         case let .badResponse(detail): return detail
         }
     }
@@ -792,7 +792,7 @@ final class ImportModel {
             let index = candidates.firstIndex(where: { $0.id == id }),
             let rect = candidates[index].rect
         else { return }
-        recrop(candidateAt: index, with: rect, reason: "recorte mejorado on-device")
+        recrop(candidateAt: index, with: rect, reason: String(localized: "import.importmodel.cutoutImprovedOnDevice", defaultValue: "cutout improved on-device"))
     }
 
     /// El usuario ha movido o estirado el recuadro de una prenda sobre la foto.

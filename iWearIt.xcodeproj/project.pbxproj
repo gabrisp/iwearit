@@ -126,7 +126,7 @@
 				};
 			};
 			buildConfigurationList = ED86A008305F2C80004B31A4 /* Build configuration list for PBXProject "iWearIt" */;
-			developmentRegion = es;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				es,

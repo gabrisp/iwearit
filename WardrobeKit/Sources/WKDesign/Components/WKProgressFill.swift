@@ -64,7 +64,7 @@ public struct WKProgressFill<Content: View>: View {
     VStack(spacing: WK.Spacing.l) {
         ForEach([0.0, 0.35, 0.8, 1.0], id: \.self) { value in
             WKProgressFill(progress: value) { color in
-                Label("Generar ocho más", systemImage: "wand.and.stars")
+                Label(String(localized: "wkdesign.wkprogressfill.generateEightMore", defaultValue: "Generate eight more", bundle: .module), systemImage: "wand.and.stars")
                     .font(WK.Font.headline)
                     .foregroundStyle(color)
                     .padding(.horizontal, WK.Spacing.l)

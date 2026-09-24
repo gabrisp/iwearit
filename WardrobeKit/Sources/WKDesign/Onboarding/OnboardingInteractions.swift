@@ -58,7 +58,7 @@ public struct SwipeStatementDeck: View {
                 DeckButton(symbol: "checkmark", tint: OnboardingTone.oliva.color) { advance(agreeing: true) }
             }
 
-            Text("\(min(index + 1, statements.count)) de \(statements.count)")
+            Text(String(localized: "common.of", defaultValue: "\(String(describing: min(index + 1, statements.count))) of \(String(describing: statements.count))", bundle: .module))
                 .font(.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .monospacedDigit()
@@ -297,7 +297,7 @@ private struct ToneSpinner: View {
                     isSpinning = true
                 }
             }
-            .accessibilityLabel("Calculando")
+            .accessibilityLabel(String(localized: "wkdesign.onboardinginteractions.calculating", defaultValue: "Calculating", bundle: .module))
     }
 }
 

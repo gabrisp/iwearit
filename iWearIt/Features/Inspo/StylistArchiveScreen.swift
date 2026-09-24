@@ -44,23 +44,23 @@ struct StylistArchiveScreen: View {
         Group {
             if saved.isEmpty {
                 ContentUnavailableView {
-                    Label("Todavía no has hablado con él", systemImage: "archivebox")
+                    Label(String(localized: "inspo.stylistarchivescreen.youHavenTTalkedTo", defaultValue: "You haven't talked to it yet"), systemImage: "archivebox")
                 } description: {
-                    Text("Lo que le pidas y lo que te proponga se queda aquí.")
+                    Text(String(localized: "inspo.stylistarchivescreen.whatYouAskForAnd", defaultValue: "What you ask for and what it suggests stays here."))
                 }
             } else {
                 list
             }
         }
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .navigationTitle("Archivo")
+        .navigationTitle(String(localized: "inspo.stylistarchivescreen.archive", defaultValue: "Archive"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var list: some View {
         ScrollView {
             VStack(spacing: WK.Spacing.l) {
-                WKSection("Conversaciones") {
+                WKSection(String(localized: "inspo.stylistarchivescreen.conversations", defaultValue: "Conversations")) {
                     ForEach(Array(saved.enumerated()), id: \.element.id) { index, conversation in
                         WKRow(showsSeparator: index < saved.count - 1) {
                             open(conversation)
@@ -88,7 +88,7 @@ struct StylistArchiveScreen: View {
                             Button(role: .destructive) {
                                 withAnimation(WKAnimation.content) { chat.delete(conversation.id) }
                             } label: {
-                                Label("Eliminar", systemImage: "trash")
+                                Label(String(localized: "common.delete", defaultValue: "Delete"), systemImage: "trash")
                             }
                         }
                     }
@@ -104,7 +104,7 @@ struct StylistArchiveScreen: View {
     private func subtitle(for conversation: StylistConversation) -> String {
         let when = Self.stamp.string(from: conversation.updatedAt)
         guard conversation.lookCount > 0 else { return when }
-        let looks = conversation.lookCount == 1 ? "1 conjunto" : "\(conversation.lookCount) conjuntos"
+        let looks = conversation.lookCount == 1 ? String(localized: "inspo.stylistarchivescreen.1Outfit", defaultValue: "1 outfit") : String(localized: "inspo.stylistarchivescreen.outfits", defaultValue: "\(String(describing: conversation.lookCount)) outfits")
         return "\(when) · \(looks)"
     }
 

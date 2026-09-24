@@ -55,7 +55,7 @@ struct ProfileEditSheet: View {
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(WK.Palette.canvas.ignoresSafeArea())
-            .navigationTitle("Editar")
+            .navigationTitle(String(localized: "common.edit", defaultValue: "Edit"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -68,11 +68,11 @@ struct ProfileEditSheet: View {
                 }
             }
             .sheet(item: $editing) { field in sheet(for: field) }
-            .alert("¿Borrar este perfil?", isPresented: $isConfirmingDelete) {
-                Button("Borrar", role: .destructive) { remove() }
-                Button("Cancelar", role: .cancel) {}
+            .alert(String(localized: "tryon.profileeditsheet.deleteThisProfile", defaultValue: "Delete this profile?"), isPresented: $isConfirmingDelete) {
+                Button(String(localized: "tryon.profileeditsheet.delete", defaultValue: "Delete"), role: .destructive) { remove() }
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
             } message: {
-                Text("Se borra su foto y deja de poder usarse en el probador. Lo que ya te probaste se queda.")
+                Text(String(localized: "tryon.profileeditsheet.itsPhotoIsDeletedAnd", defaultValue: "Its photo is deleted and it can no longer be used in the fitting room. What you already tried on stays."))
             }
             .photosPicker(isPresented: $isPickingPhoto, selection: $picked, matching: .images)
             .task(id: picked) { await storePicked() }
@@ -108,10 +108,10 @@ struct ProfileEditSheet: View {
     private var rows: some View {
         VStack(spacing: 0) {
             NameRow(name: $profile.label)
-            EditRow(value: "\(height) cm", label: "Altura") { editing = .height }
-            EditRow(value: shape.label, label: "Complexión") { editing = .shape }
-            EditRow(value: presentation.label, label: "Viste como") { editing = .presentation }
-            EditRow(value: skinTone.label, label: "Piel") { editing = .skin }
+            EditRow(value: String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: height)) cm"), label: String(localized: "tryon.profileeditsheet.height", defaultValue: "Height")) { editing = .height }
+            EditRow(value: shape.label, label: String(localized: "tryon.profileeditsheet.build", defaultValue: "Build")) { editing = .shape }
+            EditRow(value: presentation.label, label: String(localized: "tryon.profileeditsheet.dressesAs", defaultValue: "Dresses as")) { editing = .presentation }
+            EditRow(value: skinTone.label, label: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin")) { editing = .skin }
             NotesRow(notes: notes)
         }
     }
@@ -122,9 +122,9 @@ struct ProfileEditSheet: View {
         switch field {
         case .height:
             WKChipSheet(
-                title: "Altura",
-                subtitle: "Elige la tuya o escríbela en centímetros",
-                options: stride(from: 145, through: 205, by: 5).map { .init(id: "\($0)", label: "\($0) cm") },
+                title: String(localized: "tryon.profileeditsheet.height", defaultValue: "Height"),
+                subtitle: String(localized: "tryon.profileeditsheet.pickYoursOrTypeIt", defaultValue: "Pick yours or type it in centimetres"),
+                options: stride(from: 145, through: 205, by: 5).map { .init(id: "\($0)", label: String(localized: "tryon.profileeditsheet.cm", defaultValue: "\(String(describing: $0)) cm")) },
                 selection: Binding(
                     get: { ["\(height)"] },
                     set: { set in
@@ -139,8 +139,8 @@ struct ProfileEditSheet: View {
             )
         case .shape:
             WKChipSheet(
-                title: "Complexión",
-                subtitle: "Da a la ropa tus proporciones",
+                title: String(localized: "tryon.profileeditsheet.build", defaultValue: "Build"),
+                subtitle: String(localized: "tryon.profileeditsheet.givesTheClothesYourProportions", defaultValue: "Gives the clothes your proportions"),
                 options: BodyProfile.Shape.allCases.map { .init(id: $0.rawValue, label: $0.label) },
                 selection: Binding(
                     get: { [shape.rawValue] },
@@ -150,8 +150,8 @@ struct ProfileEditSheet: View {
             )
         case .presentation:
             WKChipSheet(
-                title: "Viste como",
-                subtitle: "Cómo se dibuja la ropa sobre ti",
+                title: String(localized: "tryon.profileeditsheet.dressesAs", defaultValue: "Dresses as"),
+                subtitle: String(localized: "tryon.profileeditsheet.howTheClothesAreDrawn", defaultValue: "How the clothes are drawn on you"),
                 options: BodyProfile.Presentation.allCases.map { .init(id: $0.rawValue, label: $0.label) },
                 selection: Binding(
                     get: { [presentation.rawValue] },
@@ -166,8 +166,8 @@ struct ProfileEditSheet: View {
             }
         case .skin:
             WKChipSheet(
-                title: "Piel",
-                subtitle: "El tono con el que se te dibuja",
+                title: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin"),
+                subtitle: String(localized: "tryon.profileeditsheet.theToneYouReDrawn", defaultValue: "The tone you're drawn with"),
                 options: BodyProfile.SkinTone.allCases.map { .init(id: $0.rawValue, label: $0.label) },
                 selection: Binding(
                     get: { [skinTone.rawValue] },
@@ -180,15 +180,15 @@ struct ProfileEditSheet: View {
 
     /// La foto, al final, como la sección de imagen de la prenda.
     private var photoSection: some View {
-        WKSection("Foto", footer: "Se dibujará " + profile.described + ".") {
+        WKSection(String(localized: "common.photo", defaultValue: "Photo"), footer: String(localized: "tryon.profileeditsheet.itWillBeDrawnAs", defaultValue: "It will be drawn as ") + profile.described + ".") {
             WKRow(action: { editing = .camera }) {
-                Label("Hacer una foto", systemImage: "camera")
+                Label(String(localized: "common.takeAPhoto", defaultValue: "Take a photo"), systemImage: "camera")
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.primaryText)
                 Spacer()
             }
             WKRow(showsSeparator: false, action: { isPickingPhoto = true }) {
-                Label("Elegir otra de la galería", systemImage: "photo.on.rectangle")
+                Label(String(localized: "tryon.profileeditsheet.chooseAnotherFromTheLibrary", defaultValue: "Choose another from the library"), systemImage: "photo.on.rectangle")
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.primaryText)
                 Spacer()
@@ -345,7 +345,7 @@ struct SkinToneSwatches: View {
                     }
                 }
                 .buttonStyle(WKPressStyle())
-                .accessibilityLabel("Piel \(tone.label)")
+                .accessibilityLabel(String(localized: "tryon.profileeditsheet.skin", defaultValue: "Skin \(String(describing: tone.label))"))
                 .accessibilityAddTraits(selection == tone ? .isSelected : [])
             }
         }

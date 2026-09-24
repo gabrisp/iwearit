@@ -37,7 +37,7 @@ struct BackdropPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            Text("Color del fondo")
+            Text(String(localized: "planner.backdroppickersheet.backgroundColor", defaultValue: "Background color"))
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
 

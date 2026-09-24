@@ -27,11 +27,11 @@ struct ClosetEmptyState: View {
             .frame(height: 190)
 
             VStack(spacing: WK.Spacing.s) {
-                Text("Tu armario está vacío")
+                Text(String(localized: "closet.closetemptystate.yourClosetIsEmpty", defaultValue: "Your closet is empty"))
                     .font(WK.Font.title)
                     .foregroundStyle(WK.Palette.primaryText)
 
-                Text("Sube una foto y se recortan las prendas solas. Nada sale de tu iPhone.")
+                Text(String(localized: "closet.closetemptystate.uploadAPhotoAndThe", defaultValue: "Upload a photo and the pieces are cut out on their own. Nothing leaves your iPhone."))
                     .font(WK.Font.callout)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .multilineTextAlignment(.center)
@@ -40,7 +40,7 @@ struct ClosetEmptyState: View {
             .opacity(hasAppeared ? 1 : 0)
             .offset(y: hasAppeared ? 0 : 12)
 
-            WKPrimaryButton("Añadir prendas", systemImage: "plus", action: onAdd)
+            WKPrimaryButton(String(localized: "closet.closetemptystate.addClothes", defaultValue: "Add clothes"), systemImage: "plus", action: onAdd)
                 .frame(maxWidth: 260)
                 .opacity(hasAppeared ? 1 : 0)
                 .offset(y: hasAppeared ? 0 : 12)

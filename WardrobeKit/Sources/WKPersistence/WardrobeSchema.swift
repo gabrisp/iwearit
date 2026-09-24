@@ -168,21 +168,21 @@ public extension GarmentCategory {
     /// y ocultan.
     static func seedDefinitions() -> [(slug: String, name: String, symbol: String, kind: GarmentKind)] {
         [
-            ("camisetas",   "Camisetas",   "tshirt",            .upperBody),
-            ("polos",       "Polos",       "tshirt",            .upperBody),
-            ("camisas",     "Camisas",     "tshirt",            .upperBody),
+            ("camisetas",   String(localized: "wkpersistence.wardrobeschema.tShirts", defaultValue: "T-shirts", bundle: .module),   "tshirt",            .upperBody),
+            ("polos",       String(localized: "wkpersistence.wardrobeschema.polos", defaultValue: "Polos", bundle: .module),       "tshirt",            .upperBody),
+            ("camisas",     String(localized: "wkpersistence.wardrobeschema.shirts", defaultValue: "Shirts", bundle: .module),     "tshirt",            .upperBody),
             // Una sudadera o un jersey no son camisetas: caían en esa balda
             // porque es la de respaldo de todo lo de arriba.
-            ("sudaderas",   "Sudaderas",   "tshirt",            .upperBody),
-            ("jerseys",     "Jerseys",     "tshirt",            .upperBody),
-            ("vestidos",    "Vestidos",    "figure.dress.line.vertical.figure", .wholeBody),
-            ("chaquetas",   "Chaquetas",   "jacket",            .outerLayer),
-            ("bermudas",    "Bermudas",    "rectangle.portrait", .lowerBody),
-            ("pantalones",  "Pantalones",  "rectangle.portrait", .lowerBody),
-            ("banadores",   "Bañadores",   "figure.pool.swim",  .lowerBody),
-            ("zapatos",     "Zapatos",     "shoe",              .feet),
-            ("accesorios",  "Accesorios",  "eyeglasses",        .head),
-            ("bolsos",      "Bolsos",      "bag",               .bag),
+            ("sudaderas",   String(localized: "wkpersistence.wardrobeschema.sweatshirts", defaultValue: "Sweatshirts", bundle: .module),   "tshirt",            .upperBody),
+            ("jerseys",     String(localized: "wkpersistence.wardrobeschema.sweaters", defaultValue: "Sweaters", bundle: .module),     "tshirt",            .upperBody),
+            ("vestidos",    String(localized: "wkpersistence.wardrobeschema.dresses", defaultValue: "Dresses", bundle: .module),    "figure.dress.line.vertical.figure", .wholeBody),
+            ("chaquetas",   String(localized: "common.jackets", defaultValue: "Jackets", bundle: .module),   "jacket",            .outerLayer),
+            ("bermudas",    String(localized: "wkpersistence.wardrobeschema.shorts", defaultValue: "Shorts", bundle: .module),    "rectangle.portrait", .lowerBody),
+            ("pantalones",  String(localized: "wkpersistence.wardrobeschema.trousers", defaultValue: "Trousers", bundle: .module),  "rectangle.portrait", .lowerBody),
+            ("banadores",   String(localized: "wkpersistence.wardrobeschema.swimwear", defaultValue: "Swimwear", bundle: .module),   "figure.pool.swim",  .lowerBody),
+            ("zapatos",     String(localized: "common.shoes", defaultValue: "Shoes", bundle: .module),     "shoe",              .feet),
+            ("accesorios",  String(localized: "wkpersistence.wardrobeschema.accessories", defaultValue: "Accessories", bundle: .module),  "eyeglasses",        .head),
+            ("bolsos",      String(localized: "common.bags", defaultValue: "Bags", bundle: .module),      "bag",               .bag),
         ]
     }
 

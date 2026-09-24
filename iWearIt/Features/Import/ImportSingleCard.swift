@@ -31,7 +31,7 @@ struct ImportSingleCard: View {
     static func typeOptions(for kind: GarmentKind) -> [WKChipSheet.Option] {
         let own = GarmentVocabulary.types(for: kind)
         let rest = GarmentVocabulary.allTypes.filter { !own.contains($0) }
-        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: "Sin definir")]
+        return (own + rest).map { .init(id: $0, label: $0) } + [.init(id: "", label: String(localized: "import.importsinglecard.notSet", defaultValue: "Not set"))]
     }
 
     let candidate: ImportCandidate
@@ -96,8 +96,8 @@ struct ImportSingleCard: View {
 
         var label: String {
             switch self {
-            case .cutout: "Recorte"
-            case .photo: "Foto"
+            case .cutout: String(localized: "import.importsinglecard.cutout", defaultValue: "Cutout")
+            case .photo: String(localized: "common.photo", defaultValue: "Photo")
             }
         }
     }
@@ -110,7 +110,7 @@ struct ImportSingleCard: View {
                 rows
 
                 if let duplicateOf = candidate.duplicateOf {
-                    Label("Ya tienes una parecida: \(duplicateOf)", systemImage: "square.on.square")
+                    Label(String(localized: "import.importsinglecard.youAlreadyHaveASimilar", defaultValue: "You already have a similar one: \(String(describing: duplicateOf))"), systemImage: "square.on.square")
                         .font(WK.Font.caption)
                         .foregroundStyle(.orange)
                         .multilineTextAlignment(.center)
@@ -278,19 +278,19 @@ struct ImportSingleCard: View {
             // **La balda, elegible.** Sale sola —por lo que es, o por la
             // balda propia que mejor le cuadre— pero se puede cambiar aquí
             // mismo, y la elegida manda: no se vuelve a mover sola.
-            EditRow(value: shelfName, label: "Balda") { field = .shelf }
+            EditRow(value: shelfName, label: String(localized: "common.shelf", defaultValue: "Shelf")) { field = .shelf }
             // Qué es dentro de su balda: chino o vaquero, no "pantalones".
             EditRow(
-                value: candidate.subcategory?.capitalized ?? "Sin definir",
-                label: "Tipo"
+                value: candidate.subcategory?.capitalized ?? String(localized: "import.importsinglecard.notSet", defaultValue: "Not set"),
+                label: String(localized: "common.type", defaultValue: "Type")
             ) { field = .type }
             EditRow(
-                value: candidate.material?.capitalized ?? "Sin definir",
-                label: "Material"
+                value: candidate.material?.capitalized ?? String(localized: "import.importsinglecard.notSet", defaultValue: "Not set"),
+                label: String(localized: "common.material", defaultValue: "Material")
             ) { field = .material }
             EditRow(
                 value: GarmentVocabulary.Warmth.label(for: candidate.seasons),
-                label: "Calidez"
+                label: String(localized: "common.warmth", defaultValue: "Warmth")
             ) { field = .warmth }
             // **Sin estilo.** "Casual · Edgy" se adivinaba y no servía para
             // nada que se haga en la app. Se queda comentado.
@@ -313,8 +313,8 @@ struct ImportSingleCard: View {
         switch field {
         case .part:
             WKChipSheet(
-                title: "Parte del cuerpo",
-                subtitle: "Decide en qué balda acaba",
+                title: String(localized: "import.importsinglecard.bodyPart", defaultValue: "Body part"),
+                subtitle: String(localized: "import.importsinglecard.decidesWhichShelfItEnds", defaultValue: "Decides which shelf it ends up on"),
                 options: GarmentKind.allCases.map {
                     .init(id: $0.rawValue, label: ImportCandidateLabels.label(for: $0))
                 },
@@ -329,8 +329,8 @@ struct ImportSingleCard: View {
             )
         case .shelf:
             WKChipSheet(
-                title: "Balda",
-                subtitle: "Dónde la vas a colgar",
+                title: String(localized: "common.shelf", defaultValue: "Shelf"),
+                subtitle: String(localized: "import.importsinglecard.whereYouLlHangIt", defaultValue: "Where you'll hang it"),
                 options: categories.map { .init(id: $0.slug, label: $0.name) },
                 selection: Binding(
                     get: { [shelfSlug] },
@@ -350,8 +350,8 @@ struct ImportSingleCard: View {
             )
         case .cut:
             WKChipSheet(
-                title: GarmentVocabulary.cutTitle(for: candidate.kind) ?? "Corte",
-                subtitle: "Elige uno o escribe el tuyo",
+                title: GarmentVocabulary.cutTitle(for: candidate.kind) ?? String(localized: "import.importsinglecard.cut", defaultValue: "Cut"),
+                subtitle: String(localized: "import.importsinglecard.pickOneOrWriteYour", defaultValue: "Pick one or write your own"),
                 options: GarmentVocabulary.cuts(for: candidate.kind).map { .init(id: $0, label: $0) },
                 selection: Binding(
                     get: { Set([candidate.cut].compactMap { $0 }) },
@@ -362,8 +362,8 @@ struct ImportSingleCard: View {
             )
         case .tags:
             WKChipSheet(
-                title: "Seleccionar etiquetas",
-                subtitle: "Selecciona hasta \(GarmentVocabulary.maximumTags) etiquetas",
+                title: String(localized: "import.importsinglecard.chooseTags", defaultValue: "Choose tags"),
+                subtitle: String(localized: "import.importsinglecard.chooseUpToTags", defaultValue: "Choose up to \(String(describing: GarmentVocabulary.maximumTags)) tags"),
                 options: GarmentVocabulary.tags.map { .init(id: $0, label: $0) },
                 selection: Binding(
                     get: { Set(candidate.tags) },
@@ -373,9 +373,9 @@ struct ImportSingleCard: View {
             )
         case .warmth:
             WKChipSheet(
-                title: "Cambiar calidez",
+                title: String(localized: "import.importsinglecard.changeWarmth", defaultValue: "Change warmth"),
                 // Se puede **quitar**: hay prendas que valen para todo el año.
-                subtitle: "Quítala si vale para todo el año",
+                subtitle: String(localized: "import.importsinglecard.removeItIfItWorks", defaultValue: "Remove it if it works all year round"),
                 options: GarmentVocabulary.Warmth.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
@@ -406,8 +406,8 @@ struct ImportSingleCard: View {
             // aquí: la prenda correcta no aparecía. Eligiendo la prenda se
             // corrige también la parte, que es lo que se quería corregir.
             WKChipSheet(
-                title: "Qué prenda es",
-                subtitle: "Manga larga, corta, vaqueros… lo que la distingue",
+                title: String(localized: "import.importsinglecard.whatPieceItIs", defaultValue: "What piece it is"),
+                subtitle: String(localized: "import.importsinglecard.longSleeveShortSleeveJeans", defaultValue: "Long sleeve, short sleeve, jeans… whatever sets it apart"),
                 // Los de su parte **primero** y el resto detrás: lo normal es
                 // que lo que buscas esté arriba del todo, y cuando el detector
                 // se equivocó de parte —un bañador leído como short, una
@@ -431,10 +431,10 @@ struct ImportSingleCard: View {
             )
         case .material:
             WKChipSheet(
-                title: "Material",
-                subtitle: "De qué está hecha, tal y como la llevas",
+                title: String(localized: "common.material", defaultValue: "Material"),
+                subtitle: String(localized: "import.importsinglecard.whatItSMadeOf", defaultValue: "What it's made of, as you wear it"),
                 options: GarmentVocabulary.materials.map { .init(id: $0, label: $0) }
-                    + [.init(id: "", label: "Sin definir")],
+                    + [.init(id: "", label: String(localized: "import.importsinglecard.notSet", defaultValue: "Not set"))],
                 selection: Binding(
                     get: { Set([candidate.material?.capitalized].compactMap { $0 }) },
                     set: { onChangeMaterial?($0.first?.isEmpty == false ? $0.first : nil) }

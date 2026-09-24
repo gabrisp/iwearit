@@ -60,7 +60,7 @@ struct GarmentImageSwitcher: View {
                 Task { await generate() }
             } label: {
                 Label(
-                    isGenerating ? "Redibujando…" : "Versión de catálogo",
+                    isGenerating ? "Redibujando…" : String(localized: "closet.garmentimageswitcher.catalogVersion", defaultValue: "Catalog version"),
                     systemImage: "wand.and.sparkles"
                 )
                 .font(WK.Font.caption)
@@ -71,7 +71,7 @@ struct GarmentImageSwitcher: View {
         }
 
         if failed {
-            Text("No se pudo redibujar. Inténtalo de nuevo.")
+            Text(String(localized: "closet.garmentimageswitcher.couldnTRedrawItTry", defaultValue: "Couldn't redraw it. Try again."))
                 .font(WK.Font.caption)
                 .foregroundStyle(.red)
         }

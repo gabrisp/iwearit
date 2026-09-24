@@ -87,7 +87,7 @@ struct WebImportScreen: View {
                         // En cristal y centrado, como el buscador de una
                         // balda: sobre una web, un campo sin superficie se
                         // confunde con el texto de la página.
-                        TextField("Buscar o escribir enlace", text: $model.address)
+                        TextField(String(localized: "import.webimportscreen.searchOrTypeALink", defaultValue: "Search or type a link"), text: $model.address)
                             .textFieldStyle(.plain)
                             .font(WK.Font.caption)
                             .foregroundStyle(WK.Palette.primaryText)

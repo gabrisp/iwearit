@@ -20,7 +20,7 @@ struct SuitcaseDetailScreen: View {
         if let suitcase = suitcases.first {
             SuitcaseContent(suitcase: suitcase)
         } else {
-            ContentUnavailableView("Maleta no encontrada", systemImage: "suitcase")
+            ContentUnavailableView(String(localized: "suitcases.suitcasedetailscreen.suitcaseNotFound", defaultValue: "Suitcase not found"), systemImage: "suitcase")
         }
     }
 }
@@ -189,9 +189,9 @@ private struct SuitcaseContent: View {
             HStack(spacing: 12) {
                 WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing, .inspo], selection: $tab) { tab in
                     switch tab {
-                    case .outfits: "Outfits"
-                    case .packing: "Equipaje"
-                    case .inspo: "Inspo"
+                    case .outfits: String(localized: "suitcases.suitcasedetailscreen.outfits", defaultValue: "Outfits")
+                    case .packing: String(localized: "suitcases.suitcasedetailscreen.luggage", defaultValue: "Luggage")
+                    case .inspo: String(localized: "suitcases.suitcasedetailscreen.inspo", defaultValue: "Inspo")
                     }
                 }
                 // La misma medida que cualquier otro botón redondo de la app.
@@ -293,7 +293,7 @@ private struct SuitcaseContent: View {
         .animation(WKAnimation.content, value: tab)
 
         .sheet(isPresented: $isPickingDestination) {
-            PlaceSearchSheet(title: "¿A dónde vas?") { place in
+            PlaceSearchSheet(title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?")) { place in
                 suitcase.destination = place
             }
         }
@@ -411,8 +411,8 @@ private struct SuitcaseTabBar: View {
 
     var body: some View {
         HStack(spacing: WK.Spacing.xs) {
-            SuitcaseTabButton(title: "Outfits", tab: .outfits, selection: $tab, indicator: indicator)
-            SuitcaseTabButton(title: "Equipaje", tab: .packing, selection: $tab, indicator: indicator)
+            SuitcaseTabButton(title: String(localized: "suitcases.suitcasedetailscreen.outfits", defaultValue: "Outfits"), tab: .outfits, selection: $tab, indicator: indicator)
+            SuitcaseTabButton(title: String(localized: "suitcases.suitcasedetailscreen.luggage", defaultValue: "Luggage"), tab: .packing, selection: $tab, indicator: indicator)
         }
         .padding(WK.Spacing.xs)
         .adaptiveGlassInteractive(in: .capsule)
@@ -529,7 +529,7 @@ private struct SuitcaseHeader: View {
                 .font(.subheadline)
                 .foregroundStyle(WK.Palette.secondaryText)
             } else {
-                Label("Sin fechas", systemImage: "calendar.badge.exclamationmark")
+                Label(String(localized: "suitcases.suitcasedetailscreen.noDates", defaultValue: "No dates"), systemImage: "calendar.badge.exclamationmark")
                     .font(.subheadline)
                     .foregroundStyle(WK.Palette.secondaryText)
             }
@@ -554,7 +554,7 @@ private struct PackingProgress: View {
     var body: some View {
         if total > 0 {
             VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                Text("\(packed) de \(total) en la maleta")
+                Text(String(localized: "suitcases.suitcasedetailscreen.ofInTheSuitcase", defaultValue: "\(String(describing: packed)) of \(String(describing: total)) in the suitcase"))
                     .font(.footnote)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .monospacedDigit()
@@ -599,7 +599,7 @@ private struct SuitcaseWeatherPill: View {
     }
 
     private var title: String {
-        guard let destination = suitcase.destination else { return "Elegir destino" }
+        guard let destination = suitcase.destination else { return String(localized: "suitcases.suitcasedetailscreen.chooseDestination", defaultValue: "Choose destination") }
         // Solo la ciudad: el país repetido no cabe en la barra.
         let city = destination.name.split(separator: ",").first.map(String.init)
             ?? destination.name

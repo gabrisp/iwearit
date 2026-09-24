@@ -26,7 +26,7 @@ struct SuitcaseShelfSection: View {
             // el chevron prometía algo que no pasaba.
             ShelfHeaderButton(
                 slug: "__suitcases__",
-                name: "Maletas",
+                name: String(localized: "common.suitcases", defaultValue: "Suitcases"),
                 symbol: "suitcase",
                 count: suitcases.count,
                 route: .suitcases
@@ -158,7 +158,7 @@ struct NewSuitcaseCard: View {
                             .foregroundStyle(WK.Palette.secondaryText)
                     }
                     .frame(width: 132, height: 128, alignment: .bottom)
-                Text("Nueva maleta")
+                Text(String(localized: "suitcases.suitcaseshelfsection.newSuitcase", defaultValue: "New suitcase"))
                     .font(WK.Font.garmentName)
                     .foregroundStyle(WK.Palette.secondaryText)
             }

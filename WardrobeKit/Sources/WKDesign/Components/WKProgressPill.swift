@@ -120,8 +120,8 @@ public struct WKProgressPill: View {
 #Preview {
     VStack(spacing: WK.Spacing.l) {
         WKProgressPill("mejorar", symbol: "wand.and.sparkles", isWorking: false) {}
-        WKProgressPill("mejorando…", symbol: "wand.and.sparkles", isWorking: true) {}
-        WKProgressPill("mejorando…", symbol: "wand.and.sparkles", isWorking: true, size: .compact) {}
+        WKProgressPill(String(localized: "wkdesign.wkprogresspill.enhancing", defaultValue: "enhancing…", bundle: .module), symbol: "wand.and.sparkles", isWorking: true) {}
+        WKProgressPill(String(localized: "wkdesign.wkprogresspill.enhancing", defaultValue: "enhancing…", bundle: .module), symbol: "wand.and.sparkles", isWorking: true, size: .compact) {}
     }
     .padding()
     .background(WK.Palette.canvas)

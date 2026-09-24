@@ -177,7 +177,7 @@ struct OnboardingStepScaffold<Content: View>: View {
     init(
         title: String,
         subtitle: String? = nil,
-        primaryTitle: String = "Continuar",
+        primaryTitle: String = String(localized: "common.continue", defaultValue: "Continue"),
         isEnabled: Bool = true,
         fillsToBottom: Bool = false,
         onPrimary: @escaping () -> Void,

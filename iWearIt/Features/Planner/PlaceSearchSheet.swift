@@ -33,7 +33,7 @@ struct PlaceSearchSheet: View {
             HStack(spacing: WK.Spacing.s) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(WK.Palette.secondaryText)
-                TextField("Ciudad", text: $query)
+                TextField(String(localized: "planner.placesearchsheet.city", defaultValue: "City"), text: $query)
                     .font(WK.Font.rowTitle)
                     .submitLabel(.search)
                     .onSubmit { Task { await search() } }
@@ -53,7 +53,7 @@ struct PlaceSearchSheet: View {
             WKSection {
                 WKRow(showsSeparator: false, action: { Task { await locate() } }) {
                     HStack {
-                        Label("Usar mi ubicación", systemImage: "location.fill")
+                        Label(String(localized: "planner.placesearchsheet.useMyLocation", defaultValue: "Use my location"), systemImage: "location.fill")
                             .foregroundStyle(WK.Palette.primaryText)
                         Spacer()
                         if isLocating { ProgressView().controlSize(.small) }
@@ -116,8 +116,8 @@ struct PlaceSearchSheet: View {
         defer { isLocating = false }
         guard let place = await appEnvironment.location.current() else {
             message = appEnvironment.location.isDenied
-                ? "Sin permiso de ubicación. Puedes escribir la ciudad o dárselo en Ajustes."
-                : "No se pudo saber dónde estás. Prueba a escribir la ciudad."
+                ? String(localized: "planner.placesearchsheet.noLocationPermissionYouCan", defaultValue: "No location permission. You can type the city or allow it in Settings.")
+                : String(localized: "planner.placesearchsheet.couldnTTellWhereYou", defaultValue: "Couldn't tell where you are. Try typing the city.")
             return
         }
         onPick(place)
@@ -129,7 +129,7 @@ struct PlaceSearchSheet: View {
         isSearching = true
         defer { isSearching = false }
         guard let place = await completer.resolve(suggestion) else {
-            message = "No se pudo situar ese sitio. Prueba con otro."
+            message = String(localized: "planner.placesearchsheet.couldnTPlaceThatSpot", defaultValue: "Couldn't place that spot. Try another one.")
             return
         }
         onPick(place)
@@ -146,10 +146,10 @@ struct PlaceSearchSheet: View {
             results = found
             // Decirlo en vez de dejar la lista vacía sin más: vacío se lee como
             // "todavía no ha buscado", no como "no existe".
-            if found.isEmpty { message = "No se encontró ningún sitio con ese nombre." }
+            if found.isEmpty { message = String(localized: "planner.placesearchsheet.noPlaceFoundWithThat", defaultValue: "No place found with that name.") }
         } catch {
             results = []
-            message = "No se pudo buscar ahora mismo. Inténtalo en un momento."
+            message = String(localized: "planner.placesearchsheet.couldnTSearchRightNow", defaultValue: "Couldn't search right now. Try again in a moment.")
         }
     }
 }

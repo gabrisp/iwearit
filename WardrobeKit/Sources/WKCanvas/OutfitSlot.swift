@@ -27,11 +27,11 @@ public enum OutfitSlot: String, CaseIterable, Sendable, Identifiable {
 
     public var label: String {
         switch self {
-        case .top: "Parte superior"
-        case .outer: "Chaquetas"
-        case .bottom: "Parte inferior"
-        case .shoes: "Zapatos"
-        case .accessory: "Complementos"
+        case .top: String(localized: "wkcanvas.outfitslot.top", defaultValue: "Top", bundle: .module)
+        case .outer: String(localized: "common.jackets", defaultValue: "Jackets", bundle: .module)
+        case .bottom: String(localized: "wkcanvas.outfitslot.bottom", defaultValue: "Bottom", bundle: .module)
+        case .shoes: String(localized: "common.shoes", defaultValue: "Shoes", bundle: .module)
+        case .accessory: String(localized: "wkcanvas.outfitslot.extras", defaultValue: "Extras", bundle: .module)
         }
     }
 

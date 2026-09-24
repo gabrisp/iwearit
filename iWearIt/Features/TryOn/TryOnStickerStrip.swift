@@ -24,7 +24,7 @@ struct TryOnStickerStrip: View {
     var body: some View {
         if !results.isEmpty {
             VStack(alignment: .leading, spacing: WK.Spacing.s) {
-                Text("Probados")
+                Text(String(localized: "tryon.tryonstickerstrip.triedOn", defaultValue: "Tried on"))
                     .font(WK.Font.captionMedium)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .padding(.horizontal, WK.Spacing.m)

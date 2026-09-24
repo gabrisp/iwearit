@@ -45,8 +45,8 @@ nonisolated enum StoreIDs {
 
         var fallbackName: String {
             switch self {
-            case .improvements: "Mejoras"
-            case .tryOns: "Pruebas"
+            case .improvements: String(localized: "paywall.store.enhancements", defaultValue: "Enhancements")
+            case .tryOns: String(localized: "paywall.store.tryOns", defaultValue: "Try-ons")
             }
         }
 
@@ -84,8 +84,8 @@ nonisolated enum StoreIDs {
 
         var label: String {
             switch self {
-            case .improvement: "Mejorar una prenda"
-            case .generation: "Probarte un outfit"
+            case .improvement: String(localized: "paywall.store.enhanceAPiece", defaultValue: "Enhance a piece")
+            case .generation: String(localized: "paywall.store.tryOnAnOutfit", defaultValue: "Try on an outfit")
             }
         }
     }

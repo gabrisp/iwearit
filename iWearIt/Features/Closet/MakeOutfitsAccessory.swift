@@ -21,7 +21,7 @@ struct MakeOutfitsAccessory: View {
         Button {
             isPresentingComposer = true
         } label: {
-            Label("Crear outfit", systemImage: "tshirt")
+            Label(String(localized: "common.createOutfit", defaultValue: "Create outfit"), systemImage: "tshirt")
                 .font(.headline)
                 .padding(.horizontal, WK.Spacing.l)
                 .padding(.vertical, WK.Spacing.s + 2)

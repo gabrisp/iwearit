@@ -19,7 +19,7 @@ struct PackingChecklistTab: View {
     /// Agrupado por balda: hacer la maleta va por montones, no por orden de alta.
     private var groups: [(name: String, entries: [PackingEntry])] {
         Dictionary(grouping: suitcase.packingEntries) { entry in
-            entry.garment?.category?.name ?? "Otros"
+            entry.garment?.category?.name ?? String(localized: "common.other", defaultValue: "Other")
         }
         .map { (name: $0.key, entries: $0.value.sorted { ($0.garment?.name ?? "") < ($1.garment?.name ?? "") }) }
         .sorted { $0.name < $1.name }
@@ -29,9 +29,9 @@ struct PackingChecklistTab: View {
         Group {
             if suitcase.packingEntries.isEmpty {
                 ContentUnavailableView {
-                    Label("Maleta vacía", systemImage: "suitcase")
+                    Label(String(localized: "suitcases.packingchecklisttab.emptySuitcase", defaultValue: "Empty suitcase"), systemImage: "suitcase")
                 } description: {
-                    Text("Las prendas que uses en los outfits aparecen aquí solas. También puedes añadirlas sueltas.")
+                    Text(String(localized: "suitcases.packingchecklisttab.theClothesYouUseIn", defaultValue: "The clothes you use in outfits show up here on their own. You can also add them individually."))
                 }
             } else {
                 ScrollView {
@@ -87,8 +87,8 @@ struct PackingChecklistTab: View {
             // sobraba era esta.
             OutfitPickerSheet(
                 mode: .many,
-                title: "Añadir al equipaje",
-                subtitle: "Elige lo que va en la maleta",
+                title: String(localized: "suitcases.packingchecklisttab.addToLuggage", defaultValue: "Add to luggage"),
+                subtitle: String(localized: "suitcases.packingchecklisttab.chooseWhatGoesInThe", defaultValue: "Choose what goes in the suitcase"),
                 store: appEnvironment.imageStore
             ) { picked in
                 for garment in picked {
@@ -123,7 +123,7 @@ private struct PackingRow: View {
                 .frame(width: 40, height: 46)
                 .opacity(entry.isPacked ? 0.45 : 1)
 
-                Text(entry.garment?.name ?? "Prenda")
+                Text(entry.garment?.name ?? String(localized: "suitcases.packingchecklisttab.item", defaultValue: "Item"))
                     .foregroundStyle(WK.Palette.primaryText)
                     .strikethrough(entry.isPacked, color: WK.Palette.secondaryText)
 

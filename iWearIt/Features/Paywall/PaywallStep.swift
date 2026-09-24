@@ -46,25 +46,25 @@ struct PaywallStep: View {
 
         var title: String {
             switch self {
-            case .sixMonth: "Seis meses"
-            case .monthly: "Mensual"
-            case .weekly: "Semanal"
+            case .sixMonth: String(localized: "paywall.paywallstep.sixMonths", defaultValue: "Six months")
+            case .monthly: String(localized: "paywall.paywallstep.monthly", defaultValue: "Monthly")
+            case .weekly: String(localized: "paywall.paywallstep.weekly", defaultValue: "Weekly")
             }
         }
 
         var price: String {
             switch self {
             case .sixMonth: "44,99 €"
-            case .monthly: "11,99 €/mes"
-            case .weekly: "4,99 €/semana"
+            case .monthly: String(localized: "paywall.paywallstep.1199Month", defaultValue: "€11.99/month")
+            case .weekly: String(localized: "paywall.paywallstep.499Week", defaultValue: "€4.99/week")
             }
         }
 
         var detail: String? {
             switch self {
-            case .sixMonth: "7,50 €/mes · ahorras un 37%"
+            case .sixMonth: String(localized: "paywall.paywallstep.750MonthSave37", defaultValue: "€7.50/month · save 37%")
             case .monthly: nil
-            case .weekly: "Para probarlo un viaje"
+            case .weekly: String(localized: "paywall.paywallstep.toTryItForA", defaultValue: "To try it for a trip")
             }
         }
     }
@@ -74,20 +74,20 @@ struct PaywallStep: View {
             ScrollView {
                 VStack(spacing: WK.Spacing.l) {
                     VStack(spacing: WK.Spacing.s) {
-                        Text("Saca todo\nde tu armario")
+                        Text(String(localized: "paywall.paywallstep.getEverythingNoutOfYour", defaultValue: "Get everything\nout of your closet"))
                             .font(.system(.largeTitle, weight: .bold))
                             .multilineTextAlignment(.center)
-                        Text("Sin límites de prendas, maletas ni escaneo.")
+                        Text(String(localized: "paywall.paywallstep.noLimitsOnClothesSuitcases", defaultValue: "No limits on clothes, suitcases or scanning."))
                             .font(.subheadline)
                             .foregroundStyle(WK.Palette.secondaryText)
                     }
                     .padding(.top, WK.Spacing.m)
 
                     VStack(alignment: .leading, spacing: WK.Spacing.m) {
-                        PaywallBenefit(symbol: "infinity", tone: .granate, text: "Prendas y maletas sin límite")
-                        PaywallBenefit(symbol: "photo.stack", tone: .denim, text: "Escaneo completo de tu galería")
-                        PaywallBenefit(symbol: "person.crop.rectangle", tone: .camel, text: "Pruébate los outfits")
-                        PaywallBenefit(symbol: "square.and.arrow.up", tone: .oliva, text: "Comparte y exporta tus looks")
+                        PaywallBenefit(symbol: "infinity", tone: .granate, text: String(localized: "paywall.paywallstep.unlimitedClothesAndSuitcases", defaultValue: "Unlimited clothes and suitcases"))
+                        PaywallBenefit(symbol: "photo.stack", tone: .denim, text: String(localized: "paywall.paywallstep.fullScanOfYourLibrary", defaultValue: "Full scan of your library"))
+                        PaywallBenefit(symbol: "person.crop.rectangle", tone: .camel, text: String(localized: "paywall.paywallstep.tryOnYourOutfits", defaultValue: "Try on your outfits"))
+                        PaywallBenefit(symbol: "square.and.arrow.up", tone: .oliva, text: String(localized: "paywall.paywallstep.shareAndExportYourLooks", defaultValue: "Share and export your looks"))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -125,12 +125,12 @@ struct PaywallStep: View {
                     WKPrimaryButton(buyTitle, surface: .glass) { buy() }
                         .disabled(store.isWorking)
 
-                    WKSecondaryButton("Seguir gratis") { onFinish() }
+                    WKSecondaryButton(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
 
                     // **Restaurar tiene que estar a la vista.** Lo pide la App
                     // Store, y es lo primero que busca quien cambia de
                     // teléfono y se encuentra el paywall otra vez.
-                    Button("Restaurar compras") {
+                    Button(String(localized: "paywall.paywallstep.restorePurchases", defaultValue: "Restore purchases")) {
                         Task {
                             let restored = await store.restore()
                             await appEnvironment.gate.refresh()
@@ -141,7 +141,7 @@ struct PaywallStep: View {
                     .foregroundStyle(WK.Palette.secondaryText)
                     .disabled(store.isWorking)
 
-                    Text(store.problem ?? "Puedes cancelar cuando quieras.")
+                    Text(store.problem ?? String(localized: "paywall.paywallstep.cancelAnytime", defaultValue: "Cancel anytime."))
                         .font(WK.Font.caption)
                         .foregroundStyle(
                             store.problem == nil ? WK.Palette.tertiaryText : WK.Palette.accent
@@ -165,14 +165,14 @@ struct PaywallStep: View {
 
     /// Lo que pone el botón.
     private var buyTitle: String {
-        if store.isWorking { return "Un momento…" }
+        if store.isWorking { return String(localized: "paywall.paywallstep.oneMoment", defaultValue: "One moment…") }
         // **Sin prueba gratis en ningún plan.** Antes, sin paquetes cargados,
         // el botón prometía siete días gratis que no existen.
         // guard let picked else { return "Empezar 7 días gratis" }
         // if let trial = picked.storeProduct.introductoryDiscount, trial.price == 0 {
         //     return "Empezar \(trial.subscriptionPeriod.localizedDescription) gratis"
         // }
-        return "Suscribirme"
+        return String(localized: "paywall.paywallstep.subscribe", defaultValue: "Subscribe")
     }
 
     private func buy() {
@@ -259,13 +259,13 @@ private extension Package {
 
     var planTitle: String {
         switch packageType {
-        case .annual: "Anual"
-        case .sixMonth: "Seis meses"
-        case .threeMonth: "Tres meses"
-        case .twoMonth: "Dos meses"
-        case .monthly: "Mensual"
-        case .weekly: "Semanal"
-        case .lifetime: "Para siempre"
+        case .annual: String(localized: "paywall.paywallstep.yearly", defaultValue: "Yearly")
+        case .sixMonth: String(localized: "paywall.paywallstep.sixMonths", defaultValue: "Six months")
+        case .threeMonth: String(localized: "paywall.paywallstep.threeMonths", defaultValue: "Three months")
+        case .twoMonth: String(localized: "paywall.paywallstep.twoMonths", defaultValue: "Two months")
+        case .monthly: String(localized: "paywall.paywallstep.monthly", defaultValue: "Monthly")
+        case .weekly: String(localized: "paywall.paywallstep.weekly", defaultValue: "Weekly")
+        case .lifetime: String(localized: "paywall.paywallstep.lifetime", defaultValue: "Lifetime")
         default: storeProduct.localizedTitle
         }
     }
@@ -284,7 +284,7 @@ private extension Package {
             formatter.numberStyle = .currency
             formatter.currencyCode = storeProduct.currencyCode
             if let text = formatter.string(from: monthly) {
-                parts.append("\(text)/mes")
+                parts.append(String(localized: "paywall.paywallstep.month", defaultValue: "\(String(describing: text))/month"))
             }
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
@@ -296,10 +296,10 @@ private extension SubscriptionPeriod {
     var localizedDescription: String {
         let count = value
         switch unit {
-        case .day: return count == 1 ? "1 día" : "\(count) días"
-        case .week: return count == 1 ? "1 semana" : "\(count) semanas"
-        case .month: return count == 1 ? "1 mes" : "\(count) meses"
-        case .year: return count == 1 ? "1 año" : "\(count) años"
+        case .day: return count == 1 ? String(localized: "paywall.paywallstep.1Day", defaultValue: "1 day") : String(localized: "paywall.paywallstep.days", defaultValue: "\(String(describing: count)) days")
+        case .week: return count == 1 ? String(localized: "paywall.paywallstep.1Week", defaultValue: "1 week") : String(localized: "paywall.paywallstep.weeks", defaultValue: "\(String(describing: count)) weeks")
+        case .month: return count == 1 ? String(localized: "paywall.paywallstep.1Month", defaultValue: "1 month") : String(localized: "paywall.paywallstep.months", defaultValue: "\(String(describing: count)) months")
+        case .year: return count == 1 ? String(localized: "paywall.paywallstep.1Year", defaultValue: "1 year") : String(localized: "paywall.paywallstep.years", defaultValue: "\(String(describing: count)) years")
         @unknown default: return "\(count)"
         }
     }

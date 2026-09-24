@@ -55,7 +55,7 @@ struct InspoFiltersSheet: View {
             }
             .scrollIndicators(.hidden)
             .background(WK.Palette.canvas.ignoresSafeArea())
-            .navigationTitle("Qué entra")
+            .navigationTitle(String(localized: "inspo.inspofilterssheet.whatGoesIn", defaultValue: "What goes in"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -73,8 +73,8 @@ struct InspoFiltersSheet: View {
             .sheet(isPresented: $isPickingGarments) {
                 OutfitPickerSheet(
                     mode: .many,
-                    title: "Con estas prendas",
-                    subtitle: "Hasta tres: los conjuntos las llevarán",
+                    title: String(localized: "inspo.inspofilterssheet.withTheseClothes", defaultValue: "With these clothes"),
+                    subtitle: String(localized: "inspo.inspofilterssheet.upToThreeTheOutfits", defaultValue: "Up to three: the outfits will include them"),
                     store: appEnvironment.imageStore,
                     limit: 3,
                     preselectedIDs: anchored.map(\.persistentModelID)
@@ -91,10 +91,10 @@ struct InspoFiltersSheet: View {
     /// Las prendas de partida, con su recorte y su equis.
     private var garmentsSection: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Con estas prendas")
+            Text(String(localized: "inspo.inspofilterssheet.withTheseClothes", defaultValue: "With these clothes"))
                 .font(WK.Font.headline)
                 .foregroundStyle(WK.Palette.primaryText)
-            Text("Hasta tres. Todos los conjuntos las llevarán puestas.")
+            Text(String(localized: "inspo.inspofilterssheet.upToThreeEveryOutfit", defaultValue: "Up to three. Every outfit will include them."))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
 
@@ -137,10 +137,10 @@ struct InspoFiltersSheet: View {
     /// Y qué baldas entran.
     private var shelvesSection: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Baldas")
+            Text(String(localized: "common.shelves", defaultValue: "Shelves"))
                 .font(WK.Font.headline)
                 .foregroundStyle(WK.Palette.primaryText)
-            Text("Lo que apagues sigue en el armario: solo deja de salir propuesto.")
+            Text(String(localized: "inspo.inspofilterssheet.anythingYouTurnOffStays", defaultValue: "Anything you turn off stays in your closet: it just stops being suggested."))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
 

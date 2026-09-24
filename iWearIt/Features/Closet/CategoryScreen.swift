@@ -77,7 +77,7 @@ struct CategoryScreen: View {
         // de la barra se probó y estaba peor: la balda perdía su nombre.
         .navigationTitle(name)
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $searchText, prompt: "Buscar en \(name)")
+        .searchable(text: $searchText, prompt: String(localized: "closet.categoryscreen.searchIn", defaultValue: "Search in \(String(describing: name))"))
         .toolbar {
             // El campo en el centro de la barra, comentado: ver arriba.
             // ToolbarItem(placement: .principal) {
@@ -121,13 +121,13 @@ struct CategoryScreen: View {
             if visible.isEmpty {
                 if showsFavouritesOnly || isFavouritesOnly, searchText.isEmpty {
                     ContentUnavailableView(
-                        "Ninguna favorita",
+                        String(localized: "closet.categoryscreen.noFavorites", defaultValue: "No favorites"),
                         systemImage: "heart",
-                        description: Text("Marca con el corazón las prendas que más te pones.")
+                        description: Text(String(localized: "closet.categoryscreen.heartThePiecesYouWear", defaultValue: "Heart the pieces you wear the most."))
                     )
                 } else {
                     ContentUnavailableView(
-                        searchText.isEmpty ? "Balda vacía" : "Sin resultados",
+                        searchText.isEmpty ? String(localized: "closet.categoryscreen.emptyShelf", defaultValue: "Empty shelf") : String(localized: "closet.categoryscreen.noResults", defaultValue: "No results"),
                         systemImage: searchText.isEmpty ? "tray" : "magnifyingglass"
                     )
                 }

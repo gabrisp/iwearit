@@ -32,7 +32,7 @@ public struct AdaptiveGallery: View {
                     }
                 }
                 GallerySection("adaptiveProminentButton()") {
-                    Button("Continuar") {}
+                    Button(String(localized: "common.continue", defaultValue: "Continue", bundle: .module)) {}
                         .adaptiveProminentButton()
                 }
                 GallerySection("adaptiveGlassButton()") {
@@ -86,6 +86,6 @@ private struct GalleryGlassChip: View {
     }
 }
 
-#Preview("Modificadores adaptativos") {
+#Preview(String(localized: "wkdesign.adaptivegallery.adaptiveModifiers", defaultValue: "Adaptive modifiers", bundle: .module)) {
     AdaptiveGallery()
 }

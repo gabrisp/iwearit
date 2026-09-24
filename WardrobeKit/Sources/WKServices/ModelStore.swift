@@ -315,17 +315,17 @@ public actor ModelStore {
                 permissions: FilePermissions(rawValue: 0o644)
             )
         else {
-            throw ModelRepositoryError.compilationFailed("No se pudo abrir el paquete descargado")
+            throw ModelRepositoryError.compilationFailed(String(localized: "wkservices.modelstore.couldnTOpenTheDownloaded", defaultValue: "Couldn't open the downloaded package", bundle: .module))
         }
         defer { try? readStream.close() }
 
         guard let decompressStream = ArchiveByteStream.decompressionStream(readingFrom: readStream) else {
-            throw ModelRepositoryError.compilationFailed("El paquete no se pudo descomprimir")
+            throw ModelRepositoryError.compilationFailed(String(localized: "wkservices.modelstore.thePackageCouldnTBe", defaultValue: "The package couldn't be unzipped", bundle: .module))
         }
         defer { try? decompressStream.close() }
 
         guard let decodeStream = ArchiveStream.decodeStream(readingFrom: decompressStream) else {
-            throw ModelRepositoryError.compilationFailed("El paquete está dañado")
+            throw ModelRepositoryError.compilationFailed(String(localized: "wkservices.modelstore.thePackageIsDamaged", defaultValue: "The package is damaged", bundle: .module))
         }
         defer { try? decodeStream.close() }
 
@@ -335,7 +335,7 @@ public actor ModelStore {
                 flags: [.ignoreOperationNotPermitted]
             )
         else {
-            throw ModelRepositoryError.compilationFailed("No se pudo escribir el modelo en disco")
+            throw ModelRepositoryError.compilationFailed(String(localized: "wkservices.modelstore.couldnTWriteTheModel", defaultValue: "Couldn't write the model to disk", bundle: .module))
         }
         defer { try? extractStream.close() }
 
@@ -346,7 +346,7 @@ public actor ModelStore {
         let expected = task == .promptBank ? "json" : "mlpackage"
         let contents = try fileManager.contentsOfDirectory(at: destination, includingPropertiesForKeys: nil)
         guard let package = contents.first(where: { $0.pathExtension == expected }) else {
-            throw ModelRepositoryError.compilationFailed("El paquete no contiene ningún .\(expected)")
+            throw ModelRepositoryError.compilationFailed(String(localized: "wkservices.modelstore.thePackageDoesnTContain", defaultValue: "The package doesn't contain any .\(String(describing: expected))", bundle: .module))
         }
         return package
     }

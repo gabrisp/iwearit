@@ -33,7 +33,7 @@ public struct OnboardingProgressBar: View {
         }
         .frame(height: 4)
         .animation(.snappy(duration: 0.35), value: step)
-        .accessibilityLabel("Paso \(step) de \(total)")
+        .accessibilityLabel(String(localized: "wkdesign.onboardingkit.stepOf", defaultValue: "Step \(String(describing: step)) of \(String(describing: total))", bundle: .module))
     }
 
     private var fraction: Double {

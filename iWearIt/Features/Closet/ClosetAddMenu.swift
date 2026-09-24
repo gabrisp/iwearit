@@ -106,7 +106,7 @@ struct ClosetAddMenu: View {
     private func content(for step: Step) -> some View {
         switch step {
         case .menu:
-            WKMenuSheet(title: "Añadir", items: menuItems) {
+            WKMenuSheet(title: String(localized: "closet.closetaddmenu.add", defaultValue: "Add"), items: menuItems) {
                 // **Lo que quedó a medias, en su propia sección.** No como una
                 // opción más de la lista: son prendas ya analizadas, y verlas
                 // es lo que hace que se entienda qué se está retomando.
@@ -196,7 +196,7 @@ struct ClosetAddMenu: View {
         return [
             WKMenuItem(
                 id: "restore",
-                title: count == 1 ? "Seguir con 1 prenda" : "Seguir con \(count) prendas",
+                title: count == 1 ? String(localized: "closet.closetaddmenu.continueWith1Item2", defaultValue: "Continue with 1 item") : String(localized: "closet.closetaddmenu.continueWithItems", defaultValue: "Continue with \(String(describing: count)) items"),
                 systemImage: "arrow.uturn.backward"
             ) {
                 DispatchQueue.main.async {
@@ -212,20 +212,20 @@ struct ClosetAddMenu: View {
             // Una sola entrada: la cámara ya lleva dentro el acceso a la
             // galería, así que preguntar antes "¿foto nueva o existente?" es
             // una bifurcación que el usuario no había pedido.
-            WKMenuItem(id: "library", title: "Elegir de la galería", systemImage: "photo.on.rectangle") {
+            WKMenuItem(id: "library", title: String(localized: "closet.closetaddmenu.chooseFromLibrary", defaultValue: "Choose from library"), systemImage: "photo.on.rectangle") {
                 appEnvironment.gate.require(.garments) {
                     // Un turno de margen: pedirlo mientras la hoja del menú
                     // aún se está cerrando deja la petición en el aire.
                     DispatchQueue.main.async { isPickingFromLibrary = true }
                 }
             },
-            WKMenuItem(id: "camera", title: "Hacer una foto", systemImage: "camera") {
+            WKMenuItem(id: "camera", title: String(localized: "common.takeAPhoto", defaultValue: "Take a photo"), systemImage: "camera") {
                 appEnvironment.gate.require(.garments) { step = .camera }
             },
             // **Desde la tienda.** La mejor foto de una prenda recién
             // comprada no está en tu carrete: está en su ficha, sobre fondo
             // blanco, que es justo con lo que el recorte funciona mejor.
-            WKMenuItem(id: "web", title: "Desde la web", systemImage: "globe") {
+            WKMenuItem(id: "web", title: String(localized: "closet.closetaddmenu.fromTheWeb", defaultValue: "From the web"), systemImage: "globe") {
                 appEnvironment.gate.require(.garments) { step = .web }
             },
             // **Lo de las baldas ya no vive aquí.** Se queda comentado y no
@@ -389,8 +389,8 @@ private struct PendingImportSection: View {
 
             WKPrimaryButton(
                 model.candidates.count == 1
-                    ? "Continuar con 1 prenda"
-                    : "Continuar con las \(model.candidates.count) prendas",
+                    ? String(localized: "closet.closetaddmenu.continueWith1Item", defaultValue: "Continue with 1 item")
+                    : String(localized: "closet.closetaddmenu.continueWithAllItems", defaultValue: "Continue with all \(String(describing: model.candidates.count)) items"),
                 surface: .glass,
                 action: onContinue
             )

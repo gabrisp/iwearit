@@ -77,22 +77,22 @@ public final class BodyProfile {
 
         public var label: String {
             switch self {
-            case .slim: "Delgada"
-            case .athletic: "Atlética"
-            case .average: "Media"
-            case .curvy: "Con curvas"
-            case .large: "Corpulenta"
+            case .slim: String(localized: "wkpersistence.infrastructure.slim", defaultValue: "Slim", bundle: .module)
+            case .athletic: String(localized: "wkpersistence.infrastructure.athletic", defaultValue: "Athletic", bundle: .module)
+            case .average: String(localized: "wkpersistence.infrastructure.average", defaultValue: "Average", bundle: .module)
+            case .curvy: String(localized: "wkpersistence.infrastructure.curvy", defaultValue: "Curvy", bundle: .module)
+            case .large: String(localized: "wkpersistence.infrastructure.heavySet", defaultValue: "Heavy-set", bundle: .module)
             }
         }
 
         /// Cómo se le cuenta al modelo, que no entiende de etiquetas.
         public var described: String {
             switch self {
-            case .slim: "complexión delgada"
-            case .athletic: "complexión atlética, hombros marcados"
-            case .average: "complexión media"
-            case .curvy: "cuerpo con curvas, cintura marcada"
-            case .large: "complexión corpulenta"
+            case .slim: String(localized: "wkpersistence.infrastructure.slimBuild", defaultValue: "slim build", bundle: .module)
+            case .athletic: String(localized: "wkpersistence.infrastructure.athleticBuildBroadShoulders", defaultValue: "athletic build, broad shoulders", bundle: .module)
+            case .average: String(localized: "wkpersistence.infrastructure.averageBuild", defaultValue: "average build", bundle: .module)
+            case .curvy: String(localized: "wkpersistence.infrastructure.curvyBodyDefinedWaist", defaultValue: "curvy body, defined waist", bundle: .module)
+            case .large: String(localized: "wkpersistence.infrastructure.heavySetBuild", defaultValue: "heavy-set build", bundle: .module)
             }
         }
     }
@@ -102,17 +102,17 @@ public final class BodyProfile {
 
         public var label: String {
             switch self {
-            case .woman: "Mujer"
-            case .man: "Hombre"
-            case .neutral: "Neutro"
+            case .woman: String(localized: "wkpersistence.infrastructure.woman", defaultValue: "Woman", bundle: .module)
+            case .man: String(localized: "wkpersistence.infrastructure.man", defaultValue: "Man", bundle: .module)
+            case .neutral: String(localized: "wkpersistence.infrastructure.neutral", defaultValue: "Neutral", bundle: .module)
             }
         }
 
         public var described: String {
             switch self {
-            case .woman: "una mujer"
-            case .man: "un hombre"
-            case .neutral: "una persona de aspecto andrógino"
+            case .woman: String(localized: "wkpersistence.infrastructure.aWoman", defaultValue: "a woman", bundle: .module)
+            case .man: String(localized: "wkpersistence.infrastructure.aMan", defaultValue: "a man", bundle: .module)
+            case .neutral: String(localized: "wkpersistence.infrastructure.anAndrogynousLookingPerson", defaultValue: "an androgynous-looking person", bundle: .module)
             }
         }
     }
@@ -122,19 +122,19 @@ public final class BodyProfile {
 
         public var label: String {
             switch self {
-            case .light: "Clara"
-            case .medium: "Media"
-            case .tan: "Morena"
-            case .dark: "Oscura"
+            case .light: String(localized: "wkpersistence.infrastructure.light", defaultValue: "Light", bundle: .module)
+            case .medium: String(localized: "wkpersistence.infrastructure.average", defaultValue: "Average", bundle: .module)
+            case .tan: String(localized: "wkpersistence.infrastructure.tan", defaultValue: "Tan", bundle: .module)
+            case .dark: String(localized: "wkpersistence.infrastructure.dark", defaultValue: "Dark", bundle: .module)
             }
         }
 
         public var described: String {
             switch self {
-            case .light: "piel clara"
-            case .medium: "piel de tono medio"
-            case .tan: "piel morena"
-            case .dark: "piel oscura"
+            case .light: String(localized: "wkpersistence.infrastructure.lightSkin", defaultValue: "light skin", bundle: .module)
+            case .medium: String(localized: "wkpersistence.infrastructure.mediumSkinTone", defaultValue: "medium skin tone", bundle: .module)
+            case .tan: String(localized: "wkpersistence.infrastructure.tanSkin", defaultValue: "tan skin", bundle: .module)
+            case .dark: String(localized: "wkpersistence.infrastructure.darkSkin", defaultValue: "dark skin", bundle: .module)
             }
         }
     }
@@ -145,8 +145,8 @@ public final class BodyProfile {
     /// lo que se ve escrito en la ficha: sin adornos y sin nada que el usuario
     /// no haya puesto.
     public var described: String {
-        var parts: [String] = [presentation?.described ?? "una persona"]
-        if let heightCentimetres { parts.append("de \(heightCentimetres) cm") }
+        var parts: [String] = [presentation?.described ?? String(localized: "wkpersistence.infrastructure.aPerson", defaultValue: "a person", bundle: .module)]
+        if let heightCentimetres { parts.append(String(localized: "wkpersistence.infrastructure.cmTall", defaultValue: "\(String(describing: heightCentimetres)) cm tall", bundle: .module)) }
         if let shape { parts.append(shape.described) }
         if let skinTone { parts.append(skinTone.described) }
         if let notes, !notes.trimmingCharacters(in: .whitespaces).isEmpty { parts.append(notes) }

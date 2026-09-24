@@ -258,7 +258,7 @@ struct ClosetScreen: View {
             .overscrollAction(
                 threshold: 84,
                 symbol: "plus",
-                label: "Crear nuevo outfit",
+                label: String(localized: "common.createNewOutfit", defaultValue: "Create new outfit"),
                 bottomInset: WK.Spacing.m
             ) {
                 appEnvironment.gate.require(.garments) { isCreatingOutfit = true }
@@ -358,7 +358,7 @@ struct ClosetScreen: View {
                                 .contentShape(.rect)
                         }
                         .tint(WK.Palette.primaryText)
-                        .accessibilityLabel("Probados")
+                        .accessibilityLabel(String(localized: "closet.closetscreen.triedOn", defaultValue: "Tried on"))
                     }
                     // Separados en grupos: el corazón y el lápiz a un lado, y
                     // el "+" al final del todo, que es la acción principal. En

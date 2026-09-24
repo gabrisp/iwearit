@@ -44,9 +44,9 @@ struct FavouritesScreen: View {
 
         var title: String {
             switch self {
-            case .all: "Todo"
-            case .garments: "Prendas"
-            case .outfits: "Outfits"
+            case .all: String(localized: "closet.favouritesscreen.all", defaultValue: "All")
+            case .garments: String(localized: "common.clothes", defaultValue: "Clothes")
+            case .outfits: String(localized: "closet.favouritesscreen.outfits", defaultValue: "Outfits")
             }
         }
     }
@@ -127,7 +127,7 @@ struct FavouritesScreen: View {
         .scrollIndicators(.hidden)
         .background(WK.Palette.canvas.ignoresSafeArea())
         .adaptiveScrollEdge(.top)
-        .navigationTitle("Favoritos")
+        .navigationTitle(String(localized: "closet.favouritesscreen.favorites", defaultValue: "Favorites"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if isModal, !isSelecting {
@@ -156,9 +156,9 @@ struct FavouritesScreen: View {
         .overlay {
             if visibleOutfits.isEmpty, garments.isEmpty {
                 ContentUnavailableView {
-                    Label("Todavía no hay favoritos", systemImage: "heart")
+                    Label(String(localized: "closet.favouritesscreen.noFavoritesYet", defaultValue: "No favorites yet"), systemImage: "heart")
                 } description: {
-                    Text("El corazón de una prenda o de un conjunto lo guarda aquí.")
+                    Text(String(localized: "closet.favouritesscreen.theHeartOnAPiece", defaultValue: "The heart on a piece or an outfit saves it here."))
                 }
             }
         }
@@ -251,7 +251,7 @@ private struct FavouritesRemoveBar: View {
         Button(action: action) {
             HStack(spacing: WK.Spacing.xs) {
                 Image(systemName: "heart.slash")
-                Text(count == 1 ? "Quitar 1" : "Quitar \(count)")
+                Text(count == 1 ? String(localized: "closet.favouritesscreen.remove1", defaultValue: "Remove 1") : String(localized: "closet.favouritesscreen.remove", defaultValue: "Remove \(String(describing: count))"))
             }
             .font(WK.Font.headline)
             .foregroundStyle(count == 0 ? WK.Palette.secondaryText : WK.Palette.primaryText)

@@ -1,0 +1,6302 @@
+[
+{
+"id": 0,
+"text": "MODELOS: %@",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 1,
+"text": "sin empezar",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case .idle:"
+},
+{
+"id": 2,
+"text": "consultando el manifiesto",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case .checking:"
+},
+{
+"id": 3,
+"text": "descargando {0}%",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case let .downloading(fraction):"
+},
+{
+"id": 4,
+"text": "cargando el modelo",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case .loading:"
+},
+{
+"id": 5,
+"text": "listo (v{0})",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case let .ready(version):"
+},
+{
+"id": 6,
+"text": "NO DISPONIBLE — {0}",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "case let .unavailable(reason):"
+},
+{
+"id": 7,
+"text": "No se pudo abrir la copia en iCloud: {0}",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "cloudFailure ="
+},
+{
+"id": 8,
+"text": "PROBE: antes de mover",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 9,
+"text": "PROBE: despues de mover",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 10,
+"text": "Sin origen de modelos",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "modelState = .unavailable("
+},
+{
+"id": 11,
+"text": "El servidor no publica ningún segmentador",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "modelState = .unavailable("
+},
+{
+"id": 12,
+"text": "El segmentador descargado no se pudo cargar",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "modelState = .unavailable("
+},
+{
+"id": 13,
+"text": "PROBE: antes de editar",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 14,
+"text": "PROBE: despues de editar",
+"file": "AppEnvironment",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 15,
+"text": "garment-{0}",
+"file": "AppRouter",
+"n": 2,
+"ctx": "case let .garment(ref):"
+},
+{
+"id": 16,
+"text": "sin iCloud",
+"file": "CloudSync",
+"n": 1,
+"ctx": "status = .unavailable("
+},
+{
+"id": 17,
+"text": "preparación",
+"file": "CloudSync",
+"n": 1,
+"ctx": "case .setup:"
+},
+{
+"id": 18,
+"text": "importación",
+"file": "CloudSync",
+"n": 1,
+"ctx": "case .import:"
+},
+{
+"id": 19,
+"text": "exportación",
+"file": "CloudSync",
+"n": 1,
+"ctx": "case .export:"
+},
+{
+"id": 20,
+"text": "icloud account",
+"file": "CloudSync",
+"n": 1,
+"ctx": ") || message.lowercased().contains("
+},
+{
+"id": 21,
+"text": "sin sesión de iCloud",
+"file": "CloudSync",
+"n": 2,
+"ctx": "? .unavailable("
+},
+{
+"id": 22,
+"text": "inicia sesión en iCloud para sincronizar",
+"file": "CloudSync",
+"n": 1,
+"ctx": ".unavailable("
+},
+{
+"id": 23,
+"text": "no queda espacio en tu iCloud",
+"file": "CloudSync",
+"n": 1,
+"ctx": ".unavailable("
+},
+{
+"id": 24,
+"text": "esta cuenta no permite iCloud",
+"file": "CloudSync",
+"n": 1,
+"ctx": ".unavailable("
+},
+{
+"id": 25,
+"text": "iCloud restringido en este dispositivo",
+"file": "CloudSync",
+"n": 1,
+"ctx": "status = .unavailable("
+},
+{
+"id": 26,
+"text": "¿Cómo se llama?",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 27,
+"text": "Gorras, ropa de running, lo que te sirva a ti.",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 28,
+"text": "Siguiente",
+"file": "NewCategorySheet",
+"n": 7,
+"ctx": "primaryTitle:"
+},
+{
+"id": 29,
+"text": "Nombre de la balda",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 30,
+"text": "Enséñame cuáles van aquí",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 31,
+"text": "Marca al menos {0}. Con menos no me puedo fiar de lo que aprenda.",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 32,
+"text": "Crear vacía",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "ryTitle: selectedExamples.isEmpty ?"
+},
+{
+"id": 33,
+"text": "Crear con {0}",
+"file": "NewCategorySheet",
+"n": 1,
+"ctx": "dExamples.isEmpty ? \"Crear vacía\" :"
+},
+{
+"id": 34,
+"text": "Mantén pulsada una balda para moverla.",
+"file": "ShelfOrderScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 35,
+"text": "Nueva balda",
+"file": "ShelfOrderScreen",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 36,
+"text": "Baldas",
+"file": "ShelfOrderScreen",
+"n": 4,
+"ctx": ".navigationTitle("
+},
+{
+"id": 37,
+"text": "Nombre",
+"file": "ShelfOrderScreen",
+"n": 4,
+"ctx": "TextField("
+},
+{
+"id": 38,
+"text": "Buscar en {0}",
+"file": "CategoryScreen",
+"n": 1,
+"ctx": "archable(text: $searchText, prompt:"
+},
+{
+"id": 39,
+"text": "Ninguna favorita",
+"file": "CategoryScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 40,
+"text": "Marca con el corazón las prendas que más te pones.",
+"file": "CategoryScreen",
+"n": 1,
+"ctx": "description: Text("
+},
+{
+"id": 41,
+"text": "Balda vacía",
+"file": "CategoryScreen",
+"n": 1,
+"ctx": "searchText.isEmpty ?"
+},
+{
+"id": 42,
+"text": "Sin resultados",
+"file": "CategoryScreen",
+"n": 1,
+"ctx": "earchText.isEmpty ? \"Balda vacía\" :"
+},
+{
+"id": 43,
+"text": "restore-{0}",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "case let .restore(model):"
+},
+{
+"id": 44,
+"text": "Añadir",
+"file": "ClosetAddMenu",
+"n": 3,
+"ctx": "WKMenuSheet(title:"
+},
+{
+"id": 45,
+"text": "IMPORT: una de las fotos no se pudo leer",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 46,
+"text": "Seguir con 1 prenda",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "title: count == 1 ?"
+},
+{
+"id": 47,
+"text": "Seguir con {0} prendas",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "ount == 1 ? \"Seguir con 1 prenda\" :"
+},
+{
+"id": 48,
+"text": "Elegir de la galería",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "WKMenuItem(id: \"library\", title:"
+},
+{
+"id": 49,
+"text": "Hacer una foto",
+"file": "ClosetAddMenu",
+"n": 3,
+"ctx": "WKMenuItem(id: \"camera\", title:"
+},
+{
+"id": 50,
+"text": "Desde la web",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "WKMenuItem(id: \"web\", title:"
+},
+{
+"id": 51,
+"text": "Continuar con 1 prenda",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 52,
+"text": "Continuar con las {0} prendas",
+"file": "ClosetAddMenu",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 53,
+"text": "Favorita",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 54,
+"text": "Etiquetas",
+"file": "ClosetBulkEdit",
+"n": 3,
+"ctx": "action("
+},
+{
+"id": 55,
+"text": "Calidez",
+"file": "ClosetBulkEdit",
+"n": 5,
+"ctx": "action("
+},
+{
+"id": 56,
+"text": "Mover",
+"file": "ClosetBulkEdit",
+"n": 2,
+"ctx": "action("
+},
+{
+"id": 57,
+"text": "Editar",
+"file": "ClosetBulkEdit",
+"n": 12,
+"ctx": "action("
+},
+{
+"id": 58,
+"text": "Eliminar",
+"file": "ClosetBulkEdit",
+"n": 8,
+"ctx": "action("
+},
+{
+"id": 59,
+"text": "Se pone en 1 prenda",
+"file": "ClosetBulkEdit",
+"n": 2,
+"ctx": "?"
+},
+{
+"id": 60,
+"text": "Se ponen en {0} prendas",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 61,
+"text": "Se pone en {0} prendas",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 62,
+"text": "Mover 1 prenda",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "Text(garments.count == 1 ?"
+},
+{
+"id": 63,
+"text": "Mover {0} prendas",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "nts.count == 1 ? \"Mover 1 prenda\" :"
+},
+{
+"id": 64,
+"text": "Mover aquí",
+"file": "ClosetBulkEdit",
+"n": 2,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 65,
+"text": "Editar prenda",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "vigationTitle(garments.count == 1 ?"
+},
+{
+"id": 66,
+"text": "Editar {0} prendas",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "ents.count == 1 ? \"Editar prenda\" :"
+},
+{
+"id": 67,
+"text": "Editar prendas",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 68,
+"text": "¿Eliminar esta prenda?",
+"file": "ClosetBulkEdit",
+"n": 2,
+"ctx": "garments.count == 1 ?"
+},
+{
+"id": 69,
+"text": "¿Eliminar {0} prendas?",
+"file": "ClosetBulkEdit",
+"n": 1,
+"ctx": "t == 1 ? \"¿Eliminar esta prenda?\" :"
+},
+{
+"id": 70,
+"text": "Cancelar",
+"file": "ClosetBulkEdit",
+"n": 11,
+"ctx": "Button("
+},
+{
+"id": 71,
+"text": "Tu armario está vacío",
+"file": "ClosetEmptyState",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 72,
+"text": "Sube una foto y se recortan las prendas solas. Nada sale de tu iPhone.",
+"file": "ClosetEmptyState",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 73,
+"text": "Añadir prendas",
+"file": "ClosetEmptyState",
+"n": 2,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 74,
+"text": "Crear nuevo outfit",
+"file": "ClosetScreen",
+"n": 4,
+"ctx": "label:"
+},
+{
+"id": 75,
+"text": "Probados",
+"file": "ClosetScreen",
+"n": 2,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 76,
+"text": "Todo",
+"file": "FavouritesScreen",
+"n": 2,
+"ctx": "case .all:"
+},
+{
+"id": 77,
+"text": "Prendas",
+"file": "FavouritesScreen",
+"n": 4,
+"ctx": "case .garments:"
+},
+{
+"id": 78,
+"text": "Outfits",
+"file": "FavouritesScreen",
+"n": 3,
+"ctx": "case .outfits:"
+},
+{
+"id": 79,
+"text": "Favoritos",
+"file": "FavouritesScreen",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 80,
+"text": "Todavía no hay favoritos",
+"file": "FavouritesScreen",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 81,
+"text": "El corazón de una prenda o de un conjunto lo guarda aquí.",
+"file": "FavouritesScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 82,
+"text": "Quitar 1",
+"file": "FavouritesScreen",
+"n": 1,
+"ctx": "Text(count == 1 ?"
+},
+{
+"id": 83,
+"text": "Quitar {0}",
+"file": "FavouritesScreen",
+"n": 1,
+"ctx": "Text(count == 1 ? \"Quitar 1\" :"
+},
+{
+"id": 84,
+"text": "No hemos encontrado ninguna prenda",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 85,
+"text": "Vale",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 86,
+"text": "Rodéala otra vez con un poco más de margen. La prenda se queda como estaba.",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 87,
+"text": "Sin balda",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "value: garment.category?.name ??"
+},
+{
+"id": 88,
+"text": "Balda",
+"file": "GarmentEditSheet",
+"n": 5,
+"ctx": "label:"
+},
+{
+"id": 89,
+"text": "Sin definir",
+"file": "GarmentEditSheet",
+"n": 8,
+"ctx": "displayType(garment.subcategory) ??"
+},
+{
+"id": 90,
+"text": "Tipo",
+"file": "GarmentEditSheet",
+"n": 4,
+"ctx": "label:"
+},
+{
+"id": 91,
+"text": "Material",
+"file": "GarmentEditSheet",
+"n": 5,
+"ctx": "label:"
+},
+{
+"id": 92,
+"text": "Cambiar tipo",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 93,
+"text": "Selecciona el tipo que mejor describe esta prenda",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 94,
+"text": "Seleccionar etiquetas",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "title:"
+},
+{
+"id": 95,
+"text": "Selecciona hasta {0} etiquetas",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "subtitle:"
+},
+{
+"id": 96,
+"text": "Corte",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "lary.cutTitle(for: garment.kind) ??"
+},
+{
+"id": 97,
+"text": "Elige uno o escribe el tuyo",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "subtitle:"
+},
+{
+"id": 98,
+"text": "De qué está hecha, tal y como la llevas",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "subtitle:"
+},
+{
+"id": 99,
+"text": "Cambiar calidez",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "title:"
+},
+{
+"id": 100,
+"text": "Quítala si vale para todo el año",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "subtitle:"
+},
+{
+"id": 101,
+"text": "Imagen",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 102,
+"text": "Recortar a mano",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "title:"
+},
+{
+"id": 103,
+"text": "Rodea la prenda con el dedo y manda sobre lo detectado",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 104,
+"text": "Cambiar la foto",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 105,
+"text": "Se vuelve a recortar y a medir el color",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 106,
+"text": "Volver a generar el catálogo",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 107,
+"text": "Otra reconstrucción de la misma foto",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 108,
+"text": "Usar el recorte real",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 109,
+"text": "Tira la reconstrucción y deja la foto recortada",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 110,
+"text": "Catálogo",
+"file": "GarmentEditSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 111,
+"text": "Recorte",
+"file": "GarmentEditSheet",
+"n": 2,
+"ctx": "title:"
+},
+{
+"id": 112,
+"text": "Un enlace, una talla, una referencia…",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 113,
+"text": "Notas",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 114,
+"text": "Color",
+"file": "GarmentFieldRows",
+"n": 4,
+"ctx": "Text("
+},
+{
+"id": 115,
+"text": "Toca la muestra para ajustarlo",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 116,
+"text": "Escribe el tuyo",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 117,
+"text": "Nueva etiqueta",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 118,
+"text": "Escribe la tuya",
+"file": "GarmentFieldRows",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 119,
+"text": "Versión de catálogo",
+"file": "GarmentImageSwitcher",
+"n": 1,
+"ctx": "isGenerating ? \"Redibujando…\" :"
+},
+{
+"id": 120,
+"text": "No se pudo redibujar. Inténtalo de nuevo.",
+"file": "GarmentImageSwitcher",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 121,
+"text": "Crear outfit",
+"file": "GarmentSheet",
+"n": 4,
+"ctx": "mentAction(symbol: \"tshirt\", label:"
+},
+{
+"id": 122,
+"text": "Favorito",
+"file": "GarmentSheet",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 123,
+"text": "Compartir",
+"file": "GarmentSheet",
+"n": 1,
+"ctx": "mbol: \"square.and.arrow.up\", label:"
+},
+{
+"id": 124,
+"text": "Prenda no encontrada",
+"file": "HangingGarmentView",
+"n": 1,
+"ctx": "ContentUnavailableView("
+},
+{
+"id": 125,
+"text": "Editar baldas",
+"file": "ShelfEditPill",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 126,
+"text": "Cazadora",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .outerLayer, noun:"
+},
+{
+"id": 127,
+"text": "Chaqueta",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .outerLayer, noun:"
+},
+{
+"id": 128,
+"text": "Abrigo",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .outerLayer, noun:"
+},
+{
+"id": 129,
+"text": "Vestido",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .wholeBody, noun:"
+},
+{
+"id": 130,
+"text": "Mono",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .wholeBody, noun:"
+},
+{
+"id": 131,
+"text": "Camiseta",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .upperBody, noun:"
+},
+{
+"id": 132,
+"text": "Camisa",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .upperBody, noun:"
+},
+{
+"id": 133,
+"text": "Sudadera",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .upperBody, noun:"
+},
+{
+"id": 134,
+"text": "Jersey",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .upperBody, noun:"
+},
+{
+"id": 135,
+"text": "Vaqueros",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .lowerBody, noun:"
+},
+{
+"id": 136,
+"text": "Chinos",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .lowerBody, noun:"
+},
+{
+"id": 137,
+"text": "Shorts",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .lowerBody, noun:"
+},
+{
+"id": 138,
+"text": "Zapatillas",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .feet, noun:"
+},
+{
+"id": 139,
+"text": "Botas",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .feet, noun:"
+},
+{
+"id": 140,
+"text": "Gorra",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .head, noun:"
+},
+{
+"id": 141,
+"text": "Gorro",
+"file": "DevSeed",
+"n": 1,
+"ctx": ".init(kind: .head, noun:"
+},
+{
+"id": 142,
+"text": "Bolso",
+"file": "DevSeed",
+"n": 2,
+"ctx": ".init(kind: .bag, noun:"
+},
+{
+"id": 143,
+"text": "{0} en {1}",
+"file": "DevSeed",
+"n": 1,
+"ctx": "proposedName:"
+},
+{
+"id": 144,
+"text": "PROBE-PIPELINE: %d fotos en %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 145,
+"text": "PROBE-PIPELINE: sin fotos. Copia imágenes a ProbeInput/ y relanza.",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 146,
+"text": "PROBE-PIPELINE: %@ no se pudo decodificar",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 147,
+"text": "PROBE-PIPELINE: %@ (%dx%d) utility=%@ pose=%@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 148,
+"text": "sí",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "isUtility ?"
+},
+{
+"id": 149,
+"text": "no",
+"file": "PipelineProbe",
+"n": 2,
+"ctx": "isUtility ? \"sí\" :"
+},
+{
+"id": 150,
+"text": "hombros %.2f caderas %.2f rodillas %@ tobillos %@ conf %.2f",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "landmarks.map { String(format:"
+},
+{
+"id": 151,
+"text": "no detectada",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "$0.confidence) } ??"
+},
+{
+"id": 152,
+"text": "PROBE-PIPELINE:   → %d prendas en %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 153,
+"text": "PROBE-PIPELINE:   [%d] %@ conf %.2f colores %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 154,
+"text": "PROBE-PIPELINE:   → error: %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 155,
+"text": "PROBE-PIPELINE: recortes en %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 156,
+"text": "PROBE-STAGE: %@ OK",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 157,
+"text": "PROBE-STAGE: %@ FALLA — %@",
+"file": "PipelineProbe",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 158,
+"text": "Sin acceso a la cámara",
+"file": "CameraScreen",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 159,
+"text": "Actívalo en Ajustes › Snazzy para hacer fotos a tus prendas.",
+"file": "CameraScreen",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 160,
+"text": "No se pudo abrir la cámara",
+"file": "CameraScreen",
+"n": 1,
+"ctx": " \"exclamationmark.triangle\", title:"
+},
+{
+"id": 161,
+"text": "Coloca la prenda sola sobre un fondo liso",
+"file": "CameraScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 162,
+"text": "Cerrar",
+"file": "CameraScreen",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 163,
+"text": "Parte superior",
+"file": "ImportCandidateFacts",
+"n": 2,
+"ctx": "case .upperBody:"
+},
+{
+"id": 164,
+"text": "Chaquetas",
+"file": "ImportCandidateFacts",
+"n": 3,
+"ctx": "case .outerLayer:"
+},
+{
+"id": 165,
+"text": "Parte inferior",
+"file": "ImportCandidateFacts",
+"n": 2,
+"ctx": "case .lowerBody:"
+},
+{
+"id": 166,
+"text": "Cuerpo entero",
+"file": "ImportCandidateFacts",
+"n": 2,
+"ctx": "case .wholeBody:"
+},
+{
+"id": 167,
+"text": "Zapatos",
+"file": "ImportCandidateFacts",
+"n": 4,
+"ctx": "case .feet:"
+},
+{
+"id": 168,
+"text": "Accesorios",
+"file": "ImportCandidateFacts",
+"n": 2,
+"ctx": "case .head:"
+},
+{
+"id": 169,
+"text": "Bolsos",
+"file": "ImportCandidateFacts",
+"n": 3,
+"ctx": "case .bag:"
+},
+{
+"id": 170,
+"text": "Otros",
+"file": "ImportCandidateFacts",
+"n": 3,
+"ctx": "case .other:"
+},
+{
+"id": 171,
+"text": "Marca",
+"file": "ImportCandidateFacts",
+"n": 1,
+"ctx": "FactPill(label:"
+},
+{
+"id": 172,
+"text": "Temporada",
+"file": "ImportCandidateFacts",
+"n": 1,
+"ctx": "FactPill(label:"
+},
+{
+"id": 173,
+"text": "recortar a mano",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 174,
+"text": "mirando otra vez…",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "? (model.reanalysingLabel ??"
+},
+{
+"id": 175,
+"text": "Levantando la prenda de lo que has rodeado…",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 176,
+"text": "No hemos encontrado ninguna prenda en lo que has rodeado. Prueba con un poco más de margen.",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 177,
+"text": "No hemos visto ninguna prenda: rodéala con el dedo.",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 178,
+"text": "Mueve o estira un recuadro, y quita con la X lo que no sea ropa.",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 179,
+"text": "Foto {0} de {1}",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 180,
+"text": "Recorta o añade una prenda",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "keptCount == 0 ?"
+},
+{
+"id": 181,
+"text": "Continuar con {0}",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": " 0 ? \"Recorta o añade una prenda\" :"
+},
+{
+"id": 182,
+"text": "Quitar de la lista",
+"file": "ImportDetectedStep",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 183,
+"text": "Necesita un iPhone de verdad",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case .visionUnavailable:"
+},
+{
+"id": 184,
+"text": "No se pudo procesar",
+"file": "ImportModel",
+"n": 2,
+"ctx": "t error): error.errorDescription ??"
+},
+{
+"id": 185,
+"text": "Nada que recortar",
+"file": "ImportModel",
+"n": 1,
+"ctx": "default:"
+},
+{
+"id": 186,
+"text": "No se reconoce a nadie en la foto. Por ahora el recorte se apoya en el cuerpo para saber qué es cada prenda.",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 187,
+"text": "Se reconoce a alguien, pero no se pudo separar ninguna prenda. Prueba con una foto de cuerpo entero y fondo despejado.",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 188,
+"text": "El reconocimiento de imágenes no funciona en el simulador: necesita el Neural Engine de un dispositivo real. En un iPhone funciona con normalidad.",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 189,
+"text": "Prueba con otra foto.",
+"file": "ImportModel",
+"n": 2,
+"ctx": "error.recoverySuggestion ??"
+},
+{
+"id": 190,
+"text": "separando piezas",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case .splitPieces:"
+},
+{
+"id": 191,
+"text": "siendo más estricto",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case .stricter:"
+},
+{
+"id": 192,
+"text": "otra de estas fotos",
+"file": "ImportModel",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 193,
+"text": "otra de esta misma foto",
+"file": "ImportModel",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 194,
+"text": "vale tal cual",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 195,
+"text": "demasiado roto: mejor recortarlo a mano",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 196,
+"text": "se reconstruye",
+"file": "ImportModel",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 197,
+"text": "no se pudo preparar el JPEG del recorte",
+"file": "ImportModel",
+"n": 1,
+"ctx": "fail(id,"
+},
+{
+"id": 198,
+"text": "la respuesta no es una imagen legible ({0} bytes)",
+"file": "ImportModel",
+"n": 1,
+"ctx": "fail(id,"
+},
+{
+"id": 199,
+"text": "se generó pero no se pudo recortar del fondo",
+"file": "ImportModel",
+"n": 1,
+"ctx": "fail(id,"
+},
+{
+"id": 200,
+"text": "sin conexión",
+"file": "ImportModel",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 201,
+"text": "el resolutor no está configurado",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case .notConfigured: return"
+},
+{
+"id": 202,
+"text": "el servidor va saturado; inténtalo en un momento",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case .rateLimited: return"
+},
+{
+"id": 203,
+"text": "no se pudo conectar — {0}",
+"file": "ImportModel",
+"n": 1,
+"ctx": "case let .transport(detail): return"
+},
+{
+"id": 204,
+"text": "recorte mejorado on-device",
+"file": "ImportModel",
+"n": 1,
+"ctx": "idateAt: index, with: rect, reason:"
+},
+{
+"id": 205,
+"text": "recuadro corregido a %.2f,%.2f %.2f×%.2f",
+"file": "ImportModel",
+"n": 1,
+"ctx": "format:"
+},
+{
+"id": 206,
+"text": "de {0} imágenes analizadas",
+"file": "ImportPhotoStrip",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 207,
+"text": "Las categorías son una propuesta. Corrígelas si hace falta.",
+"file": "ImportReviewList",
+"n": 1,
+"ctx": "footer:"
+},
+{
+"id": 208,
+"text": "Ya la tienes: {0}",
+"file": "ImportReviewList",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 209,
+"text": "{0} de {1} se van a guardar",
+"file": "ImportReviewPager",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 210,
+"text": "Nada que guardar",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "if kept == 0 { return"
+},
+{
+"id": 211,
+"text": "Guardar todo",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": " == model.candidates.count { return"
+},
+{
+"id": 212,
+"text": "Guardar 1 prenda",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "return kept == 1 ?"
+},
+{
+"id": 213,
+"text": "Guardar {0} prendas",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "rn kept == 1 ? \"Guardar 1 prenda\" :"
+},
+{
+"id": 214,
+"text": "Agregar más",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 215,
+"text": "Ya tienes una parecida",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 216,
+"text": "Buscando prendas en 1 foto…",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "Text(count == 1 ?"
+},
+{
+"id": 217,
+"text": "Buscando prendas en {0} fotos…",
+"file": "ImportReviewStack",
+"n": 1,
+"ctx": "1 ? \"Buscando prendas en 1 foto…\" :"
+},
+{
+"id": 218,
+"text": "Analizando",
+"file": "ImportReviewStack",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 219,
+"text": "Revisar prendas",
+"file": "ImportSheet",
+"n": 1,
+"ctx": "ase .review = model?.phase { return"
+},
+{
+"id": 220,
+"text": "Prenda guardada",
+"file": "ImportSheet",
+"n": 3,
+"ctx": "toasts.show(WKToast(saved == 1 ?"
+},
+{
+"id": 221,
+"text": "{0} prendas guardadas",
+"file": "ImportSheet",
+"n": 1,
+"ctx": "st(saved == 1 ? \"Prenda guardada\" :"
+},
+{
+"id": 222,
+"text": "Recortando",
+"file": "ImportSheet",
+"n": 2,
+"ctx": "reveal(isScanning: false, status:"
+},
+{
+"id": 223,
+"text": "Redibujando prendas… {0} de {1}",
+"file": "ImportSheet",
+"n": 1,
+"ctx": "total > 1 ?"
+},
+{
+"id": 224,
+"text": "Redibujando la prenda…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": "ndo prendas… \\(done) de \\(total)\" :"
+},
+{
+"id": 225,
+"text": "Buscando prendas…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 226,
+"text": "Copiar registro",
+"file": "ImportSheet",
+"n": 2,
+"ctx": "Button("
+},
+{
+"id": 227,
+"text": "Mirando la foto…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 228,
+"text": "Buscando la prenda…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 229,
+"text": "Separándola del fondo…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 230,
+"text": "Repasando el contorno…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 231,
+"text": "Midiendo los colores…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 232,
+"text": "Casi está…",
+"file": "ImportSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 233,
+"text": "Añadir {0}",
+"file": "ImportSheet",
+"n": 3,
+"ctx": "private var title: String {"
+},
+{
+"id": 234,
+"text": "Foto",
+"file": "ImportSingleCard",
+"n": 3,
+"ctx": "case .photo:"
+},
+{
+"id": 235,
+"text": "Ya tienes una parecida: {0}",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 236,
+"text": "Parte del cuerpo",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 237,
+"text": "Decide en qué balda acaba",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 238,
+"text": "Dónde la vas a colgar",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 239,
+"text": "Qué prenda es",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 240,
+"text": "Manga larga, corta, vaqueros… lo que la distingue",
+"file": "ImportSingleCard",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 241,
+"text": "Rodea la prenda",
+"file": "ManualCropScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 242,
+"text": "Nos vale aproximado: lo usamos de referencia",
+"file": "ManualCropScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 243,
+"text": "Repetir",
+"file": "ManualCropScreen",
+"n": 2,
+"ctx": "Button("
+},
+{
+"id": 244,
+"text": "Se queda lo de dentro del trazo.",
+"file": "ManualCropScreen",
+"n": 1,
+"ctx": "if canCrop { return"
+},
+{
+"id": 245,
+"text": "Dibuja alrededor de la prenda sin levantar el dedo.",
+"file": "ManualCropScreen",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 246,
+"text": "Usar este recorte",
+"file": "ManualCropScreen",
+"n": 1,
+"ctx": "isWorking ? \"Recortando…\" :"
+},
+{
+"id": 247,
+"text": "Buscar o escribir enlace",
+"file": "WebImportScreen",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 248,
+"text": "Version/18.0 Mobile/15E148 Safari/604.1",
+"file": "WebImportScreen",
+"n": 1,
+"ctx": "ation.applicationNameForUserAgent ="
+},
+{
+"id": 249,
+"text": "Qué entra",
+"file": "InspoFiltersSheet",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 250,
+"text": "Con estas prendas",
+"file": "InspoFiltersSheet",
+"n": 2,
+"ctx": "title:"
+},
+{
+"id": 251,
+"text": "Hasta tres: los conjuntos las llevarán",
+"file": "InspoFiltersSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 252,
+"text": "Hasta tres. Todos los conjuntos las llevarán puestas.",
+"file": "InspoFiltersSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 253,
+"text": "Lo que apagues sigue en el armario: solo deja de salir propuesto.",
+"file": "InspoFiltersSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 254,
+"text": "day-{0}",
+"file": "InspoScreen",
+"n": 2,
+"ctx": "case let .day(look):"
+},
+{
+"id": 255,
+"text": "suitcase-{0}",
+"file": "InspoScreen",
+"n": 2,
+"ctx": "case let .suitcase(look):"
+},
+{
+"id": 256,
+"text": "Elegir sitio",
+"file": "InspoScreen",
+"n": 1,
+"ctx": "ecast = feed.forecast else { return"
+},
+{
+"id": 257,
+"text": "¿Dónde estás?",
+"file": "InspoScreen",
+"n": 1,
+"ctx": "PlaceSearchSheet(title:"
+},
+{
+"id": 258,
+"text": "Día",
+"file": "InspoScreen",
+"n": 2,
+"ctx": ""
+},
+{
+"id": 259,
+"text": "¿Qué día?",
+"file": "InspoScreen",
+"n": 4,
+"ctx": ".navigationTitle("
+},
+{
+"id": 260,
+"text": "Has llegado al final :)",
+"file": "InspoScreen",
+"n": 1,
+"ctx": "if isExhausted { return"
+},
+{
+"id": 261,
+"text": "Generar {0} más",
+"file": "InspoScreen",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 262,
+"text": "Todavía no has hablado con él",
+"file": "StylistArchiveScreen",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 263,
+"text": "Lo que le pidas y lo que te proponga se queda aquí.",
+"file": "StylistArchiveScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 264,
+"text": "Archivo",
+"file": "StylistArchiveScreen",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 265,
+"text": "Conversaciones",
+"file": "StylistArchiveScreen",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 266,
+"text": "1 conjunto",
+"file": "StylistArchiveScreen",
+"n": 2,
+"ctx": "oks = conversation.lookCount == 1 ?"
+},
+{
+"id": 267,
+"text": "{0} conjuntos",
+"file": "StylistArchiveScreen",
+"n": 2,
+"ctx": "ion.lookCount == 1 ? \"1 conjunto\" :"
+},
+{
+"id": 268,
+"text": "Sin nada todavía",
+"file": "StylistChat",
+"n": 1,
+"ctx": "first { $0.role == .user }?.text ??"
+},
+{
+"id": 269,
+"text": "Estilista",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 270,
+"text": "Hasta cuatro: el look se monta con ellas",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 271,
+"text": "Algo para el trabajo",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 272,
+"text": "Sin negro",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 273,
+"text": "Algo más abrigado",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 274,
+"text": "Otro pantalón",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 275,
+"text": "Pídeme por color, por ocasión o por una prenda tuya.",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 276,
+"text": "Guardado",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "Label(isSaved ?"
+},
+{
+"id": 277,
+"text": "Guardar en favoritos",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "Label(isSaved ? \"Guardado\" :"
+},
+{
+"id": 278,
+"text": "Añadir a un día",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 279,
+"text": "No me gusta",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 280,
+"text": "Pídeme un look…",
+"file": "StylistChatSheet",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 281,
+"text": "¿A qué maleta?",
+"file": "SuitcasePickerSheet",
+"n": 1,
+"ctx": "case .suitcase:"
+},
+{
+"id": 282,
+"text": "Sin día",
+"file": "SuitcasePickerSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 283,
+"text": "Preparado en la maleta",
+"file": "SuitcasePickerSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 284,
+"text": "DÍA",
+"file": "SuitcasePickerSheet",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 285,
+"text": "Con Snazzy",
+"file": "ComparisonSlider",
+"n": 1,
+"ctx": "Text(isWith ?"
+},
+{
+"id": 286,
+"text": "Sin Snazzy",
+"file": "ComparisonSlider",
+"n": 1,
+"ctx": "Text(isWith ? \"Con Snazzy\" :"
+},
+{
+"id": 287,
+"text": "Vestirme más rápido",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 288,
+"text": "Dejar de decidir delante del armario",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 289,
+"text": "Dejar de comprar de más",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 290,
+"text": "Aprovechar lo que ya tengo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 291,
+"text": "Ver todo lo que tengo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 292,
+"text": "Sin vaciar los cajones",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 293,
+"text": "Combinar mejor",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 294,
+"text": "Sacarle partido a cada prenda",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 295,
+"text": "Preparar viajes sin agobios",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 296,
+"text": "Tengo el armario lleno y nada que ponerme",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 297,
+"text": "Me olvido de la ropa que tengo al fondo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 298,
+"text": "Compro cosas parecidas a las que ya tengo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 299,
+"text": "Pierdo tiempo cada mañana",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 300,
+"text": "Hacer la maleta me estresa",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 301,
+"text": "No sé combinar lo que tengo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 302,
+"text": "Me pongo siempre la misma ropa",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"same\", text:"
+},
+{
+"id": 303,
+"text": "He comprado algo y luego he visto que ya tenía uno igual",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"bought\", text:"
+},
+{
+"id": 304,
+"text": "Tengo ropa con la etiqueta todavía puesta",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"forgot\", text:"
+},
+{
+"id": 305,
+"text": "Me cambio dos veces antes de salir de casa",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"morning\", text:"
+},
+{
+"id": 306,
+"text": "Meto en la maleta cosas que luego no uso",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"suitcase\", text:"
+},
+{
+"id": 307,
+"text": "María",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "init(id: \"1\", initials: \"MG\", name:"
+},
+{
+"id": 308,
+"text": "Compra compulsiva",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "initials: \"MG\", name: \"María\", tag:"
+},
+{
+"id": 309,
+"text": "Me di cuenta de que tenía cuatro camisas blancas casi iguales. Llevo tres meses sin comprar nada.",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "text:"
+},
+{
+"id": 310,
+"text": "Javi",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "init(id: \"2\", initials: \"JL\", name:"
+},
+{
+"id": 311,
+"text": "Poco tiempo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": " initials: \"JL\", name: \"Javi\", tag:"
+},
+{
+"id": 312,
+"text": "Dejo los outfits de la semana el domingo. Por la mañana ya no pienso.",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "text:"
+},
+{
+"id": 313,
+"text": "Ana",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "init(id: \"3\", initials: \"AR\", name:"
+},
+{
+"id": 314,
+"text": "Viaja a menudo",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ", initials: \"AR\", name: \"Ana\", tag:"
+},
+{
+"id": 315,
+"text": "Hacer la maleta era lo que peor llevaba. Ahora la preparo en diez minutos.",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "text:"
+},
+{
+"id": 316,
+"text": "Ves todo lo que tienes",
+"file": "OnboardingContent",
+"n": 2,
+"ctx": "with:"
+},
+{
+"id": 317,
+"text": "Lo del fondo del armario no existe",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": " \"Ves todo lo que tienes\", without:"
+},
+{
+"id": 318,
+"text": "Sabes qué combina con qué",
+"file": "OnboardingContent",
+"n": 2,
+"ctx": "with:"
+},
+{
+"id": 319,
+"text": "Siempre las mismas tres combinaciones",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "abes qué combina con qué\", without:"
+},
+{
+"id": 320,
+"text": "Dejas de comprar repetido",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "with:"
+},
+{
+"id": 321,
+"text": "Otra camisa blanca casi igual",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "ejas de comprar repetido\", without:"
+},
+{
+"id": 322,
+"text": "La semana, ya planificada",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "with:"
+},
+{
+"id": 323,
+"text": "Decidir cada mañana con prisa",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "a semana, ya planificada\", without:"
+},
+{
+"id": 324,
+"text": "La maleta, hecha sin pensar",
+"file": "OnboardingContent",
+"n": 2,
+"ctx": "with:"
+},
+{
+"id": 325,
+"text": "Maleta llena de lo que no usas",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": "maleta, hecha sin pensar\", without:"
+},
+{
+"id": 326,
+"text": "Evitas comprar repetido",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"repeat\", label:"
+},
+{
+"id": 327,
+"text": "Dejas la semana planificada",
+"file": "OnboardingContent",
+"n": 1,
+"ctx": ".init(id: \"plan\", label:"
+},
+{
+"id": 328,
+"text": "Continuar",
+"file": "OnboardingFlow",
+"n": 4,
+"ctx": "primaryTitle: String ="
+},
+{
+"id": 329,
+"text": "Tu ropa ya está\\nen tus fotos",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 330,
+"text": "Snazzy las mira en tu iPhone para recortar las prendas que llevas puestas.",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 331,
+"text": "Dejar que mire mis fotos",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "primaryTitle:"
+},
+{
+"id": 332,
+"text": "Todo pasa en tu iPhone",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 333,
+"text": "Las fotos no se suben a ningún sitio.",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 334,
+"text": "Tú eliges cuánto",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 335,
+"text": "Puedes darle acceso solo a las fotos que quieras.",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 336,
+"text": "Solo se guarda la ropa",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 337,
+"text": "Caras y piel se descartan; no llegan al armario.",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 338,
+"text": "Saltar",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 339,
+"text": "Preparando el reconocimiento",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "Text(isPreparing ?"
+},
+{
+"id": 340,
+"text": "Buscando tu ropa",
+"file": "OnboardingScanSteps",
+"n": 2,
+"ctx": " ? \"Preparando el reconocimiento\" :"
+},
+{
+"id": 341,
+"text": "Todo pasa en tu iPhone · mantén la app abierta",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 342,
+"text": "Buscando tus fotos más recientes…",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": " progress.totalPhotos == 0 { return"
+},
+{
+"id": 343,
+"text": "{0} de {1} fotos",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 344,
+"text": "Descargando · {0}%",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "case let .downloading(fraction):"
+},
+{
+"id": 345,
+"text": "Instalando en tu iPhone",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "case .compiling:"
+},
+{
+"id": 346,
+"text": "Preparando el modelo",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "case .loading:"
+},
+{
+"id": 347,
+"text": "Un momento",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "default:"
+},
+{
+"id": 348,
+"text": "Tu armario, ya dentro",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 349,
+"text": "Ver mi armario",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "primaryTitle:"
+},
+{
+"id": 350,
+"text": "combinaciones posibles",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "caption:"
+},
+{
+"id": 351,
+"text": "Todas con ropa que ya tienes.",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 352,
+"text": "color principal",
+"file": "OnboardingScanSteps",
+"n": 1,
+"ctx": "ryStat(value: topColourName, label:"
+},
+{
+"id": 353,
+"text": "Ya tienes el armario lleno.\\nFalta poder verlo.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 354,
+"text": "Snazzy encuentra tu ropa en tus propias fotos y te enseña todo lo que puedes ponerte sin comprar nada.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 355,
+"text": "Empezar",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 356,
+"text": "¿Qué quieres conseguir?",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 357,
+"text": "Para empezar por donde más te sirva.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 358,
+"text": "¿Qué te lo impide?",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 359,
+"text": "Marca todo lo que te suene.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 360,
+"text": "¿Te suena alguna?",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 361,
+"text": "A la derecha si te pasa, a la izquierda si no.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 362,
+"text": "¿Cuánto gastas en ropa al mes?",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 363,
+"text": "Aproximado. Es para calcular lo que te puedes ahorrar.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 364,
+"text": "¿Cuántas prendas dirías que tienes?",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 365,
+"text": "A ojo. Nadie las cuenta.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 366,
+"text": "No eres la única persona\\na la que le pasa",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 367,
+"text": "Echando cuentas…",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 368,
+"text": "Lo que gastas al año",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 369,
+"text": "Cuánto de tu armario se queda sin usar",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 370,
+"text": "Lo que puedes dejar de comprar",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 371,
+"text": "Esto es lo que tienes parado",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 372,
+"text": "Quiero aprovecharlo",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "primaryTitle:"
+},
+{
+"id": 373,
+"text": "en ropa que casi no te pones",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "caption:"
+},
+{
+"id": 374,
+"text": "Estimado a partir de las {0} prendas que nos has dicho.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 375,
+"text": "al año que podrías no gastar",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "caption:"
+},
+{
+"id": 376,
+"text": "Si combinas lo que ya tienes en vez de comprar parecido.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "detail:"
+},
+{
+"id": 377,
+"text": "Son estimaciones a partir de lo que nos has contado, no una promesa.",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 378,
+"text": "Desliza y compara",
+"file": "OnboardingSteps",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 379,
+"text": "{0} de {1}",
+"file": "PendingGarmentsReview",
+"n": 4,
+"ctx": "Text("
+},
+{
+"id": 380,
+"text": "Ninguna",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": "(selection.count == pending.count ?"
+},
+{
+"id": 381,
+"text": "Todas",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": "ount == pending.count ? \"Ninguna\" :"
+},
+{
+"id": 382,
+"text": "Por revisar",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 383,
+"text": "Añadiendo…",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": "isWorking ?"
+},
+{
+"id": 384,
+"text": "Descartar las no marcadas",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 385,
+"text": "{0} {1} por revisar",
+"file": "PendingGarmentsReview",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 386,
+"text": "+{0} prendas",
+"file": "ScanFoundStep",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 387,
+"text": "Elegir cuáles guardo",
+"file": "ScanFoundStep",
+"n": 1,
+"ctx": "primaryTitle:"
+},
+{
+"id": 388,
+"text": "En cuanto tengas algo para abajo, empiezan los outfits.",
+"file": "ScanFoundStep",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 389,
+"text": "Puedes hacer más de {0} outfits con ellas.",
+"file": "ScanFoundStep",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 390,
+"text": "No hemos encontrado prendas",
+"file": "ScanReviewStep",
+"n": 1,
+"ctx": "title: pending.isEmpty ?"
+},
+{
+"id": 391,
+"text": "Esto hemos encontrado",
+"file": "ScanReviewStep",
+"n": 1,
+"ctx": "y ? \"No hemos encontrado prendas\" :"
+},
+{
+"id": 392,
+"text": "Puedes añadirlas a mano cuando quieras, una foto cada vez.",
+"file": "ScanReviewStep",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 393,
+"text": "Elige las que quieras en tu armario. Las demás se quedan para revisarlas luego desde el armario.",
+"file": "ScanReviewStep",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 394,
+"text": "Ahora no",
+"file": "ScanReviewStep",
+"n": 3,
+"ctx": "return selection.isEmpty ?"
+},
+{
+"id": 395,
+"text": "demo-{0}",
+"file": "ScanStage",
+"n": 1,
+"ctx": "photoID:"
+},
+{
+"id": 396,
+"text": "Gastos",
+"file": "CreditsPill",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 397,
+"text": "Conseguir monedas",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 398,
+"text": "Con cualquier plan entran monedas cada renovación.",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 399,
+"text": "Te has quedado sin monedas.",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 400,
+"text": "Saldo",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 401,
+"text": "En qué se ha ido",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 402,
+"text": "Nada todavía",
+"file": "CreditsPill",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 403,
+"text": "Has llegado a {0} prendas",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .garments:"
+},
+{
+"id": 404,
+"text": "Una maleta por ahora",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .suitcases:"
+},
+{
+"id": 405,
+"text": "Has creado {0} baldas propias",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .customCategories:"
+},
+{
+"id": 406,
+"text": "Escaneo completo",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .fullScan:"
+},
+{
+"id": 407,
+"text": "Planifica más allá de esta semana",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .extendedPlanning:"
+},
+{
+"id": 408,
+"text": "Pruébate los outfits",
+"file": "FeatureGate",
+"n": 2,
+"ctx": "case .tryOn:"
+},
+{
+"id": 409,
+"text": "Comparte tus looks",
+"file": "FeatureGate",
+"n": 1,
+"ctx": "case .outfitExport:"
+},
+{
+"id": 410,
+"text": "Con Snazzy Pro tu armario no tiene tope.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 411,
+"text": "Con Pro puedes preparar tantos viajes como quieras a la vez.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 412,
+"text": "Con Pro organizas el armario como te dé la gana.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 413,
+"text": "Gratis miramos {0} fotos. Con Pro, toda tu galería.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 414,
+"text": "Gratis puedes planificar {0} días. Con Pro, sin límite.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 415,
+"text": "Mira cómo te queda un outfit antes de ponértelo.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 416,
+"text": "Exporta y comparte los outfits que montes.",
+"file": "FeatureGate",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 417,
+"text": "Seis meses",
+"file": "PaywallStep",
+"n": 2,
+"ctx": "case .sixMonth:"
+},
+{
+"id": 418,
+"text": "Mensual",
+"file": "PaywallStep",
+"n": 2,
+"ctx": "case .monthly:"
+},
+{
+"id": 419,
+"text": "Semanal",
+"file": "PaywallStep",
+"n": 2,
+"ctx": "case .weekly:"
+},
+{
+"id": 420,
+"text": "11,99 €/mes",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .monthly:"
+},
+{
+"id": 421,
+"text": "4,99 €/semana",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .weekly:"
+},
+{
+"id": 422,
+"text": "7,50 €/mes · ahorras un 37%",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .sixMonth:"
+},
+{
+"id": 423,
+"text": "Para probarlo un viaje",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .weekly:"
+},
+{
+"id": 424,
+"text": "Saca todo\\nde tu armario",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 425,
+"text": "Sin límites de prendas, maletas ni escaneo.",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 426,
+"text": "Prendas y maletas sin límite",
+"file": "PaywallStep",
+"n": 2,
+"ctx": ": \"infinity\", tone: .granate, text:"
+},
+{
+"id": 427,
+"text": "Escaneo completo de tu galería",
+"file": "PaywallStep",
+"n": 2,
+"ctx": " \"photo.stack\", tone: .denim, text:"
+},
+{
+"id": 428,
+"text": "Comparte y exporta tus looks",
+"file": "PaywallStep",
+"n": 1,
+"ctx": ".and.arrow.up\", tone: .oliva, text:"
+},
+{
+"id": 429,
+"text": "Seguir gratis",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "WKSecondaryButton("
+},
+{
+"id": 430,
+"text": "Restaurar compras",
+"file": "PaywallStep",
+"n": 2,
+"ctx": "Button("
+},
+{
+"id": 431,
+"text": "Puedes cancelar cuando quieras.",
+"file": "PaywallStep",
+"n": 2,
+"ctx": "Text(store.problem ??"
+},
+{
+"id": 432,
+"text": "Un momento…",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "if store.isWorking { return"
+},
+{
+"id": 433,
+"text": "Suscribirme",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 434,
+"text": "Anual",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .annual:"
+},
+{
+"id": 435,
+"text": "Tres meses",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .threeMonth:"
+},
+{
+"id": 436,
+"text": "Dos meses",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .twoMonth:"
+},
+{
+"id": 437,
+"text": "Para siempre",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .lifetime:"
+},
+{
+"id": 438,
+"text": "{0}/mes",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "parts.append("
+},
+{
+"id": 439,
+"text": "1 día",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .day: return count == 1 ?"
+},
+{
+"id": 440,
+"text": "{0} días",
+"file": "PaywallStep",
+"n": 1,
+"ctx": ".day: return count == 1 ? \"1 día\" :"
+},
+{
+"id": 441,
+"text": "1 semana",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .week: return count == 1 ?"
+},
+{
+"id": 442,
+"text": "{0} semanas",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "k: return count == 1 ? \"1 semana\" :"
+},
+{
+"id": 443,
+"text": "1 mes",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .month: return count == 1 ?"
+},
+{
+"id": 444,
+"text": "{0} meses",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "onth: return count == 1 ? \"1 mes\" :"
+},
+{
+"id": 445,
+"text": "1 año",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "case .year: return count == 1 ?"
+},
+{
+"id": 446,
+"text": "{0} años",
+"file": "PaywallStep",
+"n": 1,
+"ctx": "year: return count == 1 ? \"1 año\" :"
+},
+{
+"id": 447,
+"text": "El probador virtual",
+"file": "ProCelebration",
+"n": 1,
+"ctx": "(\"person.crop.rectangle\", .camel,"
+},
+{
+"id": 448,
+"text": "Tus créditos, ya en tu cuenta",
+"file": "ProCelebration",
+"n": 1,
+"ctx": "(\"sparkles\", .oliva,"
+},
+{
+"id": 449,
+"text": "¡Ya eres Pro!",
+"file": "ProCelebration",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 450,
+"text": "Gracias por apoyar Snazzy. Esto es lo que acabas de desbloquear:",
+"file": "ProCelebration",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 451,
+"text": "¡A estrenar!",
+"file": "ProCelebration",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 452,
+"text": "Mejoras",
+"file": "Store",
+"n": 1,
+"ctx": "case .improvements:"
+},
+{
+"id": 453,
+"text": "Pruebas",
+"file": "Store",
+"n": 1,
+"ctx": "case .tryOns:"
+},
+{
+"id": 454,
+"text": "Mejorar una prenda",
+"file": "Store",
+"n": 1,
+"ctx": "case .improvement:"
+},
+{
+"id": 455,
+"text": "Probarte un outfit",
+"file": "Store",
+"n": 1,
+"ctx": "case .generation:"
+},
+{
+"id": 456,
+"text": "¿Descartar los cambios?",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 457,
+"text": "Descartar",
+"file": "AdvancedCanvasScreen",
+"n": 2,
+"ctx": "Button("
+},
+{
+"id": 458,
+"text": "Seguir editando",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 459,
+"text": "Se perderá todo lo que hayas hecho desde que abriste el editor.",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 460,
+"text": "¿Dónde?",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "PlaceSearchSheet(title:"
+},
+{
+"id": 461,
+"text": "Elemento",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "WKMenuSheet(title:"
+},
+{
+"id": 462,
+"text": "Centrar",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "WKMenuItem(id: \"center\", title:"
+},
+{
+"id": 463,
+"text": "Enderezar",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "WKMenuItem(id: \"upright\", title:"
+},
+{
+"id": 464,
+"text": "Restablecer tamaño",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "WKMenuItem(id: \"reset\", title:"
+},
+{
+"id": 465,
+"text": "Nada con este filtro",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 466,
+"text": "Atajos",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": ".init(title:"
+},
+{
+"id": 467,
+"text": "Parte",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": ".init(title:"
+},
+{
+"id": 468,
+"text": "sin-balda",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "result.append(Group(id:"
+},
+{
+"id": 469,
+"text": "Reciente",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "case .recent:"
+},
+{
+"id": 470,
+"text": "Parte de arriba",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "case .upperBody:"
+},
+{
+"id": 471,
+"text": "Parte de abajo",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "case .lowerBody:"
+},
+{
+"id": 472,
+"text": "Calzado",
+"file": "AdvancedCanvasScreen",
+"n": 2,
+"ctx": "case .feet:"
+},
+{
+"id": 473,
+"text": "Cabeza",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "case .head:"
+},
+{
+"id": 474,
+"text": "Quitar",
+"file": "AdvancedCanvasScreen",
+"n": 9,
+"ctx": "Button("
+},
+{
+"id": 475,
+"text": "Tus conjuntos",
+"file": "AdvancedCanvasScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 476,
+"text": "Color del fondo",
+"file": "BackdropPickerSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 477,
+"text": "Todavía no hay ropa suficiente en el armario.",
+"file": "CanvasStylist",
+"n": 1,
+"ctx": "return Outcome(note:"
+},
+{
+"id": 478,
+"text": "No te he entendido. Prueba con «otro pantalón», «algo más abrigado» o «sin negro».",
+"file": "CanvasStylist",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 479,
+"text": "Con eso no me sale nada del armario.",
+"file": "CanvasStylist",
+"n": 2,
+"ctx": ":"
+},
+{
+"id": 480,
+"text": "Con lo que tienes en el armario, esto es lo que mejor pega. No lo toco.",
+"file": "CanvasStylist",
+"n": 1,
+"ctx": "note:"
+},
+{
+"id": 481,
+"text": "Fuera {0} · ",
+"file": "CanvasStylist",
+"n": 1,
+"ctx": "note ="
+},
+{
+"id": 482,
+"text": "¿Qué te cambio?",
+"file": "CanvasStylist",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 483,
+"text": "Registra qué llevaste",
+"file": "DayPage",
+"n": 1,
+"ctx": "Text(isPast ?"
+},
+{
+"id": 484,
+"text": "Planea tu outfit",
+"file": "DayPage",
+"n": 1,
+"ctx": "(isPast ? \"Registra qué llevaste\" :"
+},
+{
+"id": 485,
+"text": "Guarda el look de ese día en tu historial",
+"file": "DayPage",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 486,
+"text": "Obtén una sugerencia de tu guardarropa",
+"file": "DayPage",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 487,
+"text": "{0} de {1} prendas",
+"file": "DayPage",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 488,
+"text": "Añade unas cuantas más y podrás planificar.",
+"file": "DayPage",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 489,
+"text": "Añadir prenda",
+"file": "GarmentTraySheet",
+"n": 2,
+"ctx": ".navigationTitle("
+},
+{
+"id": 490,
+"text": "Elige las prendas con las que quieres empezar",
+"file": "OutfitPickerSheet",
+"n": 1,
+"ctx": "var subtitle ="
+},
+{
+"id": 491,
+"text": "Solo mis prendas",
+"file": "OutfitPickerSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 492,
+"text": "Estilo",
+"file": "OutfitPickerSheet",
+"n": 1,
+"ctx": "FilterChip(title:"
+},
+{
+"id": 493,
+"text": "Ciudad",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 494,
+"text": "Usar mi ubicación",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 495,
+"text": "Sin permiso de ubicación. Puedes escribir la ciudad o dárselo en Ajustes.",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 496,
+"text": "No se pudo saber dónde estás. Prueba a escribir la ciudad.",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 497,
+"text": "No se pudo situar ese sitio. Prueba con otro.",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "message ="
+},
+{
+"id": 498,
+"text": "No se encontró ningún sitio con ese nombre.",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "if found.isEmpty { message ="
+},
+{
+"id": 499,
+"text": "No se pudo buscar ahora mismo. Inténtalo en un momento.",
+"file": "PlaceSearchSheet",
+"n": 1,
+"ctx": "message ="
+},
+{
+"id": 500,
+"text": "move-{0}",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": "case let .move(outfit):"
+},
+{
+"id": 501,
+"text": "tryon-{0}",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": "case let .tryOn(outfit):"
+},
+{
+"id": 502,
+"text": "¿Quitar este outfit?",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": ""
+},
+{
+"id": 503,
+"text": "Las prendas siguen en tu armario.",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 504,
+"text": "Probármelo",
+"file": "PlanFeedScreen",
+"n": 5,
+"ctx": "Button("
+},
+{
+"id": 505,
+"text": "Duplicar",
+"file": "PlanFeedScreen",
+"n": 7,
+"ctx": "Button("
+},
+{
+"id": 506,
+"text": "Mover a otro día",
+"file": "PlanFeedScreen",
+"n": 6,
+"ctx": "Button("
+},
+{
+"id": 507,
+"text": "Hoy",
+"file": "PlanFeedScreen",
+"n": 1,
+"ctx": "lendar.isDateInToday(date) { return"
+},
+{
+"id": 508,
+"text": "Mañana",
+"file": "PlanFeedScreen",
+"n": 1,
+"ctx": "dar.isDateInTomorrow(date) { return"
+},
+{
+"id": 509,
+"text": "Crear un outfit",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": "label:"
+},
+{
+"id": 510,
+"text": "actions-{0}",
+"file": "PlanFeedScreen",
+"n": 2,
+"ctx": ".adaptiveGlassID("
+},
+{
+"id": 511,
+"text": "Editar outfit",
+"file": "PlannerBottomBar",
+"n": 1,
+"ctx": "hasOutfit ?"
+},
+{
+"id": 512,
+"text": "Ajustes",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 513,
+"text": "Sincronizar",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 514,
+"text": "Estado",
+"file": "ProfileScreen",
+"n": 4,
+"ctx": "WKValueRow("
+},
+{
+"id": 515,
+"text": "Última vez",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 516,
+"text": "Al día",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "case .idle:"
+},
+{
+"id": 517,
+"text": "Sin conexión",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "case .offline:"
+},
+{
+"id": 518,
+"text": "Tu armario está en este iPhone. iCloud solo lo copia a tus otros dispositivos.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 519,
+"text": "Se aplica al abrir la app otra vez. Tus datos se quedan donde están.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 520,
+"text": "Dispositivos",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 521,
+"text": " · principal",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "if device === founder { text +="
+},
+{
+"id": 522,
+"text": " · este",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "ice.currentInstallationID { text +="
+},
+{
+"id": 523,
+"text": "Quitar un dispositivo no borra nada suyo. Si vuelves a abrir la app en él, aparece otra vez.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 524,
+"text": "Plan",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "WKSection("
+},
+{
+"id": 525,
+"text": "Pro",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": " value: appEnvironment.gate.isPro ?"
+},
+{
+"id": 526,
+"text": "Gratis",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "appEnvironment.gate.isPro ? \"Pro\" :"
+},
+{
+"id": 527,
+"text": "Maletas",
+"file": "ProfileScreen",
+"n": 4,
+"ctx": "ningRow(feature: .suitcases, label:"
+},
+{
+"id": 528,
+"text": "Baldas propias",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "(feature: .customCategories, label:"
+},
+{
+"id": 529,
+"text": "Pro (solo depuración)",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 530,
+"text": "Armario",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 531,
+"text": "Modelos",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "WKSection("
+},
+{
+"id": 532,
+"text": "Origen",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "WKValueRow("
+},
+{
+"id": 533,
+"text": "Segmentador",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "WKValueRow("
+},
+{
+"id": 534,
+"text": "no cargado",
+"file": "ProfileScreen",
+"n": 3,
+"ctx": ": appEnvironment.segmenter == nil ?"
+},
+{
+"id": 535,
+"text": "Embedder",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKValueRow("
+},
+{
+"id": 536,
+"text": "Banco de prompts",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKValueRow("
+},
+{
+"id": 537,
+"text": "Segunda opinión",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 538,
+"text": "vía Appwrite",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "t.resolver == nil ? \"desactivada\" :"
+},
+{
+"id": 539,
+"text": "v{0} · {1}px · {2}",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "value:"
+},
+{
+"id": 540,
+"text": "Sin modelo, el recorte usa solo las APIs del sistema y es más tosco.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 541,
+"text": "Mientras carga, el Neural Engine está ocupado y el reconocimiento del sistema no responde.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 542,
+"text": "La segunda opinión solo se consulta cuando la categoría es dudosa o hay una marca a medio leer, ",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 543,
+"text": "y solo viaja el recorte de la prenda: nunca la foto original.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "+"
+},
+{
+"id": 544,
+"text": "Nada descargado todavía.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "installed.isEmpty ?"
+},
+{
+"id": 545,
+"text": "Tutorial",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 546,
+"text": "Los avisos vuelven a salir según entres en cada pantalla. Repetir la bienvenida no borra nada: tu armario, outfits y maletas se quedan como están.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "footer:"
+},
+{
+"id": 547,
+"text": "Repetir la bienvenida",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 548,
+"text": "Avisos vistos",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 549,
+"text": "Volver a enseñarlos",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 550,
+"text": "¿Repetir la bienvenida?",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 551,
+"text": "Vuelves al principio del onboarding. No se borra nada de tu armario.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 552,
+"text": "Diagnóstico",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 553,
+"text": "{0} líneas registradas.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKSection(\"Diagnóstico\", footer:"
+},
+{
+"id": 554,
+"text": "Ocultar registro",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text(isExpanded ?"
+},
+{
+"id": 555,
+"text": "Ver registro",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "t(isExpanded ? \"Ocultar registro\" :"
+},
+{
+"id": 556,
+"text": "Vaciar registro",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 557,
+"text": "Forzar redescarga de modelos",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text(isWorking ? \"Descargando…\" :"
+},
+{
+"id": 558,
+"text": "Depuración",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "WKSection("
+},
+{
+"id": 559,
+"text": "Adaptativos",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": ".navigationTitle("
+},
+{
+"id": 560,
+"text": "Modificadores adaptativos",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 561,
+"text": "Sembrar 30 prendas",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 562,
+"text": "Sembrar 300 prendas",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 563,
+"text": "Sembrar 12 pendientes",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 564,
+"text": "Restablecer de fábrica",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 565,
+"text": "¿Borrar todo?",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 566,
+"text": "Borrar todo",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "Button("
+},
+{
+"id": 567,
+"text": "Se borran el armario, los outfits, las maletas, las fotos y lo sincronizado en iCloud, también en tus otros dispositivos. La app se cerrará y empezará de cero. No se puede deshacer.",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 568,
+"text": "Borrado: {0} registros",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "lastResult ="
+},
+{
+"id": 569,
+"text": "Falló: {0}",
+"file": "ProfileScreen",
+"n": 2,
+"ctx": "lastResult ="
+},
+{
+"id": 570,
+"text": "{0} prendas en {1}",
+"file": "ProfileScreen",
+"n": 1,
+"ctx": "lastResult ="
+},
+{
+"id": 571,
+"text": "Snazzy",
+"file": "SnazzyExport",
+"n": 2,
+"ctx": "t text = NSAttributedString(string:"
+},
+{
+"id": 572,
+"text": "¿A dónde vas?",
+"file": "NewSuitcaseSheet",
+"n": 4,
+"ctx": "PlaceSearchSheet(title:"
+},
+{
+"id": 573,
+"text": "Le pondremos ese nombre a la maleta.",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 574,
+"text": "Lisboa, finde en la sierra…",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 575,
+"text": "¿A qué sitio?",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 576,
+"text": "Con el destino puesto, cada día del viaje trae el tiempo que va a hacer.",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 577,
+"text": "Buscar una ciudad",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "Text(destination?.name ??"
+},
+{
+"id": 578,
+"text": "¿Cómo la reconoces?",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 579,
+"text": "Un icono y un color para encontrarla de un vistazo.",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 580,
+"text": "¿Sabes las fechas?",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 581,
+"text": "Con fechas preparas un outfit por día. Sin ellas, los dejas simplemente listos.",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 582,
+"text": "Elegir fechas",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "primaryTitle: hasDates ?"
+},
+{
+"id": 583,
+"text": "Crear maleta",
+"file": "NewSuitcaseSheet",
+"n": 2,
+"ctx": "Title: hasDates ? \"Elegir fechas\" :"
+},
+{
+"id": 584,
+"text": "Sí, tengo fechas",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "DateChoiceRow(title:"
+},
+{
+"id": 585,
+"text": "Todavía no",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "DateChoiceRow(title:"
+},
+{
+"id": 586,
+"text": "¿Cuándo?",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 587,
+"text": "Salida",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 588,
+"text": "Vuelta",
+"file": "NewSuitcaseSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 589,
+"text": "Maleta vacía",
+"file": "PackingChecklistTab",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 590,
+"text": "Las prendas que uses en los outfits aparecen aquí solas. También puedes añadirlas sueltas.",
+"file": "PackingChecklistTab",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 591,
+"text": "Añadir al equipaje",
+"file": "PackingChecklistTab",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 592,
+"text": "Elige lo que va en la maleta",
+"file": "PackingChecklistTab",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 593,
+"text": "Prenda",
+"file": "PackingChecklistTab",
+"n": 2,
+"ctx": "Text(entry.garment?.name ??"
+},
+{
+"id": 594,
+"text": "Maleta no encontrada",
+"file": "SuitcaseDetailScreen",
+"n": 1,
+"ctx": "ContentUnavailableView("
+},
+{
+"id": 595,
+"text": "Equipaje",
+"file": "SuitcaseDetailScreen",
+"n": 2,
+"ctx": "case .packing:"
+},
+{
+"id": 596,
+"text": "Inspo",
+"file": "SuitcaseDetailScreen",
+"n": 1,
+"ctx": "case .inspo:"
+},
+{
+"id": 597,
+"text": "Sin fechas",
+"file": "SuitcaseDetailScreen",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 598,
+"text": "{0} de {1} en la maleta",
+"file": "SuitcaseDetailScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 599,
+"text": "Elegir destino",
+"file": "SuitcaseDetailScreen",
+"n": 1,
+"ctx": " suitcase.destination else { return"
+},
+{
+"id": 600,
+"text": "Falta algo de arriba: una camiseta, una camisa o un vestido.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "if tops == 0 { return"
+},
+{
+"id": 601,
+"text": "Falta algo de abajo: un pantalón, una falda o un vestido.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "bottoms == 0, dresses == 0 { return"
+},
+{
+"id": 602,
+"text": "Con otro pantalón saldrían {0}.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "airables > 0, bottoms == 1 { return"
+},
+{
+"id": 603,
+"text": "Con otra prenda de arriba saldrían {0}.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "ottoms > 0, pairables == 1 { return"
+},
+{
+"id": 604,
+"text": "Con unos zapatos los conjuntos quedan completos.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "if shoes == 0 { return"
+},
+{
+"id": 605,
+"text": "Mete alguna prenda más y saldrán más combinaciones.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 606,
+"text": "Todavía no hay con qué",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 607,
+"text": "Mete ropa en el equipaje y aquí verás qué conjuntos salen con ella.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 608,
+"text": "Arriba",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "tally("
+},
+{
+"id": 609,
+"text": "Abajo",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "tally("
+},
+{
+"id": 610,
+"text": "Con 2 de arriba y 2 de abajo ya van cambiando.",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 611,
+"text": "Sin conjuntos",
+"file": "SuitcaseInspoTab",
+"n": 1,
+"ctx": "case 0:"
+},
+{
+"id": 612,
+"text": "create-{0}",
+"file": "SuitcaseOutfitsFeedTab",
+"n": 2,
+"ctx": "createID:"
+},
+{
+"id": 613,
+"text": "SIN",
+"file": "SuitcaseOutfitsFeedTab",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 614,
+"text": "Día {0}",
+"file": "SuitcaseOutfitsTab",
+"n": 3,
+"ctx": "let outfit = Outfit(name:"
+},
+{
+"id": 615,
+"text": "{0} (copia)",
+"file": "SuitcaseOutfitsTab",
+"n": 2,
+"ctx": "py = Outfit(name: outfit.name.map {"
+},
+{
+"id": 616,
+"text": "Outfit {0}",
+"file": "SuitcaseOutfitsTab",
+"n": 1,
+"ctx": "let outfit = Outfit(name:"
+},
+{
+"id": 617,
+"text": "Sin outfit",
+"file": "SuitcaseOutfitsTab",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 618,
+"text": "Nueva maleta",
+"file": "SuitcaseShelfSection",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 619,
+"text": "Maleta",
+"file": "SuitcaseStyleSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 620,
+"text": "Destino",
+"file": "SuitcaseStyleSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 621,
+"text": "Elegir",
+"file": "SuitcaseStyleSheet",
+"n": 1,
+"ctx": "Text(suitcase.destinationName ??"
+},
+{
+"id": 622,
+"text": "Todavía no hay maletas",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 623,
+"text": "Crea una para preparar un viaje día a día.",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "description: Text("
+},
+{
+"id": 624,
+"text": "d MMMM",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "setLocalizedDateFormatFromTemplate("
+},
+{
+"id": 625,
+"text": "{0} de {1} prendas metidas",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 626,
+"text": "Una maleta",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "return suitcases.count == 1 ?"
+},
+{
+"id": 627,
+"text": "{0} maletas",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "itcases.count == 1 ? \"Una maleta\" :"
+},
+{
+"id": 628,
+"text": "{0}, el {1}",
+"file": "SuitcasesScreen",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 629,
+"text": "¿Borrar este perfil?",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 630,
+"text": "Borrar",
+"file": "ProfileEditSheet",
+"n": 3,
+"ctx": "Button("
+},
+{
+"id": 631,
+"text": "Se borra su foto y deja de poder usarse en el probador. Lo que ya te probaste se queda.",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 632,
+"text": "{0} cm",
+"file": "ProfileEditSheet",
+"n": 3,
+"ctx": "EditRow(value:"
+},
+{
+"id": 633,
+"text": "Altura",
+"file": "ProfileEditSheet",
+"n": 2,
+"ctx": "itRow(value: \"\\(height) cm\", label:"
+},
+{
+"id": 634,
+"text": "Complexión",
+"file": "ProfileEditSheet",
+"n": 3,
+"ctx": "EditRow(value: shape.label, label:"
+},
+{
+"id": 635,
+"text": "Viste como",
+"file": "ProfileEditSheet",
+"n": 3,
+"ctx": "w(value: presentation.label, label:"
+},
+{
+"id": 636,
+"text": "Piel",
+"file": "ProfileEditSheet",
+"n": 3,
+"ctx": "itRow(value: skinTone.label, label:"
+},
+{
+"id": 637,
+"text": "Elige la tuya o escríbela en centímetros",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 638,
+"text": "Da a la ropa tus proporciones",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 639,
+"text": "Cómo se dibuja la ropa sobre ti",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 640,
+"text": "El tono con el que se te dibuja",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 641,
+"text": "Se dibujará ",
+"file": "ProfileEditSheet",
+"n": 2,
+"ctx": "WKSection(\"Foto\", footer:"
+},
+{
+"id": 642,
+"text": "Elegir otra de la galería",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 643,
+"text": "Piel {0}",
+"file": "ProfileEditSheet",
+"n": 1,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 644,
+"text": "result-{0}",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "case let .result(result):"
+},
+{
+"id": 645,
+"text": "profile-{0}",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "case let .profile(profile):"
+},
+{
+"id": 646,
+"text": "Probador virtual",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": ".navigationTitle("
+},
+{
+"id": 647,
+"text": "Perfiles",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "SectionTitle(title:"
+},
+{
+"id": 648,
+"text": "Quién se prueba la ropa. Toca uno para editarlo.",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "ionTitle(title: \"Perfiles\", detail:"
+},
+{
+"id": 649,
+"text": "Borrar perfil",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 650,
+"text": "Historial",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "SectionTitle(title:"
+},
+{
+"id": 651,
+"text": "Lo que te has probado, lo último primero.",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "onTitle(title: \"Historial\", detail:"
+},
+{
+"id": 652,
+"text": "Abre un outfit y toca el probador: lo que te pruebes se queda aquí.",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 653,
+"text": "Sin nombre",
+"file": "TryOnArchiveScreen",
+"n": 2,
+"ctx": "Text(profile.label.isEmpty ?"
+},
+{
+"id": 654,
+"text": "Nuevo perfil",
+"file": "TryOnArchiveScreen",
+"n": 2,
+"ctx": "Text("
+},
+{
+"id": 655,
+"text": "Añadida al outfit",
+"file": "TryOnArchiveScreen",
+"n": 2,
+"ctx": "addedToOutfit ?"
+},
+{
+"id": 656,
+"text": "Añadir al outfit",
+"file": "TryOnArchiveScreen",
+"n": 2,
+"ctx": "dedToOutfit ? \"Añadida al outfit\" :"
+},
+{
+"id": 657,
+"text": "Probado",
+"file": "TryOnArchiveScreen",
+"n": 2,
+"ctx": "e(uiImage: shared), preview: .init("
+},
+{
+"id": 658,
+"text": "¿Borrar esta prueba?",
+"file": "TryOnArchiveScreen",
+"n": 1,
+"ctx": ".alert("
+},
+{
+"id": 659,
+"text": "Esto necesita conexión con el servidor.",
+"file": "TryOnModel",
+"n": 2,
+"ctx": "state = .failed("
+},
+{
+"id": 660,
+"text": "Falta aceptar que la foto salga del teléfono.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "state = .failed("
+},
+{
+"id": 661,
+"text": "Este conjunto no tiene prendas.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "state = .failed("
+},
+{
+"id": 662,
+"text": "No se pudo preparar tu foto.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "state = .failed("
+},
+{
+"id": 663,
+"text": "No se pudieron preparar las prendas.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "state = .failed("
+},
+{
+"id": 664,
+"text": "El servidor devolvió algo que no es una imagen.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "state = .failed("
+},
+{
+"id": 665,
+"text": "No se pudo generar la prueba.",
+"file": "TryOnModel",
+"n": 2,
+"ctx": "return"
+},
+{
+"id": 666,
+"text": "El servidor está saturado. Prueba en un minuto.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 667,
+"text": "El modelo no ha querido generar esta imagen.",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 668,
+"text": "No se pudo conectar: {0}",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 669,
+"text": "Sin fondo",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "case .none:"
+},
+{
+"id": 670,
+"text": "Estudio",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "case .studio:"
+},
+{
+"id": 671,
+"text": "Calle",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "case .street:"
+},
+{
+"id": 672,
+"text": "Playa",
+"file": "TryOnModel",
+"n": 3,
+"ctx": "case .beach:"
+},
+{
+"id": 673,
+"text": "Oficina",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "case .office:"
+},
+{
+"id": 674,
+"text": "Noche",
+"file": "TryOnModel",
+"n": 1,
+"ctx": "case .night:"
+},
+{
+"id": 675,
+"text": "¿Descartar el perfil?",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 676,
+"text": "Seguir",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 677,
+"text": "Lo que has puesto hasta aquí no se guarda.",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 678,
+"text": "¿Quién se prueba la ropa?",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "title: profile == nil ?"
+},
+{
+"id": 679,
+"text": "Tu foto",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "nil ? \"¿Quién se prueba la ropa?\" :"
+},
+{
+"id": 680,
+"text": "Tu cara, de frente y con luz. El cuerpo lo ponen las medidas del paso siguiente.",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 681,
+"text": "¿Cómo lo llamas?",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 682,
+"text": "Para distinguirlo de los otros perfiles.",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 683,
+"text": "Yo",
+"file": "TryOnProfileSheet",
+"n": 3,
+"ctx": "TextField("
+},
+{
+"id": 684,
+"text": "¿Cómo eres?",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 685,
+"text": "Es lo que encuadra la escena y da a la ropa tus proporciones.",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 686,
+"text": "¿Algo más?",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "title:"
+},
+{
+"id": 687,
+"text": "Lo que no cabe arriba: gafas, barba, pelo largo.",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "subtitle:"
+},
+{
+"id": 688,
+"text": "Guardar",
+"file": "TryOnProfileSheet",
+"n": 2,
+"ctx": "primaryTitle:"
+},
+{
+"id": 689,
+"text": "Opcional",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "TextField("
+},
+{
+"id": 690,
+"text": "Elegir una",
+"file": "TryOnProfileSheet",
+"n": 1,
+"ctx": "GlassCapsuleLabel(title:"
+},
+{
+"id": 691,
+"text": "Crea un perfil para probarte la ropa",
+"file": "TryOnSheet",
+"n": 2,
+"ctx": "Text(profile?.described ??"
+},
+{
+"id": 692,
+"text": "Quitar este perfil",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 693,
+"text": "Nuevo",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 694,
+"text": "Fondo",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "Picker("
+},
+{
+"id": 695,
+"text": "Fondo: {0}",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 696,
+"text": "Crear un perfil",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 697,
+"text": "Aceptar y probarme",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 698,
+"text": "Tu foto se procesa fuera del teléfono. Se pregunta una vez.",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 699,
+"text": "Vistiéndote…",
+"file": "TryOnSheet",
+"n": 1,
+"ctx": "ryButton(model?.state == .working ?"
+},
+{
+"id": 700,
+"text": "Mirando tu silueta",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 701,
+"text": "Colocando cada prenda",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 702,
+"text": "Ajustando caídas y tallas",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 703,
+"text": "Igualando la luz",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 704,
+"text": "Últimos retoques",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 705,
+"text": "Fondo {0}",
+"file": "TryOnStage",
+"n": 1,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 706,
+"text": "Perfil",
+"file": "TryOnStage",
+"n": 1,
+"ctx": "Section("
+},
+{
+"id": 707,
+"text": "Probador",
+"file": "TryOnStage",
+"n": 1,
+"ctx": "Text(selected?.label ??"
+},
+{
+"id": 708,
+"text": "Se ha detectado iCloud",
+"file": "iWearItApp",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 709,
+"text": "Tu armario puede copiarse a tus otros dispositivos. Nada sale de este iPhone hasta que lo actives.",
+"file": "iWearItApp",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 710,
+"text": "mín {0}",
+"file": "CanvasStickerView",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 711,
+"text": "¿Quitar del outfit?",
+"file": "CanvasToolbar",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 712,
+"text": "La prenda sigue en tu armario.",
+"file": "CanvasToolbar",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 713,
+"text": "Fecha",
+"file": "CanvasTray",
+"n": 1,
+"ctx": "ckerTile(symbol: \"calendar\", label:"
+},
+{
+"id": 714,
+"text": "Texto",
+"file": "CanvasTray",
+"n": 1,
+"ctx": "erTile(symbol: \"textformat\", label:"
+},
+{
+"id": 715,
+"text": "Tiempo",
+"file": "CanvasTray",
+"n": 1,
+"ctx": "kerTile(symbol: \"cloud.sun\", label:"
+},
+{
+"id": 716,
+"text": "Pincel",
+"file": "DrawingPicker",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 717,
+"text": "Goma",
+"file": "DrawingPicker",
+"n": 1,
+"ctx": "label:"
+},
+{
+"id": 718,
+"text": "Deshacer",
+"file": "DrawingPicker",
+"n": 1,
+"ctx": "ActionChip(label:"
+},
+{
+"id": 719,
+"text": "Nada en {0} todavía",
+"file": "OutfitComposer",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 720,
+"text": "Complementos",
+"file": "OutfitSlot",
+"n": 1,
+"ctx": "case .accessory:"
+},
+{
+"id": 721,
+"text": "Listo",
+"file": "TextStickerEditor",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 722,
+"text": "chándal",
+"file": "GarmentNaming",
+"n": 1,
+"ctx": "plural = lower.hasSuffix(\"s\") && !["
+},
+{
+"id": 723,
+"text": "es",
+"file": "GarmentNaming",
+"n": 3,
+"ctx": "ing(lower.dropLast(lower.hasSuffix("
+},
+{
+"id": 724,
+"text": "marrón",
+"file": "GarmentNaming",
+"n": 5,
+"ctx": "case \"gris\", \"azul\","
+},
+{
+"id": 725,
+"text": "Pantalón",
+"file": "GarmentNaming",
+"n": 1,
+"ctx": "case .lowerBody:"
+},
+{
+"id": 726,
+"text": "gris oscuro",
+"file": "NamedColor",
+"n": 2,
+"ctx": "case ..<0.45: return"
+},
+{
+"id": 727,
+"text": "azul marino",
+"file": "NamedColor",
+"n": 3,
+"ctx": "se ..<255: return lightness < 0.3 ?"
+},
+{
+"id": 728,
+"text": "Despejado",
+"file": "Weather",
+"n": 1,
+"ctx": "case .clear:"
+},
+{
+"id": 729,
+"text": "Nubes y claros",
+"file": "Weather",
+"n": 1,
+"ctx": "case .cloudy:"
+},
+{
+"id": 730,
+"text": "Cubierto",
+"file": "Weather",
+"n": 1,
+"ctx": "case .overcast:"
+},
+{
+"id": 731,
+"text": "Lluvia",
+"file": "Weather",
+"n": 1,
+"ctx": "case .rain:"
+},
+{
+"id": 732,
+"text": "Nieve",
+"file": "Weather",
+"n": 1,
+"ctx": "case .snow:"
+},
+{
+"id": 733,
+"text": "Tormenta",
+"file": "Weather",
+"n": 1,
+"ctx": "case .storm:"
+},
+{
+"id": 734,
+"text": "Niebla",
+"file": "Weather",
+"n": 1,
+"ctx": "case .fog:"
+},
+{
+"id": 735,
+"text": "Viento",
+"file": "Weather",
+"n": 1,
+"ctx": "case .wind:"
+},
+{
+"id": 736,
+"text": "No hay ningún origen de modelos configurado.",
+"file": "ModelRepository",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 737,
+"text": "No se pudo contactar con el servidor de modelos: {0}",
+"file": "ModelRepository",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 738,
+"text": "El modelo descargado no coincide con el esperado.",
+"file": "ModelRepository",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 739,
+"text": "No se pudo preparar el modelo para este dispositivo: {0}",
+"file": "ModelRepository",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 740,
+"text": "Este modelo necesita iOS {0} o posterior.",
+"file": "ModelRepository",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 741,
+"text": "Conjunto",
+"file": "Stylist",
+"n": 1,
+"ctx": "ineCandidates(for: pieces).first ??"
+},
+{
+"id": 742,
+"text": "{0} con {1}",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 743,
+"text": "{0} y neutros",
+"file": "Stylist",
+"n": 2,
+"ctx": "candidates.append("
+},
+{
+"id": 744,
+"text": "{0} sobre neutros",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 745,
+"text": "Un toque de {0}",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 746,
+"text": "Claro arriba, oscuro abajo",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 747,
+"text": "Oscuro arriba, claro abajo",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 748,
+"text": "Deporte",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 749,
+"text": "Para entrenar",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Deporte\": candidates.append("
+},
+{
+"id": 750,
+"text": "Trabajo",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 751,
+"text": "De oficina",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Trabajo\": candidates.append("
+},
+{
+"id": 752,
+"text": "Formal",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 753,
+"text": "Para arreglarse",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Formal\": candidates.append("
+},
+{
+"id": 754,
+"text": "Fiesta",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 755,
+"text": "Para salir",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Fiesta\": candidates.append("
+},
+{
+"id": 756,
+"text": "De playa",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Playa\": candidates.append("
+},
+{
+"id": 757,
+"text": "Viaje",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 758,
+"text": "De viaje",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Viaje\": candidates.append("
+},
+{
+"id": 759,
+"text": "Casa",
+"file": "Stylist",
+"n": 2,
+"ctx": "case"
+},
+{
+"id": 760,
+"text": "De estar en casa",
+"file": "Stylist",
+"n": 1,
+"ctx": "case \"Casa\": candidates.append("
+},
+{
+"id": 761,
+"text": "Con la {0}",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append("
+},
+{
+"id": 762,
+"text": "Neutros claros",
+"file": "Stylist",
+"n": 1,
+"ctx": "candidates.append(light > 0.6 ?"
+},
+{
+"id": 763,
+"text": "Todo en neutros",
+"file": "Stylist",
+"n": 1,
+"ctx": "nd(light > 0.6 ? \"Neutros claros\" :"
+},
+{
+"id": 764,
+"text": "para {0}° y {1}",
+"file": "Stylist",
+"n": 1,
+"ctx": "parts.append("
+},
+{
+"id": 765,
+"text": "con {0}",
+"file": "Stylist",
+"n": 3,
+"ctx": "parts.append("
+},
+{
+"id": 766,
+"text": "sin nada de esta semana",
+"file": "Stylist",
+"n": 1,
+"ctx": "parts.append("
+},
+{
+"id": 767,
+"text": "sin manga",
+"file": "StylistGarment",
+"n": 1,
+"ctx": "return ["
+},
+{
+"id": 768,
+"text": "manga corta",
+"file": "StylistGarment",
+"n": 1,
+"ctx": "return [\"sin manga\","
+},
+{
+"id": 769,
+"text": "pantalón",
+"file": "StylistGarment",
+"n": 1,
+"ctx": "case .bottom:"
+},
+{
+"id": 770,
+"text": "sin {0}",
+"file": "StylistPhrase",
+"n": 2,
+"ctx": "understood.append("
+},
+{
+"id": 771,
+"text": "para frío",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "understood.append("
+},
+{
+"id": 772,
+"text": "para calor",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "understood.append("
+},
+{
+"id": 773,
+"text": "de entretiempo",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "understood.append("
+},
+{
+"id": 774,
+"text": "fuera {0}",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "understood.append(negated ?"
+},
+{
+"id": 775,
+"text": "otro {0}",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "ated ? \"fuera \\(role.spokenName)\" :"
+},
+{
+"id": 776,
+"text": "sin repetir lo de estos días",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "understood.append("
+},
+{
+"id": 777,
+"text": "No he pillado del todo lo que buscas, pero mira estos.",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "?"
+},
+{
+"id": 778,
+"text": "No he pillado lo que buscas. Prueba con un color, una ocasión o una prenda: «algo azul para el trabajo», «sin negro», «con las zapatillas blancas».",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": ":"
+},
+{
+"id": 779,
+"text": "{0}: con eso no me sale nada del armario. Prueba a pedir menos cosas a la vez.",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "return"
+},
+{
+"id": 780,
+"text": "Aquí va uno.",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "let tail = lookCount == 1 ?"
+},
+{
+"id": 781,
+"text": "Aquí van {0}.",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "= lookCount == 1 ? \"Aquí va uno.\" :"
+},
+{
+"id": 782,
+"text": " y sin ",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "connector in [\" pero \", \" aunque \","
+},
+{
+"id": 783,
+"text": " sin ",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "n [\" pero \", \" aunque \", \" y sin \","
+},
+{
+"id": 784,
+"text": " nada de ",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": " \", \" aunque \", \" y sin \", \" sin \","
+},
+{
+"id": 785,
+"text": "sin",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 786,
+"text": "nada",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "\"sin\", \"no\","
+},
+{
+"id": 787,
+"text": "no repet",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 788,
+"text": "sin repet",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "\"no repet\","
+},
+{
+"id": 789,
+"text": "otra cosa",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "\"no repet\", \"sin repet\", \"repetir\","
+},
+{
+"id": 790,
+"text": "algo distinto",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "sin repet\", \"repetir\", \"otra cosa\","
+},
+{
+"id": 791,
+"text": "algo diferente",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "tir\", \"otra cosa\", \"algo distinto\","
+},
+{
+"id": 792,
+"text": "Diario",
+"file": "StylistPhrase",
+"n": 1,
+"ctx": "("
+},
+{
+"id": 793,
+"text": "Superficie",
+"file": "AdaptiveGallery",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 794,
+"text": "Teñida",
+"file": "AdaptiveGallery",
+"n": 1,
+"ctx": "Text("
+},
+{
+"id": 795,
+"text": "Secundario",
+"file": "AdaptiveGallery",
+"n": 1,
+"ctx": "Button("
+},
+{
+"id": 796,
+"text": "12 de 25",
+"file": "WKList",
+"n": 1,
+"ctx": "WKValueRow(\"Prendas\", value:"
+},
+{
+"id": 797,
+"text": "0 de 1",
+"file": "WKList",
+"n": 1,
+"ctx": "WKValueRow(\"Maletas\", value:"
+},
+{
+"id": 798,
+"text": "listo (v1)",
+"file": "WKList",
+"n": 1,
+"ctx": "WKValueRow(\"Segmentador\", value:"
+},
+{
+"id": 799,
+"text": "Crear outfits",
+"file": "WKPrimaryButton",
+"n": 1,
+"ctx": "WKPrimaryButton("
+},
+{
+"id": 800,
+"text": "Generar ocho más",
+"file": "WKProgressFill",
+"n": 1,
+"ctx": "Label("
+},
+{
+"id": 801,
+"text": "mejorando…",
+"file": "WKProgressPill",
+"n": 2,
+"ctx": "WKProgressPill("
+},
+{
+"id": 802,
+"text": "Calculando",
+"file": "OnboardingInteractions",
+"n": 1,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 803,
+"text": "Paso {0} de {1}",
+"file": "OnboardingKit",
+"n": 1,
+"ctx": ".accessibilityLabel("
+},
+{
+"id": 804,
+"text": "Tira para crear",
+"file": "WKTips",
+"n": 1,
+"ctx": "case .overscrollNewOutfit:"
+},
+{
+"id": 805,
+"text": "Mueve tu ropa",
+"file": "WKTips",
+"n": 1,
+"ctx": "case .dragGarment:"
+},
+{
+"id": 806,
+"text": "Varias a la vez",
+"file": "WKTips",
+"n": 1,
+"ctx": "case .bulkImport:"
+},
+{
+"id": 807,
+"text": "Toca para ajustar",
+"file": "WKTips",
+"n": 1,
+"ctx": "case .reviewCard:"
+},
+{
+"id": 808,
+"text": "Dilo con el dedo",
+"file": "WKTips",
+"n": 1,
+"ctx": "case .swipeLook:"
+},
+{
+"id": 809,
+"text": "Tira hacia abajo del todo y suelta para montar un outfit nuevo.",
+"file": "WKTips",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 810,
+"text": "Mantén pulsada una prenda para llevártela a otra balda o cambiarla de sitio.",
+"file": "WKTips",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 811,
+"text": "Puedes elegir varias fotos de golpe: se analizan una detrás de otra.",
+"file": "WKTips",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 812,
+"text": "Toca una prenda para cambiar su tipo, su color o recortarla otra vez.",
+"file": "WKTips",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 813,
+"text": "Arrastra a la derecha lo que te guste y a la izquierda lo que no: lo que descartes pesa menos en lo que venga.",
+"file": "WKTips",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 814,
+"text": "Delgada",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .slim:"
+},
+{
+"id": 815,
+"text": "Atlética",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .athletic:"
+},
+{
+"id": 816,
+"text": "Media",
+"file": "Infrastructure",
+"n": 2,
+"ctx": "case .average:"
+},
+{
+"id": 817,
+"text": "Con curvas",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .curvy:"
+},
+{
+"id": 818,
+"text": "Corpulenta",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .large:"
+},
+{
+"id": 819,
+"text": "complexión delgada",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .slim:"
+},
+{
+"id": 820,
+"text": "complexión atlética, hombros marcados",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .athletic:"
+},
+{
+"id": 821,
+"text": "complexión media",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .average:"
+},
+{
+"id": 822,
+"text": "cuerpo con curvas, cintura marcada",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .curvy:"
+},
+{
+"id": 823,
+"text": "complexión corpulenta",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .large:"
+},
+{
+"id": 824,
+"text": "Mujer",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .woman:"
+},
+{
+"id": 825,
+"text": "Hombre",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .man:"
+},
+{
+"id": 826,
+"text": "Neutro",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .neutral:"
+},
+{
+"id": 827,
+"text": "una mujer",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .woman:"
+},
+{
+"id": 828,
+"text": "un hombre",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .man:"
+},
+{
+"id": 829,
+"text": "una persona de aspecto andrógino",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .neutral:"
+},
+{
+"id": 830,
+"text": "Clara",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .light:"
+},
+{
+"id": 831,
+"text": "Morena",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .tan:"
+},
+{
+"id": 832,
+"text": "Oscura",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .dark:"
+},
+{
+"id": 833,
+"text": "piel clara",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .light:"
+},
+{
+"id": 834,
+"text": "piel de tono medio",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .medium:"
+},
+{
+"id": 835,
+"text": "piel morena",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .tan:"
+},
+{
+"id": 836,
+"text": "piel oscura",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "case .dark:"
+},
+{
+"id": 837,
+"text": "una persona",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "ring] = [presentation?.described ??"
+},
+{
+"id": 838,
+"text": "de {0} cm",
+"file": "Infrastructure",
+"n": 1,
+"ctx": "t heightCentimetres { parts.append("
+},
+{
+"id": 839,
+"text": "PROBE: hoy no tiene ningún outfit al que poner color",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 840,
+"text": "PROBE: color %@ puesto en el outfit %@",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "NSLog("
+},
+{
+"id": 841,
+"text": "Sonda",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "let outfit = Outfit(name:"
+},
+{
+"id": 842,
+"text": "Lisboa",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "name:"
+},
+{
+"id": 843,
+"text": "Gimnasio",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "let gym = Suitcase(name:"
+},
+{
+"id": 844,
+"text": "Outfit 1",
+"file": "WardrobeActor",
+"n": 1,
+"ctx": "let prepared = Outfit(name:"
+},
+{
+"id": 845,
+"text": "Camisetas",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"camisetas\","
+},
+{
+"id": 846,
+"text": "Polos",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"polos\","
+},
+{
+"id": 847,
+"text": "Camisas",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"camisas\","
+},
+{
+"id": 848,
+"text": "Sudaderas",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"sudaderas\","
+},
+{
+"id": 849,
+"text": "Jerseys",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"jerseys\","
+},
+{
+"id": 850,
+"text": "Vestidos",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"vestidos\","
+},
+{
+"id": 851,
+"text": "Bermudas",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"bermudas\","
+},
+{
+"id": 852,
+"text": "Pantalones",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"pantalones\","
+},
+{
+"id": 853,
+"text": "Bañadores",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "(\"banadores\","
+},
+{
+"id": 854,
+"text": "pantalon corto",
+"file": "WardrobeSchema",
+"n": 1,
+"ctx": "([\"bermuda\", \"short\","
+},
+{
+"id": 855,
+"text": "ya vistas {0} · misma ropa {1} · no cámara {2} · iCloud {3}",
+"file": "GalleryScanner",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 856,
+"text": " · sin persona {0} · sin prendas {1}",
+"file": "GalleryScanner",
+"n": 1,
+"ctx": "+"
+},
+{
+"id": 857,
+"text": " · prendas por calidad {0} · duplicadas {1}",
+"file": "GalleryScanner",
+"n": 1,
+"ctx": "+"
+},
+{
+"id": 858,
+"text": "El iPhone está muy caliente. Seguimos en cuanto se enfríe.",
+"file": "ScanBudget",
+"n": 1,
+"ctx": "reason:"
+},
+{
+"id": 859,
+"text": "Modo de bajo consumo",
+"file": "ScanBudget",
+"n": 1,
+"ctx": "ncy: 1, shouldPause: false, reason:"
+},
+{
+"id": 860,
+"text": "Poca memoria disponible",
+"file": "ScanBudget",
+"n": 1,
+"ctx": "ncy: 1, shouldPause: false, reason:"
+},
+{
+"id": 861,
+"text": "HTTP {0} {1}",
+"file": "AppwriteModelRepository",
+"n": 1,
+"ctx": "throw ModelRepositoryError.network("
+},
+{
+"id": 862,
+"text": "No se encontró ninguna cámara disponible.",
+"file": "CameraController",
+"n": 1,
+"ctx": "case .noCamera:"
+},
+{
+"id": 863,
+"text": "No se pudo procesar la foto.",
+"file": "CameraController",
+"n": 1,
+"ctx": "case .captureFailed:"
+},
+{
+"id": 864,
+"text": "Aquí",
+"file": "LocationProvider",
+"n": 2,
+"ctx": "??"
+},
+{
+"id": 865,
+"text": "No se pudo abrir el paquete descargado",
+"file": "ModelStore",
+"n": 1,
+"ctx": "lRepositoryError.compilationFailed("
+},
+{
+"id": 866,
+"text": "El paquete no se pudo descomprimir",
+"file": "ModelStore",
+"n": 1,
+"ctx": "lRepositoryError.compilationFailed("
+},
+{
+"id": 867,
+"text": "El paquete está dañado",
+"file": "ModelStore",
+"n": 1,
+"ctx": "lRepositoryError.compilationFailed("
+},
+{
+"id": 868,
+"text": "No se pudo escribir el modelo en disco",
+"file": "ModelStore",
+"n": 1,
+"ctx": "lRepositoryError.compilationFailed("
+},
+{
+"id": 869,
+"text": "El paquete no contiene ningún .{0}",
+"file": "ModelStore",
+"n": 1,
+"ctx": "lRepositoryError.compilationFailed("
+},
+{
+"id": 870,
+"text": "No se pudo preguntar por el tiempo",
+"file": "OpenMeteoWeatherService",
+"n": 1,
+"ctx": "case .badRequest:"
+},
+{
+"id": 871,
+"text": "El servicio del tiempo no responde",
+"file": "OpenMeteoWeatherService",
+"n": 1,
+"ctx": "case .server:"
+},
+{
+"id": 872,
+"text": "sin respuesta",
+"file": "RemoteClothingResolver",
+"n": 3,
+"ctx": "ow ClothingResolverError.transport("
+},
+{
+"id": 873,
+"text": "HTTP {0}",
+"file": "RemoteClothingResolver",
+"n": 3,
+"ctx": "ow ClothingResolverError.transport("
+},
+{
+"id": 874,
+"text": "la ejecución falló en el servidor",
+"file": "RemoteClothingResolver",
+"n": 1,
+"ctx": "ow ClothingResolverError.transport("
+},
+{
+"id": 875,
+"text": "tardó demasiado",
+"file": "RemoteClothingResolver",
+"n": 1,
+"ctx": "ow ClothingResolverError.transport("
+},
+{
+"id": 876,
+"text": "no se pudo abrir sesión anónima",
+"file": "RemoteClothingResolver",
+"n": 1,
+"ctx": "ow ClothingResolverError.transport("
+},
+{
+"id": 877,
+"text": "No se reconoce a nadie en la foto.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 878,
+"text": "No se pudo separar el sujeto del fondo.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 879,
+"text": "No se pudo generar la máscara de recorte.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 880,
+"text": "No se pudo dibujar el recorte.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 881,
+"text": "Está tardando demasiado",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 882,
+"text": "El reconocimiento de imágenes no está disponible ahora mismo.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 883,
+"text": "El modelo todavía se está preparando",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 884,
+"text": "Prueba con una foto de cuerpo entero donde se te vea de frente.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 885,
+"text": "Vuelve a intentarlo. Si sigue pasando, cierra y abre la app.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 886,
+"text": "Prueba con una foto de fondo despejado y buena luz.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 887,
+"text": "El Neural Engine está ocupado —normalmente cargando un modelo o con la cámara abierta—. ",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 888,
+"text": "Espera unos segundos y vuelve a intentarlo.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": "+"
+},
+{
+"id": 889,
+"text": "Espera a que termine de descargarse y cargarse. Lo verás en Ajustes › Modelos.",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 890,
+"text": "No available compute device",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 891,
+"text": "Could not create inference context",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 892,
+"text": "Failed to create espresso context",
+"file": "PipelineTypes",
+"n": 1,
+"ctx": ""
+},
+{
+"id": 893,
+"text": "no se pudo leer el recorte",
+"file": "CutoutQuality",
+"n": 1,
+"ctx": "return Report(score: 0, summary:"
+},
+{
+"id": 894,
+"text": "el recorte salió vacío",
+"file": "CutoutQuality",
+"n": 1,
+"ctx": "return Report(score: 0, summary:"
+},
+{
+"id": 895,
+"text": "ocupa %.0f%%, entera %.0f%%%@",
+"file": "CutoutQuality",
+"n": 1,
+"ctx": "format:"
+},
+{
+"id": 896,
+"text": ", toca el borde",
+"file": "CutoutQuality",
+"n": 1,
+"ctx": "touchesEdge ?"
+},
+{
+"id": 897,
+"text": "gris claro",
+"file": "NamedColorTable",
+"n": 1,
+"ctx": "("
+},
+{
+"id": 898,
+"text": "verde menta",
+"file": "NamedColorTable",
+"n": 1,
+"ctx": "("
+},
+{
+"id": 899,
+"text": "estética",
+"file": "VisionStages",
+"n": 1,
+"ctx": "bservation = try await withTimeout("
+}
+]

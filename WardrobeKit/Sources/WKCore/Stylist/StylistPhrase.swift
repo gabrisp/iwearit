@@ -51,11 +51,11 @@ public enum StylistPhrase {
                 if negated {
                     brief.avoidedColors.append(family)
                     brief.preferredColors.removeAll { $0 == family }
-                    understood.append("sin \(family)")
+                    understood.append(String(localized: "wkcore.stylistphrase.no", defaultValue: "no \(String(describing: family))", bundle: .module))
                 } else {
                     brief.preferredColors.append(family)
                     brief.avoidedColors.removeAll { $0 == family }
-                    understood.append("con \(family)")
+                    understood.append(String(localized: "wkcore.stylistphrase.with", defaultValue: "with \(String(describing: family))", bundle: .module))
                 }
             }
 
@@ -68,13 +68,13 @@ public enum StylistPhrase {
 
             if words.contains(where: { coldWords.contains($0) }) {
                 brief.warmth = .winter
-                understood.append("para frío")
+                understood.append(String(localized: "wkcore.stylistphrase.forColdWeather", defaultValue: "for cold weather", bundle: .module))
             } else if words.contains(where: { heatWords.contains($0) }) {
                 brief.warmth = .summer
-                understood.append("para calor")
+                understood.append(String(localized: "wkcore.stylistphrase.forWarmWeather", defaultValue: "for warm weather", bundle: .module))
             } else if words.contains(where: { midWords.contains($0) }) {
                 brief.warmth = .midSeason
-                understood.append("de entretiempo")
+                understood.append(String(localized: "wkcore.stylistphrase.inBetweenWeather", defaultValue: "in-between weather", bundle: .module))
             }
 
             // Una parte nombrada: "cámbiame el pantalón", "sin chaqueta".
@@ -86,7 +86,7 @@ public enum StylistPhrase {
             for (role, synonyms) in roleWords where words.contains(where: { synonyms.contains($0) }) {
                 guard negated || wantsChange else { continue }
                 freedRoles.insert(role)
-                understood.append(negated ? "fuera \(role.spokenName)" : "otro \(role.spokenName)")
+                understood.append(negated ? String(localized: "wkcore.stylistphrase.without", defaultValue: "without \(String(describing: role.spokenName))", bundle: .module) : String(localized: "wkcore.stylistphrase.another", defaultValue: "another \(String(describing: role.spokenName))", bundle: .module))
             }
 
             // Una prenda nombrada: "con los vaqueros negros", "el jersey no".
@@ -94,18 +94,18 @@ public enum StylistPhrase {
                 if negated {
                     brief.banned.insert(garment.id)
                     brief.pinned.remove(garment.id)
-                    understood.append("sin \(garment.name.lowercasedFirst)")
+                    understood.append(String(localized: "wkcore.stylistphrase.no", defaultValue: "no \(String(describing: garment.name.lowercasedFirst))", bundle: .module))
                 } else {
                     brief.pinned.insert(garment.id)
                     brief.banned.remove(garment.id)
-                    understood.append("con \(garment.name.lowercasedFirst)")
+                    understood.append(String(localized: "wkcore.stylistphrase.with", defaultValue: "with \(String(describing: garment.name.lowercasedFirst))", bundle: .module))
                 }
             }
         }
 
         let folded = fold(text)
         if repeatWords.contains(where: { folded.contains($0) }) {
-            understood.append("sin repetir lo de estos días")
+            understood.append(String(localized: "wkcore.stylistphrase.withoutRepeatingTheseLastDays", defaultValue: "without repeating these last days", bundle: .module))
         }
 
         return Reading(brief: brief, understood: uniqued(understood), freedRoles: freedRoles)
@@ -115,15 +115,15 @@ public enum StylistPhrase {
     public static func acknowledgement(_ reading: Reading, lookCount: Int) -> String {
         guard !reading.isBlank else {
             return lookCount > 0
-                ? "No he pillado del todo lo que buscas, pero mira estos."
-                : "No he pillado lo que buscas. Prueba con un color, una ocasión o una prenda: «algo azul para el trabajo», «sin negro», «con las zapatillas blancas»."
+                ? String(localized: "wkcore.stylistphrase.iDidnTQuiteGet", defaultValue: "I didn't quite get what you're after, but have a look at these.", bundle: .module)
+                : String(localized: "wkcore.stylistphrase.iDidnTGetWhat", defaultValue: "I didn't get what you're after. Try a color, an occasion or a piece: «something blue for work», «no black», «with the white sneakers».", bundle: .module)
         }
         let asked = reading.understood.joined(separator: ", ")
         guard lookCount > 0 else {
-            return "\(asked.capitalizedFirst): con eso no me sale nada del armario. Prueba a pedir menos cosas a la vez."
+            return String(localized: "wkcore.stylistphrase.nothingInTheClosetWorks", defaultValue: "\(String(describing: asked.capitalizedFirst)): nothing in the closet works with that. Try asking for fewer things at once.", bundle: .module)
         }
         // "Aquí van uno" no lo dice nadie.
-        let tail = lookCount == 1 ? "Aquí va uno." : "Aquí van \(lookCount)."
+        let tail = lookCount == 1 ? String(localized: "wkcore.stylistphrase.hereSOne", defaultValue: "Here's one.", bundle: .module) : String(localized: "wkcore.stylistphrase.hereAre", defaultValue: "Here are \(String(describing: lookCount)).", bundle: .module)
         return "\(asked.capitalizedFirst). \(tail)"
     }
 
@@ -197,7 +197,7 @@ public enum StylistPhrase {
         ("Trabajo", ["trabajo", "oficina", "curro", "reunion", "trabajar"]),
         ("Formal", ["formal", "boda", "bautizo", "comunion", "ceremonia", "elegante", "traje", "cena"]),
         ("Fiesta", ["fiesta", "salir", "discoteca", "copas", "cumple", "cumpleanos"]),
-        ("Playa", ["playa", "piscina", "mar"]),
+        (String(localized: "common.beach", defaultValue: "Beach", bundle: .module), ["playa", "piscina", "mar"]),
         ("Viaje", ["viaje", "viajar", "avion", "vuelo", "aeropuerto"]),
         ("Casa", ["casa", "comodo", "sofa", "tirado"]),
         ("Diario", ["diario", "normal", "cualquier", "calle", "paseo"]),

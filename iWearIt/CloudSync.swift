@@ -119,7 +119,7 @@ final class CloudSync {
             status = .failed(openFailure)
             observeAccount()
         } else {
-            status = .unavailable("sin iCloud")
+            status = .unavailable(String(localized: "app.cloudsync.noIcloud", defaultValue: "no iCloud"))
             // **La cuenta se vigila igual.** Si no hay sesión al arrancar se
             // sigue en local, pero cuando aparece hay que poder ofrecerlo: sin
             // este observador, el usuario tendría que adivinar que ahora sí
@@ -165,9 +165,9 @@ final class CloudSync {
                 // pasárselo a un inicializador— es lo que Swift 6 marca como
                 // carrera: su contenido no es `Sendable`.
                 let label = switch event.type {
-                case .setup: "preparación"
-                case .import: "importación"
-                case .export: "exportación"
+                case .setup: String(localized: "app.cloudsync.setup", defaultValue: "setup")
+                case .import: String(localized: "app.cloudsync.import", defaultValue: "import")
+                case .export: String(localized: "app.cloudsync.export", defaultValue: "export")
                 @unknown default: "trabajo"
                 }
                 let summary = CloudEventSummary(
@@ -244,18 +244,18 @@ final class CloudSync {
             // traducirlo, Ajustes enseñaba "Error de Cocoa 134400", que no le
             // dice nada a nadie.
             return message.contains("134400") || message.lowercased().contains("icloud account")
-                ? .unavailable("sin sesión de iCloud")
+                ? .unavailable(String(localized: "app.cloudsync.noIcloudSession", defaultValue: "no iCloud session"))
                 : .failed(message)
         }
         return switch code {
         case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited:
             .offline
         case .notAuthenticated:
-            .unavailable("inicia sesión en iCloud para sincronizar")
+            .unavailable(String(localized: "app.cloudsync.signInToIcloudTo", defaultValue: "sign in to iCloud to sync"))
         case .quotaExceeded:
-            .unavailable("no queda espacio en tu iCloud")
+            .unavailable(String(localized: "app.cloudsync.yourIcloudIsOutOf", defaultValue: "your iCloud is out of space"))
         case .managedAccountRestricted, .permissionFailure:
-            .unavailable("esta cuenta no permite iCloud")
+            .unavailable(String(localized: "app.cloudsync.thisAccountDoesnTAllow", defaultValue: "this account doesn't allow iCloud"))
         default:
             .failed(message)
         }
@@ -287,9 +287,9 @@ final class CloudSync {
                 }
                 if isEnabled, case .unavailable = status { status = .idle }
             case .noAccount:
-                status = .unavailable("sin sesión de iCloud")
+                status = .unavailable(String(localized: "app.cloudsync.noIcloudSession", defaultValue: "no iCloud session"))
             case .restricted:
-                status = .unavailable("iCloud restringido en este dispositivo")
+                status = .unavailable(String(localized: "app.cloudsync.icloudIsRestrictedOnThis", defaultValue: "iCloud is restricted on this device"))
             case .couldNotDetermine, .temporarilyUnavailable:
                 status = .offline
             @unknown default:

@@ -79,7 +79,7 @@ struct CreditsHistoryScreen: View {
         // de debajo.
         list
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .navigationTitle("Gastos")
+        .navigationTitle(String(localized: "paywall.creditspill.spending", defaultValue: "Spending"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -104,8 +104,8 @@ struct CreditsHistoryScreen: View {
     private var bottom: some View {
         if !isPro {
             VStack(spacing: WK.Spacing.xs) {
-                WKPrimaryButton("Conseguir monedas") { isShowingPaywall = true }
-                Text("Con cualquier plan entran monedas cada renovación.")
+                WKPrimaryButton(String(localized: "paywall.creditspill.getCoins", defaultValue: "Get coins")) { isShowingPaywall = true }
+                Text(String(localized: "paywall.creditspill.everyPlanAddsCoinsOn", defaultValue: "Every plan adds coins on each renewal."))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
             }
@@ -114,7 +114,7 @@ struct CreditsHistoryScreen: View {
         } else if !store.coinPacks.isEmpty {
             VStack(spacing: WK.Spacing.s) {
                 if isEmptyHanded {
-                    Text("Te has quedado sin monedas.")
+                    Text(String(localized: "paywall.creditspill.youVeRunOutOf", defaultValue: "You've run out of coins."))
                         .font(WK.Font.caption)
                         .foregroundStyle(WK.Palette.secondaryText)
                 }
@@ -135,7 +135,7 @@ struct CreditsHistoryScreen: View {
     private var list: some View {
         ScrollView {
             VStack(spacing: WK.Spacing.l) {
-                WKSection("Saldo") {
+                WKSection(String(localized: "paywall.creditspill.balance", defaultValue: "Balance")) {
                     ForEach(Array(StoreIDs.Currency.allCases.enumerated()), id: \.element) { index, currency in
                         WKValueRow(
                             store.name(of: currency),
@@ -145,10 +145,10 @@ struct CreditsHistoryScreen: View {
                     }
                 }
 
-                WKSection("En qué se ha ido") {
+                WKSection(String(localized: "paywall.creditspill.whereItWent", defaultValue: "Where it went")) {
                     if store.ledger.isEmpty {
                         WKRow(showsSeparator: false) {
-                            Text("Nada todavía")
+                            Text(String(localized: "paywall.creditspill.nothingYet", defaultValue: "Nothing yet"))
                                 .font(WK.Font.rowTitle)
                                 .foregroundStyle(WK.Palette.secondaryText)
                         }

@@ -46,9 +46,9 @@ struct ImportReviewStack: View {
 
     private var saveTitle: String {
         let kept = model.keptCount
-        if kept == 0 { return "Nada que guardar" }
-        if kept == model.candidates.count { return "Guardar todo" }
-        return kept == 1 ? "Guardar 1 prenda" : "Guardar \(kept) prendas"
+        if kept == 0 { return String(localized: "import.importreviewstack.nothingToSave", defaultValue: "Nothing to save") }
+        if kept == model.candidates.count { return String(localized: "import.importreviewstack.saveAll", defaultValue: "Save all") }
+        return kept == 1 ? String(localized: "import.importreviewstack.save1Item", defaultValue: "Save 1 item") : String(localized: "import.importreviewstack.saveItems", defaultValue: "Save \(String(describing: kept)) items")
     }
 
     /// Las fotos añadidas, derechas, a la importación que ya hay.
@@ -89,7 +89,7 @@ struct ImportReviewStack: View {
         HStack(spacing: WK.Spacing.s) {
             if onAddMore != nil, showsActions {
                 Button { isPickingMore = true } label: {
-                    Label("Agregar más", systemImage: "plus")
+                    Label(String(localized: "import.importreviewstack.addMore", defaultValue: "Add more"), systemImage: "plus")
                         .font(WK.Font.callout)
                         .foregroundStyle(WK.Palette.primaryText)
                         .padding(.horizontal, WK.Spacing.l)
@@ -246,7 +246,7 @@ struct ImportReviewStack: View {
                         },
                         onRestyle: { await model.restyle(candidateWithID: candidate.id) }
                     )
-                    .navigationTitle("Editar")
+                    .navigationTitle(String(localized: "common.edit", defaultValue: "Edit"))
                     .navigationBarTitleDisplayMode(.inline)
                     // Como la hoja de editar: una X y nada más. Lo cambiado ya
                     // está cambiado; no hay nada que confirmar.
@@ -322,7 +322,7 @@ private struct ImportGarmentCard: View {
                     .lineLimit(1)
 
                 if candidate.duplicateOf != nil {
-                    Text("Ya tienes una parecida")
+                    Text(String(localized: "import.importreviewstack.youAlreadyHaveASimilar", defaultValue: "You already have a similar one"))
                         .font(WK.Font.caption)
                         .foregroundStyle(.orange)
                         .lineLimit(1)
@@ -525,7 +525,7 @@ private struct PendingPhotosCard: View {
                 .frame(width: 96, height: 112)
                 .wkShimmer(isActive: true)
 
-            Text(count == 1 ? "Buscando prendas en 1 foto…" : "Buscando prendas en \(count) fotos…")
+            Text(count == 1 ? String(localized: "import.importreviewstack.lookingForClothesIn1", defaultValue: "Looking for clothes in 1 photo…") : String(localized: "import.importreviewstack.lookingForClothesInPhotos", defaultValue: "Looking for clothes in \(String(describing: count)) photos…"))
                 .font(WK.Font.callout)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .contentTransition(.numericText(value: Double(count)))
@@ -549,7 +549,7 @@ private struct AddingPhotosCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
             HStack(spacing: WK.Spacing.xs) {
-                Text("Analizando")
+                Text(String(localized: "import.importreviewstack.analysing", defaultValue: "Analysing"))
                 Text("\(remaining)")
                     .contentTransition(.numericText(value: Double(remaining)))
                 Text(remaining == 1 ? "foto" : "fotos")

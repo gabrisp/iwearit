@@ -13,10 +13,10 @@ struct ProCelebration: View {
     @State private var hasAppeared = false
 
     private static let perks: [(symbol: String, tone: OnboardingTone, text: String)] = [
-        ("infinity", .granate, "Prendas y maletas sin límite"),
-        ("photo.stack", .denim, "Escaneo completo de tu galería"),
-        ("person.crop.rectangle", .camel, "El probador virtual"),
-        ("sparkles", .oliva, "Tus créditos, ya en tu cuenta"),
+        ("infinity", .granate, String(localized: "paywall.procelebration.unlimitedClothesAndSuitcases", defaultValue: "Unlimited clothes and suitcases")),
+        ("photo.stack", .denim, String(localized: "paywall.procelebration.fullScanOfYourLibrary", defaultValue: "Full scan of your library")),
+        ("person.crop.rectangle", .camel, String(localized: "paywall.procelebration.theVirtualFittingRoom", defaultValue: "The virtual fitting room")),
+        ("sparkles", .oliva, String(localized: "paywall.procelebration.yourCreditsAlreadyInYour", defaultValue: "Your credits, already in your account")),
     ]
 
     var body: some View {
@@ -45,10 +45,10 @@ struct ProCelebration: View {
                 .rotationEffect(.degrees(hasAppeared ? 0 : -20))
 
                 VStack(spacing: WK.Spacing.s) {
-                    Text("¡Ya eres Pro!")
+                    Text(String(localized: "paywall.procelebration.youRePro", defaultValue: "You're Pro!"))
                         .font(WK.Font.largeTitle)
                         .foregroundStyle(WK.Palette.primaryText)
-                    Text("Gracias por apoyar Snazzy. Esto es lo que acabas de desbloquear:")
+                    Text(String(localized: "paywall.procelebration.thanksForSupportingSnazzyHere", defaultValue: "Thanks for supporting Snazzy. Here's what you just unlocked:"))
                         .font(WK.Font.callout)
                         .foregroundStyle(WK.Palette.secondaryText)
                         .multilineTextAlignment(.center)
@@ -71,7 +71,7 @@ struct ProCelebration: View {
                 .padding(WK.Spacing.m)
                 .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
 
-                WKPrimaryButton("¡A estrenar!", surface: .glass, action: onDismiss)
+                WKPrimaryButton(String(localized: "paywall.procelebration.letSGo", defaultValue: "Let's go!"), surface: .glass, action: onDismiss)
                     .opacity(hasAppeared ? 1 : 0)
                     .animation(WKAnimation.content.delay(0.7), value: hasAppeared)
             }

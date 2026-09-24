@@ -111,7 +111,7 @@ struct TryOnSheet: View {
                             result,
                             paper: scene == .none ? UIColor(PlanFeedScreen.backdrop(of: outfit)) : nil
                         )
-                        ShareLink(item: Image(uiImage: shared), preview: .init("Probado", image: Image(uiImage: shared))) {
+                        ShareLink(item: Image(uiImage: shared), preview: .init(String(localized: "tryon.tryonsheet.triedOn", defaultValue: "Tried on"), image: Image(uiImage: shared))) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .tint(WK.Palette.primaryText)
@@ -266,7 +266,7 @@ struct TryOnSheet: View {
                             Image(systemName: "person")
                                 .font(.title)
                                 .foregroundStyle(WK.Palette.tertiaryText)
-                            Text(profile?.described ?? "Crea un perfil para probarte la ropa")
+                            Text(profile?.described ?? String(localized: "tryon.tryonsheet.createAProfileToTry", defaultValue: "Create a profile to try the clothes on"))
                                 .font(WK.Font.callout)
                                 .foregroundStyle(WK.Palette.secondaryText)
                                 .multilineTextAlignment(.center)
@@ -309,10 +309,10 @@ struct TryOnSheet: View {
                     .buttonStyle(WKPressStyle())
                     .contextMenu {
                         Button { edit(item) } label: {
-                            Label("Editar", systemImage: "pencil")
+                            Label(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil")
                         }
                         Button(role: .destructive) { remove(item) } label: {
-                            Label("Quitar este perfil", systemImage: "trash")
+                            Label(String(localized: "tryon.tryonsheet.removeThisProfile", defaultValue: "Remove this profile"), systemImage: "trash")
                         }
                     }
                 }
@@ -327,7 +327,7 @@ struct TryOnSheet: View {
                                 .foregroundStyle(WK.Palette.primaryText)
                                 .frame(width: ProfileAvatar.side, height: ProfileAvatar.side)
                                 .adaptiveGlassInteractive(in: .circle)
-                            Text("Nuevo")
+                            Text(String(localized: "tryon.tryonsheet.new", defaultValue: "New"))
                                 .font(WK.Font.caption)
                                 .foregroundStyle(WK.Palette.secondaryText)
                         }
@@ -395,7 +395,7 @@ struct TryOnSheet: View {
     /// fondo va a salir —su icono— y cambiarlo son dos toques.
     private var sceneMenu: some View {
         Menu {
-            Picker("Fondo", selection: $scene) {
+            Picker(String(localized: "tryon.tryonsheet.background2", defaultValue: "Background"), selection: $scene) {
                 ForEach(TryOnScene.allCases) { option in
                     Label(option.label, systemImage: option.symbol).tag(option)
                 }
@@ -409,19 +409,19 @@ struct TryOnSheet: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .adaptiveGlassInteractive(in: .circle)
-        .accessibilityLabel("Fondo: \(scene.label)")
+        .accessibilityLabel(String(localized: "tryon.tryonsheet.background", defaultValue: "Background: \(String(describing: scene.label))"))
     }
 
     @ViewBuilder
     private var bottom: some View {
         VStack(spacing: WK.Spacing.s) {
             if profile == nil {
-                WKPrimaryButton("Crear un perfil", surface: .glass) { edit(nil) }
+                WKPrimaryButton(String(localized: "tryon.tryonsheet.createAProfile", defaultValue: "Create a profile"), surface: .glass) { edit(nil) }
             } else if profile?.hasPhoto == true, profile?.canLeaveDevice != true {
-                WKPrimaryButton("Aceptar y probarme", surface: .glass) { accept() }
+                WKPrimaryButton(String(localized: "tryon.tryonsheet.acceptAndTryItOn", defaultValue: "Accept and try it on"), surface: .glass) { accept() }
                 // Lo justo y en letra pequeña: el cartel de antes ocupaba media
                 // pantalla para decir esto mismo.
-                Text("Tu foto se procesa fuera del teléfono. Se pregunta una vez.")
+                Text(String(localized: "tryon.tryonsheet.yourPhotoIsProcessedOff", defaultValue: "Your photo is processed off the phone. You're asked once."))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
                     .multilineTextAlignment(.center)
@@ -431,7 +431,7 @@ struct TryOnSheet: View {
                 if model?.state != .working, model?.result != nil || showing != nil {
                     Button { Task { await addToOutfit() } } label: {
                         Label(
-                            addedToOutfit ? "Añadida al outfit" : "Añadir al outfit",
+                            addedToOutfit ? String(localized: "tryon.tryonsheet.addedToTheOutfit", defaultValue: "Added to the outfit") : String(localized: "tryon.tryonsheet.addToOutfit", defaultValue: "Add to outfit"),
                             systemImage: addedToOutfit ? "checkmark" : "plus.rectangle.on.rectangle"
                         )
                         .font(WK.Font.captionMedium)
@@ -455,7 +455,7 @@ struct TryOnSheet: View {
 
                 // En cristal, a lo ancho. El menú de escenas de al lado se
                 // queda comentado: ver `ScenePicker`.
-                WKPrimaryButton(model?.state == .working ? "Vistiéndote…" : "Probármelo", surface: .glass) {
+                WKPrimaryButton(model?.state == .working ? String(localized: "tryon.tryonsheet.dressingYou", defaultValue: "Dressing you…") : String(localized: "common.tryItOn", defaultValue: "Try it on"), surface: .glass) {
                     generate()
                 }
                 .disabled(model?.state == .working)

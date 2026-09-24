@@ -287,7 +287,7 @@ struct TryOnStage: View {
             } else {
                 VStack(spacing: WK.Spacing.s) {
                     ToneIcon("person.fill", tone: .camel, size: 56)
-                    Text(profile?.described ?? "Crea un perfil para probarte la ropa")
+                    Text(profile?.described ?? String(localized: "tryon.tryonstage.createAProfileToTry", defaultValue: "Create a profile to try the clothes on"))
                         .font(WK.Font.callout)
                         .foregroundStyle(WK.Palette.secondaryText)
                         .multilineTextAlignment(.center)
@@ -309,11 +309,11 @@ struct TryOnStage: View {
 /// siempre arranca dentro de una hoja, y esto se mueve siempre.
 struct TryOnGeneratingEffect: View {
     private static let phrases = [
-        "Mirando tu silueta",
-        "Colocando cada prenda",
-        "Ajustando caídas y tallas",
-        "Igualando la luz",
-        "Últimos retoques",
+        String(localized: "tryon.tryonstage.lookingAtYourSilhouette", defaultValue: "Looking at your silhouette"),
+        String(localized: "tryon.tryonstage.placingEachPiece", defaultValue: "Placing each piece"),
+        String(localized: "tryon.tryonstage.adjustingFitAndDrape", defaultValue: "Adjusting fit and drape"),
+        String(localized: "tryon.tryonstage.matchingTheLight", defaultValue: "Matching the light"),
+        String(localized: "tryon.tryonstage.finalTouches", defaultValue: "Final touches"),
     ]
     @State private var start = Date()
 
@@ -437,7 +437,7 @@ struct ScenePicker: View {
                         }
                     }
                     .buttonStyle(WKPressStyle())
-                    .accessibilityLabel("Fondo \(scene.label)")
+                    .accessibilityLabel(String(localized: "tryon.tryonstage.background", defaultValue: "Background \(String(describing: scene.label))"))
                     .accessibilityAddTraits(selection == scene ? .isSelected : [])
                 }
             }
@@ -495,7 +495,7 @@ struct ProfileSwitcher: View {
     var body: some View {
         Menu {
             if !profiles.isEmpty {
-                Section("Perfil") {
+                Section(String(localized: "tryon.tryonstage.profile", defaultValue: "Profile")) {
                     ForEach(profiles) { profile in
                         Button { onSelect(profile) } label: {
                             if profile.id == selected?.id {
@@ -516,7 +516,7 @@ struct ProfileSwitcher: View {
             // }
             if canAddMore {
                 Button(action: onNew) {
-                    Label("Nuevo perfil", systemImage: "plus")
+                    Label(String(localized: "tryon.tryonstage.newProfile", defaultValue: "New profile"), systemImage: "plus")
                 }
             }
         } label: {
@@ -535,7 +535,7 @@ struct ProfileSwitcher: View {
                 .background(WK.Palette.ink(0.06))
                 .clipShape(.circle)
 
-                Text(selected?.label ?? "Probador")
+                Text(selected?.label ?? String(localized: "tryon.tryonstage.fittingRoom", defaultValue: "Fitting room"))
                     .font(WK.Font.headline)
                     .foregroundStyle(WK.Palette.primaryText)
                     .lineLimit(1)

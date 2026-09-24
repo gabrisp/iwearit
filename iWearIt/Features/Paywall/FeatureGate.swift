@@ -116,32 +116,32 @@ public final class FeatureGate {
 extension Feature {
     var lockedTitle: String {
         switch self {
-        case .garments: "Has llegado a \(FreeTierLimits.garments) prendas"
-        case .suitcases: "Una maleta por ahora"
-        case .customCategories: "Has creado \(FreeTierLimits.customCategories) baldas propias"
-        case .fullScan: "Escaneo completo"
-        case .extendedPlanning: "Planifica más allá de esta semana"
-        case .tryOn: "Pruébate los outfits"
-        case .outfitExport: "Comparte tus looks"
+        case .garments: String(localized: "paywall.featuregate.youVeReachedPieces", defaultValue: "You've reached \(String(describing: FreeTierLimits.garments)) pieces")
+        case .suitcases: String(localized: "paywall.featuregate.oneSuitcaseForNow", defaultValue: "One suitcase for now")
+        case .customCategories: String(localized: "paywall.featuregate.youVeCreatedCustomShelves", defaultValue: "You've created \(String(describing: FreeTierLimits.customCategories)) custom shelves")
+        case .fullScan: String(localized: "paywall.featuregate.fullScan", defaultValue: "Full scan")
+        case .extendedPlanning: String(localized: "paywall.featuregate.planBeyondThisWeek", defaultValue: "Plan beyond this week")
+        case .tryOn: String(localized: "paywall.featuregate.tryOnYourOutfits", defaultValue: "Try on your outfits")
+        case .outfitExport: String(localized: "paywall.featuregate.shareYourLooks", defaultValue: "Share your looks")
         }
     }
 
     var lockedDetail: String {
         switch self {
         case .garments:
-            "Con Snazzy Pro tu armario no tiene tope."
+            String(localized: "paywall.featuregate.withSnazzyProYourCloset", defaultValue: "With Snazzy Pro your closet has no limit.")
         case .suitcases:
-            "Con Pro puedes preparar tantos viajes como quieras a la vez."
+            String(localized: "paywall.featuregate.withProYouCanPrepare", defaultValue: "With Pro you can prepare as many trips as you like at once.")
         case .customCategories:
-            "Con Pro organizas el armario como te dé la gana."
+            String(localized: "paywall.featuregate.withProYouOrganiseYour", defaultValue: "With Pro you organise your closet however you want.")
         case .fullScan:
-            "Gratis miramos \(FreeTierLimits.scanPhotos) fotos. Con Pro, toda tu galería."
+            String(localized: "paywall.featuregate.freeWeLookAtPhotos", defaultValue: "Free, we look at \(String(describing: FreeTierLimits.scanPhotos)) photos. With Pro, your whole library.")
         case .extendedPlanning:
-            "Gratis puedes planificar \(FreeTierLimits.planningDays) días. Con Pro, sin límite."
+            String(localized: "paywall.featuregate.freeYouCanPlanDays", defaultValue: "Free, you can plan \(String(describing: FreeTierLimits.planningDays)) days. With Pro, no limit.")
         case .tryOn:
-            "Mira cómo te queda un outfit antes de ponértelo."
+            String(localized: "paywall.featuregate.seeHowAnOutfitLooks", defaultValue: "See how an outfit looks on you before you wear it.")
         case .outfitExport:
-            "Exporta y comparte los outfits que montes."
+            String(localized: "paywall.featuregate.exportAndShareTheOutfits", defaultValue: "Export and share the outfits you put together.")
         }
     }
 }

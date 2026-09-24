@@ -39,7 +39,7 @@ enum CanvasStylist {
     ) -> Outcome {
         let wardrobe = context.stylistWardrobe()
         guard !wardrobe.isEmpty else {
-            return Outcome(note: "Todavía no hay ropa suficiente en el armario.", didChange: false)
+            return Outcome(note: String(localized: "planner.canvasstylist.thereArenTEnoughClothes", defaultValue: "There aren't enough clothes in the closet yet."), didChange: false)
         }
 
         let current = outfit.garments
@@ -86,8 +86,8 @@ enum CanvasStylist {
         guard let look = Stylist().look(from: wardrobe, brief: base) else {
             return Outcome(
                 note: reading.isBlank
-                    ? "No te he entendido. Prueba con «otro pantalón», «algo más abrigado» o «sin negro»."
-                    : "Con eso no me sale nada del armario.",
+                    ? String(localized: "planner.canvasstylist.iDidnTUnderstandTry", defaultValue: "I didn't understand. Try «other trousers», «something warmer» or «no black».")
+                    : String(localized: "planner.canvasstylist.nothingInTheClosetWorks", defaultValue: "Nothing in the closet works with that."),
                 didChange: false
             )
         }
@@ -101,7 +101,7 @@ enum CanvasStylist {
         )
         let pieces = look.garmentIDs.compactMap { byID[$0] }
         guard !pieces.isEmpty else {
-            return Outcome(note: "Con eso no me sale nada del armario.", didChange: false)
+            return Outcome(note: String(localized: "planner.canvasstylist.nothingInTheClosetWorks", defaultValue: "Nothing in the closet works with that."), didChange: false)
         }
 
         // **Y si sale lo mismo, se dice.** Rehacer el lienzo con las mismas
@@ -111,7 +111,7 @@ enum CanvasStylist {
         let after = Set(pieces.map(\.id))
         guard before != after else {
             return Outcome(
-                note: "Con lo que tienes en el armario, esto es lo que mejor pega. No lo toco.",
+                note: String(localized: "planner.canvasstylist.withWhatSInYour", defaultValue: "With what's in your closet, this is the best match. I'll leave it."),
                 didChange: false
             )
         }
@@ -121,7 +121,7 @@ enum CanvasStylist {
         var note = look.reason
         let removed = swapped.filter { !after.contains($0.id) }
         if let first = removed.first {
-            note = "Fuera \(first.name.lowercasedFirst) · " + note
+            note = String(localized: "planner.canvasstylist.out", defaultValue: "Out \(String(describing: first.name.lowercasedFirst)) · ") + note
         }
         return Outcome(note: note, didChange: true)
     }
@@ -271,7 +271,7 @@ struct CanvasStylistField: View {
             }
             .buttonStyle(WKPressStyle())
 
-            TextField("¿Qué te cambio?", text: $text, axis: .vertical)
+            TextField(String(localized: "planner.canvasstylist.whatShouldIChange", defaultValue: "What should I change?"), text: $text, axis: .vertical)
                 .lineLimit(1...3)
                 .focused($isFocused)
                 .submitLabel(.send)

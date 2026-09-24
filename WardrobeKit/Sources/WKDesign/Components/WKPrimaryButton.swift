@@ -160,10 +160,10 @@ public struct WKPressStyle: ButtonStyle {
 
 #Preview {
     VStack(spacing: WK.Spacing.m) {
-        WKPrimaryButton("Crear outfits", systemImage: "tshirt") {}
-        WKPrimaryButton("Continuar", surface: .glass) {}
-        WKSecondaryButton("Añadir prenda", systemImage: "plus") {}
-        WKPrimaryButton("Eliminar", role: .destructive) {}
+        WKPrimaryButton(String(localized: "wkdesign.wkprimarybutton.createOutfits", defaultValue: "Create outfits", bundle: .module), systemImage: "tshirt") {}
+        WKPrimaryButton(String(localized: "common.continue", defaultValue: "Continue", bundle: .module), surface: .glass) {}
+        WKSecondaryButton(String(localized: "wkdesign.wkprimarybutton.addPiece", defaultValue: "Add piece", bundle: .module), systemImage: "plus") {}
+        WKPrimaryButton(String(localized: "common.delete", defaultValue: "Delete", bundle: .module), role: .destructive) {}
     }
     .padding(WK.Spacing.screenInset)
     .frame(maxWidth: .infinity, maxHeight: .infinity)

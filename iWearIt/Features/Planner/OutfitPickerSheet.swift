@@ -23,8 +23,8 @@ struct OutfitPickerSheet: View {
     }
 
     var mode: Mode = .outfit
-    var title = "Crear outfit"
-    var subtitle = "Elige las prendas con las que quieres empezar"
+    var title = String(localized: "common.createOutfit", defaultValue: "Create outfit")
+    var subtitle = String(localized: "planner.outfitpickersheet.pickThePiecesYouWant", defaultValue: "Pick the pieces you want to start with")
     let store: ImageStore
     /// Cuántas caben en total. `nil` = las que quieras.
     ///
@@ -262,13 +262,13 @@ struct OutfitPickerSheet: View {
         ScrollView(.horizontal) {
             HStack(spacing: WK.Spacing.s) {
                 FilterChip(
-                    title: "Solo mis prendas",
+                    title: String(localized: "planner.outfitpickersheet.onlyMyClothes", defaultValue: "Only my clothes"),
                     symbol: onlyMine ? "checkmark.circle.fill" : "circle"
                 ) {
                     withAnimation(WKAnimation.selection) { onlyMine.toggle() }
                 }
-                FilterChip(title: "Estilo", symbol: "chevron.up.chevron.down") {}
-                FilterChip(title: "Calidez", symbol: "chevron.up.chevron.down") {}
+                FilterChip(title: String(localized: "planner.outfitpickersheet.style", defaultValue: "Style"), symbol: "chevron.up.chevron.down") {}
+                FilterChip(title: String(localized: "common.warmth", defaultValue: "Warmth"), symbol: "chevron.up.chevron.down") {}
             }
         }
         .scrollIndicators(.hidden)
@@ -599,7 +599,7 @@ private struct PickerShelfScreen: View {
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .navigationTitle(category?.name ?? "Balda")
+        .navigationTitle(category?.name ?? String(localized: "common.shelf", defaultValue: "Shelf"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

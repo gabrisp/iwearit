@@ -90,7 +90,7 @@ struct StylistChatSheet: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Estilista")
+                .navigationTitle(String(localized: "inspo.stylistchatsheet.stylist", defaultValue: "Stylist"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -130,10 +130,10 @@ struct StylistChatSheet: View {
                         // `OutfitPickerSheet`.
                         OutfitPickerSheet(
                             mode: .many,
-                            title: "Añadir prendas",
+                            title: String(localized: "inspo.stylistchatsheet.addClothes", defaultValue: "Add clothes"),
                             // Cuatro: con cinco ya está el conjunto puesto y no
                             // queda nada que proponer.
-                            subtitle: "Hasta cuatro: el look se monta con ellas",
+                            subtitle: String(localized: "inspo.stylistchatsheet.upToFourTheLook", defaultValue: "Up to four: the look is built with them"),
                             store: appEnvironment.imageStore,
                             limit: 4,
                             preselectedIDs: attachedGarments.map(\.persistentModelID)
@@ -549,15 +549,15 @@ private struct StylistPrompts: View {
     let onPick: (String) -> Void
 
     private let examples = [
-        "Algo para el trabajo",
-        "Sin negro",
-        "Algo más abrigado",
-        "Otro pantalón",
+        String(localized: "inspo.stylistchatsheet.somethingForWork", defaultValue: "Something for work"),
+        String(localized: "inspo.stylistchatsheet.noBlack", defaultValue: "No black"),
+        String(localized: "inspo.stylistchatsheet.somethingWarmer", defaultValue: "Something warmer"),
+        String(localized: "inspo.stylistchatsheet.otherTrousers", defaultValue: "Other trousers"),
     ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Pídeme por color, por ocasión o por una prenda tuya.")
+            Text(String(localized: "inspo.stylistchatsheet.askMeByColorOccasion", defaultValue: "Ask me by color, occasion or one of your pieces."))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .padding(.horizontal, WK.Spacing.screenInset)
@@ -638,16 +638,16 @@ private struct StylistResultCard: View {
                 // chat las tarjetas son pequeñas y solo caben tres iconos.
                 .contextMenu {
                     Button { onSave() } label: {
-                        Label(isSaved ? "Guardado" : "Guardar en favoritos", systemImage: "heart")
+                        Label(isSaved ? String(localized: "inspo.stylistchatsheet.saved", defaultValue: "Saved") : String(localized: "inspo.stylistchatsheet.saveToFavorites", defaultValue: "Save to favorites"), systemImage: "heart")
                     }
                     Button { onPlan() } label: {
-                        Label("Añadir a un día", systemImage: "calendar")
+                        Label(String(localized: "inspo.stylistchatsheet.addToADay", defaultValue: "Add to a day"), systemImage: "calendar")
                     }
                     Button { onEdit() } label: {
-                        Label("Editar", systemImage: "pencil")
+                        Label(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil")
                     }
                     Button(role: .destructive) { onDislike() } label: {
-                        Label("No me gusta", systemImage: "hand.thumbsdown")
+                        Label(String(localized: "inspo.stylistchatsheet.iDonTLikeIt", defaultValue: "I don't like it"), systemImage: "hand.thumbsdown")
                     }
                 }
 
@@ -675,10 +675,10 @@ struct StylistDayPicker: View {
 
     var body: some View {
         NavigationStack {
-            DatePicker("Día", selection: $date, displayedComponents: [.date])
+            DatePicker(String(localized: "inspo.stylistchatsheet.day", defaultValue: "Day"), selection: $date, displayedComponents: [.date])
                 .datePickerStyle(.graphical)
                 .padding(.horizontal, WK.Spacing.m)
-                .navigationTitle("¿Qué día?")
+                .navigationTitle(String(localized: "common.whichDay", defaultValue: "Which day?"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -723,7 +723,7 @@ private struct StylistComposer: View {
             WKCircleButton("plus", action: onPlus)
                 .tint(hasAttachments ? WK.Palette.accent : WK.Palette.primaryText)
 
-            TextField("Pídeme un look…", text: $text, axis: .vertical)
+            TextField(String(localized: "inspo.stylistchatsheet.askMeForALook", defaultValue: "Ask me for a look…"), text: $text, axis: .vertical)
                 .lineLimit(1...4)
                 .focused($isWriting)
                 .submitLabel(.send)

@@ -22,7 +22,7 @@ struct ShelfPickerSheet: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
-            Text("Balda")
+            Text(String(localized: "common.shelf", defaultValue: "Shelf"))
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
 
@@ -35,7 +35,7 @@ struct ShelfPickerSheet: View {
             }
             .frame(height: 220)
 
-            WKPrimaryButton("Mover aquí") { apply() }
+            WKPrimaryButton(String(localized: "closet.shelfpickersheet.moveHere", defaultValue: "Move here")) { apply() }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .wkDynamicSheet()

@@ -85,7 +85,7 @@ struct PendingGarmentsGrid: View {
 
     private var selectionBar: some View {
         HStack {
-            Text("\(selection.count) de \(pending.count)")
+            Text(String(localized: "common.of", defaultValue: "\(String(describing: selection.count)) of \(String(describing: pending.count))"))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
                 .monospacedDigit()
@@ -93,7 +93,7 @@ struct PendingGarmentsGrid: View {
 
             Spacer(minLength: 0)
 
-            Button(selection.count == pending.count ? "Ninguna" : "Todas") {
+            Button(selection.count == pending.count ? String(localized: "onboarding.pendinggarmentsreview.none", defaultValue: "None") : String(localized: "onboarding.pendinggarmentsreview.all", defaultValue: "All")) {
                 withAnimation(WKAnimation.selection) {
                     selection = selection.count == pending.count ? [] : Set(pending.map(\.id))
                 }
@@ -221,7 +221,7 @@ struct PendingGarmentsSheet: View {
         NavigationStack {
             PendingGarmentsGrid(selection: $selection)
                 .padding(.horizontal, WK.Spacing.screenInset)
-                .navigationTitle("Por revisar")
+                .navigationTitle(String(localized: "onboarding.pendinggarmentsreview.toReview", defaultValue: "To review"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -232,7 +232,7 @@ struct PendingGarmentsSheet: View {
                 .adaptiveSafeAreaBar(edge: .bottom) {
                     VStack(spacing: WK.Spacing.s) {
                         WKPrimaryButton(
-                            isWorking ? "Añadiendo…" : "Añadir \(selection.count)",
+                            isWorking ? String(localized: "onboarding.pendinggarmentsreview.adding", defaultValue: "Adding…") : String(localized: "common.add", defaultValue: "Add \(String(describing: selection.count))"),
                             surface: .glass
                         ) {
                             Task { await importSelected() }
@@ -245,7 +245,7 @@ struct PendingGarmentsSheet: View {
                         // querías.
                         if selection.count < pending.count {
                             Button { discardUnselected() } label: {
-                                Text("Descartar las no marcadas")
+                                Text(String(localized: "onboarding.pendinggarmentsreview.discardTheUnmarkedOnes", defaultValue: "Discard the unmarked ones"))
                                     .font(WK.Font.callout)
                                     .foregroundStyle(WK.Palette.secondaryText)
                                     .padding(.horizontal, WK.Spacing.m)
@@ -298,7 +298,9 @@ struct PendingGarmentsPill: View {
         if !pending.isEmpty {
             Button(action: action) {
                 Label(
-                    "\(pending.count.formatted()) \(pending.count == 1 ? "prenda" : "prendas") por revisar",
+                    pending.count == 1
+                        ? String(localized: "onboarding.pendinggarmentsreview.1ItemToReview", defaultValue: "1 item to review")
+                        : String(localized: "onboarding.pendinggarmentsreview.itemsToReview", defaultValue: "\(String(describing: pending.count.formatted())) items to review"),
                     systemImage: "tray.full"
                 )
                 .font(WK.Font.captionMedium)

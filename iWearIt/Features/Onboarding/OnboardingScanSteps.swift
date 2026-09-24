@@ -19,9 +19,9 @@ struct PhotoPermissionStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "Tu ropa ya está\nen tus fotos",
-            subtitle: "Snazzy las mira en tu iPhone para recortar las prendas que llevas puestas.",
-            primaryTitle: "Dejar que mire mis fotos",
+            title: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"),
+            subtitle: String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."),
+            primaryTitle: String(localized: "onboarding.onboardingscansteps.letItLookAtMy", defaultValue: "Let it look at my photos"),
             isEnabled: !isRequesting,
             onPrimary: { request() }
         ) {
@@ -29,20 +29,20 @@ struct PhotoPermissionStep: View {
                 PermissionPoint(
                     symbol: "iphone.gen3",
                     tone: .denim,
-                    title: "Todo pasa en tu iPhone",
-                    detail: "Las fotos no se suben a ningún sitio."
+                    title: String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour2", defaultValue: "It all happens on your iPhone"),
+                    detail: String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere.")
                 )
                 PermissionPoint(
                     symbol: "hand.raised",
                     tone: .salvia,
-                    title: "Tú eliges cuánto",
-                    detail: "Puedes darle acceso solo a las fotos que quieras."
+                    title: String(localized: "onboarding.onboardingscansteps.youChooseHowMuch", defaultValue: "You choose how much"),
+                    detail: String(localized: "onboarding.onboardingscansteps.youCanGiveItAccess", defaultValue: "You can give it access to only the photos you want.")
                 )
                 PermissionPoint(
                     symbol: "scissors",
                     tone: .camel,
-                    title: "Solo se guarda la ropa",
-                    detail: "Caras y piel se descartan; no llegan al armario."
+                    title: String(localized: "onboarding.onboardingscansteps.onlyTheClothesAreSaved", defaultValue: "Only the clothes are saved"),
+                    detail: String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet.")
                 )
             }
             .padding(.top, WK.Spacing.m)
@@ -111,7 +111,7 @@ struct ScanningStep: View {
                 //     .font(.subheadline)
                 //     .foregroundStyle(WK.Palette.secondaryText)
                 Button { finish() } label: {
-                    Text("Saltar")
+                    Text(String(localized: "onboarding.onboardingscansteps.skip", defaultValue: "Skip"))
                         .font(WK.Font.captionMedium)
                         .foregroundStyle(WK.Palette.primaryText)
                         .padding(.horizontal, WK.Spacing.m)
@@ -123,7 +123,7 @@ struct ScanningStep: View {
             }
 
             VStack(spacing: WK.Spacing.xs) {
-                Text(isPreparing ? "Preparando el reconocimiento" : "Buscando tu ropa")
+                Text(isPreparing ? String(localized: "onboarding.onboardingscansteps.gettingRecognitionReady", defaultValue: "Getting recognition ready") : String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes"))
                     .font(.system(.title, weight: .bold))
                     .multilineTextAlignment(.center)
                     .contentTransition(.opacity)
@@ -157,7 +157,7 @@ struct ScanningStep: View {
                     .foregroundStyle(WK.Palette.secondaryText)
             }
 
-            Label("Todo pasa en tu iPhone · mantén la app abierta", systemImage: "lock.fill")
+            Label(String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open"), systemImage: "lock.fill")
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.tertiaryText)
         }
@@ -293,16 +293,16 @@ struct ScanningStep: View {
     private var statusLine: String {
         guard isPreparing else {
             // Antes de la primera cifra, algo que diga que ya está en marcha.
-            if progress.totalPhotos == 0 { return "Buscando tus fotos más recientes…" }
-            return "\(progress.photosProcessed.formatted()) de \(progress.totalPhotos.formatted()) fotos"
+            if progress.totalPhotos == 0 { return String(localized: "onboarding.onboardingscansteps.lookingForYourMostRecent", defaultValue: "Looking for your most recent photos…") }
+            return String(localized: "onboarding.onboardingscansteps.ofPhotos", defaultValue: "\(String(describing: progress.photosProcessed.formatted())) of \(String(describing: progress.totalPhotos.formatted())) photos")
         }
         return switch appEnvironment.modelState {
-        case let .downloading(fraction): "Descargando · \(Int(fraction * 100))%"
-        case .compiling: "Instalando en tu iPhone"
+        case let .downloading(fraction): String(localized: "onboarding.onboardingscansteps.downloading", defaultValue: "Downloading · \(String(describing: Int(fraction * 100)))%")
+        case .compiling: String(localized: "onboarding.onboardingscansteps.installingOnYourIphone", defaultValue: "Installing on your iPhone")
         // El paso que antes no se nombraba y era el más largo de todos: con
         // `computeUnits = .all` esto eran minutos con la pantalla quieta.
-        case .loading: "Preparando el modelo"
-        default: "Un momento"
+        case .loading: String(localized: "onboarding.onboardingscansteps.gettingTheModelReady", defaultValue: "Getting the model ready")
+        default: String(localized: "onboarding.onboardingscansteps.oneMoment", defaultValue: "One moment")
         }
     }
 
@@ -371,8 +371,8 @@ struct ScanSummaryStep: View {
 
     var body: some View {
         OnboardingStepScaffold(
-            title: "Tu armario, ya dentro",
-            primaryTitle: "Ver mi armario",
+            title: String(localized: "onboarding.onboardingscansteps.yourClosetNowInside", defaultValue: "Your closet, now inside"),
+            primaryTitle: String(localized: "onboarding.onboardingscansteps.seeMyCloset", defaultValue: "See my closet"),
             onPrimary: { model.advance() }
         ) {
             VStack(spacing: WK.Spacing.xl) {
@@ -380,15 +380,15 @@ struct ScanSummaryStep: View {
                     // El número de verdad, sin tope: es lo que impresiona.
                     // value: "\(model.outfitIdeas(garmentCount: garments.count))+",
                     value: outfitCount.formatted(),
-                    caption: "combinaciones posibles",
-                    detail: "Todas con ropa que ya tienes.",
+                    caption: String(localized: "onboarding.onboardingscansteps.possibleCombinations", defaultValue: "possible combinations"),
+                    detail: String(localized: "onboarding.onboardingscansteps.allWithClothesYouAlready", defaultValue: "All with clothes you already own."),
                     tone: .denim
                 )
                 .padding(.top, WK.Spacing.l)
 
                 HStack(spacing: WK.Spacing.xl) {
                     SummaryStat(value: "\(garments.count)", label: "prendas")
-                    SummaryStat(value: topColourName, label: "color principal")
+                    SummaryStat(value: topColourName, label: String(localized: "onboarding.onboardingscansteps.mainColor", defaultValue: "main color"))
                 }
             }
         }

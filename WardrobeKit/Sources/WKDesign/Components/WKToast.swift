@@ -105,7 +105,7 @@ public extension View {
     @Previewable @State var center = WKToastCenter()
 
     VStack {
-        WKPrimaryButton("Guardar") { center.show(WKToast("Prenda guardada")) }
+        WKPrimaryButton(String(localized: "wkdesign.wktoast.save", defaultValue: "Save", bundle: .module)) { center.show(WKToast(String(localized: "common.itemSaved", defaultValue: "Item saved", bundle: .module))) }
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity)

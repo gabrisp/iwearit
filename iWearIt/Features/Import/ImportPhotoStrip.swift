@@ -140,7 +140,7 @@ struct ImportPhotoStrip: View {
             HStack(spacing: WK.Spacing.xs) {
                 Text("\(analysed)")
                     .contentTransition(.numericText(value: Double(analysed)))
-                Text("de \(photos.count) imágenes analizadas")
+                Text(String(localized: "import.importphotostrip.ofImagesAnalysed", defaultValue: "of \(String(describing: photos.count)) images analysed"))
             }
             .font(WK.Font.callout)
             .foregroundStyle(WK.Palette.secondaryText)

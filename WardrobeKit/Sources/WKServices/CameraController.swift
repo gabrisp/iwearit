@@ -127,8 +127,8 @@ public final class CameraController {
 
         public var errorDescription: String? {
             switch self {
-            case .noCamera: "No se encontró ninguna cámara disponible."
-            case .captureFailed: "No se pudo procesar la foto."
+            case .noCamera: String(localized: "wkservices.cameracontroller.noCameraAvailableWasFound", defaultValue: "No camera available was found.", bundle: .module)
+            case .captureFailed: String(localized: "wkservices.cameracontroller.couldnTProcessThePhoto", defaultValue: "Couldn't process the photo.", bundle: .module)
             }
         }
     }

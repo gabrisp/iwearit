@@ -91,13 +91,13 @@ public final class AppEnvironment {
     public enum ModelState: Equatable, CustomStringConvertible {
         public var description: String {
             switch self {
-            case .idle: "sin empezar"
-            case .checking: "consultando el manifiesto"
-            case let .downloading(fraction): "descargando \(Int(fraction * 100))%"
+            case .idle: String(localized: "app.appenvironment.notStarted", defaultValue: "not started")
+            case .checking: String(localized: "app.appenvironment.checkingTheManifest", defaultValue: "checking the manifest")
+            case let .downloading(fraction): String(localized: "app.appenvironment.downloading", defaultValue: "downloading \(String(describing: Int(fraction * 100)))%")
             case .compiling: "compilando"
-            case .loading: "cargando el modelo"
-            case let .ready(version): "listo (v\(version))"
-            case let .unavailable(reason): "NO DISPONIBLE — \(reason)"
+            case .loading: String(localized: "app.appenvironment.loadingTheModel", defaultValue: "loading the model")
+            case let .ready(version): String(localized: "app.appenvironment.readyV", defaultValue: "ready (v\(String(describing: version)))")
+            case let .unavailable(reason): String(localized: "app.appenvironment.notAvailable", defaultValue: "NOT AVAILABLE — \(String(describing: reason))")
             }
         }
 
@@ -254,7 +254,7 @@ public final class AppEnvironment {
                     "no se pudo abrir con réplica (\(error)); se sigue en local",
                     isProblem: true
                 )
-                cloudFailure = "No se pudo abrir la copia en iCloud: \(error.localizedDescription)"
+                cloudFailure = String(localized: "app.appenvironment.couldnTOpenTheIcloud", defaultValue: "Couldn't open the iCloud copy: \(String(describing: error.localizedDescription))")
             }
         }
 
@@ -443,7 +443,7 @@ public final class AppEnvironment {
     /// tener el mejor recorte posible en el primero.
     public func prepareModels() async {
         guard modelSource == .appwrite else {
-            modelState = .unavailable("Sin origen de modelos")
+            modelState = .unavailable(String(localized: "app.appenvironment.noModelSource", defaultValue: "No model source"))
             return
         }
         // **Primero lo que ya está en disco.**
@@ -485,7 +485,7 @@ public final class AppEnvironment {
             // El segmentador es el imprescindible: sin él no hay recorte por
             // prenda y la app cae al modo degradado.
             guard let segmentation = try await install(AppConfiguration.ModelID.clothesSegmenter) else {
-                modelState = .unavailable("El servidor no publica ningún segmentador")
+                modelState = .unavailable(String(localized: "app.appenvironment.theServerDoesnTPublish", defaultValue: "The server doesn't publish any segmenter"))
                 return
             }
             // **Cargar el modelo ocupa la ANE.**
@@ -514,7 +514,7 @@ public final class AppEnvironment {
                 DiagnosticsLog.record(
                     "MODELOS", "el segmentador no se pudo cargar", isProblem: true
                 )
-                modelState = .unavailable("El segmentador descargado no se pudo cargar")
+                modelState = .unavailable(String(localized: "app.appenvironment.theDownloadedSegmenterCouldnT", defaultValue: "The downloaded segmenter couldn't be loaded"))
                 return
             }
             DiagnosticsLog.record(

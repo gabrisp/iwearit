@@ -29,16 +29,16 @@ public struct ScanBudget: Sendable, Equatable {
         if thermalState == .critical {
             return ScanBudget(
                 concurrency: 0, shouldPause: true,
-                reason: "El iPhone está muy caliente. Seguimos en cuanto se enfríe."
+                reason: String(localized: "wkscanning.scanbudget.yourIphoneIsVeryHot", defaultValue: "Your iPhone is very hot. We'll carry on once it cools down.", bundle: .module)
             )
         }
         if isLowPower {
             // Modo de bajo consumo es una petición explícita del usuario, no una
             // condición del sistema: se respeta aunque haya margen de sobra.
-            return ScanBudget(concurrency: 1, shouldPause: false, reason: "Modo de bajo consumo")
+            return ScanBudget(concurrency: 1, shouldPause: false, reason: String(localized: "wkscanning.scanbudget.lowPowerMode", defaultValue: "Low Power Mode", bundle: .module))
         }
         if availableMemory > 0, availableMemory < lowMemoryThreshold {
-            return ScanBudget(concurrency: 1, shouldPause: false, reason: "Poca memoria disponible")
+            return ScanBudget(concurrency: 1, shouldPause: false, reason: String(localized: "wkscanning.scanbudget.lowMemoryAvailable", defaultValue: "Low memory available", bundle: .module))
         }
 
         let concurrency = switch thermalState {

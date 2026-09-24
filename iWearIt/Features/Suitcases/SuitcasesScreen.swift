@@ -60,15 +60,15 @@ struct SuitcasesScreen: View {
         .scrollClipDisabled()
         .background(WK.Palette.canvas.ignoresSafeArea())
         .adaptiveScrollEdge(.top)
-        .navigationTitle("Maletas")
+        .navigationTitle(String(localized: "common.suitcases", defaultValue: "Suitcases"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isPresentingNew) { NewSuitcaseSheet() }
         .overlay {
             if suitcases.isEmpty {
                 ContentUnavailableView(
-                    "Todavía no hay maletas",
+                    String(localized: "suitcases.suitcasesscreen.noSuitcasesYet", defaultValue: "No suitcases yet"),
                     systemImage: "suitcase",
-                    description: Text("Crea una para preparar un viaje día a día.")
+                    description: Text(String(localized: "suitcases.suitcasesscreen.createOneToPrepareA", defaultValue: "Create one to prepare a trip day by day."))
                 )
             }
         }
@@ -103,7 +103,7 @@ private struct SuitcasesSummary: View {
 
             if total > 0 {
                 VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-                    Text("\(packed) de \(total) prendas metidas")
+                    Text(String(localized: "suitcases.suitcasesscreen.ofPiecesPacked", defaultValue: "\(String(describing: packed)) of \(String(describing: total)) pieces packed"))
                         .font(WK.Font.caption)
                         .foregroundStyle(WK.Palette.secondaryText)
                         .monospacedDigit()
@@ -119,8 +119,8 @@ private struct SuitcasesSummary: View {
 
     private var headline: String {
         guard let next, let start = next.startDate else {
-            return suitcases.count == 1 ? "Una maleta" : "\(suitcases.count) maletas"
+            return suitcases.count == 1 ? String(localized: "suitcases.suitcasesscreen.oneSuitcase", defaultValue: "One suitcase") : String(localized: "suitcases.suitcasesscreen.suitcases", defaultValue: "\(String(describing: suitcases.count)) suitcases")
         }
-        return "\(next.name), el \(Self.day.string(from: start))"
+        return String(localized: "suitcases.suitcasesscreen.on", defaultValue: "\(String(describing: next.name)), on \(String(describing: Self.day.string(from: start)))")
     }
 }

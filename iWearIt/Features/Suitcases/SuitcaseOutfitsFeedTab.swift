@@ -195,20 +195,20 @@ struct SuitcaseOutfitsFeedTab: View {
                 }
             }
             .alert(
-                "¿Quitar este outfit?",
+                String(localized: "suitcases.suitcaseoutfitsfeedtab.removeThisOutfit", defaultValue: "Remove this outfit?"),
                 isPresented: Binding(
                     get: { deleting != nil },
                     set: { if !$0 { deleting = nil } }
                 ),
                 presenting: deleting
             ) { outfit in
-                Button("Quitar", role: .destructive) {
+                Button(String(localized: "common.remove", defaultValue: "Remove"), role: .destructive) {
                     withAnimation(WKAnimation.content) { outfit.markDeleted() }
                     deleting = nil
                 }
-                Button("Cancelar", role: .cancel) { deleting = nil }
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) { deleting = nil }
             } message: { _ in
-                Text("Las prendas siguen en tu armario.")
+                Text(String(localized: "suitcases.suitcaseoutfitsfeedtab.theClothesStayInYour", defaultValue: "The clothes stay in your closet."))
             }
             .onChange(of: page) { _, value in
                 if let value { dayIndex = value }
@@ -286,19 +286,19 @@ struct SuitcaseOutfitsFeedTab: View {
                     // varios a la vez y es cuando apetece copiar uno o
                     // cambiarlo de día.
                     .contextMenu {
-                        Button("Editar", systemImage: "pencil") { onEdit(outfit, false) }
-                        Button("Probármelo", systemImage: "person.crop.rectangle") {
+                        Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil") { onEdit(outfit, false) }
+                        Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle") {
                             sheet = .tryOn(outfit)
                         }
-                        Button("Duplicar", systemImage: "plus.square.on.square") {
+                        Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square") {
                             duplicate(outfit)
                         }
                         if suitcase.tripDayCount != nil {
-                            Button("Mover a otro día", systemImage: "calendar") {
+                            Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar") {
                                 sheet = .move(outfit)
                             }
                         }
-                        Button("Quitar", systemImage: "trash", role: .destructive) {
+                        Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "trash", role: .destructive) {
                             deleting = outfit
                         }
                     }
@@ -534,13 +534,13 @@ private struct SuitcaseGridCell: View {
         )
         .overlay(alignment: .topTrailing) {
             Menu {
-                Button("Editar", systemImage: "pencil", action: onEdit)
-                Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
-                Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
+                Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil", action: onEdit)
+                Button(String(localized: "common.tryItOn", defaultValue: "Try it on"), systemImage: "person.crop.rectangle", action: onTryOn)
+                Button(String(localized: "common.duplicate", defaultValue: "Duplicate"), systemImage: "plus.square.on.square", action: onDuplicate)
                 if canMove {
-                    Button("Mover a otro día", systemImage: "calendar", action: onMove)
+                    Button(String(localized: "common.moveToAnotherDay", defaultValue: "Move to another day"), systemImage: "calendar", action: onMove)
                 }
-                Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
+                Button(String(localized: "common.remove", defaultValue: "Remove"), systemImage: "trash", role: .destructive, action: onDelete)
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 15, weight: .semibold))
@@ -629,7 +629,7 @@ private struct NoDayChip: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text("SIN")
+            Text(String(localized: "suitcases.suitcaseoutfitsfeedtab.no", defaultValue: "NO"))
                 .font(.caption2)
                 .foregroundStyle(isSelected ? WK.Palette.onAccent.opacity(0.75) : WK.Palette.secondaryText)
             Image(systemName: "tray")

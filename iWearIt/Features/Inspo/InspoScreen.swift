@@ -115,7 +115,7 @@ struct InspoScreen: View {
 
     /// Qué pone arriba: el sitio y los grados de hoy.
     private var weatherTitle: String {
-        guard let forecast = feed.forecast else { return "Elegir sitio" }
+        guard let forecast = feed.forecast else { return String(localized: "inspo.insposcreen.choosePlace", defaultValue: "Choose place") }
         let degrees = Int(forecast.highCelsius.rounded())
         guard let place = forecast.place, !place.isEmpty else { return "\(degrees)°" }
         // Solo la ciudad: "Madrid, España, 33°" es el país repetido en la
@@ -189,7 +189,7 @@ struct InspoScreen: View {
                             sheet = nil
                         }
                     case .place:
-                        PlaceSearchSheet(title: "¿Dónde estás?") { place in
+                        PlaceSearchSheet(title: String(localized: "inspo.insposcreen.whereAreYou", defaultValue: "Where are you?")) { place in
                             appEnvironment.weather.use(place)
                             Task { await feed.loadWeather() }
                         }
@@ -1016,13 +1016,13 @@ private struct InspoDayPicker: View {
     var body: some View {
         NavigationStack {
             DatePicker(
-                "Día",
+                String(localized: "inspo.insposcreen.day", defaultValue: "Day"),
                 selection: $date,
                 displayedComponents: [.date]
             )
             .datePickerStyle(.graphical)
             .padding(.horizontal, WK.Spacing.m)
-            .navigationTitle("¿Qué día?")
+            .navigationTitle(String(localized: "common.whichDay", defaultValue: "Which day?"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -1297,8 +1297,8 @@ struct InspoMoreCard: View {
 
     private var headline: String {
         if isWorking { return "Montando…" }
-        if isExhausted { return "Has llegado al final :)" }
-        return "Generar \(count) más"
+        if isExhausted { return String(localized: "inspo.insposcreen.youVeReachedTheEnd", defaultValue: "You've reached the end :)") }
+        return String(localized: "inspo.insposcreen.generateMore", defaultValue: "Generate \(String(describing: count)) more")
     }
 }
 

@@ -76,15 +76,15 @@ public enum ModelRepositoryError: Error, Sendable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notConfigured:
-            "No hay ningún origen de modelos configurado."
+            String(localized: "wkcore.modelrepository.noModelSourceIsConfigured", defaultValue: "No model source is configured.", bundle: .module)
         case let .network(detail):
-            "No se pudo contactar con el servidor de modelos: \(detail)"
+            String(localized: "wkcore.modelrepository.couldnTReachTheModel", defaultValue: "Couldn't reach the model server: \(String(describing: detail))", bundle: .module)
         case .checksumMismatch:
-            "El modelo descargado no coincide con el esperado."
+            String(localized: "wkcore.modelrepository.theDownloadedModelDoesnT", defaultValue: "The downloaded model doesn't match the expected one.", bundle: .module)
         case let .compilationFailed(detail):
-            "No se pudo preparar el modelo para este dispositivo: \(detail)"
+            String(localized: "wkcore.modelrepository.couldnTPrepareTheModel", defaultValue: "Couldn't prepare the model for this device: \(String(describing: detail))", bundle: .module)
         case let .unsupportedDevice(minimum):
-            "Este modelo necesita iOS \(minimum) o posterior."
+            String(localized: "wkcore.modelrepository.thisModelNeedsIosOr", defaultValue: "This model needs iOS \(String(describing: minimum)) or later.", bundle: .module)
         }
     }
 }

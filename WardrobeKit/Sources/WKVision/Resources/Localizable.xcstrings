@@ -1,0 +1,244 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "wkvision.pipelinetypes.couldnTDrawTheCutout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't draw the cutout."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo dibujar el recorte."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.couldnTGenerateTheCutout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't generate the cutout mask."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo generar la máscara de recorte."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.couldnTSeparateTheSubject": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't separate the subject from the background."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo separar el sujeto del fondo."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.imageRecognitionIsnTAvailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image recognition isn't available right now."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El reconocimiento de imágenes no está disponible ahora mismo."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.itSTakingTooLong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It's taking too long"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Está tardando demasiado"
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.nobodyIsRecognisedInThe": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nobody is recognised in the photo."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se reconoce a nadie en la foto."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.theModelIsStillGetting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The model is still getting ready"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El modelo todavía se está preparando"
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.theNeuralEngineIsBusy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Neural Engine is busy —usually loading a model or with the camera open—. "
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El Neural Engine está ocupado —normalmente cargando un modelo o con la cámara abierta—. "
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.tryAFullBodyPhoto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a full-body photo where you're seen from the front."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prueba con una foto de cuerpo entero donde se te vea de frente."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.tryAPhotoWithA": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a photo with a clear background and good light."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prueba con una foto de fondo despejado y buena luz."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.tryAgainIfItKeeps": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try again. If it keeps happening, close and reopen the app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vuelve a intentarlo. Si sigue pasando, cierra y abre la app."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.tryAnotherPhoto": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try another photo."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prueba con otra foto."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.waitAFewSecondsAnd": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait a few seconds and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera unos segundos y vuelve a intentarlo."
+          }
+        }
+      }
+    },
+    "wkvision.pipelinetypes.waitForItToFinish": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wait for it to finish downloading and loading. You'll see it in Settings › Models."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que termine de descargarse y cargarse. Lo verás en Ajustes › Modelos."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

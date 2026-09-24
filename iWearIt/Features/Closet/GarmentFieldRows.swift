@@ -69,7 +69,7 @@ struct NotesRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            TextField("Un enlace, una talla, una referencia…", text: $notes, axis: .vertical)
+            TextField(String(localized: "closet.garmentfieldrows.aLinkASizeA", defaultValue: "A link, a size, a reference…"), text: $notes, axis: .vertical)
                 .font(WK.Font.rowTitle)
                 .foregroundStyle(WK.Palette.primaryText)
                 .textInputAutocapitalization(.sentences)
@@ -78,7 +78,7 @@ struct NotesRow: View {
                 .autocorrectionDisabled()
                 .lineLimit(1...6)
 
-            Text("Notas")
+            Text(String(localized: "closet.garmentfieldrows.notes", defaultValue: "Notes"))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.tertiaryText)
         }
@@ -93,7 +93,7 @@ struct NameRow: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 1) {
-                TextField("Nombre", text: $name)
+                TextField(String(localized: "common.name", defaultValue: "Name"), text: $name)
                     .font(WK.Font.rowTitle)
                     .foregroundStyle(WK.Palette.primaryText)
                     .textInputAutocapitalization(.sentences)
@@ -101,7 +101,7 @@ struct NameRow: View {
                     // diccionario y acabas con "Stussy" convertido en "Sucio".
                     .autocorrectionDisabled()
                     .submitLabel(.done)
-                Text("Nombre")
+                Text(String(localized: "common.name", defaultValue: "Name"))
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.tertiaryText)
             }
@@ -137,16 +137,16 @@ struct ColorRow: View {
                     // mira una prenda.
                     ColorPicker(selection: picked, supportsOpacity: false) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Color")
+                            Text(String(localized: "common.color", defaultValue: "Color"))
                                 .font(WK.Font.rowTitle)
                                 .foregroundStyle(WK.Palette.primaryText)
-                            Text("Toca la muestra para ajustarlo")
+                            Text(String(localized: "closet.garmentfieldrows.tapTheSwatchToAdjust", defaultValue: "Tap the swatch to adjust it"))
                                 .font(WK.Font.caption)
                                 .foregroundStyle(WK.Palette.tertiaryText)
                         }
                     }
                 } else {
-                    Text("Color")
+                    Text(String(localized: "common.color", defaultValue: "Color"))
                         .font(WK.Font.rowTitle)
                         .foregroundStyle(WK.Palette.primaryText)
                     Spacer()
@@ -202,13 +202,13 @@ struct CutChipsRow: View {
             .padding(.vertical, WK.Spacing.m - 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .alert(title, isPresented: $isAddingCustom) {
-                TextField("Escribe el tuyo", text: $custom)
-                Button("Añadir") {
+                TextField(String(localized: "closet.garmentfieldrows.writeYourOwn", defaultValue: "Write your own"), text: $custom)
+                Button(String(localized: "closet.garmentfieldrows.add", defaultValue: "Add")) {
                     let value = custom.trimmingCharacters(in: .whitespaces)
                     custom = ""
                     if !value.isEmpty { onChange(value.capitalized) }
                 }
-                Button("Cancelar", role: .cancel) { custom = "" }
+                Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) { custom = "" }
             }
         }
     }
@@ -246,7 +246,7 @@ struct TagChipsRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.xs) {
-            Text("Etiquetas")
+            Text(String(localized: "closet.garmentfieldrows.tags", defaultValue: "Tags"))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.tertiaryText)
 
@@ -266,15 +266,15 @@ struct TagChipsRow: View {
         }
         .padding(.vertical, WK.Spacing.m - 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .alert("Nueva etiqueta", isPresented: $isAddingCustom) {
-            TextField("Escribe la tuya", text: $custom)
-            Button("Añadir") {
+        .alert(String(localized: "closet.garmentfieldrows.newTag", defaultValue: "New tag"), isPresented: $isAddingCustom) {
+            TextField(String(localized: "closet.garmentfieldrows.writeYours", defaultValue: "Write yours"), text: $custom)
+            Button(String(localized: "closet.garmentfieldrows.add", defaultValue: "Add")) {
                 let value = custom.trimmingCharacters(in: .whitespaces).capitalized
                 custom = ""
                 guard !value.isEmpty, !visible.contains(value) else { return }
                 onChange(visible + [value])
             }
-            Button("Cancelar", role: .cancel) { custom = "" }
+            Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) { custom = "" }
         }
     }
 

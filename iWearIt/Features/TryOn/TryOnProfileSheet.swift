@@ -108,14 +108,14 @@ struct TryOnProfileSheet: View {
         // escrito sin preguntar. Se sale por la equis, que sí pregunta.
         .interactiveDismissDisabled()
         .confirmationDialog(
-            "¿Descartar el perfil?",
+            String(localized: "tryon.tryonprofilesheet.discardTheProfile", defaultValue: "Discard the profile?"),
             isPresented: $isConfirmingExit,
             titleVisibility: .visible
         ) {
-            Button("Descartar", role: .destructive) { dismiss() }
-            Button("Seguir", role: .cancel) {}
+            Button(String(localized: "tryon.tryonprofilesheet.discard", defaultValue: "Discard"), role: .destructive) { dismiss() }
+            Button(String(localized: "tryon.tryonprofilesheet.keepGoing", defaultValue: "Keep going"), role: .cancel) {}
         } message: {
-            Text("Lo que has puesto hasta aquí no se guarda.")
+            Text(String(localized: "tryon.tryonprofilesheet.whatYouVeEnteredSo", defaultValue: "What you've entered so far won't be saved."))
         }
         .sheet(isPresented: $isTakingPhoto) {
             CameraScreen { images in
@@ -131,11 +131,11 @@ struct TryOnProfileSheet: View {
 
     private var photoStep: some View {
         WKFlowScreen(
-            title: profile == nil ? "¿Quién se prueba la ropa?" : "Tu foto",
-            subtitle: "Tu cara, de frente y con luz. El cuerpo lo ponen las medidas del paso siguiente.",
+            title: profile == nil ? String(localized: "tryon.tryonprofilesheet.whoSTryingTheClothes", defaultValue: "Who's trying the clothes on?") : String(localized: "tryon.tryonprofilesheet.yourPhoto", defaultValue: "Your photo"),
+            subtitle: String(localized: "tryon.tryonprofilesheet.yourFaceStraightOnAnd", defaultValue: "Your face, straight on and well lit. The body comes from the measurements in the next step."),
             stepID: Step.photo,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isPrimaryEnabled: !imageKey.isEmpty,
             isAtRoot: flow.isAtRoot,
             onLeading: { leave() },
@@ -147,16 +147,16 @@ struct TryOnProfileSheet: View {
 
     private var nameStep: some View {
         WKFlowScreen(
-            title: "¿Cómo lo llamas?",
-            subtitle: "Para distinguirlo de los otros perfiles.",
+            title: String(localized: "tryon.tryonprofilesheet.whatDoYouCallIt", defaultValue: "What do you call it?"),
+            subtitle: String(localized: "tryon.tryonprofilesheet.toTellItApartFrom", defaultValue: "To tell it apart from the other profiles."),
             stepID: Step.name,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isAtRoot: false,
             onLeading: { flow.move(to: .photo) },
             onPrimary: { flow.move(to: .body) }
         ) {
-            TextField("Yo", text: $name)
+            TextField(String(localized: "tryon.tryonprofilesheet.me", defaultValue: "Me"), text: $name)
                 .font(WK.Font.title)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
@@ -171,11 +171,11 @@ struct TryOnProfileSheet: View {
 
     private var bodyStep: some View {
         WKFlowScreen(
-            title: "¿Cómo eres?",
-            subtitle: "Es lo que encuadra la escena y da a la ropa tus proporciones.",
+            title: String(localized: "tryon.tryonprofilesheet.whatAreYouLike", defaultValue: "What are you like?"),
+            subtitle: String(localized: "tryon.tryonprofilesheet.itFramesTheSceneAnd", defaultValue: "It frames the scene and gives the clothes your proportions."),
             stepID: Step.body,
             transition: flow.transition,
-            primaryTitle: "Siguiente",
+            primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isAtRoot: false,
             onLeading: { flow.move(to: .name) },
             onPrimary: { flow.move(to: .extras) }
@@ -185,7 +185,7 @@ struct TryOnProfileSheet: View {
                 // rango conocido, y teclearlo obliga a abrir y cerrar el
                 // teclado por 170.
                 WKWheelPicker(items: Array(140...210), selection: $height, rowHeight: 44) { value in
-                    Text("\(value) cm")
+                    Text(String(localized: "tryon.tryonprofilesheet.cm", defaultValue: "\(String(describing: value)) cm"))
                         .font(WK.Font.rowTitle)
                         .monospacedDigit()
                         .foregroundStyle(
@@ -204,9 +204,9 @@ struct TryOnProfileSheet: View {
                 // de cristal: se ve el valor elegido y cambiarlo son dos
                 // toques.
                 VStack(spacing: 0) {
-                    menuRow("Complexión", BodyProfile.Shape.allCases, selection: $shape) { $0.label }
+                    menuRow(String(localized: "tryon.tryonprofilesheet.build", defaultValue: "Build"), BodyProfile.Shape.allCases, selection: $shape) { $0.label }
                     Divider().padding(.leading, WK.Spacing.m)
-                    menuRow("Viste como", BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
+                    menuRow(String(localized: "tryon.tryonprofilesheet.dressesAs", defaultValue: "Dresses as"), BodyProfile.Presentation.allCases, selection: $presentation) { $0.label }
                 }
                 .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
 
@@ -217,17 +217,17 @@ struct TryOnProfileSheet: View {
 
     private var extrasStep: some View {
         WKFlowScreen(
-            title: "¿Algo más?",
-            subtitle: "Lo que no cabe arriba: gafas, barba, pelo largo.",
+            title: String(localized: "tryon.tryonprofilesheet.anythingElse", defaultValue: "Anything else?"),
+            subtitle: String(localized: "tryon.tryonprofilesheet.whatDoesnTFitAbove", defaultValue: "What doesn't fit above: glasses, beard, long hair."),
             stepID: Step.extras,
             transition: flow.transition,
-            primaryTitle: "Guardar",
+            primaryTitle: String(localized: "tryon.tryonprofilesheet.save", defaultValue: "Save"),
             isAtRoot: false,
             onLeading: { flow.move(to: .body) },
             onPrimary: { save() }
         ) {
             VStack(spacing: WK.Spacing.m) {
-                TextField("Opcional", text: $notes, axis: .vertical)
+                TextField(String(localized: "tryon.tryonprofilesheet.optional", defaultValue: "Optional"), text: $notes, axis: .vertical)
                     .font(WK.Font.rowTitle)
                     .lineLimit(2...4)
                     .padding(WK.Spacing.m)
@@ -239,7 +239,7 @@ struct TryOnProfileSheet: View {
                 // Lo que se le va a decir al modelo, tal cual. Enseñarlo no es
                 // un adorno: es lo que evita la sensación de haber rellenado
                 // una ficha sin saber para qué.
-                Text("Se dibujará " + draft.described + ".")
+                Text(String(localized: "tryon.tryonprofilesheet.itWillBeDrawnAs", defaultValue: "It will be drawn as ") + draft.described + ".")
                     .font(WK.Font.caption)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .multilineTextAlignment(.center)
@@ -264,7 +264,7 @@ struct TryOnProfileSheet: View {
             HStack(spacing: WK.Spacing.s) {
                 // Cristal interactivo, no cápsulas grises.
                 Button { isTakingPhoto = true } label: {
-                    Label("Hacer una foto", systemImage: "camera")
+                    Label(String(localized: "common.takeAPhoto", defaultValue: "Take a photo"), systemImage: "camera")
                         .font(WK.Font.captionMedium)
                         .foregroundStyle(WK.Palette.primaryText)
                         .frame(maxWidth: .infinity)
@@ -276,7 +276,7 @@ struct TryOnProfileSheet: View {
                 .adaptiveGlassInteractive(in: .capsule)
 
                 PhotosPicker(selection: $picked, matching: .images) {
-                    GlassCapsuleLabel(title: "Elegir una", symbol: "photo.on.rectangle")
+                    GlassCapsuleLabel(title: String(localized: "tryon.tryonprofilesheet.chooseOne", defaultValue: "Choose one"), symbol: "photo.on.rectangle")
                 }
                 .buttonStyle(.plain)
             }
@@ -395,7 +395,7 @@ struct TryOnProfileSheet: View {
     /// se entiende distinto en cada casa, un círculo de color no.
     private var skinSwatches: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.s) {
-            Text("Piel")
+            Text(String(localized: "tryon.tryonprofilesheet.skin", defaultValue: "Skin"))
                 .font(WK.Font.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
             // Las mismas muestras que en la edición. Ver `SkinToneSwatches`.
@@ -500,8 +500,8 @@ struct TryOnProfileSheet: View {
 
     private func save() {
         let label = name.trimmingCharacters(in: .whitespaces)
-        let target = profile ?? BodyProfile(label: label.isEmpty ? "Yo" : label)
-        target.label = label.isEmpty ? "Yo" : label
+        let target = profile ?? BodyProfile(label: label.isEmpty ? String(localized: "tryon.tryonprofilesheet.me", defaultValue: "Me") : label)
+        target.label = label.isEmpty ? String(localized: "tryon.tryonprofilesheet.me", defaultValue: "Me") : label
         target.heightCentimetres = height ?? 170
         target.shapeRaw = shape.rawValue
         target.presentationRaw = presentation.rawValue
