@@ -77,12 +77,18 @@ struct PlanFeedScreen: View {
     @Namespace private var morph
     /// Para que el editor crezca desde la tarjeta que se abre.
     @Namespace private var zoom
+    /// Para que los botones de la tarjeta y el menú de la rejilla sean el
+    /// mismo cristal.
+    @Namespace private var glass
 
     enum Layout { case feed, grid }
 
     /// La identidad de la tarjeta de crear. La misma en los dos modos: es lo
     /// que hace que sea **la misma tarjeta** y no dos parecidas.
     private static let createID = "plan.create"
+
+    /// De dónde crece el editor cuando el outfit **acaba de nacer**.
+    private static let newOutfitZoomID = "plan.new-outfit"
 
     /// Lo planeado para un día.
     private func entries(of date: Date) -> [Entry] {
@@ -130,6 +136,8 @@ struct PlanFeedScreen: View {
             // Aquí manda ella: la tira es la de siempre, con su cápsula y su
             // botón al lado, y la barra le reserva el sitio —así el scroll de
             // debajo sabe lo que tiene encima sin que nadie lo cuente a mano.
+            // El origen del zoom para lo recién creado: la pantalla entera.
+            .adaptiveZoomSource(id: AnyHashable(Self.newOutfitZoomID), in: zoom)
             .toolbarVisibility(.hidden, for: .navigationBar)
             .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
             .rootTabBar(.planner, selection: $tab, onAssistant: nil)
@@ -139,7 +147,20 @@ struct PlanFeedScreen: View {
                     store: appEnvironment.imageStore,
                     isNew: editingIsNew
                 )
-                .adaptiveZoomDestination(id: AnyHashable(outfit.stableID), in: zoom)
+                // **El id tiene que existir en pantalla.**
+                //
+                // Un outfit recién creado no tiene tarjeta todavía —se crea y
+                // se entra a editarlo en el mismo turno—, así que el zoom
+                // buscaba un origen que no estaba y la pantalla entraba de
+                // lado, como un empujón cualquiera. Para ese caso el origen es
+                // la pantalla, que sí está. Ver `SuitcaseDetailScreen`, que ya
+                // lo resolvía así.
+                .adaptiveZoomDestination(
+                    id: editingIsNew
+                        ? AnyHashable(Self.newOutfitZoomID)
+                        : AnyHashable(outfit.stableID),
+                    in: zoom
+                )
             }
             .sheet(item: $sheet) { which in
                 switch which {
@@ -309,6 +330,7 @@ struct PlanFeedScreen: View {
             morph: morph,
             zoom: zoom,
             createID: Self.createID + date.description,
+            glass: glass,
             isPicking: sheet != nil,
             isEditing: editingOutfit != nil,
             onEdit: { edit($0) },
@@ -330,6 +352,7 @@ struct PlanFeedScreen: View {
                     PlanGridCell(
                         entry: entry,
                         store: appEnvironment.imageStore,
+                        glass: glass,
                         onEdit: { edit(entry.outfit) },
                         onMove: { sheet = .move(entry.outfit) },
                         onDuplicate: { duplicate(entry.outfit) },
@@ -371,18 +394,25 @@ struct PlanFeedScreen: View {
                     .onTapGesture { sheet = .picker }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
-            // **Seis puntos más que en la revista.** Ahí la tarjeta trae su
-            // propio aire dentro del hueco —ver `PlanCardSize`—, y aquí las
-            // celdas empiezan a ras: con el mismo número, la primera fila
-            // quedaba más pegada a la tira de días que el lienzo de al lado.
-            .padding(.top, Self.gridTopExtra)
+            // **Seis puntos más que en la revista, contados de verdad.**
+            //
+            // Seis a secas no era eso: en la revista el aire de arriba no es
+            // cero, lo pone la propia tarjeta dentro de su hueco —ver
+            // `PlanCardSize`—, así que la rejilla empezaba treinta puntos más
+            // arriba que el lienzo de al lado. Ahora se suma al mismo número
+            // que usa la tarjeta.
+            .padding(.top, cardInset + Self.gridTopExtra)
             .padding(.bottom, WKTabBarMetrics.clearance)
         }
         .scrollIndicators(.hidden)
     }
 
-    /// Lo que la rejilla respira de más por arriba. Ver `grid(of:)`.
+    /// Lo que la rejilla respira **de más** que la revista. Ver `grid(of:)`.
     private static let gridTopExtra: CGFloat = 6
+
+    /// El aire que la tarjeta grande deja dentro de su hueco. Es el mismo
+    /// número que `PlanCardSize`, y por eso sale de ahí y no de una copia.
+    private var cardInset: CGFloat { PlanCardSize.inset(stride: stride) }
 
     // MARK: Acciones
 
@@ -481,6 +511,8 @@ private struct PlanDayFeed: View {
     let morph: Namespace.ID
     let zoom: Namespace.ID
     let createID: String
+    /// El cristal compartido entre los botones y el menú.
+    let glass: Namespace.ID
     /// Si el selector de prendas está puesto ahora mismo.
     let isPicking: Bool
     /// Si el editor está abierto encima.
@@ -493,12 +525,34 @@ private struct PlanDayFeed: View {
     @State private var anchor: AnyHashable?
 
     var body: some View {
+        // **El día vacío no es una lista de uno.**
+        //
+        // Metida en el scroll, la tarjeta de crear heredaba el hueco de una
+        // pantalla entera —el que hace que los lienzos enganchen siempre en el
+        // mismo punto— y con la tira de días encima ese hueco empieza más
+        // abajo de lo que acaba: la tarjeta quedaba alta, con un palmo de aire
+        // debajo y casi nada arriba. Sin nada que pasar, no hay nada que
+        // enganchar: se centra y ya está.
+        if entries.isEmpty {
+            PlanCreateCard(date: day)
+                .matchedGeometryEffect(id: createID, in: morph)
+                .padding(.horizontal, WK.Spacing.screenInset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(.rect)
+                .onTapGesture { onCreate() }
+        } else {
+            feed
+        }
+    }
+
+    private var feed: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
                 ForEach(entries) { entry in
                     PlanFeedCard(
                         entry: entry,
                         store: store,
+                        glass: glass,
                         onEdit: { onEdit(entry.outfit) },
                         onMove: { onMove(entry.outfit) },
                         onDelete: { onDelete(entry.outfit) }
@@ -509,18 +563,6 @@ private struct PlanDayFeed: View {
                     .id(AnyHashable(entry.id))
                 }
 
-                // **Solo cuando no hay nada.** Con outfits detrás, una tarjeta
-                // de "crear" al final es un sitio al que se llega sin querer:
-                // no es un outfit, no se puede mirar y quedarse ahí es estar
-                // en ninguna parte —por eso había que devolver el scroll a
-                // empujones—. Con el día vacío sí: entonces no hay nada que
-                // mirar y la tarjeta es lo único que dice qué hacer.
-                if entries.isEmpty {
-                    PlanCreateCard(date: day)
-                        .matchedGeometryEffect(id: createID, in: morph)
-                        .modifier(PlanCardSize(page: pageSize, stride: stride))
-                        .onTapGesture { onCreate() }
-                }
             }
             .scrollTargetLayout()
         }
@@ -535,10 +577,7 @@ private struct PlanDayFeed: View {
         // el mismo gesto que ya trae más propuestas en inspiración y el que
         // tenía el plan viejo. Ver `overscrollAction`.
         .modifier(
-            CreateOnOverscroll(
-                isOn: !entries.isEmpty && !isPicking && !isEditing,
-                action: onCreate
-            )
+            CreateOnOverscroll(isOn: !isPicking && !isEditing, action: onCreate)
         )
     }
 }
@@ -571,13 +610,20 @@ struct CreateOnOverscroll: ViewModifier {
 /// enganche del scroll y el centro de la pantalla sean el mismo punto. Ver
 /// `InspoCardSize`.
 struct PlanCardSize: ViewModifier {
+    /// El aire de la tarjeta dentro de su hueco, en función de lo que mide el
+    /// hueco. Estático para que la rejilla pueda pedir el mismo número en vez
+    /// de copiarlo.
+    static func inset(stride: CGFloat) -> CGFloat {
+        max(WK.Spacing.xs, stride / 24)
+    }
+
     let page: CGSize
     /// Lo que mide un hueco. Si no se dice, el del contenedor.
     var stride: CGFloat?
 
     func body(content: Content) -> some View {
         content
-            .padding(.vertical, max(WK.Spacing.xs, (stride ?? page.height) / 24))
+            .padding(.vertical, PlanCardSize.inset(stride: stride ?? page.height))
             .frame(height: stride)
             .scrollTransition(.interactive, axis: .vertical) { view, phase in
                 view
@@ -595,6 +641,8 @@ struct PlanCardSize: ViewModifier {
 private struct PlanFeedCard: View {
     let entry: PlanFeedScreen.Entry
     let store: ImageStore
+    /// El cristal que comparten estos botones con el menú de la rejilla.
+    let glass: Namespace.ID
     let onEdit: () -> Void
     let onMove: () -> Void
     let onDelete: () -> Void
@@ -619,17 +667,30 @@ private struct PlanFeedCard: View {
             // se le hacen a un outfit planeado —abrirlo, cambiarlo de día,
             // quitarlo— y esconderlas tras un menú sería un toque de más para
             // todas.
+            // **Un solo cristal, no tres pegados.** El contenedor funde las
+            // superficies vecinas —para eso está— y es lo que hace que al
+            // pasar a la rejilla los tres se conviertan en la elipsis en vez
+            // de desaparecer y aparecer otra cosa: comparten identidad de
+            // cristal con ella. Ver `adaptiveGlassID`.
+            AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
             VStack(spacing: WK.Spacing.xs) {
                 WKCircleButton("pencil", size: .compact, action: onEdit)
                     .tint(WK.Palette.primaryText)
+                    .adaptiveGlassID("actions-\(entry.id)", in: glass)
                 WKCircleButton(
                     "arrow.up.and.down.and.arrow.left.and.right",
                     size: .compact,
                     action: onMove
                 )
                 .tint(WK.Palette.primaryText)
-                WKCircleButton("trash", size: .compact, action: onDelete)
-                    .tint(.red)
+                // El color **en el símbolo** y no en el `tint`: el estilo del
+                // botón pinta su etiqueta con el color primario, así que el
+                // tinte de fuera no llegaba y la papelera salía negra como
+                // las demás.
+                WKCircleButton(size: .compact, action: onDelete) {
+                    Image(systemName: "trash").foregroundStyle(.red)
+                }
+            }
             }
             .padding(WK.Spacing.m)
         }
@@ -650,6 +711,8 @@ private struct PlanFeedCard: View {
 private struct PlanGridCell: View {
     let entry: PlanFeedScreen.Entry
     let store: ImageStore
+    /// El cristal compartido con los botones de la tarjeta grande.
+    let glass: Namespace.ID
     let onEdit: () -> Void
     let onMove: () -> Void
     let onDuplicate: () -> Void
@@ -674,19 +737,24 @@ private struct PlanGridCell: View {
             // acierta el de al lado al pasar. Con la elipsis, la celda enseña
             // el outfit y las acciones se piden cuando se quieren —y caben
             // todas, incluidas las que en grande no están.
-            Menu {
-                Button("Editar", systemImage: "pencil", action: onEdit)
-                Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
-                Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
-                Button("Mover a otro día", systemImage: "calendar", action: onMove)
-                Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .frame(width: 34, height: 34)
-                    .contentShape(.circle)
-                    .adaptiveGlassInteractive(in: .circle)
+            AdaptiveGlassContainer(spacing: WK.Spacing.xs) {
+                Menu {
+                    Button("Editar", systemImage: "pencil", action: onEdit)
+                    Button("Probármelo", systemImage: "person.crop.rectangle", action: onTryOn)
+                    Button("Duplicar", systemImage: "plus.square.on.square", action: onDuplicate)
+                    Button("Mover a otro día", systemImage: "calendar", action: onMove)
+                    Button("Quitar", systemImage: "trash", role: .destructive, action: onDelete)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .frame(width: 34, height: 34)
+                        .contentShape(.circle)
+                        .adaptiveGlassInteractive(in: .circle)
+                }
+                // La misma identidad que el lápiz de la tarjeta grande: los
+                // tres botones se funden en este al cambiar de modo.
+                .adaptiveGlassID("actions-\(entry.id)", in: glass)
             }
             // Separado del canto, como en grande: pegado al borde se lee como
             // si se saliera de la tarjeta, y el pulgar lo rozaba al pasar.
@@ -700,34 +768,49 @@ private struct PlanGridCell: View {
 /// acaba lo que hay.
 struct PlanCreateCard: View {
     var title = "Crear un outfit"
-    /// El día al que iría. Con él, la tarjeta lleva su taco de calendario en
-    /// la esquina: es el mismo sticker que se le pone a un outfit planeado, y
-    /// lo que hace que el hueco vacío se lea como **ese día** y no como un
-    /// botón suelto en medio de la pantalla.
+    /// El día al que iría. Con él, la tarjeta lleva el taco de calendario —el
+    /// mismo sticker que se le pone a un outfit planeado—, y el hueco vacío se
+    /// lee como **ese día** y no como un botón suelto en medio de la pantalla.
     var date: Date?
 
-    var body: some View {
+    private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
-            .fill(WK.Palette.ink(0.03))
+    }
+
+    var body: some View {
+        shape
+            // **Un solo relleno, y el borde por dentro.**
+            //
+            // Estaba pintada con dos capas translúcidas —un relleno de tinta
+            // al 3% y encima un trazo al 12%— y donde se cruzaban, que es
+            // justo el borde, el color se sumaba: un canto más oscuro que el
+            // resto de la tarjeta, como si estuviera mal recortada. Con
+            // `strokeBorder` el trazo cae entero dentro y con un solo valor de
+            // tinta la tarjeta es de un color, no de dos.
+            .fill(WK.Palette.shelf)
             .overlay {
-                RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
-                    .stroke(WK.Palette.ink(0.12), style: StrokeStyle(lineWidth: 1, dash: [8, 6]))
-            }
-            .overlay(alignment: .topLeading) {
-                if let date {
-                    DatePadGlyph(date: date, size: 26)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .padding(WK.Spacing.m)
-                }
+                shape.strokeBorder(
+                    WK.Palette.ink(0.10),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
+                )
             }
             .overlay {
-                VStack(spacing: WK.Spacing.s) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 26))
-                        .foregroundStyle(WK.Palette.secondaryText)
-                    Text(title)
-                        .font(WK.Font.headline)
-                        .foregroundStyle(WK.Palette.secondaryText)
+                // **Todo en el medio.** El taco de la fecha estaba en una
+                // esquina y el "+" en el centro, así que la tarjeta tenía dos
+                // sitios donde mirar y ninguno era el principal. En columna
+                // se lee de una: qué día es, y qué se puede hacer con él.
+                VStack(spacing: WK.Spacing.m) {
+                    if let date {
+                        DatePadGlyph(date: date, size: 40)
+                            .foregroundStyle(WK.Palette.tertiaryText)
+                    }
+                    VStack(spacing: WK.Spacing.xs) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 24, weight: .medium))
+                        Text(title)
+                            .font(WK.Font.headline)
+                    }
+                    .foregroundStyle(WK.Palette.secondaryText)
                 }
             }
             .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)

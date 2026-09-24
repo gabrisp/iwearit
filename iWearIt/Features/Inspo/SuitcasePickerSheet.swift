@@ -34,7 +34,7 @@ struct SuitcasePickerSheet: View {
                         description: Text("Créala desde el armario y este conjunto tendrá dónde ir.")
                     )
                 } else {
-                    list
+                    grid
                 }
             }
             .navigationTitle("¿A qué maleta?")
@@ -55,33 +55,56 @@ struct SuitcasePickerSheet: View {
         .presentationDetents([.medium, .large])
     }
 
-    private var list: some View {
-        List(suitcases) { suitcase in
-            Button {
-                // Sin fechas no hay día que preguntar: entra como preparado.
-                if suitcase.tripDayCount == nil {
-                    onPick(suitcase, nil)
-                    dismiss()
-                } else {
-                    chosen = suitcase
-                }
-            } label: {
-                HStack(spacing: WK.Spacing.m) {
-                    Text(suitcase.name)
-                        .font(WK.Font.rowTitle)
-                        .foregroundStyle(WK.Palette.primaryText)
-                    Spacer(minLength: 0)
-                    if let days = suitcase.tripDayCount {
-                        Text("\(days) días")
-                            .font(WK.Font.caption)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(WK.Palette.tertiaryText)
+    /// **Las maletas, como están en el armario.**
+    ///
+    /// Una lista de nombres obliga a leer para elegir entre cuatro viajes que
+    /// tú distingues de un vistazo por su forma y su color —que es justo para
+    /// lo que les pusiste icono y color al crearlas—. La misma figura que en
+    /// la balda, en rejilla.
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 140), spacing: WK.Spacing.l)],
+                spacing: WK.Spacing.l
+            ) {
+                ForEach(suitcases) { suitcase in
+                    Button {
+                        // Sin fechas no hay día que preguntar: entra como
+                        // preparado.
+                        if suitcase.tripDayCount == nil {
+                            onPick(suitcase, nil)
+                            dismiss()
+                        } else {
+                            chosen = suitcase
+                        }
+                    } label: {
+                        VStack(spacing: WK.Spacing.xs) {
+                            SuitcaseFigure(
+                                symbolName: suitcase.symbolName,
+                                tint: SuitcaseTint(rawValue: suitcase.colorRaw ?? ""),
+                                width: 124
+                            )
+                            Text(suitcase.name)
+                                .font(WK.Font.garmentName)
+                                .foregroundStyle(WK.Palette.primaryText)
+                                .lineLimit(1)
+                            // Los días, en pequeño: es lo que dice si al
+                            // tocarla va a preguntar algo más.
+                            Text(suitcase.tripDayCount.map { "\($0) días" } ?? "Sin fechas")
+                                .font(WK.Font.caption)
+                                .foregroundStyle(WK.Palette.tertiaryText)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .contentShape(.rect)
                     }
+                    .buttonStyle(WKPressStyle())
                 }
             }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.vertical, WK.Spacing.l)
         }
+        .scrollIndicators(.hidden)
+        .background(WK.Palette.canvas)
     }
 }
 
