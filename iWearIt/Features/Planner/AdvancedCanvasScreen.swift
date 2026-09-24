@@ -97,12 +97,19 @@ final class CanvasEditingSession {
     /// recién creado por su cuenta. Ver `closeWithoutChanges`.
     var hasChanges: Bool { context.hasChanges }
 
+    /// **Lo probado se queda.** Un outfit que te has probado ya no es una
+    /// propuesta: su prueba está en el probador virtual y apunta a él. Tirarlo
+    /// al cerrar dejaba la prueba sin outfit —sin sticker que poner, sin
+    /// lienzo que ver—, así que se conserva aunque no lo guardes en ningún
+    /// día. Ver `TryOnViewer`: desde allí se le pone día.
+    private var wasTriedOn: Bool { !(outfit.tryOns ?? []).isEmpty }
+
     /// Cerrar sin haber tocado nada.
     ///
     /// Lo que se creó para esta sesión se va con ella —era una propuesta, no
     /// algo tuyo— y lo que ya existía se queda como estaba.
     func closeWithoutChanges() {
-        if isNew {
+        if isNew, !wasTriedOn {
             context.delete(outfit)
             try? context.save()
         }
@@ -126,7 +133,7 @@ final class CanvasEditingSession {
     /// autoguardado todavía encendido, así que puede haberse guardado ya. Un
     /// `delete` funciona en los dos casos.
     func discard() {
-        if isNew {
+        if isNew, !wasTriedOn {
             context.delete(outfit)
             try? context.save()
         } else {

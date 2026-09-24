@@ -1029,7 +1029,8 @@ struct FillingSymbol: View {
 ///
 /// Una hoja pequeña y un calendario: ponerlo hoy sin preguntar era lo de
 /// antes, y la mitad de las veces lo que quieres es el sábado.
-private struct InspoDayPicker: View {
+/// También la usa el probador virtual para poner día a lo probado.
+struct InspoDayPicker: View {
     let onPick: (Date) -> Void
 
     @Environment(\.dismiss) private var dismiss

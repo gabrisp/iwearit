@@ -312,6 +312,17 @@ private struct TryOnViewer: View {
     @State private var page: Int? = 0
     /// Si ya se metió en su outfit como sticker.
     @State private var addedToOutfit = false
+    /// Eligiendo el día al que va el outfit. Ver `plannedDay`.
+    @State private var isPickingDay = false
+
+    /// **Si el outfit no está guardado en ningún sitio**: ni en un día, ni en
+    /// una maleta, ni en favoritos —o lo quitaste—. Pasa con lo probado desde
+    /// la inspiración: se conserva por la prueba, pero no está en tu plan.
+    private var isLoose: Bool {
+        guard let outfit = result.outfit else { return false }
+        return outfit.deletedAt != nil
+            || (outfit.plannedDay == nil && outfit.suitcase == nil && !outfit.isFavorite)
+    }
 
     private var pageCount: Int { result.outfit == nil ? 1 : 2 }
 
@@ -345,6 +356,28 @@ private struct TryOnViewer: View {
             // **Al outfit con el que se probó**: la prueba guarda a cuál va,
             // y se mete en él como sticker —sin fondo o con su escena—.
             // .adaptiveSafeAreaBar(edge: .bottom) { addToOutfitButton }
+            // **A un día**, si el outfit no está guardado en ninguno. Ver
+            // `isLoose`.
+            .adaptiveSafeAreaBar(edge: .bottom) {
+                if isLoose || result.outfit?.plannedDay != nil {
+                    WKPrimaryButton(
+                        dayTitle,
+                        systemImage: isLoose ? "calendar.badge.plus" : "calendar.badge.checkmark",
+                        surface: .glass
+                    ) { isPickingDay = true }
+                    .allowsHitTesting(isLoose)
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                    .padding(.bottom, WK.Spacing.s)
+                    .sensoryFeedback(.success, trigger: isLoose)
+                }
+            }
+            .animation(.smooth(duration: 0.45), value: isLoose)
+            .sheet(isPresented: $isPickingDay) {
+                InspoDayPicker { date in
+                    plan(on: date)
+                    isPickingDay = false
+                }
+            }
             .navigationTitle(result.createdAt.formatted(date: .abbreviated, time: .shortened))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
@@ -358,6 +391,37 @@ private struct TryOnViewer: View {
                 image = UIImage(cgImage: cgImage)
             }
         }
+    }
+
+    /// "Añadir a un día", o el día en el que ya está una vez puesto.
+    private var dayTitle: String {
+        if !isLoose, let day = result.outfit?.plannedDay?.dayStart {
+            return String(
+                localized: "tryon.viewer.plannedOn",
+                defaultValue: "On \(String(describing: day.formatted(.dateTime.weekday(.wide).day().month(.wide))))"
+            )
+        }
+        return String(localized: "tryon.viewer.addToDay", defaultValue: "Add to a day")
+    }
+
+    /// El outfit al plan, en ese día. Si lo habías quitado, vuelve.
+    private func plan(on date: Date) {
+        guard let outfit = result.outfit else { return }
+        let dayStart = Calendar.current.startOfDay(for: date)
+        let existing = try? modelContext.fetch(
+            FetchDescriptor<PlannedDay>(predicate: #Predicate { $0.dayStart == dayStart })
+        )
+        let day = existing?.first ?? {
+            let new = PlannedDay(dayStart: dayStart)
+            modelContext.insert(new)
+            return new
+        }()
+        withAnimation(.smooth(duration: 0.45)) {
+            outfit.restore()
+            outfit.plannedDay = day
+        }
+        try? modelContext.save()
+        DiagnosticsLog.record("PROBADOR", "outfit probado puesto en un día")
     }
 
     /// El visor de antes, a páginas: la prueba y su outfit. Queda para las
