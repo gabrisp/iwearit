@@ -737,6 +737,8 @@ struct InspoLookCard: View {
             backdrop: backdrop,
             outfit: outfit,
             showsBorder: true,
+            // La misma semilla con la que se guardará: ver `LookCanvasView`.
+            seed: InspoPalette.seed(for: look),
             onSelectGarment: onSelectGarment,
             // El doble toque tiene que bajar hasta la prenda: en cuanto ella
             // escucha el toque simple, el de la tarjeta solo llega al papel.

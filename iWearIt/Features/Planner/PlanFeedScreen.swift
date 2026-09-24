@@ -619,7 +619,19 @@ struct CreateOnOverscroll: ViewModifier {
                 threshold: 84,
                 label: "Crear un outfit",
                 bottomInset: WK.Spacing.m,
-                action: action
+                // **La hoja, un suspiro después de soltar.**
+                //
+                // Abriéndola en el mismo instante, el lienzo volvía a su sitio
+                // de golpe: el rebote del scroll y la hoja subiendo compiten
+                // por el mismo cuarto de segundo, y lo que se ve es un corte.
+                // Con un cuarto de segundo de margen el lienzo baja con su
+                // muelle, y la hoja llega cuando ya ha parado.
+                action: {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(260))
+                        action()
+                    }
+                }
             )
         } else {
             content

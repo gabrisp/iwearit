@@ -26,6 +26,15 @@ struct LookCanvasView: View {
     /// tiene que mandar—, y sin borde un conjunto flota sin que se sepa cuánto
     /// papel ocupa ni dónde acaba uno y empieza el siguiente.
     var showsBorder = false
+    /// **La misma semilla con la que se guardará.**
+    ///
+    /// El reparto por huecos tiene variantes —el espejo, la inclinación— y las
+    /// elige una semilla, para que dos conjuntos no salgan con la misma foto.
+    /// La tarjeta pintaba siempre con la semilla cero y el outfit se guardaba
+    /// con la del conjunto: eran dos repartos distintos, así que al guardar
+    /// —o al abrirlo después— **las prendas se movían**. Quien pinta la
+    /// propuesta pasa aquí la misma semilla que usará al materializarla.
+    var seed: UInt64 = 0
     /// Tocar una prenda para ver **qué prenda es**.
     ///
     /// Sin esto, la tarjeta enseña un conjunto y no dice de qué está hecho: la
@@ -65,7 +74,17 @@ struct LookCanvasView: View {
         let ordered = garments.sorted {
             StylistRole($0.kind).sortOrder < StylistRole($1.kind).sortOrder
         }
-        let layout = OutfitAssembly.transforms(for: ordered.map { $0.kind })
+        // Las mismas piezas que `OutfitAssembly.place`: el corte y la
+        // subcategoría cambian dónde cae una prenda —un pantalón corto no
+        // ocupa lo que unos vaqueros—, así que sin ellas la propuesta pintaba
+        // una cosa y lo guardado colocaba otra.
+        let layout = OutfitAssembly.transforms(
+            for: ordered.map {
+                OutfitAssembly.Piece(kind: $0.kind, cut: $0.cut, subcategory: $0.subcategory)
+            },
+            occupied: [],
+            seed: seed
+        )
         return zip(ordered, layout).map { (garment: $0, transform: $1) }
     }
 

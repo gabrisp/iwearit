@@ -71,7 +71,7 @@ struct SuitcaseOutfitsFeedTab: View {
     /// las tarjetas salían más grandes que las del plan; con ellas, las dos
     /// pantallas miden lo mismo.
     private var stride: CGFloat {
-        max(320, pageSize.height - Self.stripHeight - bottomInset)
+        max(320, pageSize.height - topInset - Self.stripHeight - bottomInset)
     }
 
     /// Lo que mide la tira con su aire, igual que en el plan.
@@ -109,6 +109,15 @@ struct SuitcaseOutfitsFeedTab: View {
             .padding(.trailing, WK.Spacing.m)
         }
         .frame(height: Self.stripHeight)
+        // **Por debajo de la barra de la maleta.**
+        //
+        // Esta pantalla ignora el área segura a propósito —el papel llega a
+        // los cuatro bordes—, así que una barra puesta arriba se dibuja
+        // **detrás** de la de navegación: la tira quedaba encima del botón de
+        // volver y del lápiz, medio tapada y robándoles el toque. Contando lo
+        // que mide esa barra, la tira cae justo debajo, que es donde está la
+        // del plan.
+        .padding(.top, topInset)
     }
 
     private func outfits(ofDay index: Int) -> [Outfit] {
