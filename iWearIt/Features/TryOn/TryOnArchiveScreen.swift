@@ -309,6 +309,14 @@ private struct TryOnViewer: View {
                     HStack(spacing: 0) {
                         StoredImage(key: result.imageKey, variant: .display, store: store)
                             .aspectRatio(contentMode: .fit)
+                            // Sin fondo: sobre el papel del outfit, como en el
+                            // probador. Ver `TryOnPaper`.
+                            .background {
+                                if result.sceneRaw == TryOnScene.none.rawValue {
+                                    TryOnPaper(outfit: result.outfit)
+                                }
+                            }
+                            .overlay(alignment: .bottomTrailing) { SnazzyWatermark() }
                             .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
                             .padding(.horizontal, WK.Spacing.screenInset)
                             .containerRelativeFrame(.horizontal)
@@ -357,7 +365,13 @@ private struct TryOnViewer: View {
                 }
                 if let image {
                     ToolbarItem(placement: .topBarTrailing) {
-                        ShareLink(item: Image(uiImage: image), preview: .init("Probado")) {
+                        let shared = SnazzyExport.tryOn(
+                            image,
+                            paper: result.sceneRaw == TryOnScene.none.rawValue
+                                ? result.outfit.map { UIColor(PlanFeedScreen.backdrop(of: $0)) } ?? UIColor(WK.Palette.canvas)
+                                : nil
+                        )
+                        ShareLink(item: Image(uiImage: shared), preview: .init("Probado", image: Image(uiImage: shared))) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .tint(WK.Palette.primaryText)

@@ -1,4 +1,5 @@
 import SwiftUI
+import WKCanvas
 import WKCore
 import WKDesign
 import WKPersistence
@@ -52,12 +53,26 @@ struct TryOnStage: View {
         }
     }
 
+    /// Si lo que se ve es la prueba "sin fondo", sobre el papel.
+    private var showsPaper: Bool {
+        if let showing { return showing.sceneRaw == TryOnScene.none.rawValue }
+        return result != nil && isPlainScene
+    }
+
     /// El tamaño lo pone el fondo, y la imagen va **encima**: dentro de un
     /// `ZStack`, una imagen que rellena ensanchaba la tarjeta antes de
     /// recortarse y se salía de la pantalla.
     private var photoCard: some View {
         WK.Palette.shelf
             .overlay { photoContent }
+            // La marca, siempre que hay prueba: la misma que llevará al
+            // compartirla. Ver `SnazzyExport`.
+            .overlay(alignment: .bottomTrailing) {
+                if !isWorking, result != nil || showing != nil {
+                    SnazzyWatermark(onLight: showsPaper && SnazzyExport.isLight(UIColor(PlanFeedScreen.backdrop(of: outfit))))
+                        .transition(.opacity)
+                }
+            }
             .overlay {
                 if isWorking {
                     TryOnGeneratingEffect()
@@ -78,16 +93,40 @@ struct TryOnStage: View {
     private var photoContent: some View {
         ZStack {
             if let showing {
-                StoredImage(key: showing.imageKey, variant: .display, store: store)
-                    .scaledToFill()
-                    .transition(.blurReplace)
+                // **Sin fondo: sola, sobre el papel del outfit.** Con escena,
+                // la foto entera rellenando la tarjeta.
+                if showing.sceneRaw == TryOnScene.none.rawValue {
+                    TryOnPaper(outfit: outfit)
+                        .overlay {
+                            StoredImage(key: showing.imageKey, variant: .display, store: store)
+                                .scaledToFit()
+                                .padding(.top, WK.Spacing.m)
+                        }
+                        .transition(.blurReplace)
+                } else {
+                    StoredImage(key: showing.imageKey, variant: .display, store: store)
+                        .scaledToFill()
+                        .transition(.blurReplace)
+                }
             } else if let result {
-                Image(uiImage: result)
-                    .resizable()
-                    .scaledToFill()
-                    .background(isPlainScene ? WK.Palette.canvas : .clear)
-                    // Aparece "revelándose": de desenfocada a nítida.
-                    .transition(AnyTransition(.blurReplace).combined(with: .scale(scale: 1.04)))
+                Group {
+                    if isPlainScene {
+                        // La persona recortada, sola en el canvas del outfit.
+                        TryOnPaper(outfit: outfit)
+                            .overlay {
+                                Image(uiImage: result)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .padding(.top, WK.Spacing.m)
+                            }
+                    } else {
+                        Image(uiImage: result)
+                            .resizable()
+                            .scaledToFill()
+                    }
+                }
+                // Aparece "revelándose": de desenfocada a nítida.
+                .transition(AnyTransition(.blurReplace).combined(with: .scale(scale: 1.04)))
             } else if let profile, profile.hasPhoto {
                 StoredImage(key: profile.imageKey, variant: .display, store: store)
                     .scaledToFill()
@@ -356,5 +395,32 @@ struct ProfileSwitcher: View {
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
+    }
+}
+
+
+/// **El papel del outfit**: su color de fondo y su retícula de puntos, sin
+/// prendas. Es donde se pone la prueba "sin fondo": la persona recortada, sola,
+/// en el mismo lienzo que el outfit.
+struct TryOnPaper: View {
+    let outfit: Outfit?
+
+    var body: some View {
+        ZStack {
+            if let outfit {
+                PlanFeedScreen.backdrop(of: outfit)
+            } else {
+                WK.Palette.canvas
+            }
+            // A escala de lienzo, como en las tarjetas: dibujada a tamaño de
+            // pantalla, los puntos salían gordos.
+            GeometryReader { proxy in
+                let scale: CGFloat = 0.35
+                DotGridBackground(spacing: CanvasSpace.gridSpacing * 3)
+                    .frame(width: proxy.size.width / scale, height: proxy.size.height / scale)
+                    .scaleEffect(scale, anchor: .topLeading)
+            }
+            .opacity(0.5)
+        }
     }
 }

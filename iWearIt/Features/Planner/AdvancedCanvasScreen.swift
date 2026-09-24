@@ -265,8 +265,14 @@ private struct CanvasEditorScreen: View {
         case more, place
         /// Probarte este conjunto. Ver `TryOnSheet`.
         case tryOn
+        /// Compartir el lienzo como imagen, con la marca. Ver `SnazzyExport`.
+        case share
         var id: String { rawValue }
     }
+
+    /// El lienzo ya dibujado para compartir. Ver `exportCanvas()`.
+    @State private var exportImage: UIImage?
+    @State private var isExporting = false
 
     /// El color del día lo pone el outfit, y se elige **aquí dentro**: es una
     /// decisión de cómo queda el outfit, no un ajuste de la pantalla de
@@ -416,6 +422,18 @@ private struct CanvasEditorScreen: View {
             }
             // **Probártelo**, que es la pregunta que queda cuando el conjunto
             // ya está montado: ¿cómo me queda? Ver `TryOnSheet`.
+            // **Exportar el lienzo**, con "Snazzy" abajo a la derecha.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { Task { await exportCanvas() } } label: {
+                    if isExporting {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .tint(WK.Palette.primaryText)
+                .disabled(outfit.garments.isEmpty || isExporting)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { sheet = .tryOn } label: {
                     Image(systemName: "person.crop.rectangle")
@@ -599,6 +617,21 @@ private struct CanvasEditorScreen: View {
         .task(id: photoItem) { await insertPickedPhoto() }
     }
 
+    /// Dibuja el lienzo con sus prendas y la marca, y abre compartir.
+    private func exportCanvas() async {
+        isExporting = true
+        defer { isExporting = false }
+        guard let image = await SnazzyExport.outfit(
+            outfit, backdrop: UIColor(backdropColor), store: appEnvironment.imageStore
+        ) else { return }
+        exportImage = image
+        #if DEBUG
+        // Para poder mirar lo exportado desde fuera del simulador.
+        try? image.pngData()?.write(to: URL.temporaryDirectory.appending(path: "snazzy-export.png"))
+        #endif
+        sheet = .share
+    }
+
     /// Lo que va dentro de la hoja del editor.
     ///
     /// Función aparte y no un `switch` dentro del `@ViewBuilder` del `.sheet`:
@@ -615,6 +648,11 @@ private struct CanvasEditorScreen: View {
             // lienzo transparente la dejaba flotando entre las prendas.
             TryOnSheet(outfit: outfit)
                 .presentationBackground(WK.Palette.canvas)
+        case .share:
+            if let exportImage {
+                ShareImageSheet(image: exportImage)
+                    .presentationDetents([.medium, .large])
+            }
         case .place:
             PlaceSearchSheet(title: "¿Dónde?") { picked in
                 appEnvironment.weather.use(picked)

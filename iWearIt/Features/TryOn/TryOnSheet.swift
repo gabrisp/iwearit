@@ -98,7 +98,13 @@ struct TryOnSheet: View {
                 }
                 if let result = model?.result {
                     ToolbarItem(placement: .topBarTrailing) {
-                        ShareLink(item: Image(uiImage: result), preview: .init("Probado")) {
+                        // Con la marca, y "sin fondo" sobre el papel del
+                        // outfit. Ver `SnazzyExport`.
+                        let shared = SnazzyExport.tryOn(
+                            result,
+                            paper: scene == .none ? UIColor(PlanFeedScreen.backdrop(of: outfit)) : nil
+                        )
+                        ShareLink(item: Image(uiImage: shared), preview: .init("Probado", image: Image(uiImage: shared))) {
                             Image(systemName: "square.and.arrow.up")
                         }
                         .tint(WK.Palette.primaryText)
