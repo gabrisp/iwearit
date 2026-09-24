@@ -150,10 +150,12 @@ private struct StripBackground: ViewModifier {
 
 /// Un día de la tira. POD: solo fecha y dos banderas, así que se difunde con
 /// `memcmp` y cambiar de día no reevalúa los 361 chips.
-private struct DayChip: View {
+struct DayChip: View {
     let date: Date
     let isSelected: Bool
     let isToday: Bool
+    /// Más bajo, para caber dentro de una barra de navegación sin estirarla.
+    var isCompact = false
 
     private static let weekday: DateFormatter = {
         let formatter = DateFormatter()
@@ -180,7 +182,7 @@ private struct DayChip: View {
                 .monospacedDigit()
                 .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
         }
-        .frame(width: 42, height: 46)
+        .frame(width: isCompact ? 36 : 42, height: isCompact ? 38 : 46)
         .background {
             if isSelected {
                 Capsule().fill(WK.Palette.accent)

@@ -70,6 +70,27 @@ public enum WKTabBarMetrics {
         windowTopInset + 44
     }
 
+    /// **Cuánto ancho le queda al centro de la barra de navegación.**
+    ///
+    /// La barra de iOS 26 no encoge lo que no cabe: lo que no entra en los
+    /// lados lo mete en un menú "…", y lo del centro lo recorta. La única forma
+    /// de que el centro salga siempre entero es no pedir nunca más de lo que
+    /// hay, y lo que hay es la pantalla menos lo que ocupan los lados —un botón
+    /// redondo por lado, con su margen— y un respiro entre medias.
+    ///
+    /// - Parameter sideButtons: cuántos botones hay a cada lado. En el plan,
+    ///   uno a la derecha y nada a la izquierda; en la maleta, uno a cada
+    ///   lado. Se reserva el mismo hueco a los dos lados para que el centro
+    ///   quede **centrado**.
+    @MainActor
+    public static func principalWidth(sideButtons: Int = 1) -> CGFloat {
+        let screen = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.width ?? 390
+        let side = CGFloat(sideButtons) * 44 + WK.Spacing.m + WK.Spacing.s
+        return max(120, screen - 2 * side)
+    }
+
     /// Solo el corte de la pantalla, sin barra: para quien pone su propia
     /// barra arriba en una pantalla que ignora el área segura.
     @MainActor

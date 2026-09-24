@@ -111,11 +111,15 @@ private struct SuitcaseContent: View {
                 // velocidad de siempre se leía como un parpadeo.
                 .animation(Self.layoutChange, value: layout)
         }
-        // **Solo el lienzo.** El papel de puntos llega a los cuatro bordes; la
-        // barra de Outfits · Equipaje se coloca **con** el área segura, encima
-        // del indicador de inicio, y por eso el modificador va aquí y no
-        // envolviendo también a la barra.
-        .ignoresSafeArea(edges: [.top, .bottom])
+        // **Ya no se ignora el área segura.** Se hacía para que el papel llegara
+        // a los cuatro bordes, y a cambio cada pestaña tenía que contar a mano
+        // lo que tapan las barras: la de navegación, la de Outfits · Equipaje,
+        // el corte de la pantalla. Esas cuentas nunca cuadraron con las del
+        // plan —que sí respeta el área segura— y de ahí salían las tarjetas
+        // pequeñas y la tira debajo del botón de volver. El fondo sigue
+        // llegando a los bordes (`tintColor.ignoresSafeArea()`, arriba); lo
+        // que se coloca, se coloca con el sistema.
+        // .ignoresSafeArea(edges: [.top, .bottom])
         // **La barra del sistema, no una fila puesta a mano.**
         //
         // Antes esta pantalla escondía la barra y dibujaba encima su propio
@@ -136,7 +140,9 @@ private struct SuitcaseContent: View {
         // los días y el modo— y dos franjas arriba en una pantalla cuyo papel
         // llega a los cuatro bordes es una de más. En Equipaje e Inspiración
         // la barra se queda: llevan el "+" y la píldora del tiempo.
-        .toolbarVisibility(tab == .outfits ? .hidden : .automatic, for: .navigationBar)
+        // La barra vuelve también en Outfits, con su botón de volver: los días
+        // y el modo van dentro de ella. Lo que había:
+        // .toolbarVisibility(tab == .outfits ? .hidden : .automatic, for: .navigationBar)
         // **Volver deslizando, siempre.** Lo único que lo desactiva es el
         // editor, y lo desactiva él mismo mientras está abierto: ahí el lienzo
         // está lleno de arrastres y el borde izquierdo es donde se coloca una
@@ -175,7 +181,11 @@ private struct SuitcaseContent: View {
         // a los dos bordes y la barra pasa por encima. En `safeAreaInset` le
         // comía su alto al papel de puntos y la maleta dejaba de ser una hoja
         // entera.
-        .overlay(alignment: .bottom) {
+        // **Como barra de área segura, no flotando encima.** Así reserva su
+        // sitio, igual que la barra de pestañas en el plan, y el scroll de
+        // cada pestaña sabe lo que tiene debajo sin que nadie se lo cuente.
+        // Lo de antes era `.overlay(alignment: .bottom)`.
+        .adaptiveSafeAreaBar(edge: .bottom) {
             HStack(spacing: 12) {
                 WKTextTabBar(tabs: [SuitcaseTab.outfits, .packing, .inspo], selection: $tab) { tab in
                     switch tab {
@@ -244,11 +254,41 @@ private struct SuitcaseContent: View {
                     SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
                 }
             }
-            // **La tira y el modo ya no están aquí.** Los lleva la propia
-            // pestaña de outfits, en su barra de área segura, igual que el
-            // plan —y así el botón de rejilla existe también cuando el viaje
-            // no tiene fechas, que antes se iba con la tira—. Ver
-            // `SuitcaseOutfitsFeedTab`.
+            // **Los días y el modo, en la barra.** Con el botón de volver del
+            // sistema a la izquierda, los días en el centro —con "sin día" al
+            // final— y el cambio entre una y dos columnas a la derecha. El
+            // cambio está **siempre**, con fechas y sin ellas: antes iba en el
+            // mismo `if` que los días y en una maleta sin fechas desaparecía.
+            if tab == .outfits {
+                if let dayCount = suitcase.tripDayCount {
+                    ToolbarItem(placement: .principal) {
+                        TripDayCapsule(
+                            suitcase: suitcase,
+                            dayCount: dayCount,
+                            selected: $dayIndex,
+                            isInBar: true
+                        )
+                        // **El ancho que cabe, no uno puesto a ojo.** Lo que
+                        // piden los chips o, si es más, lo que queda entre el
+                        // botón de volver y el de modo: pedir más hace que la
+                        // barra lo recorte. Ver `principalWidth`.
+                        .frame(width: min(
+                            CGFloat(dayCount + 1) * 40 + 8,
+                            WKTabBarMetrics.principalWidth(sideButtons: 1)
+                        ))
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(Self.layoutChange) { layout = layout.next }
+                    } label: {
+                        // Una columna o dos. Nada de "revista".
+                        Image(systemName: layout == .book ? "square.grid.2x2" : "rectangle.portrait")
+                            .contentTransition(.symbolEffect(.replace.downUp))
+                    }
+                    .tint(WK.Palette.primaryText)
+                }
+            }
         }
         .animation(WKAnimation.content, value: tab)
 
@@ -439,8 +479,9 @@ private struct SuitcaseTabContent: View {
                 suitcase: suitcase,
                 dayIndex: $dayIndex,
                 layout: $layout,
-                topInset: WKTabBarMetrics.topClearance,
-                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l,
+                // Sin huecos a mano: los pone el área segura.
+                topInset: 0,
+                bottomInset: 0,
                 onEdit: onEdit
             )
         case .packing:
@@ -459,8 +500,9 @@ private struct SuitcaseTabContent: View {
                 // puesto a ojo: con el número corto, las tarjetas de la maleta
                 // salían más grandes que las de la pestaña de inspiración y al
                 // pasar de una a otra se notaba el salto.
-                topInset: WKTabBarMetrics.topClearance,
-                bottomInset: WKTabBarMetrics.barHeight + 2 * WK.Spacing.l
+                // Sin huecos a mano: los pone el área segura.
+                topInset: 0,
+                bottomInset: 0
             )
         }
     }

@@ -61,7 +61,16 @@ struct SuitcaseOutfitsFeedTab: View {
     @Namespace private var morph
 
     /// Los días del viaje. Sin fechas, un solo hueco: lo preparado.
-    private var dayCount: Int { suitcase.tripDayCount ?? 1 }
+    /// Las páginas: los días del viaje **y una más, la de sin día**.
+    ///
+    /// Lo que se mete sin fecha —desde la inspiración, o moviéndolo a "sin
+    /// día"— no salía en ninguna página: no era de ningún día, así que no
+    /// estaba. Ahora tiene la suya, la última. Sin fechas, todo es "sin día" y
+    /// basta una.
+    private var dayCount: Int {
+        guard let days = suitcase.tripDayCount else { return 1 }
+        return days + 1
+    }
 
     /// **El mismo hueco que en el plan.**
     ///
@@ -72,7 +81,10 @@ struct SuitcaseOutfitsFeedTab: View {
     /// las tarjetas salían más grandes que las del plan; con ellas, las dos
     /// pantallas miden lo mismo.
     private var stride: CGFloat {
-        max(320, pageSize.height - WKTabBarMetrics.screenTopInset - Self.stripHeight - bottomInset)
+        // **Lo mismo que el plan, porque ahora es lo mismo que el plan.** Con
+        // el área segura respetada, el scroll ya llega recortado por la tira
+        // de arriba y la barra de abajo: su alto es lo que se ve.
+        max(320, pageSize.height)
     }
 
     /// Lo que mide la tira con su aire, igual que en el plan.
@@ -101,11 +113,11 @@ struct SuitcaseOutfitsFeedTab: View {
             .padding(.leading, WK.Spacing.m)
 
             if let dayCount = suitcase.tripDayCount {
-                TripDayBar(
-                    suitcase: suitcase,
-                    dayCount: dayCount,
-                    selected: $dayIndex
-                )
+                // **La misma cápsula que el plan**, con los mismos chips: el
+                // día de la semana arriba y el número debajo. La de antes
+                // (`TripDayBar`) era otra pieza —"3 OCT" con una raya al
+                // lado— y en una fila de tres días se cortaba el tercero.
+                TripDayCapsule(suitcase: suitcase, dayCount: dayCount, selected: $dayIndex)
             } else {
                 Spacer(minLength: 0)
             }
@@ -113,7 +125,10 @@ struct SuitcaseOutfitsFeedTab: View {
             Button {
                 withAnimation(WKAnimation.content) { layout = layout.next }
             } label: {
-                Image(systemName: layout.symbol)
+                // Los mismos símbolos que el botón del plan: el de la maleta
+                // decía "libro" para la revista, que es otro nombre para lo
+                // mismo y otro dibujo en el mismo sitio.
+                Image(systemName: layout == .book ? "square.grid.2x2" : "rectangle.portrait")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(WK.Palette.primaryText)
                     .frame(width: 56, height: 56)
@@ -133,14 +148,20 @@ struct SuitcaseOutfitsFeedTab: View {
         // volver y del lápiz, medio tapada y robándoles el toque. Contando lo
         // que mide esa barra, la tira cae justo debajo, que es donde está la
         // del plan.
-        // Solo el corte de la pantalla: la barra de navegación ya no está.
-        .padding(.top, WKTabBarMetrics.screenTopInset)
     }
 
     private func outfits(ofDay index: Int) -> [Outfit] {
-        suitcase.visibleOutfits
-            .filter { !$0.garments.isEmpty }
-            .filter { suitcase.tripDayCount == nil || $0.suitcaseDayIndex == index }
+        let all = suitcase.visibleOutfits.filter { !$0.garments.isEmpty }
+        guard let days = suitcase.tripDayCount else { return all }
+        // La última página es la de sin día: lo que no tiene día, o tiene uno
+        // que ya no existe porque el viaje se acortó.
+        if index == days {
+            return all.filter { outfit in
+                guard let day = outfit.suitcaseDayIndex else { return true }
+                return day < 0 || day >= days
+            }
+        }
+        return all.filter { $0.suitcaseDayIndex == index }
     }
 
     var body: some View {
@@ -149,8 +170,10 @@ struct SuitcaseOutfitsFeedTab: View {
             // **La tira, aquí y como en el plan.** Una barra de área segura
             // que reserva su sitio: así el scroll de debajo sabe lo que tiene
             // encima y las dos pantallas se miran igual.
-            .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
-            .safeAreaPadding(.bottom, bottomInset)
+            // La tira ya no va aquí: los días y el cambio de modo están en la
+            // barra de navegación de la maleta, con su botón de volver. Ver
+            // `SuitcaseDetailScreen`.
+            // .adaptiveSafeAreaBar(edge: .top, spacing: 0) { strip }
             .sheet(item: $sheet) { which in
                 switch which {
                 case let .move(outfit):
@@ -224,6 +247,7 @@ struct SuitcaseOutfitsFeedTab: View {
         // día, no de la pestaña. Ver `PlanDayFeed`.
         SuitcaseDayFeed(
             outfits: outfits(ofDay: index),
+            day: suitcase.date(forDayIndex: index),
             suitcase: suitcase,
             store: appEnvironment.imageStore,
             pageSize: pageSize,
@@ -280,13 +304,15 @@ struct SuitcaseOutfitsFeedTab: View {
                     }
                 }
 
-                PlanCreateCard(title: "Añadir")
+                PlanCreateCard(date: suitcase.date(forDayIndex: index))
                     .matchedGeometryEffect(id: "create-\(index)", in: morph)
                     .aspectRatio(CanvasSpace.width / CanvasSpace.height, contentMode: .fit)
                     .onTapGesture { sheet = .picker }
             }
             .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.top, WK.Spacing.xl)
+            // El mismo aire que la rejilla del plan: el de la tarjeta grande
+            // más seis. Ver `PlanFeedScreen.grid(of:)`.
+            .padding(.top, PlanCardSize.inset(stride: stride) + 6)
         }
         .scrollIndicators(.hidden)
     }
@@ -322,7 +348,11 @@ struct SuitcaseOutfitsFeedTab: View {
             context: modelContext
         )
         outfit.suitcase = suitcase
-        if suitcase.tripDayCount != nil { outfit.suitcaseDayIndex = page ?? dayIndex }
+        // En la página de sin día, sin día.
+        if let days = suitcase.tripDayCount {
+            let current = page ?? dayIndex
+            outfit.suitcaseDayIndex = current < days ? current : nil
+        }
         try? modelContext.save()
         onEdit(outfit, true)
     }
@@ -331,6 +361,9 @@ struct SuitcaseOutfitsFeedTab: View {
 /// Los outfits de un día del viaje, uno por pantalla.
 private struct SuitcaseDayFeed: View {
     let outfits: [Outfit]
+    /// Qué día del viaje es, si el viaje tiene fechas. Para el taco de la
+    /// tarjeta vacía, como en el plan.
+    let day: Date?
     let suitcase: Suitcase
     let store: ImageStore
     let pageSize: CGSize
@@ -368,7 +401,7 @@ private struct SuitcaseDayFeed: View {
 
                 // Solo con el día vacío: ver `PlanDayFeed`.
                 if outfits.isEmpty {
-                    PlanCreateCard(title: "Añadir un outfit")
+                    PlanCreateCard(date: day)
                         .matchedGeometryEffect(id: createID, in: morph)
                         .modifier(PlanCardSize(page: pageSize, stride: stride))
                         .onTapGesture { onCreate() }
@@ -518,5 +551,97 @@ private struct SuitcaseGridCell: View {
             }
             .padding(WK.Spacing.s)
         }
+    }
+}
+
+/// Los días del viaje, en la cápsula del plan — **y "sin día" al final**.
+///
+/// Es `DayStripCapsule` sin el calendario ni el taco de hoy —un viaje tiene sus
+/// días contados—, con los mismos chips. Dentro de la barra de navegación va
+/// compacta y sin cristal propio: el cristal lo pone la barra, y dos uno
+/// encima del otro se ven como un parche más oscuro.
+struct TripDayCapsule: View {
+    let suitcase: Suitcase
+    let dayCount: Int
+    @Binding var selected: Int
+    /// Dentro de una barra: chips más bajos y sin cristal propio.
+    var isInBar = false
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: WK.Spacing.xs) {
+                    ForEach(0..<dayCount, id: \.self) { index in
+                        let date = suitcase.date(forDayIndex: index) ?? Date()
+                        DayChip(
+                            date: date,
+                            isSelected: index == selected,
+                            isToday: Calendar.current.isDateInToday(date),
+                            isCompact: isInBar
+                        )
+                        .id(index)
+                        .onTapGesture {
+                            withAnimation(WKAnimation.content) { selected = index }
+                        }
+                    }
+
+                    // El último "día": lo que va en la maleta sin fecha.
+                    NoDayChip(isSelected: selected == dayCount, isCompact: isInBar)
+                        .id(dayCount)
+                        .onTapGesture {
+                            withAnimation(WKAnimation.content) { selected = dayCount }
+                        }
+                }
+                .padding(.horizontal, WK.Spacing.xs)
+            }
+            .scrollIndicators(.hidden)
+            .onChange(of: selected) {
+                withAnimation(.snappy) { proxy.scrollTo(selected, anchor: .center) }
+            }
+            .onAppear { proxy.scrollTo(selected, anchor: .center) }
+        }
+        .frame(height: isInBar ? 44 : 56)
+        .clipShape(.capsule)
+        // **Con cristal también en la barra.** Los botones de los lados lo
+        // reciben del sistema; lo del centro no, y sin él los días flotaban
+        // sueltos sobre el contenido, sin forma.
+        .modifier(CapsuleGlass(isOn: true))
+    }
+}
+
+/// El cristal de la cápsula, o nada.
+private struct CapsuleGlass: ViewModifier {
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.adaptiveGlassInteractive(in: .capsule)
+        } else {
+            content
+        }
+    }
+}
+
+/// "Sin día", con la forma de un chip de día.
+private struct NoDayChip: View {
+    let isSelected: Bool
+    var isCompact = false
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("SIN")
+                .font(.caption2)
+                .foregroundStyle(isSelected ? WK.Palette.onAccent.opacity(0.75) : WK.Palette.secondaryText)
+            Image(systemName: "tray")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(isSelected ? WK.Palette.onAccent : WK.Palette.primaryText)
+        }
+        .frame(width: isCompact ? 36 : 42, height: isCompact ? 38 : 46)
+        .background {
+            if isSelected {
+                Capsule().fill(WK.Palette.accent)
+            }
+        }
+        .contentShape(.capsule)
     }
 }
