@@ -47,12 +47,32 @@ public struct ScanDiscovery: Sendable, Identifiable {
     }
 
     public let id = UUID()
+    /// De qué foto de la galería sale: el mismo que el de su `ScanLook`.
+    public let photoID: String
     /// La foto, pequeña.
     public let photo: ImmutableImage
     public let pieces: [Piece]
 
-    public init(photo: ImmutableImage, pieces: [Piece]) {
+    public init(photoID: String = "", photo: ImmutableImage, pieces: [Piece]) {
+        self.photoID = photoID
         self.photo = photo
         self.pieces = pieces
+    }
+}
+
+/// Una foto que **se empieza a analizar**.
+///
+/// Se avisa antes de saber si tiene ropa: esperar al resultado hacía que la
+/// pantalla estuviera quieta mientras el escáner trabajaba, y las fotos
+/// aparecían tarde y de golpe. Si luego da prendas, llega su `ScanDiscovery`
+/// con el mismo `photoID`; si no, no llega nada.
+public struct ScanLook: Sendable, Identifiable {
+    public let photoID: String
+    public let photo: ImmutableImage
+    public var id: String { photoID }
+
+    public init(photoID: String, photo: ImmutableImage) {
+        self.photoID = photoID
+        self.photo = photo
     }
 }

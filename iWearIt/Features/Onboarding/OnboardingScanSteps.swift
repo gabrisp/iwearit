@@ -131,6 +131,16 @@ struct ScanningStep: View {
                     .foregroundStyle(WK.Palette.secondaryText)
                     .monospacedDigit()
                     .contentTransition(.numericText())
+
+                // Cuánto queda, siempre a la vista: con miles de fotos, sin
+                // barra parece que no avanza.
+                OnboardingProgressBar(
+                    step: progress.photosProcessed,
+                    total: max(1, progress.totalPhotos)
+                )
+                .frame(maxWidth: 220)
+                .padding(.top, WK.Spacing.xs)
+                .opacity(isPreparing ? 0 : 1)
             }
             .animation(WKAnimation.content, value: isPreparing)
 
@@ -254,8 +264,14 @@ struct ScanningStep: View {
             onProgress: { updated in
                 Task { @MainActor in progress = updated }
             },
+            // **En orden y esperando al hilo principal**: con un `Task`
+            // suelto por aviso, el resultado de una foto podía llegar antes
+            // que la propia foto. Son microsegundos; el escáner no lo nota.
+            onLook: { look in
+                await MainActor.run { stage.look(look) }
+            },
             onDiscovery: { discovery in
-                Task { @MainActor in stage.enqueue(discovery) }
+                await MainActor.run { stage.found(discovery) }
             }
         )
         // Se deja terminar lo que está en pantalla: la última foto soltando
@@ -274,6 +290,8 @@ struct ScanningStep: View {
     /// Qué se está haciendo ahora mismo, en una línea.
     private var statusLine: String {
         guard isPreparing else {
+            // Antes de la primera cifra, algo que diga que ya está en marcha.
+            if progress.totalPhotos == 0 { return "Buscando tus fotos más recientes…" }
             return "\(progress.photosProcessed.formatted()) de \(progress.totalPhotos.formatted()) fotos"
         }
         return switch appEnvironment.modelState {

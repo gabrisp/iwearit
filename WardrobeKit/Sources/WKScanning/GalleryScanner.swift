@@ -80,6 +80,8 @@ public actor GalleryScanner {
         /// usuario mirando cómo se repasan seis años de fotos.
         stopAfter: Int? = nil,
         onProgress: @Sendable @escaping (ScanProgress) async -> Void,
+        /// Una foto con alguien que empieza a analizarse. Ver `ScanLook`.
+        onLook: @Sendable @escaping (ScanLook) async -> Void = { _ in },
         onDiscovery: @Sendable @escaping (ScanDiscovery) async -> Void
     ) async -> ScanProgress {
         isCancelled = false
@@ -149,7 +151,15 @@ public actor GalleryScanner {
             // mantiene la memoria a raya es que cada foto se pide ya reducida
             // (256 px para la puerta barata, 1024 para el resto) y que los
             // buffers mueren al salir de `process`, sin acumularse en el bucle.
-            let drafts = await process(asset: asset, onDiscovery: onDiscovery)
+            // **Solo fotos hechas con la cámara.** Lo guardado de otras apps
+            // —memes, capturas de Instagram, fotos de WhatsApp— no es ropa
+            // tuya. Ver `isCameraCapture`.
+            guard Self.isCameraCapture(asset) else {
+                progress.photosProcessed = index - startIndex + 1
+                continue
+            }
+
+            let drafts = await process(asset: asset, onLook: onLook, onDiscovery: onDiscovery)
 
             switch drafts {
             case .skippedInCloud:
@@ -228,6 +238,7 @@ public actor GalleryScanner {
 
     private func process(
         asset: PHAsset,
+        onLook: @Sendable @escaping (ScanLook) async -> Void,
         onDiscovery: @Sendable @escaping (ScanDiscovery) async -> Void
     ) async -> PhotoOutcome {
         // Etapa barata: miniatura y ¿hay alguien?
@@ -239,6 +250,12 @@ public actor GalleryScanner {
         // Etapa cara: solo para las supervivientes.
         guard let full = await Self.image(for: asset, targetSize: 1024) else {
             return .skippedInCloud
+        }
+        // Se enseña **ya**, antes de segmentar: es la foto que se está
+        // mirando, y la pantalla tiene que ir al paso del escáner.
+        let shown = Self.downscaled(full, maxSide: 520)
+        if let shown {
+            await onLook(ScanLook(photoID: asset.localIdentifier, photo: ImmutableImage(shown)))
         }
 
         guard let found = try? await pipeline.extractGarments(from: full), !found.isEmpty else {
@@ -291,8 +308,10 @@ public actor GalleryScanner {
         }
         // La foto ya está mirada, dé lo que dé.
         deduper.markPhoto(asset.localIdentifier)
-        if !pieces.isEmpty, let photo = Self.downscaled(full, maxSide: 520) {
-            await onDiscovery(ScanDiscovery(photo: ImmutableImage(photo), pieces: pieces))
+        if !pieces.isEmpty, let photo = shown {
+            await onDiscovery(ScanDiscovery(
+                photoID: asset.localIdentifier, photo: ImmutableImage(photo), pieces: pieces
+            ))
         }
         return .found(drafts)
     }
@@ -331,17 +350,69 @@ public actor GalleryScanner {
     /// Se descartan por metadatos antes de tocar un solo píxel: una captura de
     /// pantalla no lleva a nadie puesto nada, y una panorámica deforma tanto
     /// que la segmentación no sirve.
+    ///
+    /// ## Solo lo reciente
+    ///
+    /// Una galería de verdad tiene cien mil fotos, y la ropa de hace seis años
+    /// ya no está en el armario. Así que **el último año y como mucho las
+    /// últimas 10.000**: es lo que llevas ahora, y es lo que cabe en un
+    /// escaneo que se termina mirando.
+    ///
+    /// ## Solo fotos de cámara, en bruto
+    ///
+    /// Lado corto de al menos 1.500 px ya en la consulta: una foto de cámara
+    /// de iPhone tiene 2.000-3.000, y lo guardado de otras apps —Instagram a
+    /// 1.080, WhatsApp a 1.200— se queda fuera sin tocar un píxel. El resto
+    /// del filtro, en `isCameraCapture`.
+    static let recentWindow: TimeInterval = 365 * 24 * 60 * 60
+    static let maximumCandidates = 10_000
+    static let minimumCameraSide = 1_500
+
     static func candidateAssets() -> PHFetchResult<PHAsset> {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.predicate = NSPredicate(
-            format: "mediaType == %d AND NOT ((mediaSubtype & %d) != 0) AND NOT ((mediaSubtype & %d) != 0)",
+            format: "mediaType == %d AND NOT ((mediaSubtype & %d) != 0) AND NOT ((mediaSubtype & %d) != 0)"
+                + " AND creationDate >= %@ AND pixelWidth >= %d AND pixelHeight >= %d",
             PHAssetMediaType.image.rawValue,
             PHAssetMediaSubtype.photoScreenshot.rawValue,
-            PHAssetMediaSubtype.photoPanorama.rawValue
+            PHAssetMediaSubtype.photoPanorama.rawValue,
+            Date(timeIntervalSinceNow: -recentWindow) as NSDate,
+            minimumCameraSide,
+            minimumCameraSide
         )
         options.includeAssetSourceTypes = [.typeUserLibrary]
+        options.fetchLimit = maximumCandidates
         return PHAsset.fetchAssets(with: options)
+    }
+
+    /// Si una foto la hizo la cámara, o viene de otra app.
+    ///
+    /// No hay un campo que lo diga, así que se juntan pistas baratas —solo
+    /// metadatos, ningún píxel—:
+    ///
+    /// - **Fuera** PNG, GIF y WebP: la cámara nunca los produce; son capturas
+    ///   de otros dispositivos, stickers e imágenes descargadas.
+    /// - **Dentro** si es Live Photo, retrato o HDR, si es HEIC o RAW, o si
+    ///   lleva ubicación: son cosas que solo hace la cámara, y las apps de
+    ///   mensajería quitan la ubicación al guardar.
+    /// - Un JPEG sin nada de eso **pasa**: la cámara en "Más compatible" hace
+    ///   JPEG, y el tamaño mínimo de la consulta ya ha echado lo de las apps.
+    static func isCameraCapture(_ asset: PHAsset) -> Bool {
+        let resources = PHAssetResource.assetResources(for: asset)
+        let photo = resources.first { $0.type == .photo || $0.type == .fullSizePhoto } ?? resources.first
+        let type = photo?.uniformTypeIdentifier.lowercased() ?? ""
+
+        let exported = ["public.png", "com.compuserve.gif", "org.webmproject.webp"]
+        if exported.contains(type) { return false }
+
+        let cameraSubtypes: PHAssetMediaSubtype = [.photoLive, .photoDepthEffect, .photoHDR]
+        if !asset.mediaSubtypes.intersection(cameraSubtypes).isEmpty { return true }
+        if type.contains("heic") || type.contains("heif") || type.contains("raw") || type.contains("dng") {
+            return true
+        }
+        if asset.location != nil { return true }
+        return type.contains("jpeg") || type.isEmpty
     }
 
     /// Cuánto se espera una foto antes de darla por perdida.
