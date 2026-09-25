@@ -1,4 +1,5 @@
 import SwiftUI
+import WKCanvas
 import WKDesign
 
 /// El flujo de onboarding.
@@ -13,6 +14,8 @@ struct OnboardingFlow: View {
     /// Los márgenes seguros, para que las pantallas se vuelvan tarjeta desde
     /// la pantalla entera. Ver `WKPageCardTransition`.
     @State private var safeInsets = EdgeInsets()
+    /// Lo que pide el paso actual para el botón global.
+    @State private var button: OnboardingButtonConfig?
 
     var body: some View {
         // **Sin `NavigationStack`.** Estaba para que `safeAreaBar` difuminara
@@ -28,11 +31,17 @@ struct OnboardingFlow: View {
             // **Una capa fija debajo y no un `.background`** del contenedor
             // que cambia de identidad: puesta así no llegaba a pintarse y
             // detrás de las tarjetas se veía la ventana en blanco.
-            ZStack {
-                WK.Palette.canvas
-                WK.Palette.ink(0.08)
-            }
-            .ignoresSafeArea()
+            // **Todo el onboarding pasa en un mismo lienzo**: el papel de
+            // puntos está fijo detrás de todos los pasos y avanza un poco con
+            // cada uno, como si se bajara por una hoja larga. Las pantallas no
+            // se deslizan: se disuelven y las nuevas se posan encima.
+            // ZStack {
+            //     WK.Palette.canvas
+            //     WK.Palette.ink(0.08)
+            // }
+            // .ignoresSafeArea()
+            OnboardingPaper(step: model.step.rawValue)
+                .ignoresSafeArea()
 
             // Las dos pantallas mientras pasa la página —la que sale y la que
             // entra—, por su paso para que cada una conserve su estado. Ver
@@ -43,7 +52,11 @@ struct OnboardingFlow: View {
                     // El fondo de cada pantalla lo pinta la tarjeta, con la
                     // forma con la que se recorta y que abarca la pantalla
                     // entera. Ver `PageCardEffect`.
-                    .modifier(card(for: page))
+                    // .modifier(card(for: page))
+                    .modifier(CanvasPageEffect(
+                        isLeaving: page == model.outgoing,
+                        progress: model.pageProgress
+                    ))
                     // La que entra, encima: llega tapando a la que se va.
                     .zIndex(page == model.outgoing ? 0 : 1)
                     // Solo se toca la que se queda.
@@ -66,6 +79,13 @@ struct OnboardingFlow: View {
         // `PageCardEffect`.
         // .safeAreaInset(edge: .top, spacing: 0) { header }
         .adaptiveSafeAreaBar(edge: .top) { header }
+        // **Un solo botón para todo el onboarding.** Cada paso dice qué pone,
+        // si se ve y si lleva una nota debajo; aquí se pinta, y al pasar de
+        // paso solo cambia su texto. Ver `onboardingButton`.
+        .adaptiveSafeAreaBar(edge: .bottom) {
+            OnboardingButtonBar(config: button)
+        }
+        .onPreferenceChange(OnboardingButtonKey.self) { button = $0 }
         .animation(WKAnimation.content, value: model.step == .welcome)
     }
 
@@ -204,34 +224,235 @@ struct OnboardingStepScaffold<Content: View>: View {
                     .font(WK.Font.largeTitle)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(WK.Palette.primaryText)
+                    .onboardingEntrance(0)
                 if let subtitle {
                     Text(subtitle)
                         .font(WK.Font.callout)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(WK.Palette.secondaryText)
+                        .onboardingEntrance(1)
                 }
             }
             .padding(.top, WK.Spacing.l)
 
             content
                 .frame(maxWidth: .infinity)
+                .onboardingEntrance(2)
 
             if !fillsToBottom {
                 Spacer(minLength: 0)
             }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
-        .adaptiveSafeAreaBar(edge: .bottom) {
-            // El cristal no puede muestrear otro cristal: el contenedor da
-            // región de muestreo común a lo que haya aquí.
-            AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                WKPrimaryButton(primaryTitle, surface: .glass, action: onPrimary)
-                    .disabled(!isEnabled)
-                    .opacity(isEnabled ? 1 : 0.4)
-                    .animation(WKAnimation.selection, value: isEnabled)
+        // **El botón es del onboarding, no del paso**: el paso dice qué pone
+        // y el contenedor lo pinta una sola vez. Ver `OnboardingButton`.
+        .onboardingButton(primaryTitle, isEnabled: isEnabled, action: onPrimary)
+        // El botón de cada paso, de antes.
+        // .adaptiveSafeAreaBar(edge: .bottom) {
+        //     // El cristal no puede muestrear otro cristal: el contenedor da
+        //     // región de muestreo común a lo que haya aquí.
+        //     AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+        //         WKPrimaryButton(primaryTitle, surface: .glass, action: onPrimary)
+        //             // **El botón no llega ni se va**: es el mismo de paso a
+        //             // paso. El del paso que sale desaparece al instante y el
+        //             // nuevo ya está en su sitio, así que solo se ve cambiar
+        //             // lo que dice. Con los dos animándose, se pisaban.
+        //             // .onboardingEntrance(3)
+        //             .onboardingPersistentButton()
+        //             .disabled(!isEnabled)
+        //             .opacity(isEnabled ? 1 : 0.4)
+        //             .animation(WKAnimation.selection, value: isEnabled)
+        //     }
+        //     .padding(.horizontal, WK.Spacing.screenInset)
+        //     .padding(.bottom, WK.Spacing.s)
+        // }
+    }
+}
+
+
+// MARK: - El lienzo del onboarding
+
+/// **El papel de puntos de todo el onboarding**, fijo detrás de los pasos. Con
+/// cada paso baja un poco —hacia atrás, sube—: se lee como recorrer una misma
+/// hoja larga y no como cambiar de pantalla.
+private struct OnboardingPaper: View {
+    let step: Int
+
+    /// Cuánto baja por paso.
+    private static let travel: CGFloat = 46
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .top) {
+                WK.Palette.canvas
+                DotGridBackground()
+                    .opacity(0.55)
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height + Self.travel * CGFloat(OnboardingStep.allCases.count)
+                    )
+                    .offset(y: -Self.travel * CGFloat(step))
+                    .animation(.smooth(duration: 0.9), value: step)
             }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.bottom, WK.Spacing.s)
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+            .clipped()
         }
+    }
+}
+
+/// **El paso que se va se disuelve**: pierde opacidad, se desenfoca un poco y
+/// sube, como tinta que se levanta del papel. El que llega no se mueve en
+/// bloque: sus piezas se posan solas. Ver `onboardingEntrance`.
+private struct CanvasPageEffect: ViewModifier {
+    let isLeaving: Bool
+    /// De 0 a 1: cuánto ha avanzado el cambio de paso.
+    let progress: Double
+
+    func body(content: Content) -> some View {
+        // La que sale se va en la primera mitad del cambio.
+        let out = isLeaving ? min(1, progress * 1.8) : 0
+        content
+            .environment(\.onboardingPageIsLeaving, isLeaving)
+            .opacity(1 - out)
+            .blur(radius: 8 * out)
+            .offset(y: -24 * out)
+            .scaleEffect(1 - 0.03 * out, anchor: .top)
+    }
+}
+
+extension View {
+    /// **Se posa en el lienzo**: llega desde un poco más arriba, sin opacidad
+    /// y algo desenfocado, y se asienta. `order` escalona las piezas de un
+    /// paso —título, subtítulo, contenido, botón— para que no lleguen en
+    /// bloque.
+    func onboardingEntrance(_ order: Int) -> some View {
+        modifier(OnboardingEntrance(order: order))
+    }
+}
+
+private struct OnboardingEntrance: ViewModifier {
+    let order: Int
+    @State private var isSettled = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isSettled ? 1 : 0)
+            .offset(y: isSettled ? 0 : -22)
+            .blur(radius: isSettled ? 0 : 6)
+            .onAppear {
+                // Tras la primera mitad del cambio, cuando la de antes ya se
+                // ha ido.
+                withAnimation(.spring(duration: 0.65, bounce: 0.18).delay(0.28 + Double(order) * 0.09)) {
+                    isSettled = true
+                }
+            }
+    }
+}
+
+extension EnvironmentValues {
+    /// Si este paso es el que se va. Ver `onboardingPersistentButton`.
+    @Entry var onboardingPageIsLeaving = false
+}
+
+extension View {
+    /// El botón principal del paso: se esconde **al instante** cuando el paso
+    /// se va, para que el del paso nuevo parezca el mismo.
+    func onboardingPersistentButton() -> some View {
+        modifier(PersistentButton())
+    }
+}
+
+private struct PersistentButton: ViewModifier {
+    @Environment(\.onboardingPageIsLeaving) private var isLeaving
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isLeaving ? 0 : 1)
+            .transaction { $0.animation = nil }
+    }
+}
+
+
+// MARK: - El botón global
+
+/// Lo que un paso pide al botón del onboarding.
+struct OnboardingButtonConfig: Equatable {
+    var title: String
+    var isEnabled = true
+    /// Una línea pequeña debajo del botón, si la hay.
+    var footnote: String?
+    /// La acción. Fuera de la igualdad: es un cierre, y lo que se compara es
+    /// lo que se ve. Lee el estado del paso al pulsarse, así que no se queda
+    /// vieja.
+    var action: () -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.title == rhs.title && lhs.isEnabled == rhs.isEnabled && lhs.footnote == rhs.footnote
+    }
+}
+
+struct OnboardingButtonKey: PreferenceKey {
+    static let defaultValue: OnboardingButtonConfig? = nil
+    /// Si dos pasos lo piden a la vez —mientras uno se va—, gana el último:
+    /// el que se queda, que va encima. El que se va no lo pide. Ver
+    /// `onboardingButton`.
+    static func reduce(value: inout OnboardingButtonConfig?, nextValue: () -> OnboardingButtonConfig?) {
+        if let next = nextValue() { value = next }
+    }
+}
+
+extension View {
+    /// **Pide el botón global** con este texto. Un paso que no lo pide no
+    /// lo tiene: el botón se esconde.
+    func onboardingButton(
+        _ title: String,
+        isEnabled: Bool = true,
+        footnote: String? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        modifier(OnboardingButtonRequest(config: .init(title: title, isEnabled: isEnabled, footnote: footnote, action: action)))
+    }
+}
+
+private struct OnboardingButtonRequest: ViewModifier {
+    let config: OnboardingButtonConfig
+    @Environment(\.onboardingPageIsLeaving) private var isLeaving
+
+    func body(content: Content) -> some View {
+        // El paso que se va ya no manda sobre el botón.
+        content.preference(key: OnboardingButtonKey.self, value: isLeaving ? nil : config)
+    }
+}
+
+/// El botón y su nota. **Uno para todo el onboarding**: el texto cambia con
+/// `numericText` —ver `WKPrimaryButton`— y el cristal se queda.
+private struct OnboardingButtonBar: View {
+    let config: OnboardingButtonConfig?
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.s) {
+            if let config {
+                AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+                    WKPrimaryButton(config.title, surface: .glass, action: config.action)
+                        .disabled(!config.isEnabled)
+                        .opacity(config.isEnabled ? 1 : 0.4)
+                }
+                .transition(.opacity.combined(with: .offset(y: 16)))
+                if let footnote = config.footnote {
+                    Text(footnote)
+                        .font(WK.Font.caption)
+                        .foregroundStyle(WK.Palette.tertiaryText)
+                        .multilineTextAlignment(.center)
+                        .contentTransition(.numericText())
+                        .transition(.opacity)
+                }
+            }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.bottom, WK.Spacing.s)
+        .animation(.smooth(duration: 0.4), value: config?.title)
+        .animation(.smooth(duration: 0.3), value: config?.isEnabled)
+        .animation(.smooth(duration: 0.4), value: config == nil)
+        .animation(.smooth(duration: 0.4), value: config?.footnote)
     }
 }

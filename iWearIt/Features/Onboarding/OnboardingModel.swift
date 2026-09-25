@@ -118,7 +118,11 @@ final class OnboardingModel {
         pageProgress = 0
         step = next
         Task { @MainActor in
-            withAnimation(WKPageCardTransition.animation) {
+            // El cambio en el lienzo: la de antes se disuelve en la primera
+            // mitad y las piezas nuevas se posan después. Ver
+            // `CanvasPageEffect`.
+            // withAnimation(WKPageCardTransition.animation) {
+            withAnimation(.easeOut(duration: 0.55)) {
                 pageProgress = 1
             } completion: {
                 self.outgoing = nil

@@ -36,13 +36,7 @@ struct WelcomeStep: View {
                 .allowsHitTesting(false)
             }
         }
-        .adaptiveSafeAreaBar(edge: .bottom) {
-            AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                WKPrimaryButton(String(localized: "onboarding.onboardingsteps.getStarted", defaultValue: "Get started"), surface: .glass) { model.advance() }
-            }
-            .padding(.horizontal, WK.Spacing.screenInset)
-            .padding(.bottom, WK.Spacing.s)
-        }
+        .onboardingButton(String(localized: "onboarding.onboardingsteps.getStarted", defaultValue: "Get started")) { model.advance() }
     }
 }
 
