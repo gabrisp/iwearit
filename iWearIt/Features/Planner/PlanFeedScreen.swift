@@ -741,6 +741,9 @@ struct CreateOnOverscroll: ViewModifier {
                 threshold: 84,
                 label: String(localized: "planner.planfeedscreen.createAnOutfit", defaultValue: "Create an outfit"),
                 bottomInset: WK.Spacing.m,
+                // **Debajo de la tarjeta**: al tirar, la tarjeta se levanta y
+                // va destapando el botón mientras se llena.
+                revealsFromBehind: true,
                 // El retraso ya no se pone aquí: lo lleva el propio gesto,
                 // que sabe cuándo ha terminado de volver el lienzo. Ver
                 // `OverscrollAction.fireIfDue`.

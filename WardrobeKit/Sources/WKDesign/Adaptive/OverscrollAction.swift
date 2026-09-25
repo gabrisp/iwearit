@@ -49,6 +49,7 @@ public extension View {
         symbol: String = "plus",
         label: String,
         bottomInset: CGFloat = 0,
+        revealsFromBehind: Bool = false,
         action: @MainActor @escaping () -> Void
     ) -> some View {
         modifier(
@@ -57,6 +58,7 @@ public extension View {
                 symbol: symbol,
                 label: label,
                 bottomInset: bottomInset,
+                revealsFromBehind: revealsFromBehind,
                 action: action
             )
         )
@@ -68,6 +70,10 @@ private struct OverscrollAction: ViewModifier {
     let symbol: String
     let label: String
     let bottomInset: CGFloat
+    /// **Por debajo del contenido**: la tarjeta que se levanta al tirar la
+    /// va destapando. Mismo sitio y mismo aspecto; solo cambia quién tapa a
+    /// quién.
+    var revealsFromBehind = false
     let action: @MainActor () -> Void
     /// Para dar por aprendido el aviso del tirón en cuanto se usa. Opcional:
     /// fuera de la app —previsualizaciones— no hay avisos.
@@ -158,7 +164,9 @@ private struct OverscrollAction: ViewModifier {
                 isTouching = touching
                 fireIfDue()
             }
-            .overlay(alignment: .bottom) { pill }
+            // Encima del scroll, o debajo si la tiene que destapar la tarjeta.
+            .overlay(alignment: .bottom) { if !revealsFromBehind { pill } }
+            .background(alignment: .bottom) { if revealsFromBehind { pill } }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 let scrolled = geometry.contentOffset.y + geometry.contentInsets.top
                 let scrollable = max(geometry.contentSize.height - geometry.containerSize.height, 0)
