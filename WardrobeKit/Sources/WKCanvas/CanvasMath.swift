@@ -118,6 +118,22 @@ public enum CanvasMath {
             if result.scale < floorScale { result.scale = floorScale }
         }
 
+        // --- 1b. El máximo ---
+        //
+        // **Sin techo, una pieza crecía hasta tapar la pantalla entera**: se
+        // comía todos los toques, y al pellizcar desde dentro para achicarla
+        // el ancla quedaba lejísimos del centro y la mandaba fuera del papel
+        // —"desaparecía"—. Como mucho, el lado largo de la pieza cabe en el
+        // lado largo del papel.
+        let longest = max(abs(transform.baseWidth), abs(transform.baseHeight))
+        if longest > 0 {
+            let ceilingScale = max(CanvasSpace.height, CanvasSpace.width) / longest
+            if result.scale > ceilingScale {
+                // Encogerla alrededor de su centro, no del ancla del gesto.
+                result.scale = ceilingScale
+            }
+        }
+
         // --- 2. El imán del centro ---
         let middle = CGPoint(x: CanvasSpace.width / 2, y: CanvasSpace.height / 2)
         if abs(result.x - middle.x) <= centeringTolerance {

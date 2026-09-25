@@ -152,7 +152,7 @@ public struct FreeformCanvas: View {
             }
             // Las burbujas, **a tamaño de pantalla** y fuera de la capa
             // escalada: dentro saldrían del tamaño que tuviera el lienzo.
-            .overlay(alignment: .topLeading) {
+            .overlay(alignment: .bottom) {
                 CanvasBubbleLayer(
                     outfit: outfit,
                     selection: selection,
@@ -203,35 +203,39 @@ private struct CanvasBubbleLayer: View {
         let list = item.map(bubbles) ?? []
         AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if let item, !list.isEmpty {
-                let t = selection.liveTransform ?? item.transform
-                // Media anchura y media altura de la caja ya girada, en
-                // pantalla.
-                let cosine = abs(cos(t.rotation)), sine = abs(sin(t.rotation))
-                let halfWidth = (cosine * t.baseWidth + sine * t.baseHeight) / 2 * t.scale * scale
-                let halfHeight = (sine * t.baseWidth + cosine * t.baseHeight) / 2 * t.scale * scale
-                let centerX = (t.x - CanvasSpace.width / 2) * scale + size.width / 2
-                let centerY = (t.y - CanvasSpace.height / 2) * scale + size.height / 2
-                let gap: CGFloat = 10
-                let margin = WK.Spacing.s
-                let right = centerX + halfWidth + gap
-                let left = centerX - halfWidth - gap - bubblesSize.width
-                // **Al lado si cabe; si no, debajo** —o encima—: encima de la
-                // foto tapaba justo lo que se va a recortar.
-                let placement: CGPoint = {
-                    if right + bubblesSize.width <= size.width - margin {
-                        return CGPoint(x: right, y: centerY - bubblesSize.height / 2)
-                    }
-                    if left >= margin {
-                        return CGPoint(x: left, y: centerY - bubblesSize.height / 2)
-                    }
-                    let below = centerY + halfHeight + gap
-                    let y = below + bubblesSize.height <= size.height - margin
-                        ? below
-                        : centerY - halfHeight - gap - bubblesSize.height
-                    return CGPoint(x: centerX - bubblesSize.width / 2, y: y)
-                }()
-                let x = min(max(margin, placement.x), size.width - bubblesSize.width - margin)
-                let y = min(max(margin, placement.y), size.height - bubblesSize.height - margin)
+                // **Quietas, abajo en el centro**, encima de la barra de
+                // herramientas: pegadas a la foto la perseguían, caían donde
+                // va el segundo dedo y tapaban lo que movías.
+                // let t = selection.liveTransform ?? item.transform
+                // // Media anchura y media altura de la caja ya girada, en
+                // // pantalla.
+                // let cosine = abs(cos(t.rotation)), sine = abs(sin(t.rotation))
+                // let halfWidth = (cosine * t.baseWidth + sine * t.baseHeight) / 2 * t.scale * scale
+                // let halfHeight = (sine * t.baseWidth + cosine * t.baseHeight) / 2 * t.scale * scale
+                // let centerX = (t.x - CanvasSpace.width / 2) * scale + size.width / 2
+                // let centerY = (t.y - CanvasSpace.height / 2) * scale + size.height / 2
+                // let gap: CGFloat = 10
+                // let margin = WK.Spacing.s
+                // let right = centerX + halfWidth + gap
+                // let left = centerX - halfWidth - gap - bubblesSize.width
+                // // **Al lado si cabe; si no, debajo** —o encima—: encima de la
+                // // foto tapaba justo lo que se va a recortar.
+                // let placement: CGPoint = {
+                //     if right + bubblesSize.width <= size.width - margin {
+                //         return CGPoint(x: right, y: centerY - bubblesSize.height / 2)
+                //     }
+                //     if left >= margin {
+                //         return CGPoint(x: left, y: centerY - bubblesSize.height / 2)
+                //     }
+                //     let below = centerY + halfHeight + gap
+                //     let y = below + bubblesSize.height <= size.height - margin
+                //         ? below
+                //         : centerY - halfHeight - gap - bubblesSize.height
+                //     return CGPoint(x: centerX - bubblesSize.width / 2, y: y)
+                // }()
+                // let x = min(max(margin, placement.x), size.width - bubblesSize.width - margin)
+                // let y = min(max(margin, placement.y), size.height - bubblesSize.height - margin)
+
                 VStack(alignment: .leading, spacing: WK.Spacing.s) {
                     ForEach(list) { bubble in
                         CanvasBubbleButton(bubble: bubble)
@@ -239,7 +243,9 @@ private struct CanvasBubbleLayer: View {
                 }
                 .fixedSize()
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { bubblesSize = $0 }
-                .offset(x: x, y: y)
+                // .offset(x: x, y: y)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, WK.Spacing.m)
                 // **Mientras la mueves, no se tocan.** Van pegadas a la foto,
                 // justo donde cae el segundo dedo al pellizcar: se quedaban
                 // el toque, el gesto se cancelaba a medias y hasta saltaba

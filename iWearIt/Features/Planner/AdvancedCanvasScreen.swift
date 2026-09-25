@@ -67,6 +67,11 @@ final class CanvasEditingSession {
     private let context: ModelContext
     private let outfit: Outfit
     private let isNew: Bool
+    /// **Cómo estaba el lienzo al abrir.** Descartar vuelve aquí a mano:
+    /// `rollback()` no deshacía lo ya pintado en memoria —el lienzo seguía
+    /// con los cambios y el autoguardado los escribía después—, así que
+    /// "Descartar" acababa guardando.
+    private let original: CanvasSnapshot
 
     init(holding context: ModelContext, outfit: Outfit, isNew: Bool) {
         // **Sin guardar al entrar.** Lo hacía para que un contexto aparte
@@ -78,6 +83,7 @@ final class CanvasEditingSession {
         self.context = context
         self.outfit = outfit
         self.isNew = isNew
+        self.original = CanvasSnapshot(outfit)
     }
 
     deinit {
@@ -138,7 +144,11 @@ final class CanvasEditingSession {
             context.delete(outfit)
             try? context.save()
         } else {
-            context.rollback()
+            // Primero lo de antes, pieza a pieza, y luego se guarda: así lo
+            // descartado no vuelve con el autoguardado.
+            // context.rollback()
+            original.restore(into: outfit, context: context)
+            try? context.save()
         }
         context.autosaveEnabled = true
     }
