@@ -1186,7 +1186,7 @@ private struct ScanFoundMessage: View {
 }
 
 /// Texto con brillo que lo recorre y un halo del papel alrededor.
-private struct AuraText: View {
+struct AuraText: View {
     let text: String
     let font: Font
     var isSecondary = false

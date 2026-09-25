@@ -179,7 +179,7 @@ private struct OnboardingStepContent: View {
         case .scanFound:       ScanFoundStep(model: model)
         case .scanReview:      ScanReviewStep(model: model)
         case .scanSummary:     ScanSummaryStep(model: model)
-        case .paywall:         PaywallStep(onFinish: onFinish)
+        case .paywall:         PaywallStep(onFinish: onFinish, usesOnboardingButton: true)
         }
     }
 }

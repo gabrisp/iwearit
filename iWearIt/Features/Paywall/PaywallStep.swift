@@ -1,5 +1,8 @@
 import RevenueCat
+import SwiftData
 import SwiftUI
+import WKCore
+import WKPersistence
 import WKDesign
 
 /// El paywall del final del onboarding.
@@ -21,6 +24,15 @@ import WKDesign
 /// precios orientativos.
 struct PaywallStep: View {
     let onFinish: () -> Void
+    /// En el onboarding, el botón de comprar es el global —ver
+    /// `onboardingButton`—; en la hoja de dentro de la app, uno propio.
+    var usesOnboardingButton = false
+
+    @Query private var garments: [Garment]
+    /// Tus prendas, dando la vuelta por el borde: el mismo lienzo del final
+    /// del escaneo. Ver `ScanCloud`.
+    @State private var pieces: [ScanCloud.Item] = []
+    @State private var spreadSince = Date()
 
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var plan: Plan = .sixMonth
@@ -69,103 +81,290 @@ struct PaywallStep: View {
         }
     }
 
+    /// **Tus prendas alrededor, y en medio lo que te llevas**: qué pasa hoy,
+    /// esta semana y después —como hace Opal con su prueba, por pasos—, y
+    /// los planes para elegir.
     var body: some View {
-        VStack(spacing: WK.Spacing.l) {
-            ScrollView {
-                VStack(spacing: WK.Spacing.l) {
-                    VStack(spacing: WK.Spacing.s) {
-                        Text(String(localized: "paywall.paywallstep.getEverythingNoutOfYour", defaultValue: "Get everything\nout of your closet"))
-                            .font(.system(.largeTitle, weight: .bold))
-                            .multilineTextAlignment(.center)
-                        Text(String(localized: "paywall.paywallstep.noLimitsOnClothesSuitcases", defaultValue: "No limits on clothes, suitcases or scanning."))
-                            .font(.subheadline)
-                            .foregroundStyle(WK.Palette.secondaryText)
-                    }
-                    .padding(.top, WK.Spacing.m)
+        ZStack {
+            ScanCloud(pieces: pieces, spreadSince: spreadSince)
+                .ignoresSafeArea()
 
-                    VStack(alignment: .leading, spacing: WK.Spacing.m) {
-                        PaywallBenefit(symbol: "infinity", tone: .granate, text: String(localized: "paywall.paywallstep.unlimitedClothesAndSuitcases", defaultValue: "Unlimited clothes and suitcases"))
-                        PaywallBenefit(symbol: "photo.stack", tone: .denim, text: String(localized: "paywall.paywallstep.fullScanOfYourLibrary", defaultValue: "Full scan of your library"))
-                        PaywallBenefit(symbol: "person.crop.rectangle", tone: .camel, text: String(localized: "paywall.paywallstep.tryOnYourOutfits", defaultValue: "Try on your outfits"))
-                        PaywallBenefit(symbol: "square.and.arrow.up", tone: .oliva, text: String(localized: "paywall.paywallstep.shareAndExportYourLooks", defaultValue: "Share and export your looks"))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: WK.Spacing.l) {
+                Spacer(minLength: 0)
+                AuraText(String(localized: "paywall.paywallstep.getEverythingNoutOfYour", defaultValue: "Get everything\nout of your closet"), font: WK.Font.largeTitle)
+                    .multilineTextAlignment(.center)
+                    .onboardingEntrance(0)
 
-                    TestimonialCard(OnboardingContent.testimonials[0])
+                PaywallTimeline(steps: timeline)
+                    .onboardingEntrance(1)
 
-                    VStack(spacing: WK.Spacing.s) {
-                        if packages.isEmpty {
-                            // Sin tienda: los de ejemplo, que al menos dicen de
-                            // qué orden de precio hablamos.
-                            ForEach(Plan.allCases) { option in
-                                PlanRow(
-                                    title: option.title,
-                                    price: option.price,
-                                    detail: option.detail,
-                                    isSelected: plan == option
-                                ) { plan = option }
-                            }
-                        } else {
-                            ForEach(packages, id: \.identifier) { package in
-                                PlanRow(
-                                    title: package.planTitle,
-                                    price: package.storeProduct.localizedPriceString,
-                                    detail: package.planDetail,
-                                    isSelected: picked?.identifier == package.identifier
-                                ) { picked = package }
-                            }
-                        }
+                PlanPicker(options: planOptions, selected: selectedID) { select($0) }
+                    .onboardingEntrance(2)
+
+                Spacer(minLength: 0)
+
+                if !usesOnboardingButton {
+                    AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+                        WKPrimaryButton(buyTitle, surface: .glass) { buy() }
+                            .disabled(store.isWorking)
                     }
                 }
+                secondaryActions
             }
-            .scrollIndicators(.hidden)
-
-            AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                VStack(spacing: WK.Spacing.s) {
-                    WKPrimaryButton(buyTitle, surface: .glass) { buy() }
-                        .disabled(store.isWorking)
-
-                    WKSecondaryButton(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
-
-                    // **Restaurar tiene que estar a la vista.** Lo pide la App
-                    // Store, y es lo primero que busca quien cambia de
-                    // teléfono y se encuentra el paywall otra vez.
-                    Button(String(localized: "paywall.paywallstep.restorePurchases", defaultValue: "Restore purchases")) {
-                        Task {
-                            let restored = await store.restore()
-                            await appEnvironment.gate.refresh()
-                            if restored { onFinish() }
-                        }
-                    }
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
-                    .disabled(store.isWorking)
-
-                    Text(store.problem ?? String(localized: "paywall.paywallstep.cancelAnytime", defaultValue: "Cancel anytime."))
-                        .font(WK.Font.caption)
-                        .foregroundStyle(
-                            store.problem == nil ? WK.Palette.tertiaryText : WK.Palette.accent
-                        )
-                        .multilineTextAlignment(.center)
-                }
-            }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.bottom, WK.Spacing.s)
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.bottom, WK.Spacing.m)
+        .modifier(PaywallButton(
+            isActive: usesOnboardingButton,
+            title: buyTitle,
+            isEnabled: !store.isWorking,
+            footnote: store.problem ?? String(localized: "paywall.paywallstep.cancelAnytime", defaultValue: "Cancel anytime."),
+            action: { buy() }
+        ))
         .task {
             // Por si se abre antes de que el arranque haya traído la oferta.
             if packages.isEmpty { await store.load() }
             // El de seis meses primero, que es el que sale a cuenta.
+            // picked = picked
+            //     ?? packages.first { $0.packageType == .sixMonth }
+            //     ?? packages.first { $0.packageType == .annual }
+            //     ?? packages.first
+            // **El que más ahorra**, que es el que lleva la etiqueta. Por tipo
+            // de paquete fallaba: si el panel los tiene como personalizados,
+            // salía elegido el semanal.
             picked = picked
+                ?? packages.max { saving(of: $0) < saving(of: $1) }.flatMap { saving(of: $0) > 0 ? $0 : nil }
                 ?? packages.first { $0.packageType == .sixMonth }
                 ?? packages.first { $0.packageType == .annual }
                 ?? packages.first
         }
+        .task { await loadPieces() }
     }
+
+    /// "Seguir gratis" y "Restaurar", a la vista y juntos.
+    private var secondaryActions: some View {
+        HStack(spacing: WK.Spacing.l) {
+            Button(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
+            // **Restaurar tiene que estar a la vista.** Lo pide la App Store,
+            // y es lo primero que busca quien cambia de teléfono y se
+            // encuentra el paywall otra vez.
+            Button(String(localized: "paywall.paywallstep.restorePurchases", defaultValue: "Restore purchases")) {
+                Task {
+                    let restored = await store.restore()
+                    await appEnvironment.gate.refresh()
+                    if restored { onFinish() }
+                }
+            }
+            .disabled(store.isWorking)
+        }
+        .font(WK.Font.captionMedium)
+        .foregroundStyle(WK.Palette.secondaryText)
+        .buttonStyle(.plain)
+    }
+
+    private func loadPieces() async {
+        guard pieces.isEmpty else { return }
+        for garment in garments.prefix(24) {
+            guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
+            var item = ScanCloud.Item(image: image)
+            item.kind = garment.kind
+            item.appearedAt = .now
+            withAnimation(.easeOut(duration: 0.8)) { pieces.append(item) }
+            try? await Task.sleep(for: .milliseconds(160))
+        }
+    }
+
+    // MARK: Los pasos
+
+    /// Los días de prueba gratis del plan elegido, si la tienda da alguno.
+    private var trialDays: Int? {
+        guard let intro = picked?.storeProduct.introductoryDiscount, intro.price == 0 else { return nil }
+        let period = intro.subscriptionPeriod
+        let days = switch period.unit {
+        case .day: period.value
+        case .week: period.value * 7
+        case .month: period.value * 30
+        case .year: period.value * 365
+        @unknown default: period.value
+        }
+        return days * max(1, intro.numberOfPeriods)
+    }
+
+    /// **Por pasos, como Opal**: con prueba, cuándo se avisa y cuándo se
+    /// cobra; sin ella, lo que se nota hoy, esta semana y en un mes. Nada que
+    /// la tienda no dé.
+    private var timeline: [PaywallTimeline.Step] {
+        if let days = trialDays {
+            return [
+                .init(symbol: "lock.open", when: String(localized: "paywall.timeline.today", defaultValue: "Today"),
+                      what: String(localized: "paywall.timeline.trial.today", defaultValue: "Everything unlocked: unlimited closet, try-on and suitcases.")),
+                .init(symbol: "bell", when: String(localized: "paywall.timeline.day", defaultValue: "Day \(String(describing: max(1, days - 2)))"),
+                      what: String(localized: "paywall.timeline.trial.reminder", defaultValue: "We remind you before your trial ends.")),
+                .init(symbol: "sparkles", when: String(localized: "paywall.timeline.day", defaultValue: "Day \(String(describing: days))"),
+                      what: String(localized: "paywall.timeline.trial.billing", defaultValue: "Your plan starts. Cancel anytime before.")),
+            ]
+        }
+        return [
+            .init(symbol: "hanger", when: String(localized: "paywall.timeline.today", defaultValue: "Today"),
+                  what: String(localized: "paywall.timeline.value.today", defaultValue: "Your whole closet inside, with no limit on pieces.")),
+            .init(symbol: "calendar", when: String(localized: "paywall.timeline.thisWeek", defaultValue: "This week"),
+                  what: String(localized: "paywall.timeline.value.week", defaultValue: "Outfits planned, and tried on before you go out.")),
+            .init(symbol: "leaf", when: String(localized: "paywall.timeline.inAMonth", defaultValue: "In a month"),
+                  what: String(localized: "paywall.timeline.value.month", defaultValue: "You stop buying what you already have.")),
+        ]
+    }
+
+    // MARK: Los planes
+
+    /// Los planes a elegir: los de la tienda, o los de ejemplo sin ella.
+    private var planOptions: [PlanPicker.Option] {
+        guard !packages.isEmpty else {
+            return Plan.allCases.map {
+                .init(id: $0.rawValue, title: $0.title, price: $0.price, detail: $0.detail,
+                      badge: $0 == .sixMonth ? String(localized: "paywall.plan.save", defaultValue: "Save \(String(describing: 37))%") : nil)
+            }
+        }
+        return packages.map { package in
+            var badge: String?
+            let saving = saving(of: package)
+            if saving >= 5 {
+                badge = String(localized: "paywall.plan.save", defaultValue: "Save \(String(describing: saving))%")
+            }
+            return .init(
+                id: package.identifier,
+                title: package.planTitle,
+                price: package.storeProduct.localizedPriceString,
+                detail: package.planDetail,
+                badge: badge
+            )
+        }
+    }
+
+    /// Cuánto ahorra al mes frente al mensual, en %. 0 si nada o no se sabe.
+    private func saving(of package: Package) -> Int {
+        guard let monthly = packages.first(where: { $0.packageType == .monthly })?.storeProduct.price, monthly > 0,
+              package.packageType != .monthly, package.packageType != .weekly,
+              let perMonth = package.storeProduct.pricePerMonth?.decimalValue else { return 0 }
+        return max(0, Int((1 - NSDecimalNumber(decimal: perMonth / monthly).doubleValue) * 100))
+    }
+
+    private var selectedID: String {
+        packages.isEmpty ? plan.rawValue : (picked?.identifier ?? "")
+    }
+
+    private func select(_ id: String) {
+        withAnimation(WKAnimation.selection) {
+            if packages.isEmpty {
+                plan = Plan(rawValue: id) ?? plan
+            } else {
+                picked = packages.first { $0.identifier == id }
+            }
+        }
+    }
+
+    // El paywall de antes: beneficios en lista, un testimonio y los planes en
+    // filas, en un scroll.
+    // var body: some View {
+    //     VStack(spacing: WK.Spacing.l) {
+    //         ScrollView {
+    //             VStack(spacing: WK.Spacing.l) {
+    //                 VStack(spacing: WK.Spacing.s) {
+    //                     Text(String(localized: "paywall.paywallstep.getEverythingNoutOfYour", defaultValue: "Get everything\nout of your closet"))
+    //                         .font(.system(.largeTitle, weight: .bold))
+    //                         .multilineTextAlignment(.center)
+    //                     Text(String(localized: "paywall.paywallstep.noLimitsOnClothesSuitcases", defaultValue: "No limits on clothes, suitcases or scanning."))
+    //                         .font(.subheadline)
+    //                         .foregroundStyle(WK.Palette.secondaryText)
+    //                 }
+    //                 .padding(.top, WK.Spacing.m)
+    //
+    //                 VStack(alignment: .leading, spacing: WK.Spacing.m) {
+    //                     PaywallBenefit(symbol: "infinity", tone: .granate, text: String(localized: "paywall.paywallstep.unlimitedClothesAndSuitcases", defaultValue: "Unlimited clothes and suitcases"))
+    //                     PaywallBenefit(symbol: "photo.stack", tone: .denim, text: String(localized: "paywall.paywallstep.fullScanOfYourLibrary", defaultValue: "Full scan of your library"))
+    //                     PaywallBenefit(symbol: "person.crop.rectangle", tone: .camel, text: String(localized: "paywall.paywallstep.tryOnYourOutfits", defaultValue: "Try on your outfits"))
+    //                     PaywallBenefit(symbol: "square.and.arrow.up", tone: .oliva, text: String(localized: "paywall.paywallstep.shareAndExportYourLooks", defaultValue: "Share and export your looks"))
+    //                 }
+    //                 .frame(maxWidth: .infinity, alignment: .leading)
+    //
+    //                 TestimonialCard(OnboardingContent.testimonials[0])
+    //
+    //                 VStack(spacing: WK.Spacing.s) {
+    //                     if packages.isEmpty {
+    //                         // Sin tienda: los de ejemplo, que al menos dicen de
+    //                         // qué orden de precio hablamos.
+    //                         ForEach(Plan.allCases) { option in
+    //                             PlanRow(
+    //                                 title: option.title,
+    //                                 price: option.price,
+    //                                 detail: option.detail,
+    //                                 isSelected: plan == option
+    //                             ) { plan = option }
+    //                         }
+    //                     } else {
+    //                         ForEach(packages, id: \.identifier) { package in
+    //                             PlanRow(
+    //                                 title: package.planTitle,
+    //                                 price: package.storeProduct.localizedPriceString,
+    //                                 detail: package.planDetail,
+    //                                 isSelected: picked?.identifier == package.identifier
+    //                             ) { picked = package }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         .scrollIndicators(.hidden)
+    //
+    //         AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+    //             VStack(spacing: WK.Spacing.s) {
+    //                 WKPrimaryButton(buyTitle, surface: .glass) { buy() }
+    //                     .disabled(store.isWorking)
+    //
+    //                 WKSecondaryButton(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
+    //
+    //                 // **Restaurar tiene que estar a la vista.** Lo pide la App
+    //                 // Store, y es lo primero que busca quien cambia de
+    //                 // teléfono y se encuentra el paywall otra vez.
+    //                 Button(String(localized: "paywall.paywallstep.restorePurchases", defaultValue: "Restore purchases")) {
+    //                     Task {
+    //                         let restored = await store.restore()
+    //                         await appEnvironment.gate.refresh()
+    //                         if restored { onFinish() }
+    //                     }
+    //                 }
+    //                 .font(WK.Font.caption)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //                 .disabled(store.isWorking)
+    //
+    //                 Text(store.problem ?? String(localized: "paywall.paywallstep.cancelAnytime", defaultValue: "Cancel anytime."))
+    //                     .font(WK.Font.caption)
+    //                     .foregroundStyle(
+    //                         store.problem == nil ? WK.Palette.tertiaryText : WK.Palette.accent
+    //                     )
+    //                     .multilineTextAlignment(.center)
+    //             }
+    //         }
+    //     }
+    //     .padding(.horizontal, WK.Spacing.screenInset)
+    //     .padding(.bottom, WK.Spacing.m)
+    //     .task {
+    //         // Por si se abre antes de que el arranque haya traído la oferta.
+    //         if packages.isEmpty { await store.load() }
+    //         // El de seis meses primero, que es el que sale a cuenta.
+    //         picked = picked
+    //             ?? packages.first { $0.packageType == .sixMonth }
+    //             ?? packages.first { $0.packageType == .annual }
+    //             ?? packages.first
+    //     }
+    // }
 
     /// Lo que pone el botón.
     private var buyTitle: String {
         if store.isWorking { return String(localized: "paywall.paywallstep.oneMoment", defaultValue: "One moment…") }
+        // La prueba, **solo si la tienda la da** para este plan.
+        if let days = trialDays {
+            return String(localized: "paywall.paywallstep.startTrial", defaultValue: "Start \(String(describing: days)) days free")
+        }
         // **Sin prueba gratis en ningún plan.** Antes, sin paquetes cargados,
         // el botón prometía siete días gratis que no existen.
         // guard let picked else { return "Empezar 7 días gratis" }
@@ -302,5 +501,150 @@ private extension SubscriptionPeriod {
         case .year: return count == 1 ? String(localized: "paywall.paywallstep.1Year", defaultValue: "1 year") : String(localized: "paywall.paywallstep.years", defaultValue: "\(String(describing: count)) years")
         @unknown default: return "\(count)"
         }
+    }
+}
+
+/// El botón global del onboarding, o nada.
+private struct PaywallButton: ViewModifier {
+    let isActive: Bool
+    let title: String
+    let isEnabled: Bool
+    let footnote: String
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.onboardingButton(title, isEnabled: isEnabled, footnote: footnote, action: action)
+        } else {
+            content
+        }
+    }
+}
+
+/// **Lo que pasa, por pasos**: un punto por paso unidos por una línea, como
+/// la prueba de Opal.
+struct PaywallTimeline: View {
+    struct Step: Identifiable {
+        let symbol: String
+        let when: String
+        let what: String
+        var id: String { when + what }
+    }
+
+    let steps: [Step]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                HStack(alignment: .top, spacing: WK.Spacing.m) {
+                    VStack(spacing: 0) {
+                        Image(systemName: step.symbol)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(index == 0 ? WK.Palette.primaryText : WK.Palette.secondaryText)
+                            .frame(width: 34, height: 34)
+                            .adaptiveGlass(in: .circle)
+                        if index < steps.count - 1 {
+                            Capsule()
+                                .fill(WK.Palette.ink(0.14))
+                                .frame(width: 2)
+                                .frame(maxHeight: .infinity)
+                                .padding(.vertical, 4)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(step.when)
+                            .font(WK.Font.headline)
+                            .foregroundStyle(WK.Palette.primaryText)
+                        Text(step.what)
+                            .font(WK.Font.callout)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.top, 6)
+                    .padding(.bottom, index < steps.count - 1 ? WK.Spacing.m : 0)
+                    Spacer(minLength: 0)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(WK.Spacing.m)
+        .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+    }
+}
+
+/// **Los planes, uno al lado del otro**: el precio grande, lo que sale al
+/// mes debajo, y "Ahorra X%" encima del que sale a cuenta. Sin contornos de
+/// color: el elegido lleva el check, que se transforma, y se adelanta un
+/// poco.
+struct PlanPicker: View {
+    struct Option: Identifiable {
+        let id: String
+        let title: String
+        let price: String
+        let detail: String?
+        let badge: String?
+    }
+
+    let options: [Option]
+    let selected: String
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+            HStack(alignment: .bottom, spacing: WK.Spacing.s) {
+                ForEach(options) { option in
+                    card(option)
+                }
+            }
+        }
+        .sensoryFeedback(.selection, trigger: selected)
+    }
+
+    private func card(_ option: Option) -> some View {
+        let isSelected = option.id == selected
+        return Button { onSelect(option.id) } label: {
+            VStack(spacing: WK.Spacing.xs) {
+                // "Ahorra X%", **dentro** de la tarjeta: por fuera, el cristal
+                // de la de al lado lo tapaba. Las que no lo llevan guardan el
+                // hueco, para que las tres midan lo mismo.
+                Text(option.badge ?? " ")
+                    .font(WK.Font.captionMedium)
+                    .foregroundStyle(WK.Palette.canvas)
+                    .padding(.horizontal, WK.Spacing.s)
+                    .padding(.vertical, 3)
+                    .background(WK.Palette.primaryText, in: .capsule)
+                    .opacity(option.badge == nil ? 0 : 1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18))
+                    .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.tertiaryText)
+                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))
+                Text(option.title)
+                    .font(WK.Font.captionMedium)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .lineLimit(1)
+                Text(option.price)
+                    .font(WK.Font.headline)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(option.detail ?? " ")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, WK.Spacing.m)
+            .padding(.horizontal, WK.Spacing.xs)
+            .contentShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .adaptiveGlassInteractive(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        .opacity(isSelected ? 1 : 0.72)
+        .scaleEffect(isSelected ? 1.04 : 1)
+        .animation(WKAnimation.selection, value: isSelected)
     }
 }
