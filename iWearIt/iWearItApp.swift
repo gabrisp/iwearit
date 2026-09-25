@@ -110,7 +110,8 @@ struct iWearItApp: App {
                 .animation(WKAnimation.content, value: environment.gate.celebratesUpgrade)
                 // **Los avisos grandes**: regalos y devoluciones. Ver
                 // `NoticeOverlay`.
-                .overlay { NoticeOverlay(center: environment.notices) }
+                // Aquí no: saldría encima del onboarding. Va en `RootTabView`.
+                // .overlay { NoticeOverlay(center: environment.notices) }
                 .onReceive(NotificationCenter.default.publisher(for: .snazzyRemoteNotice)) { _ in
                     Task { await environment.notices.checkGrants() }
                 }

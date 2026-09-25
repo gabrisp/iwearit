@@ -29,7 +29,7 @@ def call(content, out):
     print(out, len(data) // 1024, "KB")
     return url
 
-BEFORE = """Fotografía realista, de moda, vertical. Un HOMBRE y una MUJER de unos 30 años, de pie uno al lado del otro, de CUERPO ENTERO de la cabeza a los pies, mirando DE FRENTE a cámara, postura neutra y relajada, expresión neutra. Fondo de estudio liso gris muy claro, luz suave de estudio, sombra suave en el suelo.
+BEFORE = """Fotografía realista, de moda, vertical. Un HOMBRE y una MUJER de unos 30 años, de pie uno al lado del otro, de CUERPO ENTERO de la cabeza a los pies, mirando DE FRENTE a cámara, postura neutra y relajada, expresión neutra. Fondo de estudio LISO y UNIFORME gris claro (#E6E6E6), sin suelo visible, sin sombras proyectadas y sin objetos: solo las dos personas, bien separadas del fondo (se recortarán). Luz suave de estudio.
 VAN MAL VESTIDOS, de forma creíble y cotidiana (no disfraz ni caricatura):
 - Él: camiseta gris desgastada y grande con un estampado descolorido, sudadera con cremallera abierta de otro color que no pega, pantalón chino beige demasiado ancho y arrugado, cinturón marrón viejo, zapatillas de deporte blancas sucias y voluminosas, calcetines blancos a la vista.
 - Ella: blusa de estampado floral chillón que choca con una rebeca de punto mostaza dada de sí, vaqueros de tiro alto mal ajustados y arrugados, zapatillas grises gastadas, bolso de tela sin forma.
@@ -58,5 +58,11 @@ tmp = pathlib.Path("/tmp/snazzy-hero"); tmp.mkdir(exist_ok=True)
 # y encuadre coincidan al arrastrar la línea.
 before = call([{"type": "text", "text": BEFORE}], str(tmp / "before.png"))
 call([{"type": "text", "text": AFTER}, {"type": "image_url", "image_url": {"url": before}}], str(tmp / "after.png"))
-install("OnboardingBefore", tmp / "before.png")
-install("OnboardingAfter", tmp / "after.png")
+# **Transparentes**: solo las personas. El modelo no da alfa, así que se
+# recortan aquí con Vision, sin recortar el lienzo para que sigan alineadas.
+import subprocess
+tools = pathlib.Path(__file__).resolve().parent
+for name in ("before", "after"):
+    subprocess.run(["swift", str(tools / "cutout.swift"), str(tmp / f"{name}.png"), str(tmp / f"{name}-cut.png")], check=True)
+install("OnboardingBefore", tmp / "before-cut.png")
+install("OnboardingAfter", tmp / "after-cut.png")

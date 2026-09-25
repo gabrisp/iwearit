@@ -119,6 +119,9 @@ struct RootTabView: View {
         // pantalla se irían con ella al empujar la siguiente, y los que salen
         // sobre una hoja quedarían por debajo. Ver `wkTipLayer`.
         .wkTipLayer(appEnvironment.tips)
+        // **Los avisos grandes** —regalos, devoluciones—, solo ya dentro de la
+        // app: en el onboarding todavía no hay nada que reclamar a la vista.
+        .overlay { NoticeOverlay(center: appEnvironment.notices) }
         // Y el centro en el entorno, para que los propios gestos —el tirón,
         // el arrastre— den su aviso por aprendido sin que cada pantalla tenga
         // que acordarse de hacerlo.

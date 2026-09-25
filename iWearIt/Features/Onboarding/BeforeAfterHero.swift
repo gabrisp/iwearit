@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import WKCanvas
 import WKDesign
 
 /// **La primera página**: la misma pareja, mal vestida y vestida con Snazzy,
@@ -18,12 +19,10 @@ struct BeforeAfterHero: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             ZStack(alignment: .leading) {
-                photo("OnboardingAfter", fallback: [Color(red: 0.93, green: 0.88, blue: 0.8), Color(red: 0.78, green: 0.7, blue: 0.6)])
-                    .frame(width: width, height: proxy.size.height)
+                side("OnboardingAfter", paper: Self.afterPaper, in: proxy)
 
                 // El "antes" encima, recortado hasta la línea.
-                photo("OnboardingBefore", fallback: [Color(white: 0.75), Color(white: 0.55)])
-                    .frame(width: width, height: proxy.size.height)
+                side("OnboardingBefore", paper: Self.beforePaper, in: proxy)
                     .mask(alignment: .leading) {
                         Rectangle().frame(width: width * position)
                     }
@@ -84,21 +83,31 @@ struct BeforeAfterHero: View {
         }
     }
 
-    @ViewBuilder
-    private func photo(_ name: String, fallback: [Color]) -> some View {
-        if let image = UIImage(named: name) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .clipped()
-        } else {
-            LinearGradient(colors: fallback, startPoint: .top, endPoint: .bottom)
-                .overlay {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 90))
-                        .foregroundStyle(.white.opacity(0.5))
-                }
+    /// El papel de cada lado: gris y apagado antes, cálido después.
+    private static let beforePaper = Color(red: 0.86, green: 0.86, blue: 0.87)
+    private static let afterPaper = Color(red: 0.95, green: 0.91, blue: 0.85)
+
+    /// Un lado: su papel con la retícula y **las personas recortadas**
+    /// encima, enteras y de pie entre el texto y el botón.
+    private func side(_ name: String, paper: Color, in proxy: GeometryProxy) -> some View {
+        ZStack(alignment: .bottom) {
+            paper
+            DotGridBackground()
+                .opacity(0.5)
+            if let image = UIImage(named: name) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(.top, 150)
+                    .padding(.bottom, 92)
+            } else {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 90))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .frame(maxHeight: .infinity)
+            }
         }
+        .frame(width: proxy.size.width, height: proxy.size.height)
     }
 
     private func label(_ text: String) -> some View {
