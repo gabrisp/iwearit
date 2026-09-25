@@ -352,6 +352,8 @@ private struct TipsSection: View {
     /// onboarding al momento. Ver `RootView`.
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
     @State private var isConfirmingRestart = false
+    /// Qué versión se va a repetir. Ver `OnboardingVariant`.
+    @State private var replayVariant: OnboardingVariant = .v2
 
     var body: some View {
         let tips = appEnvironment.tips
@@ -363,12 +365,26 @@ private struct TipsSection: View {
             // paso, y el escaneo se salta lo que ya está en el armario o
             // pendiente —ver `ScanDeduper`—, así que repetirlo no duplica
             // prendas.
-            WKRow(action: { isConfirmingRestart = true }) {
-                Text(String(localized: "profile.profilescreen.replayTheWelcome2", defaultValue: "Replay the welcome"))
-                    .font(WK.Font.rowTitle)
-                    .foregroundStyle(WK.Palette.accent)
-                Spacer()
+            // **Las dos versiones**, para compararlas. Ver `OnboardingVariant`.
+            ForEach(OnboardingVariant.allCases, id: \.self) { variant in
+                WKRow(action: {
+                    replayVariant = variant
+                    isConfirmingRestart = true
+                }) {
+                    Text(variant == .v1
+                         ? String(localized: "profile.replay.v1", defaultValue: "Replay the welcome · v1")
+                         : String(localized: "profile.replay.v2", defaultValue: "Replay the welcome · v2"))
+                        .font(WK.Font.rowTitle)
+                        .foregroundStyle(WK.Palette.accent)
+                    Spacer()
+                }
             }
+            // WKRow(action: { isConfirmingRestart = true }) {
+            //     Text(String(localized: "profile.profilescreen.replayTheWelcome2", defaultValue: "Replay the welcome"))
+            //         .font(WK.Font.rowTitle)
+            //         .foregroundStyle(WK.Palette.accent)
+            //     Spacer()
+            // }
 
             WKRow {
                 Text(String(localized: "profile.profilescreen.tipsSeen", defaultValue: "Tips seen"))
@@ -390,7 +406,10 @@ private struct TipsSection: View {
             .opacity(tips.seenCount == 0 ? 0.4 : 1)
         }
         .alert(String(localized: "profile.profilescreen.replayTheWelcome", defaultValue: "Replay the welcome?"), isPresented: $isConfirmingRestart) {
-            Button(String(localized: "profile.profilescreen.redo", defaultValue: "Redo")) { hasCompletedOnboarding = false }
+            Button(String(localized: "profile.profilescreen.redo", defaultValue: "Redo")) {
+                UserDefaults.standard.set(replayVariant.rawValue, forKey: OnboardingVariant.storageKey)
+                hasCompletedOnboarding = false
+            }
             Button(String(localized: "common.cancel", defaultValue: "Cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "profile.profilescreen.youGoBackToThe", defaultValue: "You go back to the start of onboarding. Nothing in your closet is deleted."))

@@ -132,8 +132,8 @@ struct OnboardingFlow: View {
                 .adaptiveGlassInteractive(in: .circle)
 
                 OnboardingProgressBar(
-                    step: model.step.progressIndex,
-                    total: OnboardingStep.allCases.count - 1
+                    step: model.step.progressIndex(in: model.variant),
+                    total: model.variant.visibleCount - 1
                 )
             }
             .padding(.horizontal, WK.Spacing.screenInset)
@@ -158,6 +158,8 @@ private struct OnboardingStepContent: View {
     var body: some View {
         switch step {
         case .welcome:         WelcomeStep(model: model)
+        case .conversation:    ConversationStep(model: model)
+        case .reveal:          RevealStep(model: model)
         case .goal:            GoalStep(model: model)
         case .pain:            PainStep(model: model)
         case .statements:      StatementsStep(model: model)
@@ -391,6 +393,13 @@ struct OnboardingButtonConfig: Equatable {
     }
 }
 
+extension OnboardingButtonConfig {
+    /// "Sin botón", dicho por un paso. Distinto de `nil`, que es "este paso no
+    /// dice nada" —el que se va—.
+    static let hidden = OnboardingButtonConfig(title: "", action: {})
+    var isHidden: Bool { title.isEmpty }
+}
+
 struct OnboardingButtonKey: PreferenceKey {
     static let defaultValue: OnboardingButtonConfig? = nil
     /// Si dos pasos lo piden a la vez —mientras uno se va—, gana el último:
@@ -402,6 +411,11 @@ struct OnboardingButtonKey: PreferenceKey {
 }
 
 extension View {
+    /// **Pide el botón global** tal cual, o ninguno con `nil`.
+    func onboardingButton(_ config: OnboardingButtonConfig?) -> some View {
+        modifier(OnboardingButtonRequest(config: config))
+    }
+
     /// **Pide el botón global** con este texto. Un paso que no lo pide no
     /// lo tiene: el botón se esconde.
     func onboardingButton(
@@ -415,12 +429,14 @@ extension View {
 }
 
 private struct OnboardingButtonRequest: ViewModifier {
-    let config: OnboardingButtonConfig
+    let config: OnboardingButtonConfig?
     @Environment(\.onboardingPageIsLeaving) private var isLeaving
 
     func body(content: Content) -> some View {
         // El paso que se va ya no manda sobre el botón.
-        content.preference(key: OnboardingButtonKey.self, value: isLeaving ? nil : config)
+        // Un paso que no quiere botón lo dice con un valor vacío: ver
+        // `OnboardingButtonKey.hidden`.
+        content.preference(key: OnboardingButtonKey.self, value: isLeaving ? nil : (config ?? .hidden))
     }
 }
 
@@ -431,7 +447,7 @@ private struct OnboardingButtonBar: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
-            if let config {
+            if let config, !config.isHidden {
                 AdaptiveGlassContainer(spacing: WK.Spacing.s) {
                     WKPrimaryButton(config.title, surface: .glass, action: config.action)
                         .disabled(!config.isEnabled)
@@ -452,7 +468,7 @@ private struct OnboardingButtonBar: View {
         .padding(.bottom, WK.Spacing.s)
         .animation(.smooth(duration: 0.4), value: config?.title)
         .animation(.smooth(duration: 0.3), value: config?.isEnabled)
-        .animation(.smooth(duration: 0.4), value: config == nil)
+        .animation(.smooth(duration: 0.4), value: config == nil || config?.isHidden == true)
         .animation(.smooth(duration: 0.4), value: config?.footnote)
     }
 }

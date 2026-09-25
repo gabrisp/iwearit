@@ -11,12 +11,16 @@ import WKDesign
 /// entonces la solución. Invertir ese orden convierte el flujo en un folleto.
 enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
     case welcome
+    /// v2: las primeras preguntas como conversación. Ver `ConversationStep`.
+    case conversation
     case goal
     case pain
     case statements
     case spend
     case wardrobeSize
     case socialProof
+    /// v2: el dinero con la rueda de cifras. Ver `RevealStep`.
+    case reveal
     case calculating
     case savings
     case comparison
@@ -33,7 +37,36 @@ enum OnboardingStep: Int, CaseIterable, WKFlowStep, Hashable {
 
     /// La bienvenida no cuenta para la barra: enseñarla al 0% de 14 pasos
     /// asusta antes de empezar.
-    var progressIndex: Int { max(0, rawValue) }
+    // var progressIndex: Int { max(0, rawValue) }
+
+    /// Dónde va en la barra, contando solo los pasos de su versión.
+    func progressIndex(in variant: OnboardingVariant) -> Int {
+        OnboardingStep.allCases.filter { !variant.skips($0) && $0.rawValue < rawValue }.count
+    }
+}
+
+/// **Dos onboardings para comparar**, que se eligen desde Ajustes ("Repetir
+/// v1 / v2"). La v1 es la de siempre, paso a paso; la v2 hace las primeras
+/// preguntas como conversación y enseña el dinero con la rueda de cifras.
+/// Los pasos de las dos conviven: cada versión se salta los de la otra.
+enum OnboardingVariant: String, CaseIterable {
+    case v1, v2
+
+    static let storageKey = "onboarding.variant"
+
+    static var current: OnboardingVariant {
+        OnboardingVariant(rawValue: UserDefaults.standard.string(forKey: storageKey) ?? "") ?? .v2
+    }
+
+    func skips(_ step: OnboardingStep) -> Bool {
+        switch self {
+        case .v1: [.conversation, .reveal].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings].contains(step)
+        }
+    }
+
+    /// Los pasos que se ven, para el total de la barra.
+    var visibleCount: Int { OnboardingStep.allCases.filter { !skips($0) }.count }
 }
 
 /// Estado del onboarding.
@@ -80,8 +113,14 @@ final class OnboardingModel {
 
     // MARK: - Navegación
 
+    /// La versión de este recorrido. Ver `OnboardingVariant`.
+    let variant = OnboardingVariant.current
+
     func advance() {
-        guard let next = OnboardingStep(rawValue: step.rawValue + 1) else { return }
+        // El siguiente **de esta versión**: los de la otra se saltan.
+        var raw = step.rawValue + 1
+        while let candidate = OnboardingStep(rawValue: raw), variant.skips(candidate) { raw += 1 }
+        guard let next = OnboardingStep(rawValue: raw) else { return }
         move(to: next)
     }
 
@@ -91,7 +130,9 @@ final class OnboardingModel {
     }
 
     func goBack() {
-        guard let previous = OnboardingStep(rawValue: step.rawValue - 1) else { return }
+        var raw = step.rawValue - 1
+        while let candidate = OnboardingStep(rawValue: raw), variant.skips(candidate) { raw -= 1 }
+        guard let previous = OnboardingStep(rawValue: raw) else { return }
         move(to: previous)
     }
 
