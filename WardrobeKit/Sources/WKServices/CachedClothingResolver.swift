@@ -53,12 +53,14 @@ public struct CachedClothingResolver: ClothingResolving {
     /// distinta de una persona, así que dos llamadas nunca son la misma.
     public func tryOn(
         personJPEG: Data?,
+        bodyJPEGs: [Data],
         personDescription: String,
         garmentsPNG: [Data],
         direction: TryOnDirection
     ) async throws -> Data {
         try await base.tryOn(
             personJPEG: personJPEG,
+            bodyJPEGs: bodyJPEGs,
             personDescription: personDescription,
             garmentsPNG: garmentsPNG,
             direction: direction

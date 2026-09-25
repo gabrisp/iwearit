@@ -257,7 +257,18 @@ LA FOTO:
  * de la primera vez** y aquí no se guarda nada: se manda, se recibe y se
  * devuelve. Ver `TryOnConsent` en la app.
  */
-async function tryOn(person, describedPerson, garments, direction, key, log, error) {
+/**
+ * **Las fotos del cuerpo**: hasta cuatro, de cuerpo entero. Dicen lo que tres
+ * datos no pueden —hombros, cintura, piernas, cómo cae el peso—, y sin ellas
+ * el cuerpo sale de "complexión media". La ropa y el fondo que salgan en ellas
+ * no cuentan: solo el cuerpo.
+ */
+const BODY_BLOCK = (count) => `MI CUERPO — OBLIGATORIO:
+- Te paso ${count} foto(s) de MI CUERPO entero. Sácame de ahí la complexión, las proporciones, la altura relativa, los hombros, la cintura, las caderas, las piernas y el tono de piel.
+- El cuerpo del resultado tiene que ser ESE cuerpo: ni más delgado, ni más alto, ni más musculado.
+- NO copies la ropa que llevo en esas fotos, ni el fondo, ni la postura: solo el cuerpo.`;
+
+async function tryOn(person, describedPerson, garments, direction, key, log, error, bodies = []) {
   const { scene, sceneDescription, pose, poseDescription } = direction;
   // Lo escrito a mano, solo si se eligió "a tu manera"; si no, el de la lista.
   const where = (scene === 'custom' && freeText(sceneDescription)) || SCENES[scene] || SCENES.plain;
@@ -268,14 +279,32 @@ async function tryOn(person, describedPerson, garments, direction, key, log, err
   const prompt = person
     ? (describedPerson ? TRYON_FACE_PROMPT(describedPerson) : TRYON_PROMPT)
     : TRYON_DESCRIBED_PROMPT(describedPerson || 'una persona de complexión media');
+  // En qué orden llegan las imágenes, dicho explícitamente: con fotos del
+  // cuerpo por medio, "la primera es mi cara y las siguientes prendas" ya no
+  // es verdad.
+  let index = 1;
+  const order = [];
+  if (person) order.push(`- Imagen ${index++}: mi cara.`);
+  if (bodies.length) {
+    const first = index;
+    index += bodies.length;
+    order.push(`- Imagen${bodies.length > 1 ? 'es' : ''} ${first}${bodies.length > 1 ? `–${index - 1}` : ''}: mi cuerpo entero.`);
+  }
+  order.push(`- El resto (${garments.length}): las prendas que me tengo que poner.`);
+  const extra = bodies.length
+    ? `\n\n${BODY_BLOCK(bodies.length)}\n\nORDEN DE LAS IMÁGENES — MANDA SOBRE LO DE ARRIBA:\n${order.join('\n')}`
+    : '';
   const content = [
     {
       type: 'text',
-      text: `${prompt}\n\nLA POSTURA — OBLIGATORIO:\n- ${how}\n- La postura no cambia la cara: sigue siendo la misma persona, 1:1.\n\nEL SITIO — OBLIGATORIO:\n- ${where}`,
+      text: `${prompt}${extra}\n\nLA POSTURA — OBLIGATORIO:\n- ${how}\n- La postura no cambia la cara: sigue siendo la misma persona, 1:1.\n\nEL SITIO — OBLIGATORIO:\n- ${where}`,
     },
   ];
   if (person) {
     content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${person}` } });
+  }
+  for (const body of bodies) {
+    content.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${body}` } });
   }
   for (const garment of garments) {
     content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${garment}` } });
@@ -637,9 +666,13 @@ const handle = async ({ req, res, log, error }) => {
       ? body.personDescription.slice(0, 400)
       : null;
     const garments = Array.isArray(body?.garmentsBase64) ? body.garmentsBase64 : [];
+    // Hasta cuatro fotos del cuerpo; lo que no sea texto, fuera.
+    const bodies = (Array.isArray(body?.bodyPhotosBase64) ? body.bodyPhotosBase64 : [])
+      .filter((item) => typeof item === 'string' && item.length)
+      .slice(0, 4);
     // Una de las dos: o la foto, o quién eres. Sin ninguna no hay a quién
     // vestir.
-    if (!person && !describedPerson) {
+    if (!person && !describedPerson && !bodies.length) {
       return res.json({ error: 'missing_person' }, 400);
     }
     if (!garments.length || garments.length > 6) {
@@ -648,6 +681,7 @@ const handle = async ({ req, res, log, error }) => {
     // La foto de la persona llega a 1024 de lado en JPEG: unos cientos de kB.
     // Cuatro megabytes de entrada significan que alguien manda otra cosa.
     const total = (person?.length || 0)
+      + bodies.reduce((sum, item) => sum + item.length, 0)
       + garments.reduce((sum, item) => sum + (item?.length || 0), 0);
     if (total > 6000000) {
       return res.json({ error: 'image_too_large' }, 413);
@@ -657,7 +691,7 @@ const handle = async ({ req, res, log, error }) => {
       sceneDescription: body?.sceneDescription,
       pose: body?.pose,
       poseDescription: body?.poseDescription,
-    }, key, log, error);
+    }, key, log, error, bodies);
     return res.json(result.body, result.status);
   }
 

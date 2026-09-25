@@ -33,6 +33,8 @@ struct ProfileEditSheet: View {
         // La piel ya no abre hoja: van las muestras a la vista, como antes.
         // case height, shape, presentation, skin
         case height, shape, presentation
+        /// Afinar el cuerpo con fotos. Ver `BodyPhotosSheet`.
+        case body
         /// La cámara, en la misma hoja: dos `.sheet` en una vista dejan mudo
         /// a uno.
         case camera
@@ -154,6 +156,8 @@ struct ProfileEditSheet: View {
             // que es, como antes.
             // EditRow(value: skinTone.label, label: String(localized: "tryon.profileeditsheet.skin2", defaultValue: "Skin")) { editing = .skin }
             SkinRow(selection: skinToneBinding)
+            // Hasta cuatro fotos de cuerpo entero. Ver `BodyPhotosSheet`.
+            EditRow(value: bodyValue, label: String(localized: "tryon.body.row", defaultValue: "Fine-tune body")) { editing = .body }
             NotesRow(notes: notes)
         }
     }
@@ -204,6 +208,8 @@ struct ProfileEditSheet: View {
                 ),
                 limit: 1
             )
+        case .body:
+            BodyPhotosSheet(profile: profile)
         case .camera:
             CameraScreen { images in
                 guard let first = images.first else { return }
@@ -269,6 +275,9 @@ struct ProfileEditSheet: View {
     /// Borrar un perfil **es revocar el permiso**: se van la foto y la fecha.
     private func remove() {
         let key = profile.imageKey
+        // Y las del cuerpo, que también son fotos tuyas.
+        let bodyKeys = profile.bodyImageKeys
+        Task { for key in bodyKeys { try? await appEnvironment.imageStore.delete(key: key) } }
         modelContext.delete(profile)
         try? modelContext.save()
         if !key.isEmpty { Task { try? await appEnvironment.imageStore.delete(key: key) } }
@@ -278,6 +287,13 @@ struct ProfileEditSheet: View {
     // MARK: Valores
 
     private var height: Int { profile.heightCentimetres ?? 170 }
+
+    private var bodyValue: String {
+        let count = profile.bodyImageKeys.count
+        return count == 0
+            ? String(localized: "tryon.body.none", defaultValue: "No photos")
+            : String(localized: "tryon.body.count", defaultValue: "\(String(describing: count)) of 4 photos")
+    }
     private var shape: BodyProfile.Shape { profile.shape ?? .average }
     private var presentation: BodyProfile.Presentation { profile.presentation ?? .neutral }
     private var skinTone: BodyProfile.SkinTone { profile.skinTone ?? .medium }

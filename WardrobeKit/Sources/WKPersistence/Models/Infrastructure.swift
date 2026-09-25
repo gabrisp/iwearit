@@ -63,7 +63,18 @@ public final class BodyProfile {
         self.notes = notes
     }
 
-    public static let maximumProfiles = 3
+    // Tres se quedaban cortos: la familia, la pareja, amigos.
+    // public static let maximumProfiles = 3
+    public static let maximumProfiles = 12
+
+    /// **Afinar el cuerpo**: hasta cuatro fotos de cuerpo entero, para que la
+    /// prueba saque tu complexión de verdad y no de tres datos. Claves del
+    /// `ImageStore`, como la foto de la cara.
+    public var bodyImageKeys: [String] = []
+    public static let maximumBodyPhotos = 4
+    /// Si sale alguna foto tuya del teléfono: la cara o las del cuerpo. Es lo
+    /// que decide si hace falta el permiso.
+    public var sendsPhotos: Bool { hasPhoto || !bodyImageKeys.isEmpty }
     /// Solo hay foto que mandar si hay foto **y** permiso.
     public var canLeaveDevice: Bool { consentAcceptedAt != nil }
     public var hasPhoto: Bool { !imageKey.isEmpty }

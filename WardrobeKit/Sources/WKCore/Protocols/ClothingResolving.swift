@@ -67,6 +67,7 @@ public protocol ClothingResolving: Sendable {
     ///     a mano una foto suya de cuerpo entero con buena luz.
     func tryOn(
         personJPEG: Data?,
+        bodyJPEGs: [Data],
         personDescription: String,
         garmentsPNG: [Data],
         direction: TryOnDirection

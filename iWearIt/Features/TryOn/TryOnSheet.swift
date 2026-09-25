@@ -486,7 +486,7 @@ struct TryOnSheet: View {
                 EmptyView()
             } else if profile == nil {
                 WKPrimaryButton(String(localized: "tryon.tryonsheet.createAProfile", defaultValue: "Create a profile"), surface: .glass) { edit(nil) }
-            } else if profile?.hasPhoto == true, profile?.canLeaveDevice != true {
+            } else if profile?.sendsPhotos == true, profile?.canLeaveDevice != true {
                 WKPrimaryButton(String(localized: "tryon.tryonsheet.acceptAndTryItOn", defaultValue: "Accept and try it on"), surface: .glass) { accept() }
                 // Lo justo y en letra pequeña: el cartel de antes ocupaba media
                 // pantalla para decir esto mismo.

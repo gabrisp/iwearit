@@ -76,7 +76,7 @@ final class TryOnModel {
         }
         // **El permiso solo hace falta si hay foto.** Un perfil descrito no
         // lleva nada tuyo: es una estatura y una complexión.
-        if profile.hasPhoto, !profile.canLeaveDevice {
+        if profile.sendsPhotos, !profile.canLeaveDevice {
             state = .failed(String(localized: "tryon.tryonmodel.youStillNeedToAllow", defaultValue: "You still need to allow the photo to leave the phone."))
             return false
         }
@@ -100,6 +100,17 @@ final class TryOnModel {
             personJPEG = encoded
         }
 
+        // **Las fotos del cuerpo**, más pequeñas que la cara: dicen la
+        // complexión, no los detalles. Ver `BodyProfile.bodyImageKeys`.
+        var bodyJPEGs: [Data] = []
+        for key in profile.bodyImageKeys.prefix(BodyProfile.maximumBodyPhotos) {
+            guard
+                let image = try? await imageStore.image(for: key, variant: .display),
+                let encoded = Self.jpeg(from: image, maxSide: 768)
+            else { continue }
+            bodyJPEGs.append(encoded)
+        }
+
         var pieces: [Data] = []
         for garment in garments.prefix(6) {
             guard
@@ -118,6 +129,7 @@ final class TryOnModel {
         do {
             let data = try await resolver.tryOn(
                 personJPEG: personJPEG,
+                bodyJPEGs: bodyJPEGs,
                 personDescription: profile.described,
                 garmentsPNG: pieces,
                 direction: direction
