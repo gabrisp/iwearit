@@ -68,8 +68,9 @@ enum OnboardingVariant: String, CaseIterable {
         // valoraciones (`SocialProofStep`), y "+X prendas" como pantalla
         // aparte (`ScanFoundStep`): ahora es el final del propio escaneo, en
         // el mismo lienzo. Ver `ScanningStep`.
-        case .v1: [.conversation, .reveal, .statements, .socialProof, .scanFound].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound].contains(step)
+        // "Desliza y compara" (`ComparisonStep`), también fuera por ahora.
+        case .v1: [.conversation, .reveal, .statements, .socialProof, .scanFound, .comparison].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison].contains(step)
         }
     }
 

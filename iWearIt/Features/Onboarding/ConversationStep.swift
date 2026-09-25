@@ -41,7 +41,7 @@ struct ConversationStep: View {
     var body: some View {
         ScrollViewReader { reader in
             ScrollView {
-                VStack(alignment: .leading, spacing: WK.Spacing.l) {
+                VStack(alignment: .center, spacing: WK.Spacing.l) {
                     // Aire arriba y abajo: lo de ahora puede quedar en el centro
                     // aunque sea lo primero o lo último.
                     Color.clear.containerRelativeFrame(.vertical) { height, _ in height * 0.5 }
@@ -53,7 +53,7 @@ struct ConversationStep: View {
                     // ForEach(items.dropLast(question == nil ? 0 : 1)) { item in … }
                     // if let question, let last = items.last { VStack { row(last); controls(for: question) }.id("current") }
                     ForEach(items) { item in
-                        VStack(alignment: .leading, spacing: WK.Spacing.l) {
+                        VStack(alignment: .center, spacing: WK.Spacing.l) {
                             row(item)
                             if let question, item.id == items.last?.id {
                                 controls(for: question)
@@ -204,19 +204,27 @@ struct ConversationStep: View {
     @ViewBuilder
     private func row(_ item: Item) -> some View {
         switch item {
+        // **Todo centrado**: las líneas, las respuestas y las cifras. Antes,
+        // a la izquierda, como un chat.
         case let .line(_, text):
             TypewriterText(text: text)
                 .font(Self.lineFont)
                 .foregroundStyle(WK.Palette.primaryText)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.center)
+                // .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
         case let .answer(_, text):
             Text(text)
                 .font(Self.lineFont)
                 .foregroundStyle(OnboardingTone.denim.color)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.center)
+                // .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
         case let .highlight(_, text):
             GlowingText(text: text, tone: .oliva)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.center)
+                // .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
         case .progress:
             Capsule()
                 .fill(WK.Palette.ink(0.08))
@@ -360,16 +368,24 @@ private struct ChatOptionRow: View {
                     // .foregroundStyle(option.tone.color)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .frame(width: 22)
+                // El texto, centrado en la fila: el icono a un lado y el
+                // check —o su hueco— al otro, para que quede en medio.
+                Spacer(minLength: 0)
                 Text(option.label)
                     .font(WK.Font.body)
                     .foregroundStyle(WK.Palette.primaryText)
-                    .multilineTextAlignment(.leading)
+                    // .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(.center)
                 Spacer(minLength: 0)
+                if !isCheckbox {
+                    Color.clear.frame(width: 22, height: 1)
+                }
                 if isCheckbox {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         // .foregroundStyle(isSelected ? option.tone.color : WK.Palette.tertiaryText)
                         // .contentTransition(.symbolEffect(.replace))
                         .font(.system(size: 20))
+                        .frame(width: 22)
                         .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.tertiaryText)
                         // El círculo se convierte en el check.
                         .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))

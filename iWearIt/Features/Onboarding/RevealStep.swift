@@ -137,6 +137,20 @@ struct NumberWheel: View {
     /// Ya parada: la cifra crece un poco y brilla.
     @State private var hasLanded = false
 
+    /// El color de la cifra: claro arriba a la izquierda, el tono en medio y
+    /// más oscuro abajo a la derecha.
+    private var ink: LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: tone.color.mix(with: .white, by: 0.45), location: 0),
+                .init(color: tone.color, location: 0.45),
+                .init(color: tone.color.mix(with: .black, by: 0.3), location: 0.75),
+                .init(color: tone.color.mix(with: .white, by: 0.2), location: 1),
+            ],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+    }
+
     var body: some View {
         ZStack {
             ForEach(Array(values.enumerated()), id: \.offset) { offset, value in
@@ -147,7 +161,10 @@ struct NumberWheel: View {
                     // Entera siempre: en un hueco estrecho se quedaba en "…".
                     .lineLimit(1)
                     .fixedSize()
-                    .foregroundStyle(tone.color)
+                    // .foregroundStyle(tone.color)
+                    // **Con degradado**: zonas más claras y otras más oscuras
+                    // del mismo color, en vez de una tinta plana.
+                    .foregroundStyle(ink)
                     .scaleEffect((1 - min(abs(distance), 2) * 0.22) * (distance == 0 && hasLanded ? 1.14 : 1))
                     .shadow(color: tone.color.opacity(distance == 0 && hasLanded ? 0.4 : 0), radius: 16)
                     .opacity(abs(distance) > 2 ? 0 : 1 - abs(distance) * 0.45)
@@ -156,6 +173,10 @@ struct NumberWheel: View {
             }
         }
         .frame(height: rowHeight * 2.6)
+        // Aire a los lados antes de la máscara: la máscara solo cubre lo que
+        // mide la rueda, y la cifra —más grande al pararse, con su halo— se
+        // salía y quedaba cortada por los lados.
+        .padding(.horizontal, fontSize)
         .mask {
             LinearGradient(
                 stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.3),
