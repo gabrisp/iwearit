@@ -69,7 +69,12 @@ struct ConversationStep: View {
                             row(item)
                             if let question, item.id == items.last?.id {
                                 controls(for: question)
-                                    .transition(.opacity.combined(with: .offset(y: 16)))
+                                    // Se van desenfocándose y encogiendo un
+                                    // poco, sin prisa.
+                                    .transition(.asymmetric(
+                                        insertion: .opacity.combined(with: .offset(y: 16)),
+                                        removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)).combined(with: AnyTransition(.blurReplace))
+                                    ))
                             }
                         }
                         .opacity(opacity(of: item))
@@ -85,7 +90,9 @@ struct ConversationStep: View {
                 .padding(.bottom, WK.Spacing.m)
             }
             // El hueco del botón global, que va por encima.
-            .safeAreaPadding(.bottom, 96)
+            // Ya no: la barra del botón ocupa siempre su sitio, y con esto
+            // encima el centro quedaba 48 puntos más arriba de la cuenta.
+            // .safeAreaPadding(.bottom, 96)
             .scrollIndicators(.hidden)
             // **Lo lleva la conversación, no el dedo**: nunca se desplaza a
             // mano, y lo de ahora siempre queda centrado en la pantalla.
@@ -150,41 +157,55 @@ struct ConversationStep: View {
     }
 
     private func answerGoal(_ option: OnboardingOption) async {
+        // Un toque: dos seguidos contestaban dos veces.
+        guard question == .goal else { return }
         model.goal = option.id
-        answer(option.label)
+        await answer(option.label)
         await say(String(localized: "chat.goal.reply", defaultValue: "Perfect, we'll start there."))
         await say(String(localized: "chat.pains", defaultValue: "What gets in the way? Pick everything that sounds familiar."))
         ask(.pains)
     }
 
     private func answerPains() async {
+        guard question == .pains else { return }
         model.pains = pains
         let labels = OnboardingContent.pains.filter { pains.contains($0.id) }.map(\.label)
         // Lo que ha marcado, con sus palabras: "3 cosas" no dice nada.
         // answer(labels.count <= 2 ? labels.joined(separator: " · ") : String(localized: "chat.pains.count", defaultValue: "\(String(describing: labels.count)) things"))
-        answer(labels.joined(separator: " · "))
+        await answer(labels.joined(separator: " · "))
         await say(String(localized: "chat.pains.reply", defaultValue: "You're not the only one. It happens to almost everyone."))
         await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
         ask(.spend)
     }
 
     private func answerSpend() async {
+        guard question == .spend else { return }
         model.monthlySpend = spend
-        answer(model.money(spend) + String(localized: "chat.perMonth", defaultValue: " a month"))
+        await answer(model.money(spend) + String(localized: "chat.perMonth", defaultValue: " a month"))
         // La cifra, aparte y destacada: ver `Item.highlight`.
         // await say(String(localized: "chat.spend.reply", defaultValue: "That's \(String(describing: model.money(spend * 12))) a year on clothes."))
         await say(String(localized: "chat.spend.reply.lead", defaultValue: "That's"))
-        append(.highlight(id: takeID(), text: String(localized: "chat.spend.reply.value", defaultValue: "\(String(describing: model.money(spend * 12))) a year")))
-        try? await Task.sleep(for: .seconds(0.9))
-        await say(String(localized: "chat.spend.reply.tail", defaultValue: "on clothes."))
+        // **La cifra al año, con la rueda**, como las del dinero, y centrada
+        // mientras se escribe lo de debajo.
+        // append(.highlight(id: takeID(), text: String(localized: "chat.spend.reply.value", defaultValue: "\(String(describing: model.money(spend * 12))) a year")))
+        // try? await Task.sleep(for: .seconds(0.9))
+        // await say(String(localized: "chat.spend.reply.tail", defaultValue: "on clothes."))
+        let wheel = takeID()
+        focusID = wheel
+        append(.wheel(id: wheel, value: spend * 12, isGood: true))
+        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.3))
+        await say(String(localized: "chat.spend.reply.tail2", defaultValue: "a year on clothes."))
+        try? await Task.sleep(for: .seconds(0.6))
+        focusID = nil
         await say(String(localized: "chat.wardrobe", defaultValue: "And how many pieces would you say you have?"))
         await say(String(localized: "chat.estimate", defaultValue: "Just an estimate."))
         ask(.wardrobe)
     }
 
     private func answerWardrobe() async {
+        guard question == .wardrobe else { return }
         model.wardrobeSize = wardrobe
-        answer(String(localized: "chat.pieces", defaultValue: "\(String(describing: Int(wardrobe))) pieces"))
+        await answer(String(localized: "chat.pieces", defaultValue: "\(String(describing: Int(wardrobe))) pieces"))
         await say(String(localized: "chat.analyzing", defaultValue: "Analysing your answers…"))
         append(.progress(id: takeID()))
         withAnimation(.easeInOut(duration: 2.2)) { analysis = 1 }
@@ -250,9 +271,14 @@ struct ConversationStep: View {
         try? await Task.sleep(for: .seconds(Double(text.count) * TypewriterText.perCharacter + 0.45))
     }
 
-    private func answer(_ text: String) {
-        withAnimation(.smooth(duration: 0.35)) { question = nil }
+    /// **Las opciones se van despacio y la respuesta se escribe**, como lo
+    /// demás. Antes las opciones desaparecían de golpe y la respuesta salía
+    /// ya escrita.
+    private func answer(_ text: String) async {
+        withAnimation(.smooth(duration: 0.5)) { question = nil }
+        try? await Task.sleep(for: .seconds(0.45))
         append(.answer(id: takeID(), text: text))
+        try? await Task.sleep(for: .seconds(Double(text.count) * TypewriterText.perCharacter + 0.35))
     }
 
     private func ask(_ next: Question) {
@@ -283,7 +309,8 @@ struct ConversationStep: View {
                 // .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
         case let .answer(_, text):
-            Text(text)
+            // Text(text)
+            TypewriterText(text: text)
                 .font(Self.lineFont)
                 .foregroundStyle(OnboardingTone.denim.color)
                 .multilineTextAlignment(.center)
@@ -427,29 +454,104 @@ struct ConversationStep: View {
     }
 }
 
-/// Texto que se escribe solo, letra a letra.
+/// **Texto que aparece letra a letra, cada una desenfocándose**: una ola
+/// que recorre el texto, y cada letra pasa de borrosa y transparente a
+/// nítida. Con un `TextRenderer`, así el texto ocupa su sitio entero desde el
+/// principio y nada salta.
+///
+/// Lo de en medio —el texto entero de golpe con desenfoque— y lo de antes
+/// —letra a letra sin desenfoque—, comentados.
 struct TypewriterText: View {
     let text: String
-    /// Cuánto tarda cada letra.
+    /// Cuánto tarda cada letra en empezar a aparecer.
     static let perCharacter = 0.022
-    @State private var shown = 0
+    /// Cuántas letras dura el desenfoque de cada una: la ola.
+    private static let spread = 7.0
+    @State private var progress = 0.0
 
     var body: some View {
-        // El texto entero ocupa su sitio desde el principio —invisible lo que
-        // falta—, así las líneas no saltan al crecer.
-        (Text(visible) + Text(hidden).foregroundColor(.clear))
+        Text(text)
+            .textRenderer(BlurReveal(progress: progress, spread: Self.spread))
             .task(id: text) {
-                shown = 0
-                for index in 0...text.count {
-                    shown = index
-                    try? await Task.sleep(for: .seconds(Self.perCharacter))
-                }
+                progress = 0
+                let total = Double(text.count) + Self.spread
+                withAnimation(.linear(duration: total * Self.perCharacter)) { progress = total }
             }
     }
-
-    private var visible: AttributedString { AttributedString(String(text.prefix(shown))) }
-    private var hidden: AttributedString { AttributedString(String(text.dropFirst(shown))) }
 }
+
+/// Pinta cada letra según por dónde va la ola.
+private struct BlurReveal: TextRenderer, Animatable {
+    var progress: Double
+    let spread: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        var index = 0.0
+        for line in layout {
+            for run in line {
+                for glyph in run {
+                    let t = max(0, min(1, (progress - index) / spread))
+                    var copy = context
+                    copy.opacity = t
+                    if t < 1 {
+                        copy.addFilter(.blur(radius: (1 - t) * 6))
+                        copy.translateBy(x: 0, y: (1 - t) * 3)
+                    }
+                    copy.draw(glyph)
+                    index += 1
+                }
+            }
+        }
+    }
+}
+
+// El texto entero de golpe, desenfocándose:
+// struct TypewriterText: View {
+//     let text: String
+//     static let perCharacter = 0.014
+//     @State private var isShown = false
+//
+//     var body: some View {
+//         Text(text)
+//             .opacity(isShown ? 1 : 0)
+//             .blur(radius: isShown ? 0 : 10)
+//             .scaleEffect(isShown ? 1 : 0.97)
+//             .task(id: text) {
+//                 isShown = false
+//                 withAnimation(.smooth(duration: 0.6)) { isShown = true }
+//             }
+//     }
+// }
+
+// La de antes, letra a letra:
+// /// Texto que se escribe solo, letra a letra.
+// struct TypewriterText: View {
+//     let text: String
+//     /// Cuánto tarda cada letra.
+//     static let perCharacter = 0.022
+//     @State private var shown = 0
+//
+//     var body: some View {
+//         // El texto entero ocupa su sitio desde el principio —invisible lo que
+//         // falta—, así las líneas no saltan al crecer.
+//         (Text(visible) + Text(hidden).foregroundColor(.clear))
+//             .task(id: text) {
+//                 shown = 0
+//                 for index in 0...text.count {
+//                     shown = index
+//                     try? await Task.sleep(for: .seconds(Self.perCharacter))
+//                 }
+//             }
+//     }
+//
+//     private var visible: AttributedString { AttributedString(String(text.prefix(shown))) }
+//     private var hidden: AttributedString { AttributedString(String(text.dropFirst(shown))) }
+// }
 
 /// Una opción de la conversación: una fila de cristal.
 private struct ChatOptionRow: View {

@@ -14089,6 +14089,23 @@
           }
         }
       }
+    },
+    "chat.spend.reply.tail2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a year on clothes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "al año en ropa."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
