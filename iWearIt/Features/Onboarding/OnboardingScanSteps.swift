@@ -101,70 +101,149 @@ struct ScanningStep: View {
     @State private var isPreparing = false
     @State private var hasFinished = false
 
+    /// Las prendas que van saliendo, en el orden en que salen.
+    @State private var pieces: [ScanCloud.Item] = []
+
+    /// **Buscando, en el lienzo**: arriba el título y el contador, que sube;
+    /// debajo, las prendas posándose alrededor del centro según aparecen. Sin
+    /// barra ni fotos: lo que importa es lo que sale.
     var body: some View {
-        VStack(spacing: WK.Spacing.m) {
-            HStack {
-                Spacer()
-                // Cristal interactivo, como el resto de botones del
-                // onboarding. Antes: texto gris suelto.
-                // Button("Saltar") { finish() }
-                //     .font(.subheadline)
-                //     .foregroundStyle(WK.Palette.secondaryText)
-                Button { finish() } label: {
-                    Text(String(localized: "onboarding.onboardingscansteps.skip", defaultValue: "Skip"))
-                        .font(WK.Font.captionMedium)
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .padding(.horizontal, WK.Spacing.m)
-                        .padding(.vertical, WK.Spacing.s)
-                        .contentShape(.capsule)
-                }
-                .buttonStyle(.plain)
-                .adaptiveGlassInteractive(in: .capsule)
-            }
+        ZStack(alignment: .top) {
+            ScanCloud(pieces: pieces)
+                .ignoresSafeArea()
 
             VStack(spacing: WK.Spacing.xs) {
-                Text(isPreparing ? String(localized: "onboarding.onboardingscansteps.gettingRecognitionReady", defaultValue: "Getting recognition ready") : String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes"))
-                    .font(.system(.title, weight: .bold))
-                    .multilineTextAlignment(.center)
+                HStack {
+                    Spacer()
+                    Button { finish() } label: {
+                        Text(String(localized: "onboarding.onboardingscansteps.skip", defaultValue: "Skip"))
+                            .font(WK.Font.captionMedium)
+                            .foregroundStyle(WK.Palette.primaryText)
+                            .padding(.horizontal, WK.Spacing.m)
+                            .padding(.vertical, WK.Spacing.s)
+                            .contentShape(.capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .adaptiveGlassInteractive(in: .capsule)
+                }
+                Text(isPreparing
+                     ? String(localized: "onboarding.onboardingscansteps.gettingRecognitionReady", defaultValue: "Getting recognition ready")
+                     : String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes"))
+                    .font(WK.Font.title)
+                    .foregroundStyle(WK.Palette.primaryText)
                     .contentTransition(.opacity)
-                Text(statusLine)
-                    .font(.subheadline)
-                    .foregroundStyle(WK.Palette.secondaryText)
+                Text("\(pieces.count)")
+                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .contentTransition(.numericText(value: Double(pieces.count)))
                     .monospacedDigit()
-                    .contentTransition(.numericText())
-
-                // Cuánto queda, siempre a la vista: con miles de fotos, sin
-                // barra parece que no avanza.
-                OnboardingProgressBar(
-                    step: progress.photosProcessed,
-                    total: max(1, progress.totalPhotos)
-                )
-                .frame(maxWidth: 220)
-                .padding(.top, WK.Spacing.xs)
-                .opacity(isPreparing ? 0 : 1)
+                Text(pieces.count == 1
+                     ? String(localized: "scan.piece", defaultValue: "piece")
+                     : String(localized: "scan.pieces", defaultValue: "pieces"))
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                if let reason = progress.pauseReason {
+                    Label(reason, systemImage: "thermometer.medium")
+                        .font(.caption)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                }
             }
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.bottom, WK.Spacing.xl)
+            // **Un velo fino debajo del texto**: las prendas que pasan por
+            // detrás se desenfocan un poco, sin un borde duro. Como la barra
+            // de arriba de iOS.
+            .background {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .mask {
+                        LinearGradient(
+                            stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.6), .init(color: .clear, location: 1)],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+                    .ignoresSafeArea(edges: .top)
+            }
+            .animation(.smooth(duration: 0.4), value: pieces.count)
             .animation(WKAnimation.content, value: isPreparing)
 
-            // Tus fotos, en un montón, soltando las prendas.
-            ScanPhotoStack(model: stage)
-                .frame(maxHeight: .infinity)
-
-            ScanCollection(model: stage)
-
-            if let reason = progress.pauseReason {
-                Label(reason, systemImage: "thermometer.medium")
-                    .font(.caption)
-                    .foregroundStyle(WK.Palette.secondaryText)
+            VStack {
+                Spacer()
+                Label(String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open"), systemImage: "lock.fill")
+                    .font(WK.Font.caption)
+                    .foregroundStyle(WK.Palette.tertiaryText)
+                    .padding(.bottom, WK.Spacing.m)
             }
-
-            Label(String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open"), systemImage: "lock.fill")
-                .font(WK.Font.caption)
-                .foregroundStyle(WK.Palette.tertiaryText)
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .padding(.bottom, WK.Spacing.m)
+        .sensoryFeedback(.impact(weight: .light), trigger: pieces.count)
         .task { await run() }
     }
+
+    // La pantalla de antes: el montón de fotos soltando prendas, con barra.
+    // var body: some View {
+    //     VStack(spacing: WK.Spacing.m) {
+    //         HStack {
+    //             Spacer()
+    //             // Cristal interactivo, como el resto de botones del
+    //             // onboarding. Antes: texto gris suelto.
+    //             // Button("Saltar") { finish() }
+    //             //     .font(.subheadline)
+    //             //     .foregroundStyle(WK.Palette.secondaryText)
+    //             Button { finish() } label: {
+    //                 Text(String(localized: "onboarding.onboardingscansteps.skip", defaultValue: "Skip"))
+    //                     .font(WK.Font.captionMedium)
+    //                     .foregroundStyle(WK.Palette.primaryText)
+    //                     .padding(.horizontal, WK.Spacing.m)
+    //                     .padding(.vertical, WK.Spacing.s)
+    //                     .contentShape(.capsule)
+    //             }
+    //             .buttonStyle(.plain)
+    //             .adaptiveGlassInteractive(in: .capsule)
+    //         }
+
+    //         VStack(spacing: WK.Spacing.xs) {
+    //             Text(isPreparing ? String(localized: "onboarding.onboardingscansteps.gettingRecognitionReady", defaultValue: "Getting recognition ready") : String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes"))
+    //                 .font(.system(.title, weight: .bold))
+    //                 .multilineTextAlignment(.center)
+    //                 .contentTransition(.opacity)
+    //             Text(statusLine)
+    //                 .font(.subheadline)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //                 .monospacedDigit()
+    //                 .contentTransition(.numericText())
+
+    //             // Cuánto queda, siempre a la vista: con miles de fotos, sin
+    //             // barra parece que no avanza.
+    //             OnboardingProgressBar(
+    //                 step: progress.photosProcessed,
+    //                 total: max(1, progress.totalPhotos)
+    //             )
+    //             .frame(maxWidth: 220)
+    //             .padding(.top, WK.Spacing.xs)
+    //             .opacity(isPreparing ? 0 : 1)
+    //         }
+    //         .animation(WKAnimation.content, value: isPreparing)
+
+    //         // Tus fotos, en un montón, soltando las prendas.
+    //         ScanPhotoStack(model: stage)
+    //             .frame(maxHeight: .infinity)
+
+    //         ScanCollection(model: stage)
+
+    //         if let reason = progress.pauseReason {
+    //             Label(reason, systemImage: "thermometer.medium")
+    //                 .font(.caption)
+    //                 .foregroundStyle(WK.Palette.secondaryText)
+    //         }
+
+    //         Label(String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open"), systemImage: "lock.fill")
+    //             .font(WK.Font.caption)
+    //             .foregroundStyle(WK.Palette.tertiaryText)
+    //     }
+    //     .padding(.horizontal, WK.Spacing.screenInset)
+    //     .padding(.bottom, WK.Spacing.m)
+    //     .task { await run() }
+    // }
 
     // La pantalla de antes: barra de progreso y recortes sueltos cayendo.
     // var body: some View {
@@ -220,6 +299,19 @@ struct ScanningStep: View {
     // }
 
     private func run() async {
+        #if DEBUG
+        // `-fakeScan`: la pantalla con prendas del armario, una tras otra, sin
+        // mirar la galería. Para ver la animación en el simulador.
+        if ProcessInfo.processInfo.arguments.contains("-fakeScan") {
+            let garments = (try? modelContext.fetch(FetchDescriptor<Garment>())) ?? []
+            for garment in garments.prefix(24) {
+                guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
+                try? await Task.sleep(for: .milliseconds(450))
+                withAnimation(.spring(duration: 0.6, bounce: 0.3)) { pieces.append(.init(image: image)) }
+            }
+            return
+        }
+        #endif
         // **Esperar al modelo antes de mirar una sola foto.**
         //
         // Sin esto el escaneo arrancaba con `segmenter == nil` —la descarga
@@ -230,8 +322,8 @@ struct ScanningStep: View {
         // queda lleno de basura que hay que borrar a mano.
         await waitForSegmenter()
 
-        // La coreografía corre a su ritmo mientras el escáner busca.
-        async let showing: Void = stage.run()
+        // La coreografía del montón de fotos, fuera: ya no se enseña.
+        // async let showing: Void = stage.run()
 
         let scanner = GalleryScanner(
             pipeline: GarmentPipeline(
@@ -273,14 +365,39 @@ struct ScanningStep: View {
                 await MainActor.run { stage.look(look) }
             },
             onDiscovery: { discovery in
-                await MainActor.run { stage.found(discovery) }
+                await MainActor.run {
+                    stage.found(discovery)
+                    withAnimation(.spring(duration: 0.6, bounce: 0.3)) { pieces.append(contentsOf: discovery.pieces.map(ScanCloud.Item.init)) }
+                }
             }
         )
+
+        // **Al menos diez prendas.** Si el último año no da para tanto, se
+        // sigue por las fotos de antes hasta llegar.
+        let minimum = 10
+        let found = (try? modelContext.fetchCount(FetchDescriptor<PendingGarment>())) ?? pieces.count
+        if found < minimum, !hasFinished {
+            DiagnosticsLog.record("ESCANEO", "solo \(found) prendas en el último año: se sigue hacia atrás")
+            _ = await scanner.scan(
+                limit: appEnvironment.gate.scanPhotoLimit,
+                inserts: false,
+                stopAfter: minimum - found,
+                searchesOlder: true,
+                onProgress: { updated in
+                    Task { @MainActor in progress = updated }
+                },
+                onDiscovery: { discovery in
+                    await MainActor.run {
+                        withAnimation(.spring(duration: 0.6, bounce: 0.3)) { pieces.append(contentsOf: discovery.pieces.map(ScanCloud.Item.init)) }
+                    }
+                }
+            )
+        }
         // Se deja terminar lo que está en pantalla: la última foto soltando
         // sus prendas es el final de la función, no algo que cortar.
         stage.scanFinished()
-        await showing
-        try? await Task.sleep(for: .seconds(0.8))
+        // await showing
+        try? await Task.sleep(for: .seconds(1.2))
         finish()
     }
 
@@ -428,5 +545,52 @@ private struct SummaryStat: View {
                 .font(.caption)
                 .foregroundStyle(WK.Palette.secondaryText)
         }
+    }
+}
+
+/// **Las prendas encontradas, posadas en el lienzo** alrededor del centro:
+/// una espiral —cada una en su sitio, sin pisarse— que crece según llegan.
+/// Cada una entra desde el centro y se asienta con un giro suyo.
+struct ScanCloud: View {
+    struct Item: Identifiable {
+        let id = UUID()
+        let image: CGImage
+        init(image: CGImage) { self.image = image }
+        init(_ piece: ScanDiscovery.Piece) { image = piece.image.cgImage }
+    }
+
+    let pieces: [Item]
+
+    var body: some View {
+        GeometryReader { proxy in
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.58)
+            let unit = min(proxy.size.width, proxy.size.height)
+            ZStack {
+                ForEach(Array(pieces.enumerated()), id: \.element.id) { index, piece in
+                    let spot = Self.spot(index, unit: unit)
+                    Image(decorative: piece.image, scale: 1)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: spot.size, height: spot.size)
+                        .shadow(color: .black.opacity(0.18), radius: 10, y: 6)
+                        .rotationEffect(.degrees(spot.tilt))
+                        .position(x: center.x + spot.offset.width, y: center.y + spot.offset.height)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.3).combined(with: .opacity).combined(with: .offset(x: -spot.offset.width * 0.6, y: -spot.offset.height * 0.6)),
+                            removal: .opacity
+                        ))
+                }
+            }
+        }
+    }
+
+    /// Dónde cae la n-ésima: ángulo de oro, cada vez un poco más lejos.
+    private static func spot(_ index: Int, unit: CGFloat) -> (offset: CGSize, size: CGFloat, tilt: Double) {
+        let golden = 137.508 * Double.pi / 180
+        let angle = Double(index) * golden
+        let radius = unit * (0.12 + 0.085 * sqrt(Double(index)))
+        let size = max(64, unit * 0.26 - CGFloat(index) * 1.2)
+        let tilt = Double((index * 37) % 24) - 12
+        return (CGSize(width: cos(angle) * radius, height: sin(angle) * radius * 1.15), size, tilt)
     }
 }

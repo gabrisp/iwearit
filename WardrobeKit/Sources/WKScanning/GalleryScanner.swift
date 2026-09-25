@@ -82,6 +82,10 @@ public actor GalleryScanner {
         /// decenas de prendas buenas ya hay armario, y seguir era dejar al
         /// usuario mirando cómo se repasan seis años de fotos.
         stopAfter: Int? = nil,
+        /// Mirar las fotos **de antes** del último año. Para la segunda
+        /// pasada: si el año reciente no da el mínimo de prendas, se sigue
+        /// hacia atrás. Ver `ScanningStep`.
+        searchesOlder: Bool = false,
         onProgress: @Sendable @escaping (ScanProgress) async -> Void,
         /// Una foto con alguien que empieza a analizarse. Ver `ScanLook`.
         onLook: @Sendable @escaping (ScanLook) async -> Void = { _ in },
@@ -95,7 +99,7 @@ public actor GalleryScanner {
         // estaba en el armario o esperando a que lo aceptaras.
         deduper = ScanDeduper(known: (try? await wardrobe.fingerprints()) ?? .init())
 
-        let assets = Self.candidateAssets()
+        let assets = Self.candidateAssets(older: searchesOlder)
         #if DEBUG
         Logger(subsystem: "com.gabrisp.iWearIt", category: "scan")
             .notice("candidatas: \(assets.count, privacy: .public)")
@@ -406,12 +410,14 @@ public actor GalleryScanner {
     static let maximumCandidates = 2_000
     static let minimumCameraSide = 1_500
 
-    static func candidateAssets() -> PHFetchResult<PHAsset> {
+    static func candidateAssets(older: Bool = false) -> PHFetchResult<PHAsset> {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        // Las del último año; o, en la segunda pasada, las de antes.
+        let window = older ? "creationDate < %@" : "creationDate >= %@"
         options.predicate = NSPredicate(
             format: "mediaType == %d AND NOT ((mediaSubtype & %d) != 0) AND NOT ((mediaSubtype & %d) != 0)"
-                + " AND creationDate >= %@ AND pixelWidth >= %d AND pixelHeight >= %d",
+                + " AND \(window) AND pixelWidth >= %d AND pixelHeight >= %d",
             PHAssetMediaType.image.rawValue,
             PHAssetMediaSubtype.photoScreenshot.rawValue,
             PHAssetMediaSubtype.photoPanorama.rawValue,
