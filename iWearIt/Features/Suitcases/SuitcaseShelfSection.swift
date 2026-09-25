@@ -60,6 +60,12 @@ struct SuitcaseShelfSection: View {
         // scroll, que ya reserva el hueco de la barra.
         .padding(.bottom, WK.Spacing.l)
         .sheet(isPresented: $isPresentingNew) { NewSuitcaseSheet() }
+        #if DEBUG
+        // `-newSuitcase`: abrir la creación guiada al arrancar, para probarla.
+        .task {
+            if ProcessInfo.processInfo.arguments.contains("-newSuitcase") { isPresentingNew = true }
+        }
+        #endif
     }
 }
 

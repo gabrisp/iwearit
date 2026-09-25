@@ -17,6 +17,8 @@ struct NewCategorySheet: View {
     private var categories: [GarmentCategory]
 
     @State private var flow = WKFlowStack(Step.name)
+    /// El teclado del nombre: sale al llegar y se va antes de seguir.
+    @FocusState private var isNameFocused: Bool
     @State private var name = ""
     @State private var selectedExamples: Set<UUID> = []
 
@@ -48,8 +50,8 @@ struct NewCategorySheet: View {
             primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isPrimaryEnabled: !trimmedName.isEmpty,
             isAtRoot: flow.isAtRoot,
-            onLeading: { dismiss() },
-            onPrimary: { flow.move(to: .examples) }
+            onLeading: { resignFocus($isNameFocused) { dismiss() } },
+            onPrimary: { resignFocus($isNameFocused) { flow.move(to: .examples) } }
         ) {
             TextField(String(localized: "closet.newcategorysheet.shelfName", defaultValue: "Shelf name"), text: $name)
                 .font(WK.Font.title)
@@ -57,6 +59,8 @@ struct NewCategorySheet: View {
                 .textFieldStyle(.plain)
                 .padding(WK.Spacing.m)
                 .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+                .focused($isNameFocused)
+                .wkFocusOnAppear($isNameFocused)
         }
     }
 

@@ -47,9 +47,16 @@ private struct SuitcaseContent: View {
     /// Solo con fechas: sin días no hay nada que pasar como páginas.
     @State private var layout: PlannerLayout = .book
     @State private var dayIndex = 0
-    @State private var isPresentingStyle = false
+    // @State private var isPresentingStyle = false
+    /// La hoja abierta: el destino o los datos de la maleta.
+    @State private var sheet: Sheet?
+
+    private enum Sheet: String, Identifiable {
+        case destination, style
+        var id: String { rawValue }
+    }
     /// La hoja de a dónde vas, que da también el tiempo del viaje.
-    @State private var isPickingDestination = false
+    // @State private var isPickingDestination = false
     /// El "+" de la barra, **solo en Equipaje**: añadir prendas sueltas a la
     /// maleta. Lo atiende `PackingChecklistTab`.
     @State private var isPickingForNew = false
@@ -175,7 +182,7 @@ private struct SuitcaseContent: View {
         //         .frame(width: 220)
         //     }
         //     ToolbarItem(placement: .topBarTrailing) {
-        //         Button { isPresentingStyle = true } label: {
+        //         Button { sheet = .style } label: {
         //             Image(systemName: "pencil")
         //         }
         //         .tint(WK.Palette.primaryText)
@@ -200,7 +207,7 @@ private struct SuitcaseContent: View {
                 }
                 // La misma medida que cualquier otro botón redondo de la app.
                 // Ver `WKCircleButton`.
-                WKCircleButton("pencil") { isPresentingStyle = true }
+                WKCircleButton("pencil") { sheet = .style }
                     .tint(WK.Palette.primaryText)
             }
             .padding(.bottom, WK.Spacing.xs)
@@ -279,7 +286,11 @@ private struct SuitcaseContent: View {
                     case .inspo:
                         // **El tiempo del destino**: tocarlo cambia a dónde
                         // vas, no dónde vives.
-                        SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
+                        SuitcaseWeatherPill(suitcase: suitcase) { sheet = .destination }
+                            // **Su tamaño, dicho.** Sin él la barra le daba
+                            // un hueco más estrecho que lo que se dibuja, y el
+                            // toque caía fuera: "Elegir destino" no abría nada.
+                            .fixedSize()
                             .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     case .packing:
                         EmptyView()
@@ -293,7 +304,7 @@ private struct SuitcaseContent: View {
             // // cambia a dónde vas, no dónde vives.
             // if tab == .inspo {
             //     ToolbarItem(placement: .principal) {
-            //         SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
+            //         SuitcaseWeatherPill(suitcase: suitcase) { DiagnosticsLog.record("MALETA", "tocar destino"); sheet = .destination }
             //     }
             // }
             // // **Los días y el modo, en la barra.** Con el botón de volver del
@@ -336,13 +347,18 @@ private struct SuitcaseContent: View {
         }
         .animation(WKAnimation.content, value: tab)
 
-        .sheet(isPresented: $isPickingDestination) {
-            PlaceSearchSheet(title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?")) { place in
-                suitcase.destination = place
+        // **Una sola hoja.** Eran dos `.sheet` en la misma vista y la de
+        // elegir destino se quedaba muda: tocar "Elegir destino" no abría
+        // nada. Ver `Sheet`.
+        .sheet(item: $sheet) { which in
+            switch which {
+            case .destination:
+                PlaceSearchSheet(title: String(localized: "common.whereAreYouGoing", defaultValue: "Where are you going?")) { place in
+                    suitcase.destination = place
+                }
+            case .style:
+                SuitcaseStyleSheet(suitcase: suitcase)
             }
-        }
-        .sheet(isPresented: $isPresentingStyle) {
-            SuitcaseStyleSheet(suitcase: suitcase)
         }
         // **Empujado, no a pantalla completa.** Es el mismo editor que en el
         // plan y tiene que llegar igual: creciendo desde el lienzo, con la
@@ -387,7 +403,7 @@ private struct SuitcaseContent: View {
     // Spacer(minLength: 0)
     // SuitcaseTabBar(tab: $tab)
     // Spacer(minLength: 0)
-    // ChromeCircle(symbol: "pencil") { isPresentingStyle = true }
+    // ChromeCircle(symbol: "pencil") { sheet = .style }
     // }
     // .padding(.horizontal, WK.Spacing.screenInset)
     //
@@ -623,8 +639,9 @@ private struct SuitcaseWeatherPill: View {
     @State private var forecast: WeatherSnapshot?
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: WK.Spacing.xs) {
+        // Toque directo y no `Button`: dentro de la barra, el botón no
+        // recibía el toque —"Elegir destino" no abría nada—.
+        HStack(spacing: WK.Spacing.xs) {
                 // En color, como en la pestaña de inspiración: el parte del
                 // destino se lee de un vistazo.
                 Image(systemName: forecast?.condition.symbolName ?? "location")
@@ -636,9 +653,14 @@ private struct SuitcaseWeatherPill: View {
             .fixedSize()
             .padding(.horizontal, WK.Spacing.m)
             .padding(.vertical, WK.Spacing.s)
-            .adaptiveGlassInteractive(in: .capsule)
-        }
-        .tint(WK.Palette.primaryText)
+            .contentShape(.capsule)
+            // Cristal **sin** interacción propia: en la barra el sistema ya
+            // pone la suya, y dos capas interactivas se quedaban con el toque
+            // —tocar "Elegir destino" no hacía nada—.
+            // .adaptiveGlassInteractive(in: .capsule)
+            .adaptiveGlass(in: .capsule)
+            .onTapGesture(perform: onTap)
+            .accessibilityAddTraits(.isButton)
         .task(id: suitcase.destinationName) { await load() }
     }
 

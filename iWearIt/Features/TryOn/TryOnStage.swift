@@ -877,13 +877,13 @@ struct TryOnCustomDirectionSheet: View {
                 .focused($isFocused)
                 .padding(WK.Spacing.m)
                 .background(WK.Palette.ink(0.05), in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-            WKCircleButton("checkmark") { dismiss() }
+            WKCircleButton("checkmark") { resignFocus($isFocused) { dismiss() } }
                 .tint(WK.Palette.primaryText)
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.vertical, WK.Spacing.l)
-        .onAppear { isFocused = true }
+        .wkFocusOnAppear($isFocused)
         .wkDynamicSheet()
     }
 }

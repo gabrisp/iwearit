@@ -199,11 +199,13 @@ const SCENES = {
  * se puede arreglar después.
  */
 const POSES = {
-  standing: 'De pie y de frente, relajado, con los brazos sueltos a los lados.',
-  walking: 'Andando hacia la cámara a paso natural, a media zancada, con los brazos en movimiento.',
-  sitting: 'Sentado en un taburete o una silla sencilla, cuerpo entero a la vista, postura natural.',
-  mirror: 'Haciéndose una foto frente al espejo con el móvil a la altura del pecho, sin que el móvil tape la cara.',
-  posing: 'Posando con naturalidad, peso en una pierna, una mano en el bolsillo y el cuerpo ligeramente girado a tres cuartos.',
+  standing: 'De pie, relajado y natural, con el peso un poco más en una pierna; ni firme ni de catálogo.',
+  // Nada de "de frente y cuadrado": pillado andando, como una foto robada.
+  walking: 'Andando con naturalidad, pillado a mitad de paso como en una foto robada por la calle: el cuerpo en tres cuartos o de lado, la mirada fuera de cámara o hacia abajo, los brazos sueltos en movimiento. Nada de posar ni de mirar a cámara de frente.',
+  sitting: 'Sentado de forma natural y relajada —una pierna cruzada o apoyada, el cuerpo algo girado—, cuerpo entero a la vista.',
+  mirror: 'Haciéndose una foto frente al espejo con el móvil a la altura del pecho, algo girado y con naturalidad, sin que el móvil tape la cara.',
+  // Posar sin rigidez: ni simétrico ni de frente.
+  posing: 'Posando con soltura y actitud, como en una foto de street style: cuerpo en tres cuartos, peso en una pierna, una mano en el bolsillo o tocando el pelo o la chaqueta, hombros relajados y un gesto espontáneo. Nada rígido, simétrico ni cuadrado.',
 };
 
 /** Lo que escribió alguien, limpio y corto: va dentro de un encargo. */

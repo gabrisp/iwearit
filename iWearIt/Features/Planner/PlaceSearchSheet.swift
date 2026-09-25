@@ -8,11 +8,36 @@ import WKServices
 /// Se busca al **confirmar**, no mientras escribes: Apple limita la frecuencia
 /// de geocodificación, y consultar en cada tecla agota la cuota y empieza a
 /// devolver errores justo cuando el usuario va rápido.
+/// Buscar un sitio **en una hoja**: el título y el buscador. Ver
+/// `PlaceSearchPanel`, que es el buscador solo y va también dentro de los
+/// flujos de creación.
 struct PlaceSearchSheet: View {
     let title: String
     let onPick: (GeoPlace) -> Void
 
     @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.m) {
+            Text(title)
+                .font(WK.Font.title)
+                .foregroundStyle(WK.Palette.primaryText)
+            PlaceSearchPanel { place in
+                onPick(place)
+                dismiss()
+            }
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .wkDynamicSheet()
+    }
+}
+
+/// **El buscador de sitios**: el campo, "usar mi ubicación" y la lista de
+/// Mapas. Sin título ni hoja: lo pone quien lo aloja —una hoja, o el paso de
+/// destino al crear una maleta, que así no abre otra hoja encima—.
+struct PlaceSearchPanel: View {
+    let onPick: (GeoPlace) -> Void
+
     @Environment(AppEnvironment.self) private var appEnvironment
     @State private var isLocating = false
     @State private var query = ""
@@ -21,21 +46,19 @@ struct PlaceSearchSheet: View {
     @State private var results: [GeoPlace] = []
     @State private var isSearching = false
     @State private var message: String?
+    @FocusState private var isFocused: Bool
 
     private let service = PlaceSearchService()
 
     var body: some View {
         VStack(alignment: .leading, spacing: WK.Spacing.m) {
-            Text(title)
-                .font(WK.Font.title)
-                .foregroundStyle(WK.Palette.primaryText)
-
             HStack(spacing: WK.Spacing.s) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(WK.Palette.secondaryText)
                 TextField(String(localized: "planner.placesearchsheet.city", defaultValue: "City"), text: $query)
                     .font(WK.Font.rowTitle)
                     .submitLabel(.search)
+                    .focused($isFocused)
                     .onSubmit { Task { await search() } }
                 if isSearching { ProgressView().controlSize(.small) }
             }
@@ -75,9 +98,11 @@ struct PlaceSearchSheet: View {
             // el país o la provincia debajo para distinguir los que se llaman
             // igual. Ver `PlaceCompleter`.
             WKSection {
-                ForEach(Array(completer.suggestions.enumerated()), id: \.element.id) { index, suggestion in
+                // Las cinco primeras: con la lista entera la hoja crecía hasta
+                // sacar el título de la pantalla.
+                ForEach(Array(completer.suggestions.prefix(5).enumerated()), id: \.element.id) { index, suggestion in
                     WKRow(
-                        showsSeparator: index < completer.suggestions.count - 1,
+                        showsSeparator: index < min(completer.suggestions.count, 5) - 1,
                         action: { Task { await choose(suggestion) } }
                     ) {
                         HStack {
@@ -100,8 +125,7 @@ struct PlaceSearchSheet: View {
             }
             .opacity(completer.suggestions.isEmpty ? 0 : 1)
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
-        .wkDynamicSheet()
+        .wkFocusOnAppear($isFocused)
         // Mientras escribes: el completador no geocodifica, solo sugiere, así
         // que no hay cuota que agotar ni pausa que respetar.
         .onChange(of: query) { _, new in
@@ -120,8 +144,10 @@ struct PlaceSearchSheet: View {
                 : String(localized: "planner.placesearchsheet.couldnTTellWhereYou", defaultValue: "Couldn't tell where you are. Try typing the city.")
             return
         }
-        onPick(place)
-        dismiss()
+        // El teclado se va antes que la hoja. Ver `resignFocus`.
+        resignFocus($isFocused) {
+            onPick(place)
+        }
     }
 
     /// Resuelve la sugerencia elegida y la devuelve.
@@ -132,8 +158,10 @@ struct PlaceSearchSheet: View {
             message = String(localized: "planner.placesearchsheet.couldnTPlaceThatSpot", defaultValue: "Couldn't place that spot. Try another one.")
             return
         }
-        onPick(place)
-        dismiss()
+        // El teclado se va antes que la hoja. Ver `resignFocus`.
+        resignFocus($isFocused) {
+            onPick(place)
+        }
     }
 
     private func search() async {

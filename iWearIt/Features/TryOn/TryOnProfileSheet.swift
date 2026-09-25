@@ -38,6 +38,8 @@ struct TryOnProfileSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppEnvironment.self) private var appEnvironment
 
+    /// El teclado del nombre: sale al llegar y se va antes de seguir.
+    @FocusState private var isNameFocused: Bool
     @State private var flow = WKFlowStack(Step.photo)
     @State private var name = ""
     @State private var height: Int? = 170
@@ -153,14 +155,16 @@ struct TryOnProfileSheet: View {
             transition: flow.transition,
             primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isAtRoot: false,
-            onLeading: { flow.move(to: .photo) },
-            onPrimary: { flow.move(to: .body) }
+            onLeading: { resignFocus($isNameFocused) { flow.move(to: .photo) } },
+            onPrimary: { resignFocus($isNameFocused) { flow.move(to: .body) } }
         ) {
             TextField(String(localized: "tryon.tryonprofilesheet.me", defaultValue: "Me"), text: $name)
                 .font(WK.Font.title)
                 .multilineTextAlignment(.center)
                 .textFieldStyle(.plain)
                 .textInputAutocapitalization(.words)
+                .focused($isNameFocused)
+                .wkFocusOnAppear($isNameFocused)
                 .padding(WK.Spacing.m)
                 .background(
                     WK.Palette.shelf,

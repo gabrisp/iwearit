@@ -15,6 +15,8 @@ struct NewSuitcaseSheet: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var flow = WKFlowStack(Step.name)
+    /// El teclado del nombre: sale al llegar y se va antes de seguir.
+    @FocusState private var isNameFocused: Bool
     @State private var name = ""
     @State private var hasDates = false
     @State private var startDate = Date()
@@ -58,8 +60,8 @@ struct NewSuitcaseSheet: View {
             primaryTitle: String(localized: "common.next", defaultValue: "Next"),
             isPrimaryEnabled: !trimmedName.isEmpty,
             isAtRoot: flow.isAtRoot,
-            onLeading: { dismiss() },
-            onPrimary: { flow.move(to: .place) }
+            onLeading: { resignFocus($isNameFocused) { dismiss() } },
+            onPrimary: { resignFocus($isNameFocused) { flow.move(to: .place) } }
         ) {
             TextField(String(localized: "suitcases.newsuitcasesheet.lisbonWeekendInTheMountains", defaultValue: "Lisbon, weekend in the mountains…"), text: $name)
                 .font(WK.Font.title)
@@ -67,6 +69,8 @@ struct NewSuitcaseSheet: View {
                 .textFieldStyle(.plain)
                 .padding(WK.Spacing.m)
                 .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+                .focused($isNameFocused)
+                .wkFocusOnAppear($isNameFocused)
         }
     }
 
@@ -87,22 +91,38 @@ struct NewSuitcaseSheet: View {
             onLeading: { flow.move(to: .name) },
             onPrimary: { flow.move(to: .look) }
         ) {
-            Button { isPickingPlace = true } label: {
-                HStack(spacing: WK.Spacing.m) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .foregroundStyle(WK.Palette.secondaryText)
-                    Text(destination?.name ?? String(localized: "suitcases.newsuitcasesheet.searchForACity", defaultValue: "Search for a city"))
+            // **El buscador aquí mismo**, dentro del paso: antes era un botón
+            // que abría otra hoja con el buscador, dos pasos para lo mismo.
+            // Elegir un sitio lo apunta y pasa al siguiente.
+            VStack(alignment: .leading, spacing: WK.Spacing.m) {
+                if let destination {
+                    Label(destination.name, systemImage: "mappin.and.ellipse")
                         .font(WK.Font.rowTitle)
-                        .foregroundStyle(
-                            destination == nil ? WK.Palette.secondaryText : WK.Palette.primaryText
-                        )
-                    Spacer(minLength: 0)
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .transition(.blurReplace)
                 }
-                .padding(WK.Spacing.m)
-                .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
-                .contentShape(.rect)
+                PlaceSearchPanel { place in
+                    withAnimation(WKAnimation.content) { destination = place }
+                    flow.move(to: .look)
+                }
             }
-            .buttonStyle(WKPressStyle())
+            // Lo de antes: un botón que abría `PlaceSearchSheet`.
+            // Button { isPickingPlace = true } label: {
+            //     HStack(spacing: WK.Spacing.m) {
+            //         Image(systemName: "mappin.and.ellipse")
+            //             .foregroundStyle(WK.Palette.secondaryText)
+            //         Text(destination?.name ?? String(localized: "suitcases.newsuitcasesheet.searchForACity", defaultValue: "Search for a city"))
+            //             .font(WK.Font.rowTitle)
+            //             .foregroundStyle(
+            //                 destination == nil ? WK.Palette.secondaryText : WK.Palette.primaryText
+            //             )
+            //         Spacer(minLength: 0)
+            //     }
+            //     .padding(WK.Spacing.m)
+            //     .background(WK.Palette.shelf, in: .rect(cornerRadius: WK.Radius.medium, style: .continuous))
+            //     .contentShape(.rect)
+            // }
+            // .buttonStyle(WKPressStyle())
         }
     }
 
