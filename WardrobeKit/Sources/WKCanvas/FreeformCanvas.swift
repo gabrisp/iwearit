@@ -27,6 +27,10 @@ public struct FreeformCanvas: View {
     /// el lienzo sin poder tocarlo, y pasarles una capa de pintura viva sería
     /// darles un estado que no van a usar.
     private let drawing: CanvasDrawing?
+    /// Las burbujas de lo seleccionado. Ver `CanvasBubble`.
+    private let bubbles: (CanvasItem) -> [CanvasBubble]
+    /// Cuánto miden, para ponerlas al lado sin salirse de la pantalla.
+    @State private var bubblesSize: CGSize = .zero
     @State private var masks: MaskCache
     /// La última escala con la que se pintó de verdad.
     @State private var lastScale: Double = 1
@@ -35,12 +39,14 @@ public struct FreeformCanvas: View {
         outfit: Outfit,
         store: ImageStore,
         selection: CanvasSelection,
-        drawing: CanvasDrawing? = nil
+        drawing: CanvasDrawing? = nil,
+        bubbles: @escaping (CanvasItem) -> [CanvasBubble] = { _ in [] }
     ) {
         self.outfit = outfit
         self.store = store
         self.selection = selection
         self.drawing = drawing
+        self.bubbles = bubbles
         _masks = State(initialValue: MaskCache(store: store))
     }
 
@@ -141,6 +147,11 @@ public struct FreeformCanvas: View {
                 DotGridBackground()
                     .frame(width: proxy.size.width, height: proxy.size.height)
             }
+            // Las burbujas, **a tamaño de pantalla** y fuera de la capa
+            // escalada: dentro saldrían del tamaño que tuviera el lienzo.
+            .overlay(alignment: .topLeading) {
+                bubbleLayer(in: proxy.size, scale: scale)
+            }
         }
         // Y otra vez en el contenedor, para las franjas de fuera del lienzo:
         // el papel es 1000×1400 y la pantalla no tiene esa proporción, así que
@@ -153,6 +164,107 @@ public struct FreeformCanvas: View {
         // el día del plan, la maleta o el editor. Pintarlo aquí tapaba el color
         // elegido con un blanco fijo, y por eso cambiar el color del outfit no
         // se veía por ninguna parte.
+    }
+}
+
+extension FreeformCanvas {
+    /// **Las burbujas, al lado de lo seleccionado**: a su derecha si cabe, si
+    /// no a su izquierda, y a la altura de su centro. De cristal y dentro de un
+    /// contenedor, así que aparecen fundiéndose. Se colocan con lo guardado:
+    /// mientras lo arrastras se quedan donde estaba, y vuelven al soltar.
+    @ViewBuilder
+    fileprivate func bubbleLayer(in size: CGSize, scale: Double) -> some View {
+        let item = selection.selectedID.flatMap { id in outfit.visibleItems.first { $0.id == id } }
+        let list = item.map(bubbles) ?? []
+        AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+            if let item, !list.isEmpty {
+                let t = item.transform
+                // Media anchura y media altura de la caja ya girada, en
+                // pantalla.
+                let cosine = abs(cos(t.rotation)), sine = abs(sin(t.rotation))
+                let halfWidth = (cosine * t.baseWidth + sine * t.baseHeight) / 2 * t.scale * scale
+                let halfHeight = (sine * t.baseWidth + cosine * t.baseHeight) / 2 * t.scale * scale
+                let centerX = (t.x - CanvasSpace.width / 2) * scale + size.width / 2
+                let centerY = (t.y - CanvasSpace.height / 2) * scale + size.height / 2
+                let gap: CGFloat = 10
+                let margin = WK.Spacing.s
+                let right = centerX + halfWidth + gap
+                let left = centerX - halfWidth - gap - bubblesSize.width
+                // **Al lado si cabe; si no, debajo** —o encima—: encima de la
+                // foto tapaba justo lo que se va a recortar.
+                let placement: CGPoint = {
+                    if right + bubblesSize.width <= size.width - margin {
+                        return CGPoint(x: right, y: centerY - bubblesSize.height / 2)
+                    }
+                    if left >= margin {
+                        return CGPoint(x: left, y: centerY - bubblesSize.height / 2)
+                    }
+                    let below = centerY + halfHeight + gap
+                    let y = below + bubblesSize.height <= size.height - margin
+                        ? below
+                        : centerY - halfHeight - gap - bubblesSize.height
+                    return CGPoint(x: centerX - bubblesSize.width / 2, y: y)
+                }()
+                let x = min(max(margin, placement.x), size.width - bubblesSize.width - margin)
+                let y = min(max(margin, placement.y), size.height - bubblesSize.height - margin)
+                VStack(alignment: .leading, spacing: WK.Spacing.s) {
+                    ForEach(list) { bubble in
+                        CanvasBubbleButton(bubble: bubble)
+                    }
+                }
+                .fixedSize()
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { bubblesSize = $0 }
+                .offset(x: x, y: y)
+            }
+        }
+        .animation(.smooth(duration: 0.35), value: selection.selectedID)
+    }
+}
+
+/// **Algo que hacer con lo seleccionado**, en una burbuja a su lado. Quien
+/// aloja el lienzo decide cuáles hay: el lienzo solo las coloca.
+public struct CanvasBubble: Identifiable {
+    public let id: String
+    public let symbol: String
+    public let title: String
+    /// Trabajando: la burbuja enseña que está en ello y no se deja tocar.
+    public var isWorking: Bool
+    public let action: () -> Void
+
+    public init(id: String, symbol: String, title: String, isWorking: Bool = false, action: @escaping () -> Void) {
+        self.id = id
+        self.symbol = symbol
+        self.title = title
+        self.isWorking = isWorking
+        self.action = action
+    }
+}
+
+/// Una burbuja: cristal interactivo que entra con la transición del cristal.
+private struct CanvasBubbleButton: View {
+    let bubble: CanvasBubble
+
+    var body: some View {
+        Button(action: bubble.action) {
+            HStack(spacing: 6) {
+                if bubble.isWorking {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: bubble.symbol)
+                }
+                Text(bubble.title)
+            }
+            .font(WK.Font.captionMedium)
+            .foregroundStyle(WK.Palette.primaryText)
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.s + 2)
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .disabled(bubble.isWorking)
+        .adaptiveGlassInteractive(in: .capsule)
+        .adaptiveGlassTransition()
+        .animation(WKAnimation.content, value: bubble.isWorking)
     }
 }
 

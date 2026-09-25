@@ -5,6 +5,7 @@ import WKCanvas
 import WKCore
 import WKDesign
 import WKPersistence
+import WKVision
 
 /// El editor del outfit, a pantalla completa.
 ///
@@ -165,6 +166,10 @@ private struct CanvasEditorScreen: View {
     /// La selección vive aquí y no dentro del canvas: es lo que decide si
     /// abajo va la bandeja o las herramientas del elemento cogido.
     @State private var selection = CanvasSelection()
+    /// La foto a la que se le está separando el sujeto ahora mismo.
+    @State private var separatingID: UUID?
+    /// Salió mal separar el sujeto: vibra.
+    @State private var separationFailed = 0
     /// Si la bandeja está puesta.
     ///
     /// Sigue siendo un `Bool` propio y no un caso de `Sheet`: la bandeja
@@ -370,6 +375,47 @@ private struct CanvasEditorScreen: View {
         }
     }
 
+    /// **Separar el sujeto** de una foto —una prueba o una tuya—: se queda
+    /// solo la persona, sin fondo. Con una prueba con escena, así no hace
+    /// falta pagar otra "sin fondo".
+    private func bubbles(for item: CanvasItem) -> [CanvasBubble] {
+        guard case .photo = item.sticker else { return [] }
+        return [
+            CanvasBubble(
+                id: "subject",
+                symbol: "person.and.background.dotted",
+                title: String(localized: "canvas.bubble.separateSubject", defaultValue: "Separate subject"),
+                isWorking: separatingID == item.id
+            ) {
+                Task { await separateSubject(item) }
+            },
+        ]
+    }
+
+    /// La foto se cambia por su sujeto recortado, a la misma altura y en el
+    /// mismo sitio: la persona ocupaba casi todo el alto, así que conservarlo
+    /// la deja del mismo tamaño.
+    private func separateSubject(_ item: CanvasItem) async {
+        guard case let .photo(key) = item.sticker, separatingID == nil else { return }
+        separatingID = item.id
+        defer { separatingID = nil }
+        guard
+            let image = try? await store.image(for: key, variant: .display),
+            let subject = await SubjectCutout.lift(image),
+            let newKey = try? await store.store(subject)
+        else {
+            separationFailed += 1
+            DiagnosticsLog.record("LIENZO", "sin sujeto que separar", isProblem: true)
+            return
+        }
+        let ratio = Double(subject.height) / Double(max(subject.width, 1))
+        withAnimation(WKAnimation.content) {
+            item.apply(.photo(key: newKey))
+            item.baseWidth = item.baseHeight / ratio
+        }
+        DiagnosticsLog.record("LIENZO", "sujeto separado")
+    }
+
     private var selectedItem: CanvasItem? {
         guard let id = selection.selectedID else { return nil }
         return outfit.items.first { $0.id == id }
@@ -385,8 +431,10 @@ private struct CanvasEditorScreen: View {
                 outfit: outfit,
                 store: store,
                 selection: selection,
-                drawing: drawing
+                drawing: drawing,
+                bubbles: { bubbles(for: $0) }
             )
+            .sensoryFeedback(.error, trigger: separationFailed)
 
             if isThinking {
                 CanvasShimmer()

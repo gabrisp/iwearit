@@ -12725,6 +12725,23 @@
           }
         }
       }
+    },
+    "canvas.bubble.separateSubject" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separate subject"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separar sujeto"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
