@@ -86,7 +86,7 @@ struct PaywallStep: View {
     /// los planes para elegir.
     var body: some View {
         ZStack {
-            ScanCloud(pieces: pieces, spreadSince: spreadSince)
+            ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
                 .ignoresSafeArea()
 
             VStack(spacing: WK.Spacing.l) {
@@ -164,14 +164,16 @@ struct PaywallStep: View {
 
     private func loadPieces() async {
         guard pieces.isEmpty else { return }
-        for garment in garments.prefix(24) {
+        // Todas a la vez y ya en su sitio: son las mismas, en el mismo sitio,
+        // que en "Tu armario". Ver `ScanCloud.orbitEpoch`.
+        var loaded: [ScanCloud.Item] = []
+        for garment in garments.prefix(28) {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind
-            item.appearedAt = .now
-            withAnimation(.easeOut(duration: 0.8)) { pieces.append(item) }
-            try? await Task.sleep(for: .milliseconds(160))
+            loaded.append(item)
         }
+        withAnimation(.easeOut(duration: 0.5)) { pieces = loaded }
     }
 
     // MARK: Los pasos

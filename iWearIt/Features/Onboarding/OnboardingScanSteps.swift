@@ -716,7 +716,7 @@ struct ScanSummaryStep: View {
     /// las combinaciones en la rueda.
     var body: some View {
         ZStack {
-            ScanCloud(pieces: pieces, spreadSince: spreadSince)
+            ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
                 .ignoresSafeArea()
 
             VStack(spacing: 2) {
@@ -746,18 +746,16 @@ struct ScanSummaryStep: View {
 
     private func loadPieces() async {
         guard pieces.isEmpty else { return }
+        // **Todas a la vez y ya en el borde**: vienen de estar colocadas en
+        // el escaneo; salir otra vez del centro era repetir lo mismo.
+        var loaded: [ScanCloud.Item] = []
         for garment in garments.prefix(28) {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind
-            item.appearedAt = .now
-            // **Despacio**: una a una, cada una saliendo del centro hacia su
-            // sitio del borde.
-            // withAnimation(.spring(duration: 0.5, bounce: 0.25)) { pieces.append(item) }
-            // try? await Task.sleep(for: .milliseconds(40))
-            withAnimation(.easeOut(duration: 0.8)) { pieces.append(item) }
-            try? await Task.sleep(for: .milliseconds(220))
+            loaded.append(item)
         }
+        withAnimation(.easeOut(duration: 0.5)) { pieces = loaded }
     }
 
     // El de antes, en la plantilla de siempre con las cifras en fila:
@@ -870,6 +868,15 @@ struct ScanCloud: View {
     var spreadSince: Date?
     private var isSpread: Bool { spreadSince != nil }
 
+    /// **Ya en el borde, sin salir del centro**: para las pantallas que
+    /// vienen después del escaneo, donde las prendas ya estaban colocadas.
+    var arrivesInPlace = false
+
+    /// **Un solo reloj para la vuelta**, compartido por todas las pantallas:
+    /// al pasar de una a otra, las prendas siguen donde estaban en vez de
+    /// volver a empezar.
+    @MainActor static let orbitEpoch = Date()
+
     /// Cuánto tarda cada una en salir de la espiral al borde.
     private static let spreadDuration: TimeInterval = 1.8
     /// Lo que avanzan por el borde, en puntos por segundo.
@@ -944,7 +951,12 @@ struct ScanCloud: View {
     ) -> (offset: CGSize, size: CGFloat, tilt: Double) {
         let spiral = Self.spot(index, unit: unit)
         guard let elapsed, let spreadSince else { return spiral }
-        let edge = Self.border(index, of: pieces.count, in: size, shift: CGFloat(elapsed) * Self.orbitSpeed)
+        // let edge = Self.border(index, of: pieces.count, in: size, shift: CGFloat(elapsed) * Self.orbitSpeed)
+        let edge = Self.border(index, of: pieces.count, in: size, shift: CGFloat(now.timeIntervalSince(Self.orbitEpoch)) * Self.orbitSpeed)
+        let sway = sin(now.timeIntervalSince(Self.orbitEpoch) * 0.7 + Double(index) * 1.3) * 7
+        if arrivesInPlace {
+            return (edge.offset, edge.size, edge.tilt + sway)
+        }
         // Desde que se abrió, o desde que llegó si llegó después.
         let start = max(spreadSince.addingTimeInterval(Double(index) * 0.06), piece.appearedAt)
         let raw = min(1, max(0, now.timeIntervalSince(start) / Self.spreadDuration))
@@ -955,7 +967,7 @@ struct ScanCloud: View {
             height: spiral.offset.height + center.y - middle.y
         )
         // Y se mecen un poco, cada una a su aire.
-        let sway = sin(elapsed * 0.7 + Double(index) * 1.3) * 7
+        // let sway = sin(elapsed * 0.7 + Double(index) * 1.3) * 7
         return (
             CGSize(
                 width: from.width + (edge.offset.width - from.width) * t,
