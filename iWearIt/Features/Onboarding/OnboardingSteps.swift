@@ -4,26 +4,38 @@ import WKDesign
 // Los pasos de pregunta. Cada uno es cuatro líneas porque toda la forma está
 // en `OnboardingStepScaffold` y todo el texto en `OnboardingContent`.
 
+/// **La primera página**: el antes y el después a pantalla completa, con
+/// "Snazzy your closet" encima. Ver `BeforeAfterHero`.
 struct WelcomeStep: View {
     let model: OnboardingModel
 
     var body: some View {
-        VStack(spacing: WK.Spacing.m) {
-            Spacer()
-            // Ropa antes que palabras: ver `OnboardingHangingRail`.
-            OnboardingHangingRail()
-                .padding(.bottom, WK.Spacing.xl)
-            Text(String(localized: "onboarding.onboardingsteps.yourClosetIsAlreadyFull", defaultValue: "Your closet is already full.\nYou just can't see it yet."))
-                .font(WK.Font.largeTitle)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(WK.Palette.primaryText)
-            Text(String(localized: "onboarding.onboardingsteps.snazzyFindsYourClothesIn", defaultValue: "Snazzy finds your clothes in your own photos and shows you everything you can wear without buying anything."))
-                .font(WK.Font.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(WK.Palette.secondaryText)
-            Spacer()
+        ZStack(alignment: .top) {
+            BeforeAfterHero()
+
+            // El texto arriba, sobre un velo que lo deja leer encima de la foto.
+            VStack(spacing: WK.Spacing.xs) {
+                Text("Snazzy your closet.")
+                    .font(WK.Font.largeTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                Text(String(localized: "onboarding.hero.subtitle", defaultValue: "The clothes you already have, worn like this."))
+                    .font(WK.Font.body)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, WK.Spacing.screenInset)
+            .padding(.top, WK.Spacing.xl)
+            .frame(maxWidth: .infinity)
+            .background(alignment: .top) {
+                LinearGradient(
+                    colors: [WK.Palette.canvas, WK.Palette.canvas.opacity(0.85), WK.Palette.canvas.opacity(0)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: 260)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
         }
-        .padding(.horizontal, WK.Spacing.screenInset)
         .adaptiveSafeAreaBar(edge: .bottom) {
             AdaptiveGlassContainer(spacing: WK.Spacing.s) {
                 WKPrimaryButton(String(localized: "onboarding.onboardingsteps.getStarted", defaultValue: "Get started"), surface: .glass) { model.advance() }
@@ -33,6 +45,38 @@ struct WelcomeStep: View {
         }
     }
 }
+
+// La bienvenida de antes: la barra de ropa colgada y el texto.
+// struct WelcomeStep: View {
+//     let model: OnboardingModel
+
+//     var body: some View {
+//         VStack(spacing: WK.Spacing.m) {
+//             Spacer()
+//             // Ropa antes que palabras: ver `OnboardingHangingRail`.
+//             OnboardingHangingRail()
+//                 .padding(.bottom, WK.Spacing.xl)
+//             Text(String(localized: "onboarding.onboardingsteps.yourClosetIsAlreadyFull", defaultValue: "Your closet is already full.\nYou just can't see it yet."))
+//                 .font(WK.Font.largeTitle)
+//                 .multilineTextAlignment(.center)
+//                 .foregroundStyle(WK.Palette.primaryText)
+//             Text(String(localized: "onboarding.onboardingsteps.snazzyFindsYourClothesIn", defaultValue: "Snazzy finds your clothes in your own photos and shows you everything you can wear without buying anything."))
+//                 .font(WK.Font.body)
+//                 .multilineTextAlignment(.center)
+//                 .foregroundStyle(WK.Palette.secondaryText)
+//             Spacer()
+//         }
+//         .padding(.horizontal, WK.Spacing.screenInset)
+//         .adaptiveSafeAreaBar(edge: .bottom) {
+//             AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+//                 WKPrimaryButton(String(localized: "onboarding.onboardingsteps.getStarted", defaultValue: "Get started"), surface: .glass) { model.advance() }
+//             }
+//             .padding(.horizontal, WK.Spacing.screenInset)
+//             .padding(.bottom, WK.Spacing.s)
+//         }
+//     }
+// }
+
 
 struct GoalStep: View {
     let model: OnboardingModel
