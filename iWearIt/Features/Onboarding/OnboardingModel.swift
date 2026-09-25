@@ -60,8 +60,10 @@ enum OnboardingVariant: String, CaseIterable {
 
     func skips(_ step: OnboardingStep) -> Bool {
         switch self {
-        case .v1: [.conversation, .reveal].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings].contains(step)
+        // Las frases a deslizar (`StatementsStep`), fuera en las dos por
+        // ahora.
+        case .v1: [.conversation, .reveal, .statements].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements].contains(step)
         }
     }
 

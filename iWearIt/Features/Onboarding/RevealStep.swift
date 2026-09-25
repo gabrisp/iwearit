@@ -13,6 +13,7 @@ struct RevealStep: View {
     @State private var phase: Phase = .bad
     @State private var showsNumber = false
     @State private var showsCaption = false
+    @State private var showsCoda = false
     @State private var showsButton = false
 
     var body: some View {
@@ -22,16 +23,20 @@ struct RevealStep: View {
                 switch phase {
                 case .bad:
                     block(
-                        lead: String(localized: "reveal.bad.lead", defaultValue: "The bad news: in your closet you have"),
+                        title: String(localized: "reveal.bad.title", defaultValue: "The bad news:"),
+                        lead: String(localized: "reveal.bad.lead2", defaultValue: "in your closet you have"),
                         value: model.idleValue,
-                        caption: String(localized: "reveal.bad.caption", defaultValue: "in clothes you barely wear. Yes, you read that right."),
+                        caption: String(localized: "reveal.bad.caption2", defaultValue: "in clothes you barely wear."),
+                        coda: String(localized: "reveal.bad.coda", defaultValue: "Yes, you read that right."),
                         tone: .granate
                     )
                 case .good:
                     block(
-                        lead: String(localized: "reveal.good.lead", defaultValue: "The good news: Snazzy can save you"),
+                        title: String(localized: "reveal.good.title", defaultValue: "The good news:"),
+                        lead: String(localized: "reveal.good.lead2", defaultValue: "Snazzy can save you"),
                         value: model.yearlySaving,
-                        caption: String(localized: "reveal.good.caption", defaultValue: "a year, wearing what you already have instead of buying more of the same."),
+                        caption: String(localized: "reveal.good.caption2", defaultValue: "a year,"),
+                        coda: String(localized: "reveal.good.coda", defaultValue: "wearing what you already have instead of buying more of the same."),
                         tone: .oliva
                     )
                 }
@@ -42,12 +47,9 @@ struct RevealStep: View {
                 removal: .opacity.combined(with: .offset(y: -30)).combined(with: AnyTransition(.blurReplace))
             ))
             Spacer(minLength: 0)
-            if showsButton {
-                Text(String(localized: "reveal.footnote", defaultValue: "An estimate based on what you told us."))
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.tertiaryText)
-                    .transition(.opacity)
-            }
+            // La nota va con el botón, debajo: aquí la tapaba. Ver
+            // `onboardingButton(footnote:)`.
+            // if showsButton { Text(… "reveal.footnote" …) }
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.top, WK.Spacing.xxl)
@@ -55,13 +57,16 @@ struct RevealStep: View {
             title: phase == .bad
                 ? String(localized: "reveal.bad.button", defaultValue: "Change this")
                 : String(localized: "reveal.good.button", defaultValue: "I want that"),
+            footnote: String(localized: "reveal.footnote", defaultValue: "An estimate based on what you told us."),
             action: { next() }
         ) : nil)
         .task(id: phase) { await play() }
     }
 
-    private func block(lead: String, value: Double, caption: String, tone: OnboardingTone) -> some View {
+    private func block(title: String, lead: String, value: Double, caption: String, coda: String, tone: OnboardingTone) -> some View {
         VStack(spacing: WK.Spacing.l) {
+            // "La mala noticia:" en rojo, "La buena:" en verde, con brillo.
+            GlowingText(text: title, tone: tone, size: 26)
             TypewriterText(text: lead)
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
@@ -76,17 +81,27 @@ struct RevealStep: View {
                     .foregroundStyle(WK.Palette.primaryText)
                     .multilineTextAlignment(.center)
             }
+            // Y la coletilla, aparte y un poco después.
+            if showsCoda {
+                TypewriterText(text: coda)
+                    .font(WK.Font.title)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 
     private func play() async {
         showsNumber = false
         showsCaption = false
+        showsCoda = false
         withAnimation(.smooth) { showsButton = false }
         try? await Task.sleep(for: .seconds(1.2))
         withAnimation(.smooth) { showsNumber = true }
         try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.3))
         withAnimation(.smooth) { showsCaption = true }
+        try? await Task.sleep(for: .seconds(1.3))
+        withAnimation(.smooth) { showsCoda = true }
         try? await Task.sleep(for: .seconds(1.6))
         withAnimation(.smooth(duration: 0.5)) { showsButton = true }
     }

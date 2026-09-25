@@ -13,10 +13,12 @@ struct ConversationStep: View {
         case line(id: Int, text: String)
         case answer(id: Int, text: String)
         case progress(id: Int)
+        /// Una cifra que importa, sola en su línea: en color, con brillo.
+        case highlight(id: Int, text: String)
 
         var id: Int {
             switch self {
-            case let .line(id, _), let .answer(id, _), let .progress(id): id
+            case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _): id
             }
         }
     }
@@ -40,19 +42,29 @@ struct ConversationStep: View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .leading, spacing: WK.Spacing.l) {
-                    Spacer(minLength: 220)
-                    ForEach(items) { item in
+                    // Aire arriba y abajo: lo de ahora puede quedar en el centro
+                    // aunque sea lo primero o lo último.
+                    Color.clear.containerRelativeFrame(.vertical) { height, _ in height * 0.5 }
+                    ForEach(items.dropLast(question == nil ? 0 : 1)) { item in
                         row(item)
                             .opacity(opacity(of: item))
+                            // Y cuanto más arriba, más desenfocado.
+                            .blur(radius: blur(of: item))
                             .id(item.id)
                             .transition(.opacity.combined(with: .offset(y: 12)))
                     }
-                    if let question {
-                        controls(for: question)
-                            .id("controls")
-                            .transition(.opacity.combined(with: .offset(y: 16)))
+                    // La pregunta abierta y sus opciones, juntas: es lo que
+                    // se centra.
+                    if let question, let last = items.last {
+                        VStack(alignment: .leading, spacing: WK.Spacing.l) {
+                            row(last).id(last.id)
+                            controls(for: question)
+                                .transition(.opacity.combined(with: .offset(y: 16)))
+                        }
+                        .id("current")
                     }
                     Color.clear.frame(height: 1).id("bottom")
+                    Color.clear.containerRelativeFrame(.vertical) { height, _ in height * 0.5 }
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.bottom, WK.Spacing.m)
@@ -60,7 +72,10 @@ struct ConversationStep: View {
             // El hueco del botón global, que va por encima.
             .safeAreaPadding(.bottom, 96)
             .scrollIndicators(.hidden)
-            .defaultScrollAnchor(.bottom)
+            // **Lo lleva la conversación, no el dedo**: nunca se desplaza a
+            // mano, y lo de ahora siempre queda centrado en la pantalla.
+            .scrollDisabled(true)
+            // .defaultScrollAnchor(.bottom)
             // Lo de arriba se apaga, como en una conversación que sigue.
             .mask {
                 LinearGradient(
@@ -81,10 +96,18 @@ struct ConversationStep: View {
         }
     }
 
+    /// **Lo de ahora, al centro**: las opciones si hay pregunta abierta; si
+    /// no, la última línea.
     private func scrollDown(_ reader: ScrollViewProxy) {
         Task {
             try? await Task.sleep(for: .milliseconds(120))
-            withAnimation(.smooth(duration: 0.55)) { reader.scrollTo("bottom", anchor: .bottom) }
+            withAnimation(.smooth(duration: 0.6)) {
+                if question != nil, question != .done {
+                    reader.scrollTo("current", anchor: .center)
+                } else if let last = items.last {
+                    reader.scrollTo(last.id, anchor: .center)
+                }
+            }
         }
     }
 
@@ -108,7 +131,9 @@ struct ConversationStep: View {
     private func answerPains() async {
         model.pains = pains
         let labels = OnboardingContent.pains.filter { pains.contains($0.id) }.map(\.label)
-        answer(labels.count <= 2 ? labels.joined(separator: " · ") : String(localized: "chat.pains.count", defaultValue: "\(String(describing: labels.count)) things"))
+        // Lo que ha marcado, con sus palabras: "3 cosas" no dice nada.
+        // answer(labels.count <= 2 ? labels.joined(separator: " · ") : String(localized: "chat.pains.count", defaultValue: "\(String(describing: labels.count)) things"))
+        answer(labels.joined(separator: " · "))
         await say(String(localized: "chat.pains.reply", defaultValue: "You're not the only one. It happens to almost everyone."))
         await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
         ask(.spend)
@@ -117,8 +142,14 @@ struct ConversationStep: View {
     private func answerSpend() async {
         model.monthlySpend = spend
         answer(model.money(spend) + String(localized: "chat.perMonth", defaultValue: " a month"))
-        await say(String(localized: "chat.spend.reply", defaultValue: "That's \(String(describing: model.money(spend * 12))) a year on clothes."))
-        await say(String(localized: "chat.wardrobe", defaultValue: "And how many pieces would you say you have? A guess is fine."))
+        // La cifra, aparte y destacada: ver `Item.highlight`.
+        // await say(String(localized: "chat.spend.reply", defaultValue: "That's \(String(describing: model.money(spend * 12))) a year on clothes."))
+        await say(String(localized: "chat.spend.reply.lead", defaultValue: "That's"))
+        append(.highlight(id: takeID(), text: String(localized: "chat.spend.reply.value", defaultValue: "\(String(describing: model.money(spend * 12))) a year")))
+        try? await Task.sleep(for: .seconds(0.9))
+        await say(String(localized: "chat.spend.reply.tail", defaultValue: "on clothes."))
+        await say(String(localized: "chat.wardrobe", defaultValue: "And how many pieces would you say you have?"))
+        await say(String(localized: "chat.estimate", defaultValue: "Just an estimate."))
         ask(.wardrobe)
     }
 
@@ -130,7 +161,10 @@ struct ConversationStep: View {
         withAnimation(.easeInOut(duration: 2.2)) { analysis = 1 }
         try? await Task.sleep(for: .seconds(2.4))
         await say(String(localized: "chat.done", defaultValue: "You have more closet than you can see. Let me show you."))
-        ask(.done)
+        // Sigue sola, sin botón: ya lo ha dicho.
+        // ask(.done)
+        try? await Task.sleep(for: .seconds(0.9))
+        model.advance()
     }
 
     private func say(_ text: String) async {
@@ -172,6 +206,9 @@ struct ConversationStep: View {
                 .font(Self.lineFont)
                 .foregroundStyle(OnboardingTone.denim.color)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        case let .highlight(_, text):
+            GlowingText(text: text, tone: .oliva)
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .progress:
             Capsule()
                 .fill(WK.Palette.ink(0.08))
@@ -184,6 +221,12 @@ struct ConversationStep: View {
                     }
                 }
         }
+    }
+
+    private func blur(of item: Item) -> CGFloat {
+        guard let index = items.firstIndex(of: item) else { return 0 }
+        let fromEnd = items.count - 1 - index
+        return fromEnd <= 1 ? 0 : min(4, CGFloat(fromEnd - 1) * 1.2)
     }
 
     /// Lo último, entero; lo de antes, apagado.
@@ -215,7 +258,8 @@ struct ConversationStep: View {
                 }
             }
         case .spend:
-            ValueStepperSlider(value: $spend, range: 10...400, step: 5) { model.money($0) }
+            // De euro en euro: a saltos de cinco se notaba a tirones.
+            ValueStepperSlider(value: $spend, range: 10...400, step: 1) { model.money($0) }
                 .padding(.top, WK.Spacing.m)
         case .wardrobe:
             ValueStepperSlider(value: $wardrobe, range: 20...400, step: 10) {
@@ -316,5 +360,23 @@ private struct ChatOptionRow: View {
         .overlay {
             Capsule().stroke(isSelected ? option.tone.color : .clear, lineWidth: 1.5)
         }
+    }
+}
+
+/// **Una cifra que importa**: grande, en color, con un brillo que la recorre y
+/// un halo detrás. La usan la conversación y el paso del dinero.
+struct GlowingText: View {
+    let text: String
+    let tone: OnboardingTone
+    var size: CGFloat = 30
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: size, weight: .bold, design: .rounded))
+            .foregroundStyle(tone.color)
+            .wkShimmer(isActive: true)
+            .shadow(color: tone.color.opacity(0.45), radius: 18)
+            .shadow(color: tone.color.opacity(0.25), radius: 40)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
 }

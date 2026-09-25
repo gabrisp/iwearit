@@ -13348,13 +13348,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "And how many pieces would you say you have? A guess is fine."
+            "value" : "And how many pieces would you say you have?"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "¿Y cuántas prendas dirías que tienes? A ojo vale."
+            "value" : "¿Y cuántas prendas dirías que tienes?"
           }
         }
       }
@@ -13593,6 +13593,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Repetir la bienvenida · v2"
+          }
+        }
+      }
+    },
+    "chat.spend.reply.lead" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That's"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso son"
+          }
+        }
+      }
+    },
+    "chat.spend.reply.value" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ a year"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ al año"
+          }
+        }
+      }
+    },
+    "chat.spend.reply.tail" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on clothes."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en ropa."
+          }
+        }
+      }
+    },
+    "chat.estimate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just an estimate."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo una estimación."
+          }
+        }
+      }
+    },
+    "reveal.bad.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The bad news:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La mala noticia:"
+          }
+        }
+      }
+    },
+    "reveal.bad.lead2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in your closet you have"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en tu armario tienes"
+          }
+        }
+      }
+    },
+    "reveal.bad.caption2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in clothes you barely wear."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en ropa que casi no te pones."
+          }
+        }
+      }
+    },
+    "reveal.bad.coda" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yes, you read that right."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sí, has leído bien."
+          }
+        }
+      }
+    },
+    "reveal.good.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The good news:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La buena noticia:"
+          }
+        }
+      }
+    },
+    "reveal.good.lead2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy can save you"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snazzy puede ahorrarte"
+          }
+        }
+      }
+    },
+    "reveal.good.caption2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a year,"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "al año,"
+          }
+        }
+      }
+    },
+    "reveal.good.coda" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wearing what you already have instead of buying more of the same."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "poniéndote lo que ya tienes en vez de comprar más de lo mismo."
           }
         }
       }

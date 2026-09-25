@@ -16,6 +16,7 @@ struct OnboardingFlow: View {
     @State private var safeInsets = EdgeInsets()
     /// Lo que pide el paso actual para el botón global.
     @State private var button: OnboardingButtonConfig?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         // **Sin `NavigationStack`.** Estaba para que `safeAreaBar` difuminara
@@ -84,6 +85,10 @@ struct OnboardingFlow: View {
         // paso solo cambia su texto. Ver `onboardingButton`.
         .adaptiveSafeAreaBar(edge: .bottom) {
             OnboardingButtonBar(config: button)
+                // En la bienvenida el fondo son las fotos, siempre claras: en
+                // oscuro el botón salía con el texto del mismo color que su
+                // cristal. Ahí va en claro.
+                .environment(\.colorScheme, model.step == .welcome ? .light : colorScheme)
         }
         .onPreferenceChange(OnboardingButtonKey.self) { button = $0 }
         .animation(WKAnimation.content, value: model.step == .welcome)
@@ -288,7 +293,8 @@ private struct OnboardingPaper: View {
             ZStack(alignment: .top) {
                 WK.Palette.canvas
                 DotGridBackground()
-                    .opacity(0.55)
+                    // Tenue: es papel, no un estampado.
+                    .opacity(0.25)
                     .frame(
                         width: proxy.size.width,
                         height: proxy.size.height + Self.travel * CGFloat(OnboardingStep.allCases.count)
