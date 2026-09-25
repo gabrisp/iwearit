@@ -58,7 +58,8 @@ public struct CanvasToolbar: View {
                 CanvasToolButton(symbol: "arrow.left.and.right.righttriangle.left.righttriangle.right", action: onFlip)
                 CanvasToolButton(symbol: "square.2.layers.3d.bottom.filled", action: onSendBackward)
                 CanvasToolButton(symbol: "square.2.layers.3d.top.filled", action: onBringForward)
-                CanvasToolButton(symbol: "ellipsis", action: onMore)
+                // "Más", desactivado por ahora en cualquier elemento.
+                // CanvasToolButton(symbol: "ellipsis", action: onMore)
             }
             .padding(.horizontal, WK.Spacing.xs)
             // La misma altura que "Agregar" y que el color: los tres ocupan el

@@ -21,6 +21,11 @@ struct TryOnStage: View {
     let isWorking: Bool
     let isPlainScene: Bool
     let store: ImageStore
+    /// Meter la prueba en el propio outfit. Solo desde el editor: fuera de él
+    /// no hay lienzo abierto al que añadirla. Ver `TryOnSheet`.
+    var onAddToOutfit: (() -> Void)? = nil
+    /// Si la que se ve ya está metida.
+    var isAddedToOutfit = false
 
     /// Las dos tarjetas del escenario.
     private enum Card { case photo, outfit }
@@ -285,9 +290,25 @@ struct TryOnStage: View {
                 RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
                     .stroke(WK.Palette.ink(0.08), lineWidth: 1)
             }
+            // **El "+" de la esquina**: al outfit que estás editando. Por
+            // fuera de la esquina, para no taparle la marca.
+            .overlay(alignment: .bottomTrailing) {
+                if let onAddToOutfit, !isWorking, result != nil || showing != nil {
+                    WKCircleButton(size: .compact, action: onAddToOutfit) {
+                        Image(systemName: isAddedToOutfit ? "checkmark" : "plus")
+                            .contentTransition(.symbolEffect(.replace))
+                    }
+                    .tint(WK.Palette.primaryText)
+                    .disabled(isAddedToOutfit)
+                    .sensoryFeedback(.success, trigger: isAddedToOutfit)
+                    .offset(x: 14, y: 14)
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
             .animation(WKAnimation.content, value: result)
             .animation(WKAnimation.content, value: showing?.id)
             .animation(WKAnimation.content, value: isWorking)
+            .animation(WKAnimation.content, value: isAddedToOutfit)
     }
 
     @ViewBuilder
@@ -482,8 +503,8 @@ struct TryOnGeneratingCaption: View {
 
     private var phrases: [String] {
         [
-            String(localized: "tryon.generating.scene", defaultValue: "Setting up the scene: \(String(describing: scene))"),
-            String(localized: "tryon.generating.pose", defaultValue: "Striking the pose: \(String(describing: pose))"),
+            String(localized: "tryon.generating.sceneOnly", defaultValue: "Setting up the scene"),
+            String(localized: "tryon.generating.poseOnly", defaultValue: "Striking the pose"),
             String(localized: "tryon.generating.clothes", defaultValue: "Fitting every piece"),
             String(localized: "tryon.generating.face", defaultValue: "Making sure it's really you"),
             String(localized: "tryon.generating.light", defaultValue: "Matching the light"),
@@ -494,25 +515,16 @@ struct TryOnGeneratingCaption: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 2.4)) { context in
             let index = Int(context.date.timeIntervalSince(start) / 2.4) % phrases.count
-            VStack(spacing: WK.Spacing.xs) {
-                HStack(spacing: WK.Spacing.s) {
-                    Image(systemName: "sparkles")
-                        .symbolEffect(.variableColor.iterative, options: .repeating)
-                    // Un solo texto que cambia letra a letra, como un
-                    // contador: ver `numericText`.
-                    Text(phrases[index] + "…")
-                        .contentTransition(.numericText())
-                }
-                .font(WK.Font.body.weight(.medium))
-                .foregroundStyle(WK.Palette.primaryText)
+            // Pequeño, sin icono ni "suele tardar", y en una línea: lo escrito
+            // a mano en escenario o pose podía ser largo y rompía la pantalla,
+            // así que las frases ya no lo llevan dentro.
+            Text(phrases[index] + "…")
+                .font(WK.Font.captionMedium)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .lineLimit(1)
+                .contentTransition(.numericText())
                 .frame(maxWidth: .infinity)
                 .animation(.smooth(duration: 0.5), value: index)
-
-                Text(String(localized: "tryon.generating.hint", defaultValue: "It usually takes about 20 seconds"))
-                    .font(WK.Font.caption)
-                    .foregroundStyle(WK.Palette.tertiaryText)
-            }
-            .multilineTextAlignment(.center)
         }
         .onAppear { start = Date() }
     }

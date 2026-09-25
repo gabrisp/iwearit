@@ -657,11 +657,12 @@ private struct CanvasEditorScreen: View {
             // **Con su propio fondo.** Es la única hoja de aquí que no es un
             // control del lienzo: enseña una foto tuya, y enseñarla sobre el
             // lienzo transparente la dejaba flotando entre las prendas.
-            TryOnSheet(outfit: outfit)
+            TryOnSheet(outfit: outfit, canAddToOutfit: true)
                 .presentationBackground(WK.Palette.canvas)
         case .tryOnStickers:
+            // Sin fondo: el de la hoja, como el resto de hojas del lienzo.
             TryOnStickerSheet(outfit: outfit, store: store) {}
-                .presentationBackground(WK.Palette.canvas)
+                // .presentationBackground(WK.Palette.canvas)
         case .share:
             if let exportImage {
                 ShareImageSheet(image: exportImage)

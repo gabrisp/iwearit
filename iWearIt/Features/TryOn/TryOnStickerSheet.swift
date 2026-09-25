@@ -45,7 +45,10 @@ struct TryOnStickerSheet: View {
                     .padding(WK.Spacing.screenInset)
                 }
             }
-            .background(WK.Palette.canvas.ignoresSafeArea())
+            // Sin fondo propio —el cristal de la hoja, como las demás hojas
+            // del lienzo— y sin indicadores de scroll.
+            // .background(WK.Palette.canvas.ignoresSafeArea())
+            .scrollIndicators(.hidden)
             .navigationTitle(String(localized: "tryon.stickers.title", defaultValue: "Tried on"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

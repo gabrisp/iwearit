@@ -15,6 +15,9 @@ import WKPersistence
 /// puesto aquí, es lo que es: una pregunta con su respuesta a mano.
 struct TryOnSheet: View {
     let outfit: Outfit
+    /// Abierto desde el editor: la tarjeta de la prueba lleva un "+" para
+    /// meterla en el lienzo. Ver `TryOnStage.onAddToOutfit`.
+    var canAddToOutfit = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -91,9 +94,13 @@ struct TryOnSheet: View {
                     showing: showing,
                     isWorking: model?.state == .working,
                     isPlainScene: scene == .none,
-                    store: appEnvironment.imageStore
+                    store: appEnvironment.imageStore,
+                    onAddToOutfit: canAddToOutfit ? { Task { await addToOutfit() } } : nil,
+                    isAddedToOutfit: addedToOutfit
                 )
                 .frame(maxHeight: .infinity)
+                // Otra prueba en la tarjeta: esa aún no está en el lienzo.
+                .onChange(of: showing?.id) { _, _ in addedToOutfit = false }
 
                 // **Mientras te viste, solo el lienzo y lo que está
                 // haciendo.** Todo lo demás se va y el lienzo queda en el
@@ -271,8 +278,12 @@ struct TryOnSheet: View {
                     }
                 }
                 .padding(.horizontal, WK.Spacing.screenInset)
+                .padding(.vertical, WK.Spacing.xs)
             }
             .scrollIndicators(.hidden)
+            // Sin recortar: el borde de la elegida y las esquinas se veían
+            // cortados por la tira.
+            .scrollClipDisabled()
         }
     }
 

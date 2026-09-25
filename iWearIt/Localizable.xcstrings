@@ -12691,6 +12691,40 @@
           }
         }
       }
+    },
+    "tryon.generating.sceneOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Setting up the scene"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generando la escena"
+          }
+        }
+      }
+    },
+    "tryon.generating.poseOnly" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Striking the pose"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poniéndote en pose"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
