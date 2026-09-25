@@ -45,23 +45,26 @@ struct ConversationStep: View {
                     // Aire arriba y abajo: lo de ahora puede quedar en el centro
                     // aunque sea lo primero o lo último.
                     Color.clear.containerRelativeFrame(.vertical) { height, _ in height * 0.5 }
-                    ForEach(items.dropLast(question == nil ? 0 : 1)) { item in
-                        row(item)
-                            .opacity(opacity(of: item))
-                            // Y cuanto más arriba, más desenfocado.
-                            .blur(radius: blur(of: item))
-                            .id(item.id)
-                            .transition(.opacity.combined(with: .offset(y: 12)))
-                    }
-                    // La pregunta abierta y sus opciones, juntas: es lo que
-                    // se centra.
-                    if let question, let last = items.last {
+                    // **Todo en un solo `ForEach`**, y la pregunta abierta
+                    // lleva sus opciones debajo dentro de su misma fila. Antes
+                    // la última línea se sacaba del `ForEach` al abrirse la
+                    // pregunta: era otra vista, y la máquina de escribir
+                    // volvía a empezar — la pregunta se escribía dos veces.
+                    // ForEach(items.dropLast(question == nil ? 0 : 1)) { item in … }
+                    // if let question, let last = items.last { VStack { row(last); controls(for: question) }.id("current") }
+                    ForEach(items) { item in
                         VStack(alignment: .leading, spacing: WK.Spacing.l) {
-                            row(last).id(last.id)
-                            controls(for: question)
-                                .transition(.opacity.combined(with: .offset(y: 16)))
+                            row(item)
+                            if let question, item.id == items.last?.id {
+                                controls(for: question)
+                                    .transition(.opacity.combined(with: .offset(y: 16)))
+                            }
                         }
-                        .id("current")
+                        .opacity(opacity(of: item))
+                        // Y cuanto más arriba, más desenfocado.
+                        .blur(radius: blur(of: item))
+                        .id(item.id)
+                        .transition(.opacity.combined(with: .offset(y: 12)))
                     }
                     Color.clear.frame(height: 1).id("bottom")
                     Color.clear.containerRelativeFrame(.vertical) { height, _ in height * 0.5 }
@@ -79,7 +82,13 @@ struct ConversationStep: View {
             // Lo de arriba se apaga, como en una conversación que sigue.
             .mask {
                 LinearGradient(
-                    stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.28)],
+                    // Corto: una pregunta con muchas opciones —"marca todo lo
+                    // que te suene"— es tan alta que, centrada, su pregunta
+                    // caía en el degradado y se leía apagada antes de
+                    // contestarla. Lo de antes ya se apaga solo, por su
+                    // opacidad.
+                    // stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.28)],
+                    stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.1)],
                     startPoint: .top, endPoint: .bottom
                 )
             }
@@ -102,9 +111,8 @@ struct ConversationStep: View {
         Task {
             try? await Task.sleep(for: .milliseconds(120))
             withAnimation(.smooth(duration: 0.6)) {
-                if question != nil, question != .done {
-                    reader.scrollTo("current", anchor: .center)
-                } else if let last = items.last {
+                // La última fila ya lleva dentro sus opciones.
+                if let last = items.last {
                     reader.scrollTo(last.id, anchor: .center)
                 }
             }
@@ -273,7 +281,7 @@ struct ConversationStep: View {
 
     /// El botón global según lo que toque: nada mientras se escribe o en una
     /// pregunta de un toque; "Listo" o "Esto" cuando hay que confirmar.
-    private var button: OnboardingButtonConfig? {
+    private var button: OnboardingButtonConfig {
         switch question {
         case .pains:
             OnboardingButtonConfig(
@@ -296,8 +304,17 @@ struct ConversationStep: View {
                 title: String(localized: "common.continue", defaultValue: "Continue"),
                 action: { model.advance() }
             )
+        // **El botón no se va nunca**: mientras se escribe o en una pregunta
+        // de un toque está, pero apagado. Si aparecía y desaparecía, la
+        // pantalla saltaba.
+        // case .goal, nil:
+        //     nil
         case .goal, nil:
-            nil
+            OnboardingButtonConfig(
+                title: String(localized: "common.continue", defaultValue: "Continue"),
+                isEnabled: false,
+                action: {}
+            )
         }
     }
 }
@@ -336,9 +353,12 @@ private struct ChatOptionRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: WK.Spacing.m) {
+                // Sin color: los tonos por opción, y el contorno al marcar,
+                // sobraban. Lo único que cambia al marcar es el check.
                 Image(systemName: option.symbol)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(option.tone.color)
+                    // .foregroundStyle(option.tone.color)
+                    .foregroundStyle(WK.Palette.secondaryText)
                     .frame(width: 22)
                 Text(option.label)
                     .font(WK.Font.body)
@@ -347,8 +367,12 @@ private struct ChatOptionRow: View {
                 Spacer(minLength: 0)
                 if isCheckbox {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .foregroundStyle(isSelected ? option.tone.color : WK.Palette.tertiaryText)
-                        .contentTransition(.symbolEffect(.replace))
+                        // .foregroundStyle(isSelected ? option.tone.color : WK.Palette.tertiaryText)
+                        // .contentTransition(.symbolEffect(.replace))
+                        .font(.system(size: 20))
+                        .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.tertiaryText)
+                        // El círculo se convierte en el check.
+                        .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))
                 }
             }
             .padding(.horizontal, WK.Spacing.m)
@@ -357,9 +381,9 @@ private struct ChatOptionRow: View {
         }
         .buttonStyle(.plain)
         .adaptiveGlassInteractive(in: .capsule)
-        .overlay {
-            Capsule().stroke(isSelected ? option.tone.color : .clear, lineWidth: 1.5)
-        }
+        // .overlay {
+        //     Capsule().stroke(isSelected ? option.tone.color : .clear, lineWidth: 1.5)
+        // }
     }
 }
 

@@ -453,13 +453,28 @@ private struct OnboardingButtonBar: View {
 
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
-            if let config, !config.isHidden {
-                AdaptiveGlassContainer(spacing: WK.Spacing.s) {
-                    WKPrimaryButton(config.title, surface: .glass, action: config.action)
-                        .disabled(!config.isEnabled)
-                        .opacity(config.isEnabled ? 1 : 0.4)
+            // **Siempre en su sitio**, aunque no se vea: si el botón entraba y
+            // salía de la barra, el hueco de abajo cambiaba y la pantalla
+            // entera daba un salto. Oculto es invisible y no se toca, pero
+            // ocupa lo mismo.
+            // if let config, !config.isHidden {
+            let isShown = config.map { !$0.isHidden } ?? false
+            ZStack {
+                // El hueco, siempre: un botón igual pero sin pintar. Con
+                // `opacity(0)` el cristal se seguía viendo, como una cápsula
+                // negra.
+                WKPrimaryButton(" ", surface: .glass, action: {})
+                    .hidden()
+                if let config, isShown {
+                    AdaptiveGlassContainer(spacing: WK.Spacing.s) {
+                        WKPrimaryButton(config.title, surface: .glass, action: config.action)
+                            .disabled(!config.isEnabled)
+                            .opacity(config.isEnabled ? 1 : 0.4)
+                    }
+                    .transition(.opacity.combined(with: .offset(y: 16)))
                 }
-                .transition(.opacity.combined(with: .offset(y: 16)))
+            }
+            if let config, !config.isHidden {
                 if let footnote = config.footnote {
                     Text(footnote)
                         .font(WK.Font.caption)

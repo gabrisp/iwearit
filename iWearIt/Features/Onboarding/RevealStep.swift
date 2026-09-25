@@ -53,13 +53,17 @@ struct RevealStep: View {
         }
         .padding(.horizontal, WK.Spacing.screenInset)
         .padding(.top, WK.Spacing.xxl)
-        .onboardingButton(showsButton ? OnboardingButtonConfig(
+        // **El botón, siempre**: apagado hasta que la cifra se ha dicho entera.
+        // Aparecer y desaparecer —y la nota con él— movía la pantalla.
+        // .onboardingButton(showsButton ? OnboardingButtonConfig(…) : nil)
+        .onboardingButton(OnboardingButtonConfig(
             title: phase == .bad
                 ? String(localized: "reveal.bad.button", defaultValue: "Change this")
                 : String(localized: "reveal.good.button", defaultValue: "I want that"),
+            isEnabled: showsButton,
             footnote: String(localized: "reveal.footnote", defaultValue: "An estimate based on what you told us."),
             action: { next() }
-        ) : nil)
+        ))
         .task(id: phase) { await play() }
     }
 
@@ -120,29 +124,38 @@ struct NumberWheel: View {
     let target: Double
     let format: (Double) -> String
     let tone: OnboardingTone
+    /// El tamaño de la cifra. La fila y la altura de la rueda van con él.
+    var fontSize: CGFloat = 52
 
     /// Cuánto tarda en pararse.
     static let duration = 2.4
-    private static let rowHeight: CGFloat = 64
+    // private static let rowHeight: CGFloat = 64
+    private var rowHeight: CGFloat { fontSize * 1.23 }
 
     @State private var index = 0
     @State private var values: [Double] = []
+    /// Ya parada: la cifra crece un poco y brilla.
+    @State private var hasLanded = false
 
     var body: some View {
         ZStack {
             ForEach(Array(values.enumerated()), id: \.offset) { offset, value in
                 let distance = CGFloat(offset - index)
                 Text(format(value))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    // Entera siempre: en un hueco estrecho se quedaba en "…".
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(tone.color)
-                    .scaleEffect(1 - min(abs(distance), 2) * 0.22)
+                    .scaleEffect((1 - min(abs(distance), 2) * 0.22) * (distance == 0 && hasLanded ? 1.14 : 1))
+                    .shadow(color: tone.color.opacity(distance == 0 && hasLanded ? 0.4 : 0), radius: 16)
                     .opacity(abs(distance) > 2 ? 0 : 1 - abs(distance) * 0.45)
                     .blur(radius: abs(distance) * 3)
-                    .offset(y: distance * Self.rowHeight * 0.8)
+                    .offset(y: distance * rowHeight * 0.8)
             }
         }
-        .frame(height: Self.rowHeight * 2.6)
+        .frame(height: rowHeight * 2.6)
         .mask {
             LinearGradient(
                 stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.3),
@@ -152,11 +165,15 @@ struct NumberWheel: View {
         }
         .sensoryFeedback(.selection, trigger: index)
         .task {
+            hasLanded = false
             // Doce pasos hasta la cifra, redondeados para que se lean.
             let steps = 12
             values = (0...steps).map { step in
                 let fraction = 0.3 + 0.7 * Double(step) / Double(steps)
-                return step == steps ? target : (target * fraction / 10).rounded() * 10
+                // De diez en diez para las cifras grandes; las pequeñas —las
+                // combinaciones con pocas prendas— de una en una.
+                let unit: Double = target >= 100 ? 10 : 1
+                return step == steps ? target : (target * fraction / unit).rounded() * unit
             }
             values.append(target * 1.08)
             index = 0
@@ -166,6 +183,7 @@ struct NumberWheel: View {
                 try? await Task.sleep(for: .seconds(0.05 + 0.3 * t * t))
                 withAnimation(.spring(duration: 0.35, bounce: step == steps ? 0.35 : 0.1)) { index = step }
             }
+            withAnimation(.spring(duration: 0.5, bounce: 0.4)) { hasLanded = true }
         }
     }
 }

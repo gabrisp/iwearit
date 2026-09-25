@@ -62,8 +62,14 @@ enum OnboardingVariant: String, CaseIterable {
         switch self {
         // Las frases a deslizar (`StatementsStep`), fuera en las dos por
         // ahora.
-        case .v1: [.conversation, .reveal, .statements].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements].contains(step)
+        // case .v1: [.conversation, .reveal, .statements].contains(step)
+        // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements].contains(step)
+        // Y fuera también, en las dos, "No eres la única" con las
+        // valoraciones (`SocialProofStep`), y "+X prendas" como pantalla
+        // aparte (`ScanFoundStep`): ahora es el final del propio escaneo, en
+        // el mismo lienzo. Ver `ScanningStep`.
+        case .v1: [.conversation, .reveal, .statements, .socialProof, .scanFound].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound].contains(step)
         }
     }
 
