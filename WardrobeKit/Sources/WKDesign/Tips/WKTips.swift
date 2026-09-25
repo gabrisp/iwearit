@@ -25,6 +25,8 @@ public enum WKTip: String, CaseIterable, Sendable {
     case reviewCard
     /// Arrastrar un conjunto de inspiración a un lado o al otro.
     case swipeLook
+    /// Tocar el círculo de la cara en el probador para cambiar de perfil.
+    case changeProfile
 
     public var title: String {
         switch self {
@@ -33,6 +35,7 @@ public enum WKTip: String, CaseIterable, Sendable {
         case .bulkImport: String(localized: "wkdesign.wktips.severalAtOnce", defaultValue: "Several at once", bundle: .module)
         case .reviewCard: String(localized: "wkdesign.wktips.tapToAdjust", defaultValue: "Tap to adjust", bundle: .module)
         case .swipeLook: String(localized: "wkdesign.wktips.sayItWithASwipe", defaultValue: "Say it with a swipe", bundle: .module)
+        case .changeProfile: String(localized: "wkdesign.wktips.changeProfile", defaultValue: "Tap to change profile", bundle: .module)
         }
     }
 
@@ -48,6 +51,8 @@ public enum WKTip: String, CaseIterable, Sendable {
             String(localized: "wkdesign.wktips.tapAPieceToChange", defaultValue: "Tap a piece to change its type, its color or crop it again.", bundle: .module)
         case .swipeLook:
             String(localized: "wkdesign.wktips.swipeRightOnWhatYou", defaultValue: "Swipe right on what you like and left on what you don't: what you discard counts less in what comes next.", bundle: .module)
+        case .changeProfile:
+            String(localized: "wkdesign.wktips.changeProfileMessage", defaultValue: "Tap your face to switch profile or create a new one.", bundle: .module)
         }
     }
 
@@ -59,6 +64,7 @@ public enum WKTip: String, CaseIterable, Sendable {
         case .bulkImport: .stack
         case .reviewCard: .tap
         case .swipeLook: .drag
+        case .changeProfile: .tap
         }
     }
 }

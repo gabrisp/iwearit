@@ -240,6 +240,12 @@ private struct CanvasBubbleLayer: View {
                 .fixedSize()
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { bubblesSize = $0 }
                 .offset(x: x, y: y)
+                // **Mientras la mueves, no se tocan.** Van pegadas a la foto,
+                // justo donde cae el segundo dedo al pellizcar: se quedaban
+                // el toque, el gesto se cancelaba a medias y hasta saltaba
+                // "Separar sujeto" solo.
+                .allowsHitTesting(selection.liveTransform == nil)
+                .opacity(selection.liveTransform == nil ? 1 : 0.55)
             }
         }
         .animation(.smooth(duration: 0.35), value: selection.selectedID)

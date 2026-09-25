@@ -40,12 +40,15 @@ struct TryOnSheet: View {
 
     private enum Sheet: Identifiable {
         case profile(BodyProfile?)
+        /// Cambiar de perfil o crear uno, desde el círculo de la cara.
+        case profiles
         case customScene
         case customPose
 
         var id: String {
             switch self {
             case let .profile(profile): "profile-\(profile?.id.uuidString ?? "new")"
+            case .profiles: "profiles"
             case .customScene: "scene"
             case .customPose: "pose"
             }
@@ -70,6 +73,10 @@ struct TryOnSheet: View {
     @State private var isCreating = false
     /// Si la prueba que se ve ya se metió en el outfit como sticker.
     @State private var addedToOutfit = false
+    /// "Toca para cambiar de perfil", la primera vez. Ver `WKTip`.
+    @State private var showsFaceHint = false
+    /// Si ya se ha tocado la cara con el aviso puesto.
+    @State private var hintSeen = false
 
     /// El perfil con el que se prueba: el elegido, o el primero que haya.
     private var profile: BodyProfile? {
@@ -96,7 +103,18 @@ struct TryOnSheet: View {
                     isPlainScene: scene == .none,
                     store: appEnvironment.imageStore,
                     onAddToOutfit: canAddToOutfit ? { Task { await addToOutfit() } } : nil,
-                    isAddedToOutfit: addedToOutfit
+                    isAddedToOutfit: addedToOutfit,
+                    // **El círculo es el selector de perfil.** Sin perfiles,
+                    // crea uno; con perfiles, la hoja para cambiar.
+                    onFaceTap: {
+                        // Visto, pero se apunta **al cerrar**: apuntarlo aquí
+                        // cambia un estado que mira la pantalla de debajo, que
+                        // se rehacía y cerraba el probador. Ver `onDisappear`.
+                        if showsFaceHint { hintSeen = true }
+                        showsFaceHint = false
+                        sheet = profiles.isEmpty ? .profile(nil) : .profiles
+                    },
+                    showsFaceHint: showsFaceHint
                 )
                 .frame(maxHeight: .infinity)
                 // Otra prueba en la tarjeta: esa aún no está en el lienzo.
@@ -138,19 +156,21 @@ struct TryOnSheet: View {
                             .tint(WK.Palette.primaryText)
                     }
                 }
-                if !isWorking {
-                ToolbarItem(placement: .principal) {
-                    ProfileSwitcher(
-                        profiles: profiles,
-                        selected: profile,
-                        canAddMore: canAddMore,
-                        store: appEnvironment.imageStore,
-                        onSelect: { selectedID = $0.id },
-                        onEdit: { edit($0) },
-                        onNew: { edit(nil) }
-                    )
-                }
-                }
+                // if !isWorking {
+                // **Sin la pastilla del perfil arriba**: el perfil se cambia
+                // tocando el círculo de la cara. Ver `TryOnStage.onFaceTap`.
+                // ToolbarItem(placement: .principal) {
+                //     ProfileSwitcher(
+                //         profiles: profiles,
+                //         selected: profile,
+                //         canAddMore: canAddMore,
+                //         store: appEnvironment.imageStore,
+                //         onSelect: { selectedID = $0.id },
+                //         onEdit: { edit($0) },
+                //         onNew: { edit(nil) }
+                //     )
+                // }
+                // }
                 if let result = model?.result {
                     ToolbarItem(placement: .topBarTrailing) {
                         // Con la marca, y "sin fondo" sobre el papel del
@@ -168,6 +188,7 @@ struct TryOnSheet: View {
             }
             .adaptiveSafeAreaBar(edge: .bottom) { bottom }
             .interactiveDismissDisabled(model?.state == .working)
+            .onDisappear { if hintSeen { appEnvironment.tips.complete(.changeProfile) } }
             .task { prepare() }
             .sheet(item: $sheet) { which in
                 switch which {
@@ -177,6 +198,14 @@ struct TryOnSheet: View {
                     ProfileEditSheet(profile: editing)
                 case .profile(nil):
                     TryOnProfileSheet(profile: nil)
+                case .profiles:
+                    ProfilePickerSheet(
+                        profiles: profiles,
+                        selectedID: profile?.id,
+                        canAddMore: canAddMore,
+                        store: appEnvironment.imageStore,
+                        onSelect: { selectedID = $0.id }
+                    )
                 case .customScene:
                     TryOnCustomDirectionSheet(
                         prompt: String(localized: "tryon.direction.customScenePrompt", defaultValue: "Describe the place: a rooftop at sunset, a café in Paris…"),
@@ -258,7 +287,7 @@ struct TryOnSheet: View {
             ScrollView(.horizontal) {
                 HStack(spacing: WK.Spacing.s) {
                     ForEach(history) { item in
-                        Button { showing = item } label: {
+                        Button { withAnimation(.smooth(duration: 0.45)) { showing = item } } label: {
                             StoredImage(
                                 key: item.imageKey,
                                 variant: .thumb,
@@ -485,7 +514,12 @@ struct TryOnSheet: View {
                 // Nada: mientras te viste, el lienzo solo. Ver el cuerpo.
                 EmptyView()
             } else if profile == nil {
-                WKPrimaryButton(String(localized: "tryon.tryonsheet.createAProfile", defaultValue: "Create a profile"), surface: .glass) { edit(nil) }
+                // Sin perfil, "Probármelo" apagado: el perfil se crea con el
+                // "+" del círculo. Antes aquí iba "Crear un perfil".
+                // WKPrimaryButton(String(localized: "tryon.tryonsheet.createAProfile", defaultValue: "Create a profile"), surface: .glass) { edit(nil) }
+                WKPrimaryButton(String(localized: "common.tryItOn", defaultValue: "Try it on"), surface: .glass) {}
+                    .disabled(true)
+                    .opacity(0.5)
             } else if profile?.sendsPhotos == true, profile?.canLeaveDevice != true {
                 WKPrimaryButton(String(localized: "tryon.tryonsheet.acceptAndTryItOn", defaultValue: "Accept and try it on"), surface: .glass) { accept() }
                 // Lo justo y en letra pequeña: el cartel de antes ocupaba media
@@ -577,12 +611,12 @@ struct TryOnSheet: View {
         if let showing {
             let size = (try? await appEnvironment.imageStore.image(for: showing.imageKey, variant: .display))
                 .map { CGSize(width: $0.width, height: $0.height) } ?? CGSize(width: 3, height: 4)
-            TryOnSticker.add(key: showing.imageKey, imageSize: size, to: outfit, context: modelContext)
+            TryOnSticker.add(key: showing.imageKey, imageSize: size, to: outfit, context: modelContext, saves: !canAddToOutfit)
         } else if let image = model?.result?.cgImage,
                   let key = try? await appEnvironment.imageStore.store(image) {
             TryOnSticker.add(
                 key: key, imageSize: CGSize(width: image.width, height: image.height),
-                to: outfit, context: modelContext
+                to: outfit, context: modelContext, saves: !canAddToOutfit
             )
         } else {
             return
@@ -591,6 +625,7 @@ struct TryOnSheet: View {
     }
 
     private func prepare() {
+        showsFaceHint = !appEnvironment.tips.hasSeen(.changeProfile)
         guard model == nil else { return }
         // Con pruebas, se abre enseñándolas —la última delante—; sin ellas,
         // ya creando.
@@ -753,6 +788,87 @@ private struct ProfileAvatar: View {
                 .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.secondaryText)
                 .lineLimit(1)
                 .frame(maxWidth: Self.side + 12)
+        }
+    }
+}
+
+
+/// **Cambiar de perfil o crear uno**, desde el círculo de la cara: los
+/// perfiles en fila y "Nuevo" al final. Tocar uno lo pone y cierra; mantener
+/// pulsado, editarlo.
+private struct ProfilePickerSheet: View {
+    let profiles: [BodyProfile]
+    let selectedID: UUID?
+    let canAddMore: Bool
+    let store: ImageStore
+    let onSelect: (BodyProfile) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    /// Crear o editar, en su propia hoja encima de esta.
+    @State private var editing: Editing?
+
+    private enum Editing: Identifiable {
+        case new
+        case edit(BodyProfile)
+        var id: String {
+            switch self {
+            case .new: "new"
+            case let .edit(profile): profile.id.uuidString
+            }
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: WK.Spacing.l) {
+            Text(String(localized: "tryon.profiles.title", defaultValue: "Who's trying it on?"))
+                .font(WK.Font.title)
+                .foregroundStyle(WK.Palette.primaryText)
+            ScrollView(.horizontal) {
+                HStack(alignment: .top, spacing: WK.Spacing.l) {
+                    ForEach(profiles) { item in
+                        Button {
+                            onSelect(item)
+                            dismiss()
+                        } label: {
+                            ProfileAvatar(profile: item, isSelected: item.id == selectedID, store: store)
+                        }
+                        .buttonStyle(WKPressStyle())
+                        .contextMenu {
+                            Button(String(localized: "common.edit", defaultValue: "Edit"), systemImage: "pencil") {
+                                editing = .edit(item)
+                            }
+                        }
+                    }
+                    if canAddMore {
+                        Button { editing = .new } label: {
+                            VStack(spacing: WK.Spacing.xs) {
+                                Image(systemName: "plus")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(WK.Palette.primaryText)
+                                    .frame(width: ProfileAvatar.side, height: ProfileAvatar.side)
+                                    .adaptiveGlassInteractive(in: .circle)
+                                    .padding(4)
+                                Text(String(localized: "tryon.tryonsheet.new", defaultValue: "New"))
+                                    .font(WK.Font.caption)
+                                    .foregroundStyle(WK.Palette.secondaryText)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, WK.Spacing.xs)
+            }
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .padding(.top, WK.Spacing.l)
+        .wkDynamicSheet()
+        .sheet(item: $editing) { which in
+            switch which {
+            case .new: TryOnProfileSheet(profile: nil)
+            case let .edit(profile): ProfileEditSheet(profile: profile)
+            }
         }
     }
 }

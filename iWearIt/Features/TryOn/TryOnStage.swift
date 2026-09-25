@@ -26,6 +26,32 @@ struct TryOnStage: View {
     var onAddToOutfit: (() -> Void)? = nil
     /// Si la que se ve ya está metida.
     var isAddedToOutfit = false
+    /// Tocar el círculo de la cara: cambiar de perfil o crear uno. Ver
+    /// `TryOnSheet`.
+    var onFaceTap: (() -> Void)? = nil
+    /// Enseñar "toca para cambiar de perfil" junto al círculo, la primera vez.
+    var showsFaceHint = false
+
+    /// **Dónde cuelga la cara**: un punto del canto de la tarjeta, cada vez
+    /// uno. Siempre abajo a la derecha parecía un sello, no una persona.
+    @State private var faceSpot = FaceSpot.random()
+
+    private struct FaceSpot {
+        /// En fracciones de la tarjeta, desde su centro: ±0,5 es el canto.
+        var x: CGFloat
+        var y: CGFloat
+
+        static func random() -> FaceSpot {
+            let spots: [FaceSpot] = [
+                .init(x: 0.42, y: 0.40), .init(x: -0.42, y: 0.40),
+                .init(x: 0.44, y: -0.30), .init(x: -0.44, y: -0.30),
+                .init(x: 0.46, y: 0.05), .init(x: -0.46, y: 0.08),
+                .init(x: 0.18, y: 0.45), .init(x: -0.2, y: -0.44),
+            ]
+            let base = spots.randomElement() ?? spots[0]
+            return .init(x: base.x + .random(in: -0.03...0.03), y: base.y + .random(in: -0.04...0.04))
+        }
+    }
 
     /// Las dos tarjetas del escenario.
     private enum Card { case photo, outfit }
@@ -128,18 +154,38 @@ struct TryOnStage: View {
                     // Aparece desde el centro del outfit, donde se fundió.
                     .transition(.scale(scale: 0.4).combined(with: .opacity))
                 } else {
-                    // Tu cara, pequeña, en la esquina del outfit; al empezar
-                    // vuela a su centro y desaparece dentro.
-                    ProfileFace(profile: profile, store: store)
-                        .scaleEffect(isWorking ? 0.25 : 1)
-                        .opacity(isWorking ? 0 : 1)
-                        .offset(
-                            x: isWorking ? 0 : outfitFront.width * 0.42,
-                            y: isWorking ? 0 : outfitFront.height * 0.40
-                        )
-                        .animation(.easeIn(duration: 0.7), value: isWorking)
-                        .zIndex(2)
-                        .transition(.opacity)
+                    // **Tu cara, pequeña, en un punto del canto.** Al empezar
+                    // ya no se funde dentro: **da vueltas alrededor** del
+                    // outfit, pasando por delante y por detrás. Son dos copias
+                    // —una delante de la tarjeta y otra detrás— y cada una se
+                    // ve en su media vuelta: el orden de apilado no puede
+                    // cambiar dentro de una animación.
+                    let rest = CGSize(width: outfitFront.width * faceSpot.x, height: outfitFront.height * faceSpot.y)
+                    FaceOrbit(
+                        isWorking: isWorking, inFront: true, rest: rest, cardSize: outfitFront
+                    ) {
+                        ProfileFace(profile: profile, store: store)
+                            .overlay(alignment: .top) {
+                                if showsFaceHint, !isWorking {
+                                    FaceHint()
+                                        .offset(y: -40)
+                                        .transition(.scale(scale: 0.8, anchor: .bottom).combined(with: .opacity))
+                                }
+                            }
+                            .contentShape(.circle)
+                            .onTapGesture { onFaceTap?() }
+                            .allowsHitTesting(!isWorking && onFaceTap != nil)
+                    }
+                    .zIndex(2)
+                    .transition(.opacity)
+                    FaceOrbit(
+                        isWorking: isWorking, inFront: false, rest: rest, cardSize: outfitFront
+                    ) {
+                        ProfileFace(profile: profile, store: store)
+                            .allowsHitTesting(false)
+                    }
+                    .zIndex(0.5)
+                    .transition(.opacity)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
@@ -159,6 +205,8 @@ struct TryOnStage: View {
         }
         .onChange(of: isWorking) { _, working in
             if working { front = .photo }
+            // Otra prueba, otro sitio para la cara.
+            if !working { faceSpot = .random() }
         }
     }
 
@@ -290,21 +338,43 @@ struct TryOnStage: View {
                 RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
                     .stroke(WK.Palette.ink(0.08), lineWidth: 1)
             }
-            // **El "+" de la esquina**: al outfit que estás editando. Por
-            // fuera de la esquina, para no taparle la marca.
-            .overlay(alignment: .bottomTrailing) {
-                if let onAddToOutfit, !isWorking, result != nil || showing != nil {
-                    WKCircleButton(size: .compact, action: onAddToOutfit) {
+            // **El "+" de la esquina**: al outfit que estás editando. Cristal
+            // solo —sin relleno propio— y **dentro** de la esquina, con el
+            // mismo aire por los dos lados; arriba, porque abajo va la marca.
+            .overlay(alignment: .topTrailing) {
+                // Solo con la tarjeta **delante**: detrás es más pequeña y el
+                // botón no encoge con ella —se veía más grande que la carta—.
+                if let onAddToOutfit, !isWorking, result != nil || showing != nil, effectiveFront == .photo {
+                    Button(action: onAddToOutfit) {
                         Image(systemName: isAddedToOutfit ? "checkmark" : "plus")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(WK.Palette.primaryText)
                             .contentTransition(.symbolEffect(.replace))
+                            .frame(width: 36, height: 36)
+                            .contentShape(.circle)
                     }
-                    .tint(WK.Palette.primaryText)
+                    .buttonStyle(.plain)
+                    .adaptiveGlassInteractive(in: .circle)
                     .disabled(isAddedToOutfit)
                     .sensoryFeedback(.success, trigger: isAddedToOutfit)
-                    .offset(x: 14, y: 14)
+                    // Concéntrico con la esquina redondeada: el mismo aire
+                    // arriba y a la derecha **medido desde la curva**.
+                    .padding(WK.Radius.large - 18 + 4)
                     .transition(.scale.combined(with: .opacity))
                 }
             }
+            // Lo de antes: `WKCircleButton` por fuera de la esquina.
+            //         WKCircleButton(size: .compact, action: onAddToOutfit) {
+            //             Image(systemName: isAddedToOutfit ? "checkmark" : "plus")
+            //                 .contentTransition(.symbolEffect(.replace))
+            //         }
+            //         .tint(WK.Palette.primaryText)
+            //         .disabled(isAddedToOutfit)
+            //         .sensoryFeedback(.success, trigger: isAddedToOutfit)
+            //         .offset(x: 14, y: 14)
+            //         .transition(.scale.combined(with: .opacity))
+            //     }
+            // }
             .animation(WKAnimation.content, value: result)
             .animation(WKAnimation.content, value: showing?.id)
             .animation(WKAnimation.content, value: isWorking)
@@ -317,19 +387,24 @@ struct TryOnStage: View {
             if let showing {
                 // **Sin fondo: sola, sobre el papel del outfit.** Con escena,
                 // la foto entera rellenando la tarjeta.
-                if showing.sceneRaw == TryOnScene.none.rawValue {
-                    TryOnPaper(outfit: outfit)
-                        .overlay {
-                            StoredImage(key: showing.imageKey, variant: .display, store: store)
-                                .scaledToFit()
-                                .padding(.top, WK.Spacing.m)
-                        }
-                        .transition(.blurReplace)
-                } else {
-                    StoredImage(key: showing.imageKey, variant: .display, store: store)
-                        .scaledToFill()
-                        .transition(.blurReplace)
+                // **Una identidad por prueba**: al cambiar de una a otra, la
+                // de antes se va desenfocándose y llega la nueva. Con la misma
+                // vista y otra clave, la foto cambiaba de golpe.
+                Group {
+                    if showing.sceneRaw == TryOnScene.none.rawValue {
+                        TryOnPaper(outfit: outfit)
+                            .overlay {
+                                StoredImage(key: showing.imageKey, variant: .display, store: store)
+                                    .scaledToFit()
+                                    .padding(.top, WK.Spacing.m)
+                            }
+                    } else {
+                        StoredImage(key: showing.imageKey, variant: .display, store: store)
+                            .scaledToFill()
+                    }
                 }
+                .id(showing.id)
+                .transition(AnyTransition(.blurReplace).combined(with: .scale(scale: 1.04)))
             } else if let result {
                 Group {
                     if isPlainScene {
@@ -999,15 +1074,73 @@ private struct ProfileFace: View {
             if let profile, profile.hasPhoto {
                 StoredImage(key: profile.imageKey, variant: .thumb, store: store)
                     .scaledToFill()
-            } else {
+            } else if profile != nil {
                 ToneIcon("person.fill", tone: .camel, size: 84)
+            } else {
+                // **Sin perfil, un "+"**: el círculo es por donde se crea.
+                ZStack {
+                    WK.Palette.shelf
+                    Image(systemName: "plus")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(WK.Palette.primaryText)
+                }
             }
         }
         .frame(width: 84, height: 84)
         .clipShape(.circle)
         .overlay { Circle().stroke(.white, lineWidth: 4) }
         .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        .accessibilityElement()
+        .accessibilityLabel(profile?.label ?? String(localized: "tryon.face.new", defaultValue: "Create a profile"))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// **La cara, dando vueltas** alrededor de la tarjeta del outfit mientras te
+/// viste: una elipse aplanada e inclinada, más grande por delante y más
+/// pequeña por detrás. `inFront` dice qué media vuelta pinta esta copia. En
+/// reposo, quieta en su sitio del canto.
+private struct FaceOrbit<Face: View>: View {
+    let isWorking: Bool
+    let inFront: Bool
+    let rest: CGSize
+    let cardSize: CGSize
+    @ViewBuilder let face: () -> Face
+
+    @State private var start = Date()
+
+    var body: some View {
+        TimelineView(.animation(paused: !isWorking)) { context in
+            let t = context.date.timeIntervalSince(start)
+            // Una vuelta cada 2,4 s.
+            let angle = t / 2.4 * 2 * .pi
+            let depth = sin(angle)  // > 0: por delante
+            let orbit = CGSize(
+                width: cos(angle) * cardSize.width * 0.62,
+                height: depth * cardSize.height * 0.1 + cos(angle) * cardSize.height * -0.08
+            )
+            let visible = isWorking ? (inFront ? depth >= 0 : depth < 0) : inFront
+            face()
+                .scaleEffect(isWorking ? 0.62 + 0.22 * depth : 1)
+                .offset(isWorking ? orbit : rest)
+                .opacity(visible ? 1 : 0)
+        }
+        .animation(.spring(duration: 0.7, bounce: 0.2), value: isWorking)
+        .onChange(of: isWorking) { _, working in if working { start = Date() } }
+    }
+}
+
+/// "Toca para cambiar de perfil", en un globito sobre la cara. Solo la
+/// primera vez. Ver `WKTip.changeProfile`.
+private struct FaceHint: View {
+    var body: some View {
+        Text(String(localized: "tryon.face.hint", defaultValue: "Tap to change profile"))
+            .font(WK.Font.captionMedium)
+            .foregroundStyle(WK.Palette.primaryText)
+            .fixedSize()
+            .padding(.horizontal, WK.Spacing.m)
+            .padding(.vertical, WK.Spacing.s)
+            .adaptiveGlass(in: .capsule)
+            .allowsHitTesting(false)
     }
 }

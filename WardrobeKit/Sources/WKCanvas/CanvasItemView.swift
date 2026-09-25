@@ -50,6 +50,11 @@ public struct CanvasItemView<Content: View>: View {
     private let onLive: (ItemTransform?) -> Void
 
     @State private var live = Live()
+    /// **Si el gesto sigue vivo**, y se apaga solo aunque lo cancelen. Un
+    /// gesto cancelado —otro reconocedor se lleva un dedo— no llama a
+    /// `onEnded`, y sin esto `live` se quedaba a medias para siempre: la pieza
+    /// congelada donde estaba, el lienzo sin responder.
+    @GestureState private var isGestureActive = false
     /// Lo último que se avisó. Durante un arrastre esto corre a cada
     /// fotograma, y avisar de lo mismo una y otra vez reevaluaría el lienzo
     /// entero sin motivo.
@@ -203,6 +208,16 @@ public struct CanvasItemView<Content: View>: View {
             // Al seleccionar, no al soltar: el golpe confirma que has cogido
             // la prenda que querías, que con prendas superpuestas no es obvio.
             .sensoryFeedback(.selection, trigger: isSelected)
+            // Cancelado sin `onEnded`: se guarda lo que se ve y se suelta.
+            .onChange(of: isGestureActive) { _, active in
+                guard !active, !live.isIdle else { return }
+                let committed = previewTransform
+                live = Live()
+                reported = CanvasMath.Centering()
+                onCentering(reported)
+                onLive(nil)
+                onCommit(committed)
+            }
     }
 
     /// Arrastrar, escalar y girar **a la vez**, en un solo gesto continuo.
@@ -221,6 +236,7 @@ public struct CanvasItemView<Content: View>: View {
             DragGesture(minimumDistance: 0, coordinateSpace: .global),
             SimultaneousGesture(MagnifyGesture(), RotateGesture())
         )
+        .updating($isGestureActive) { _, active, _ in active = true }
         .onChanged { value in
             if let drag = value.first {
                 // De puntos de pantalla a puntos de canvas. La rotación y la

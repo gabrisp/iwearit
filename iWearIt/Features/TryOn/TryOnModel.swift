@@ -318,7 +318,10 @@ enum TryOnSticker {
     /// Ancho con el que entra en el lienzo, en puntos de lienzo.
     static let width: CGFloat = 520
 
-    static func add(key: String, imageSize: CGSize, to outfit: Outfit, context: ModelContext) {
+    /// - Parameter saves: `false` dentro del editor: allí se guarda al pulsar
+    ///   ✓ —y descartar tiene que poder llevársela—. Guardar a mitad dejaba la
+    ///   sesión del editor a medias.
+    static func add(key: String, imageSize: CGSize, to outfit: Outfit, context: ModelContext, saves: Bool = true) {
         let ratio = imageSize.width > 0 ? imageSize.height / imageSize.width : 4.0 / 3.0
         _ = CanvasEditing.insert(
             sticker: .photo(key: key),
@@ -326,7 +329,7 @@ enum TryOnSticker {
             in: outfit,
             context: context
         )
-        try? context.save()
+        if saves { try? context.save() }
         DiagnosticsLog.record("PROBADOR", "prueba añadida al outfit como sticker")
     }
 }

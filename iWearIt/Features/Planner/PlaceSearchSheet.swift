@@ -97,12 +97,14 @@ struct PlaceSearchPanel: View {
             // forma de llegar. El completador devuelve la lista de verdad, con
             // el país o la provincia debajo para distinguir los que se llaman
             // igual. Ver `PlaceCompleter`.
+            // **En su scroll**, a una altura fija: con la lista entera la
+            // hoja crecía hasta sacar el título de la pantalla, y cortarla en
+            // cinco escondía el sitio que buscabas.
+            ScrollView {
             WKSection {
-                // Las cinco primeras: con la lista entera la hoja crecía hasta
-                // sacar el título de la pantalla.
-                ForEach(Array(completer.suggestions.prefix(5).enumerated()), id: \.element.id) { index, suggestion in
+                ForEach(Array(completer.suggestions.enumerated()), id: \.element.id) { index, suggestion in
                     WKRow(
-                        showsSeparator: index < min(completer.suggestions.count, 5) - 1,
+                        showsSeparator: index < completer.suggestions.count - 1,
                         action: { Task { await choose(suggestion) } }
                     ) {
                         HStack {
@@ -123,6 +125,10 @@ struct PlaceSearchPanel: View {
                     }
                 }
             }
+            }
+            .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .frame(maxHeight: completer.suggestions.isEmpty ? 0 : 300)
             .opacity(completer.suggestions.isEmpty ? 0 : 1)
         }
         .wkFocusOnAppear($isFocused)
