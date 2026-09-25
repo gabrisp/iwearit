@@ -129,6 +129,12 @@ struct NumberWheel: View {
 
     /// Cuánto tarda en pararse.
     static let duration = 2.4
+
+    /// El ángulo en el tambor de una cifra a `distance` filas de la del
+    /// centro, en grados. Topado para que las lejanas no den la vuelta.
+    private static func angle(_ distance: CGFloat) -> CGFloat {
+        max(-80, min(80, distance * 40))
+    }
     // private static let rowHeight: CGFloat = 64
     private var rowHeight: CGFloat { fontSize * 1.23 }
 
@@ -165,11 +171,21 @@ struct NumberWheel: View {
                     // **Con degradado**: zonas más claras y otras más oscuras
                     // del mismo color, en vez de una tinta plana.
                     .foregroundStyle(ink)
-                    .scaleEffect((1 - min(abs(distance), 2) * 0.22) * (distance == 0 && hasLanded ? 1.14 : 1))
+                    // .scaleEffect((1 - min(abs(distance), 2) * 0.22) * (distance == 0 && hasLanded ? 1.14 : 1))
+                    .scaleEffect((1 - min(abs(distance), 2) * 0.1) * (distance == 0 && hasLanded ? 1.14 : 1))
                     .shadow(color: tone.color.opacity(distance == 0 && hasLanded ? 0.4 : 0), radius: 16)
-                    .opacity(abs(distance) > 2 ? 0 : 1 - abs(distance) * 0.45)
-                    .blur(radius: abs(distance) * 3)
-                    .offset(y: distance * rowHeight * 0.8)
+                    // **Como un tambor**: cada cifra va pegada a un cilindro
+                    // que gira; las de arriba y abajo se tumban hacia atrás.
+                    .rotation3DEffect(
+                        .degrees(-Double(Self.angle(distance))),
+                        axis: (x: 1, y: 0, z: 0),
+                        anchor: .center,
+                        perspective: 0.55
+                    )
+                    .opacity(abs(distance) > 2 ? 0 : 1 - abs(distance) * 0.4)
+                    .blur(radius: abs(distance) * 2.2)
+                    // .offset(y: distance * rowHeight * 0.8)
+                    .offset(y: sin(Self.angle(distance) * .pi / 180) * rowHeight * 1.25)
             }
         }
         .frame(height: rowHeight * 2.6)

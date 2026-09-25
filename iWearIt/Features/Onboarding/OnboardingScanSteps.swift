@@ -803,7 +803,10 @@ struct ScanSummaryStep: View {
             guard let colour = garment.dominantColor else { continue }
             counts[colour.nameKey, default: 0] += colour.weight
         }
-        return counts.max { $0.value < $1.value }?.key ?? "—"
+        // Con desempate por nombre: con dos colores igual de repetidos, el
+        // diccionario daba uno u otro en cada pintada y el texto parpadeaba.
+        // return counts.max { $0.value < $1.value }?.key ?? "—"
+        return counts.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key ?? "—"
     }
 }
 
@@ -1075,6 +1078,9 @@ private struct CloudPiece: View {
     @State private var moved: CGSize = .zero
     @GestureState private var drag: CGSize = .zero
     @State private var isTouching = false
+    /// Cuántas veces se ha soltado: la vuelta a su sitio es solo de la
+    /// última.
+    @State private var drops = 0
 
     var body: some View {
         let size = piece.isPlaced ? CGSize(width: placed.size, height: placed.size) : cutFrom.size
@@ -1104,6 +1110,17 @@ private struct CloudPiece: View {
                         isTouching = false
                         moved.width += value.translation.width
                         moved.height += value.translation.height
+                        // **A los dos segundos, de vuelta a su sitio**: se
+                        // juega con ellas, pero el lienzo no se desordena.
+                        drops += 1
+                        let drop = drops
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            // Si mientras tanto se ha vuelto a coger, espera a
+                            // la siguiente vez que se suelte.
+                            guard drop == drops, !isTouching else { return }
+                            withAnimation(.spring(duration: 0.9, bounce: 0.25)) { moved = .zero }
+                        }
                     },
                 isEnabled: piece.isPlaced
             )
