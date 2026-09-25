@@ -17,37 +17,100 @@ struct PhotoPermissionStep: View {
     @State private var isRequesting = false
     private let photos = PhotoLibraryService()
 
+    /// Cuántas cosas se han dicho ya: el título, la explicación y los tres
+    /// puntos van apareciendo uno tras otro.
+    @State private var shown = 0
+
+    /// **Como la conversación**: todo centrado, cada texto apareciendo letra
+    /// a letra desenfocado, sin iconos de color.
     var body: some View {
-        OnboardingStepScaffold(
-            title: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"),
-            subtitle: String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."),
-            primaryTitle: String(localized: "onboarding.onboardingscansteps.letItLookAtMy", defaultValue: "Let it look at my photos"),
-            isEnabled: !isRequesting,
-            onPrimary: { request() }
-        ) {
-            VStack(alignment: .leading, spacing: WK.Spacing.m) {
-                PermissionPoint(
-                    symbol: "iphone.gen3",
-                    tone: .denim,
-                    title: String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour2", defaultValue: "It all happens on your iPhone"),
-                    detail: String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere.")
-                )
-                PermissionPoint(
-                    symbol: "hand.raised",
-                    tone: .salvia,
-                    title: String(localized: "onboarding.onboardingscansteps.youChooseHowMuch", defaultValue: "You choose how much"),
-                    detail: String(localized: "onboarding.onboardingscansteps.youCanGiveItAccess", defaultValue: "You can give it access to only the photos you want.")
-                )
-                PermissionPoint(
-                    symbol: "scissors",
-                    tone: .camel,
-                    title: String(localized: "onboarding.onboardingscansteps.onlyTheClothesAreSaved", defaultValue: "Only the clothes are saved"),
-                    detail: String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet.")
-                )
+        VStack(spacing: WK.Spacing.xl) {
+            Spacer(minLength: 0)
+            VStack(spacing: WK.Spacing.m) {
+                TypewriterText(text: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"))
+                    .font(WK.Font.largeTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                if shown >= 1 {
+                    TypewriterText(text: String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."))
+                        .font(WK.Font.callout)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                }
             }
-            .padding(.top, WK.Spacing.m)
+            .multilineTextAlignment(.center)
+
+            VStack(spacing: WK.Spacing.l) {
+                ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                    if shown >= index + 2 {
+                        CalmPoint(symbol: point.symbol, title: point.title, detail: point.detail)
+                            .transition(.opacity.combined(with: .offset(y: 12)))
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, WK.Spacing.screenInset)
+        .onboardingButton(
+            String(localized: "onboarding.onboardingscansteps.letItLookAtMy", defaultValue: "Let it look at my photos"),
+            isEnabled: !isRequesting,
+            action: { request() }
+        )
+        .task {
+            guard shown == 0 else { return }
+            try? await Task.sleep(for: .seconds(1.0))
+            for step in 1...(points.count + 1) {
+                withAnimation(.smooth(duration: 0.5)) { shown = step }
+                try? await Task.sleep(for: .seconds(step == 1 ? 1.6 : 0.9))
+            }
         }
     }
+
+    private var points: [(symbol: String, title: String, detail: String)] {
+        [
+            ("iphone.gen3",
+             String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour2", defaultValue: "It all happens on your iPhone"),
+             String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere.")),
+            ("hand.raised",
+             String(localized: "onboarding.onboardingscansteps.youChooseHowMuch", defaultValue: "You choose how much"),
+             String(localized: "onboarding.onboardingscansteps.youCanGiveItAccess", defaultValue: "You can give it access to only the photos you want.")),
+            ("scissors",
+             String(localized: "onboarding.onboardingscansteps.onlyTheClothesAreSaved", defaultValue: "Only the clothes are saved"),
+             String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet.")),
+        ]
+    }
+
+    // El de antes, en la plantilla de siempre, con los puntos en fila y sus
+    // iconos de color:
+    // var body: some View {
+    //     OnboardingStepScaffold(
+    //         title: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"),
+    //         subtitle: String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."),
+    //         primaryTitle: String(localized: "onboarding.onboardingscansteps.letItLookAtMy", defaultValue: "Let it look at my photos"),
+    //         isEnabled: !isRequesting,
+    //         onPrimary: { request() }
+    //     ) {
+    //         VStack(alignment: .leading, spacing: WK.Spacing.m) {
+    //             PermissionPoint(
+    //                 symbol: "iphone.gen3",
+    //                 tone: .denim,
+    //                 title: String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour2", defaultValue: "It all happens on your iPhone"),
+    //                 detail: String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere.")
+    //             )
+    //             PermissionPoint(
+    //                 symbol: "hand.raised",
+    //                 tone: .salvia,
+    //                 title: String(localized: "onboarding.onboardingscansteps.youChooseHowMuch", defaultValue: "You choose how much"),
+    //                 detail: String(localized: "onboarding.onboardingscansteps.youCanGiveItAccess", defaultValue: "You can give it access to only the photos you want.")
+    //             )
+    //             PermissionPoint(
+    //                 symbol: "scissors",
+    //                 tone: .camel,
+    //                 title: String(localized: "onboarding.onboardingscansteps.onlyTheClothesAreSaved", defaultValue: "Only the clothes are saved"),
+    //                 detail: String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet.")
+    //             )
+    //         }
+    //         .padding(.top, WK.Spacing.m)
+    //     }
+    // }
 
     private func request() {
         isRequesting = true
@@ -59,6 +122,30 @@ struct PhotoPermissionStep: View {
             _ = access
             model.advance()
         }
+    }
+}
+
+/// Un punto, centrado y sin color: el icono pequeño encima, y el texto
+/// apareciendo como en la conversación.
+private struct CalmPoint: View {
+    let symbol: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(WK.Palette.secondaryText)
+                .padding(.bottom, 2)
+            TypewriterText(text: title)
+                .font(WK.Font.headline)
+                .foregroundStyle(WK.Palette.primaryText)
+            TypewriterText(text: detail)
+                .font(WK.Font.callout)
+                .foregroundStyle(WK.Palette.secondaryText)
+        }
+        .multilineTextAlignment(.center)
     }
 }
 

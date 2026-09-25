@@ -136,10 +136,13 @@ struct OnboardingFlow: View {
                 .buttonStyle(.plain)
                 .adaptiveGlassInteractive(in: .circle)
 
-                OnboardingProgressBar(
-                    step: model.step.progressIndex(in: model.variant),
-                    total: model.variant.visibleCount - 1
-                )
+                // Sin barra de progreso: el onboarding se lee como una
+                // conversación, no como un formulario con pasos contados.
+                // OnboardingProgressBar(
+                //     step: model.step.progressIndex(in: model.variant),
+                //     total: model.variant.visibleCount - 1
+                // )
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, WK.Spacing.screenInset)
             .padding(.vertical, WK.Spacing.s)
