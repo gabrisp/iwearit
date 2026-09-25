@@ -70,7 +70,10 @@ enum OnboardingVariant: String, CaseIterable {
         // el mismo lienzo. Ver `ScanningStep`.
         // "Desliza y compara" (`ComparisonStep`), también fuera por ahora.
         case .v1: [.conversation, .reveal, .statements, .socialProof, .scanFound, .comparison].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison].contains(step)
+        // En la v2 el dinero va dentro de la conversación: `RevealStep`,
+        // fuera.
+        // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal].contains(step)
         }
     }
 

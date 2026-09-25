@@ -15,16 +15,24 @@ struct ConversationStep: View {
         case progress(id: Int)
         /// Una cifra que importa, sola en su línea: en color, con brillo.
         case highlight(id: Int, text: String)
+        /// "La mala noticia:" / "La buena noticia:", en su color y con brillo.
+        case news(id: Int, text: String, isGood: Bool)
+        /// La cifra girando como una rueda hasta pararse. Ver `NumberWheel`.
+        case wheel(id: Int, value: Double, isGood: Bool)
+        /// Una nota pequeña y apagada: "Una estimación…".
+        case note(id: Int, text: String)
 
         var id: Int {
             switch self {
-            case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _): id
+            case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _),
+                 let .news(id, _, _), let .wheel(id, _, _), let .note(id, _): id
             }
         }
     }
 
     /// Qué se le está preguntando ahora mismo.
-    private enum Question: Equatable { case goal, pains, spend, wardrobe, done }
+    /// `bad` y `good`: la mala y la buena noticia, esperando al botón.
+    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good }
 
     @State private var items: [Item] = []
     @State private var question: Question?
@@ -34,6 +42,10 @@ struct ConversationStep: View {
     @State private var wardrobe: Double = 80
     @State private var analysis: Double = 0
     @State private var hasStarted = false
+    /// Lo que se queda en el centro aunque llegue algo debajo: la cifra
+    /// grande, mientras se escriben las frases que la acompañan. `nil`: lo
+    /// último.
+    @State private var focusID: Int?
 
     /// Tamaño de conversación, no de titular.
     private static let lineFont = Font.custom("PlusJakartaSans-SemiBold", size: 19, relativeTo: .headline)
@@ -96,6 +108,7 @@ struct ConversationStep: View {
             // opciones ya estén puestas y se vean enteras encima del botón—.
             .onChange(of: items.count) { _, _ in scrollDown(reader) }
             .onChange(of: question) { _, _ in scrollDown(reader) }
+            .onChange(of: focusID) { _, _ in scrollDown(reader) }
         }
         .onboardingButton(button)
         .task {
@@ -112,8 +125,9 @@ struct ConversationStep: View {
             try? await Task.sleep(for: .milliseconds(120))
             withAnimation(.smooth(duration: 0.6)) {
                 // La última fila ya lleva dentro sus opciones.
-                if let last = items.last {
-                    reader.scrollTo(last.id, anchor: .center)
+                // if let last = items.last { reader.scrollTo(last.id, anchor: .center) }
+                if let target = focusID ?? items.last?.id {
+                    reader.scrollTo(target, anchor: .center)
                 }
             }
         }
@@ -122,6 +136,13 @@ struct ConversationStep: View {
     // MARK: Guion
 
     private func start() async {
+        #if DEBUG
+        // `-chatMoney`: directo a la mala noticia, sin contestar lo de antes.
+        if ProcessInfo.processInfo.arguments.contains("-chatMoney") {
+            await badNews()
+            return
+        }
+        #endif
         await say(String(localized: "chat.hello", defaultValue: "Hi, I'm Snazzy. I'll help you get the most out of your closet."))
         await say(String(localized: "chat.intro", defaultValue: "I'll ask you a few quick questions. Don't overthink them."))
         await say(String(localized: "chat.goal", defaultValue: "What do you want to achieve?"))
@@ -172,7 +193,55 @@ struct ConversationStep: View {
         // Sigue sola, sin botón: ya lo ha dicho.
         // ask(.done)
         try? await Task.sleep(for: .seconds(0.9))
-        model.advance()
+        // **Y el dinero, aquí mismo**, siguiendo la conversación: ya no es
+        // otra pantalla (`RevealStep`).
+        // model.advance()
+        await badNews()
+    }
+
+    // MARK: El dinero
+
+    private func badNews() async {
+        append(.news(id: takeID(), text: String(localized: "reveal.bad.title", defaultValue: "The bad news:"), isGood: false))
+        try? await Task.sleep(for: .seconds(0.9))
+        await say(String(localized: "reveal.bad.lead2", defaultValue: "in your closet you have"))
+        let wheel = takeID()
+        // **La cifra, en el centro**, y lo que viene después se escribe
+        // debajo sin moverla.
+        focusID = wheel
+        append(.wheel(id: wheel, value: model.idleValue, isGood: false))
+        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.4))
+        await say(String(localized: "reveal.bad.caption2", defaultValue: "in clothes you barely wear."))
+        try? await Task.sleep(for: .seconds(0.5))
+        await say(String(localized: "reveal.bad.coda", defaultValue: "Yes, you read that right."))
+        // **"Cambiar esto" pasa a la buena, y si no se toca, pasa sola.** Ni
+        // una cosa ni la otra añaden una respuesta a la conversación.
+        ask(.bad)
+        try? await Task.sleep(for: .seconds(3.5))
+        await goodNews()
+    }
+
+    private func goodNews() async {
+        // Una vez: el botón y la espera llegan aquí los dos.
+        guard question == .bad else { return }
+        withAnimation(.smooth(duration: 0.35)) { question = nil }
+        // La respuesta "Cambiar esto", de cuando había botón:
+        // answer(String(localized: "reveal.bad.button", defaultValue: "Change this"))
+        // try? await Task.sleep(for: .seconds(0.5))
+        focusID = nil
+        append(.news(id: takeID(), text: String(localized: "reveal.good.title", defaultValue: "The good news:"), isGood: true))
+        try? await Task.sleep(for: .seconds(0.9))
+        await say(String(localized: "reveal.good.lead2", defaultValue: "Snazzy can save you"))
+        let wheel = takeID()
+        focusID = wheel
+        append(.wheel(id: wheel, value: model.yearlySaving, isGood: true))
+        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.4))
+        await say(String(localized: "reveal.good.caption2", defaultValue: "a year,"))
+        await say(String(localized: "reveal.good.coda", defaultValue: "wearing what you already have instead of buying more of the same."))
+        // La nota, en la conversación y no bajo el botón: debajo del botón
+        // cambiaba el alto de la barra y la pantalla saltaba.
+        append(.note(id: takeID(), text: String(localized: "reveal.footnote", defaultValue: "An estimate based on what you told us.")))
+        ask(.good)
     }
 
     private func say(_ text: String) async {
@@ -220,6 +289,18 @@ struct ConversationStep: View {
                 .multilineTextAlignment(.center)
                 // .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
+        case let .news(_, text, isGood):
+            GlowingText(text: text, tone: isGood ? .oliva : .granate, size: 26)
+                .frame(maxWidth: .infinity, alignment: .center)
+        case let .wheel(_, value, isGood):
+            NumberWheel(target: value, format: { model.money($0) }, tone: isGood ? .oliva : .granate)
+                .frame(maxWidth: .infinity, alignment: .center)
+        case let .note(_, text):
+            Text(text)
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.tertiaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
         case let .highlight(_, text):
             GlowingText(text: text, tone: .oliva)
                 .multilineTextAlignment(.center)
@@ -241,15 +322,24 @@ struct ConversationStep: View {
 
     private func blur(of item: Item) -> CGFloat {
         guard let index = items.firstIndex(of: item) else { return 0 }
-        let fromEnd = items.count - 1 - index
+        let fromEnd = items.count - 1 - index - sharpness(of: item)
         return fromEnd <= 1 ? 0 : min(4, CGFloat(fromEnd - 1) * 1.2)
     }
 
     /// Lo último, entero; lo de antes, apagado.
     private func opacity(of item: Item) -> Double {
         guard let index = items.firstIndex(of: item) else { return 1 }
-        let fromEnd = items.count - 1 - index
+        let fromEnd = items.count - 1 - index - sharpness(of: item)
         return fromEnd <= 1 ? 1 : max(0.28, 1 - Double(fromEnd - 1) * 0.3)
+    }
+
+    /// **La cifra y su titular aguantan más**: con dos frases detrás ya se
+    /// apagaban, y es lo que hay que leer.
+    private func sharpness(of item: Item) -> Int {
+        switch item {
+        case .wheel, .news: 3
+        default: 0
+        }
     }
 
     @ViewBuilder
@@ -282,7 +372,7 @@ struct ConversationStep: View {
                 String(localized: "chat.pieces", defaultValue: "\(String(describing: Int($0))) pieces")
             }
             .padding(.top, WK.Spacing.m)
-        case .done:
+        case .done, .bad, .good:
             EmptyView()
         }
     }
@@ -310,6 +400,16 @@ struct ConversationStep: View {
         case .done:
             OnboardingButtonConfig(
                 title: String(localized: "common.continue", defaultValue: "Continue"),
+                action: { model.advance() }
+            )
+        case .bad:
+            OnboardingButtonConfig(
+                title: String(localized: "reveal.bad.button", defaultValue: "Change this"),
+                action: { Task { await goodNews() } }
+            )
+        case .good:
+            OnboardingButtonConfig(
+                title: String(localized: "reveal.good.button", defaultValue: "I want that"),
                 action: { model.advance() }
             )
         // **El botón no se va nunca**: mientras se escribe o en una pregunta

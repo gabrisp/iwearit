@@ -108,6 +108,8 @@ struct ScanningStep: View {
     /// Buscando, o ya encontrado: al acabar, la pantalla no cambia —es el
     /// mismo lienzo— y solo aparece la rueda de combinaciones.
     @State private var isFound = false
+    /// Desde cuándo las prendas están abiertas al borde. Ver `ScanCloud`.
+    @State private var spreadSince: Date?
     @State private var outfits = 0
 
     /// **Buscando, en el lienzo**: arriba el título y el contador, que sube;
@@ -118,7 +120,7 @@ struct ScanningStep: View {
         ZStack(alignment: .top) {
             // Al encontrar, las prendas se abren a la pantalla entera y dejan
             // el centro para el mensaje.
-            ScanCloud(pieces: pieces, photo: photo, isSpread: isFound)
+            ScanCloud(pieces: pieces, photo: photo, spreadSince: spreadSince)
                 .ignoresSafeArea()
 
             if isFound {
@@ -668,6 +670,7 @@ struct ScanningStep: View {
                 ? Self.outfitCount(pieces.map(\.kind))
                 : Self.outfitCount(pending.map(\.kind))
             withAnimation(.smooth(duration: 0.4)) { photo = nil }
+            spreadSince = .now
             withAnimation(.smooth(duration: 0.6)) { isFound = true }
         }
     }
@@ -706,13 +709,14 @@ struct ScanSummaryStep: View {
 
     /// Las prendas del armario, en el borde del lienzo.
     @State private var pieces: [ScanCloud.Item] = []
+    @State private var spreadSince = Date()
 
     /// **El mismo lienzo que el escaneo**: tus prendas por el borde de la
     /// pantalla —se pueden mover— y en el centro el armario ya dentro, con
     /// las combinaciones en la rueda.
     var body: some View {
         ZStack {
-            ScanCloud(pieces: pieces, isSpread: true)
+            ScanCloud(pieces: pieces, spreadSince: spreadSince)
                 .ignoresSafeArea()
 
             VStack(spacing: 2) {
@@ -746,8 +750,13 @@ struct ScanSummaryStep: View {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind
-            withAnimation(.spring(duration: 0.5, bounce: 0.25)) { pieces.append(item) }
-            try? await Task.sleep(for: .milliseconds(40))
+            item.appearedAt = .now
+            // **Despacio**: una a una, cada una saliendo del centro hacia su
+            // sitio del borde.
+            // withAnimation(.spring(duration: 0.5, bounce: 0.25)) { pieces.append(item) }
+            // try? await Task.sleep(for: .milliseconds(40))
+            withAnimation(.easeOut(duration: 0.8)) { pieces.append(item) }
+            try? await Task.sleep(for: .milliseconds(220))
         }
     }
 
@@ -830,6 +839,8 @@ struct ScanCloud: View {
         var kind: GarmentKind = .other
         /// Ya en su sitio del lienzo, o todavía sobre la foto.
         var isPlaced = false
+        /// Cuándo llegó: al abrirse al borde, cada una sale a su ritmo.
+        var appearedAt = Date()
         init(image: CGImage) { self.image = image; isPlaced = true }
         init(_ piece: ScanDiscovery.Piece) {
             image = piece.image.cgImage
@@ -850,14 +861,39 @@ struct ScanCloud: View {
     let pieces: [Item]
     var photo: Photo?
     /// Abiertas a la pantalla entera, alrededor de un hueco en el centro.
-    var isSpread = false
+    // var isSpread = false
+    /// Desde cuándo están abiertas al borde, girando despacio a su
+    /// alrededor. `nil`: en la espiral del centro.
+    var spreadSince: Date?
+    private var isSpread: Bool { spreadSince != nil }
+
+    /// Cuánto tarda cada una en salir de la espiral al borde.
+    private static let spreadDuration: TimeInterval = 1.8
+    /// Lo que avanzan por el borde, en puntos por segundo.
+    private static let orbitSpeed: CGFloat = 14
 
     /// Qué prenda va encima: la última que se ha tocado.
     @State private var front: [UUID: Double] = [:]
 
     var body: some View {
+        // **Al borde, en marcha**: cada fotograma recoloca las prendas —van
+        // dando la vuelta a la pantalla despacio y se mecen—. Por reloj y no
+        // con animaciones: una animación y un cambio por fotograma se pisan.
+        if let spreadSince {
+            TimelineView(.animation) { context in
+                canvas(at: context.date.timeIntervalSince(spreadSince), now: context.date)
+            }
+        } else {
+            canvas(at: nil, now: .now)
+        }
+    }
+
+    /// El lienzo en un instante: `elapsed` es el tiempo desde que se
+    /// abrieron al borde, o `nil` si no.
+    private func canvas(at elapsed: TimeInterval?, now: Date) -> some View {
         GeometryReader { proxy in
-            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * (isSpread ? 0.5 : 0.58))
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.58)
+            let middle = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.5)
             let unit = min(proxy.size.width, proxy.size.height)
             let frame = Self.photoFrame(photo, center: center, unit: unit)
             ZStack {
@@ -881,11 +917,11 @@ struct ScanCloud: View {
                 ForEach(Array(pieces.enumerated()), id: \.element.id) { index, piece in
                     CloudPiece(
                         piece: piece,
-                        placed: isSpread
-                            // ? Self.spread(index, of: pieces.count, in: proxy.size)
-                            ? Self.border(index, of: pieces.count, in: proxy.size)
-                            : Self.spot(index, unit: unit),
-                        center: center,
+                        // placed: isSpread
+                        //     ? Self.spread(index, of: pieces.count, in: proxy.size)
+                        //     : Self.spot(index, unit: unit),
+                        placed: place(index, piece: piece, elapsed: elapsed, now: now, size: proxy.size, center: center, middle: middle, unit: unit),
+                        center: elapsed == nil ? center : middle,
                         cutFrom: Self.cutRect(piece.sourceRect, in: frame),
                         onTouch: { front[piece.id] = (front.values.max() ?? 0) + 1 }
                     )
@@ -895,6 +931,36 @@ struct ScanCloud: View {
                 }
             }
         }
+    }
+
+    /// Dónde va cada prenda: en la espiral, en el borde, o a medio camino
+    /// mientras sale —cada una un poco después de la anterior—.
+    private func place(
+        _ index: Int, piece: Item, elapsed: TimeInterval?, now: Date,
+        size: CGSize, center: CGPoint, middle: CGPoint, unit: CGFloat
+    ) -> (offset: CGSize, size: CGFloat, tilt: Double) {
+        let spiral = Self.spot(index, unit: unit)
+        guard let elapsed, let spreadSince else { return spiral }
+        let edge = Self.border(index, of: pieces.count, in: size, shift: CGFloat(elapsed) * Self.orbitSpeed)
+        // Desde que se abrió, o desde que llegó si llegó después.
+        let start = max(spreadSince.addingTimeInterval(Double(index) * 0.06), piece.appearedAt)
+        let raw = min(1, max(0, now.timeIntervalSince(start) / Self.spreadDuration))
+        let t = raw < 0.5 ? 4 * raw * raw * raw : 1 - pow(-2 * raw + 2, 3) / 2
+        // La espiral se mide desde otro centro: se pasa al de la pantalla.
+        let from = CGSize(
+            width: spiral.offset.width + center.x - middle.x,
+            height: spiral.offset.height + center.y - middle.y
+        )
+        // Y se mecen un poco, cada una a su aire.
+        let sway = sin(elapsed * 0.7 + Double(index) * 1.3) * 7
+        return (
+            CGSize(
+                width: from.width + (edge.offset.width - from.width) * t,
+                height: from.height + (edge.offset.height - from.height) * t
+            ),
+            spiral.size + (edge.size - spiral.size) * t,
+            spiral.tilt + (edge.tilt + sway - spiral.tilt) * t
+        )
     }
 
     /// El marco de la foto en el centro, con su proporción.
@@ -943,7 +1009,7 @@ struct ScanCloud: View {
     /// **Por el borde de la pantalla** —arriba, abajo y a los lados—,
     /// repartidas a lo largo del contorno; si no caben en una vuelta, otra un
     /// poco más dentro. El centro queda libre para el mensaje.
-    fileprivate static func border(_ index: Int, of count: Int, in size: CGSize) -> (offset: CGSize, size: CGFloat, tilt: Double) {
+    fileprivate static func border(_ index: Int, of count: Int, in size: CGSize, shift: CGFloat = 0) -> (offset: CGSize, size: CGFloat, tilt: Double) {
         let side = max(56, min(78, min(size.width, size.height) * 0.19 - CGFloat(count) * 0.2))
         let step = side * 1.05
         var ring = 0
@@ -965,8 +1031,12 @@ struct ScanCloud: View {
         let perimeter = 2 * (width + height)
         let used = min(capacity, count - (index - position))
         // Repartidas por igual en su vuelta, cada vuelta un poco girada.
+        // Y todas avanzando por el borde, dando la vuelta; cada vuelta en
+        // un sentido.
         var along = (CGFloat(position) + 0.5 + CGFloat(ring) * 0.5) / CGFloat(max(1, used)) * perimeter
+            + (ring.isMultiple(of: 2) ? shift : -shift)
         along = along.truncatingRemainder(dividingBy: perimeter)
+        if along < 0 { along += perimeter }
         let point: CGPoint
         if along < width {
             point = CGPoint(x: inset + along, y: inset)
