@@ -26,9 +26,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        // Para los avisos de la app —regalos—, además de los de iCloud. Ver
+        // `AppEnvironment.pushToken`.
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        NotificationCenter.default.post(name: .snazzyPushToken, object: token)
+    }
+
+    func application(
+        _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completion: @escaping (UIBackgroundFetchResult) -> Void
     ) {
+        // **Un aviso de la app** —un regalo—: que lo enseñe en grande. Llega
+        // aunque no haya permiso de avisos, porque es silencioso.
+        if userInfo["type"] as? String == "grant"
+            || (userInfo["data"] as? [String: Any])?["type"] as? String == "grant" {
+            NotificationCenter.default.post(name: .snazzyRemoteNotice, object: nil)
+            completion(.newData)
+            return
+        }
         // El contenedor ya está escuchando: lo único que hay que hacer es no
         // morir antes de que termine de importar. `.newData` es lo que le dice
         // al sistema que esta app usa bien sus avisos y que siga mandándolos.
@@ -90,6 +108,18 @@ struct iWearItApp: App {
                     }
                 }
                 .animation(WKAnimation.content, value: environment.gate.celebratesUpgrade)
+                // **Los avisos grandes**: regalos y devoluciones. Ver
+                // `NoticeOverlay`.
+                .overlay { NoticeOverlay(center: environment.notices) }
+                .onReceive(NotificationCenter.default.publisher(for: .snazzyRemoteNotice)) { _ in
+                    Task { await environment.notices.checkGrants() }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .snazzyPushToken)) { note in
+                    environment.pushToken = note.object as? String
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    Task { await environment.notices.checkGrants() }
+                }
                 .task { await environment.bootstrap() }
                 // **iCloud que aparece más tarde.**
                 //

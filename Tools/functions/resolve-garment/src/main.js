@@ -1,3 +1,5 @@
+import { adjust, isConfigured } from './revenuecat.js';
+
 /**
  * Mira el recorte de una prenda y dice qué es.
  *
@@ -829,19 +831,66 @@ const RESULTS_BUCKET = 'ai-results';
  * Sin `jobID` responde como siempre: las versiones de la app que ya están
  * instaladas siguen funcionando.
  */
+/**
+ * **Lo que cuesta cada cosa**, en la moneda de RevenueCat. Describir una
+ * prenda es gratis; dibujar, no.
+ */
+const COSTS = { tryon: { PRU: 1 }, restyle: { MEJ: 1 } };
+
 export default async ({ req, res, log, error }) => {
   const capture = { json: (payload, status = 200) => ({ payload, status }) };
-  const outcome = await handle({ req, res: capture, log, error });
 
   let jobID = null;
+  let action = null;
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     if (typeof body?.jobID === 'string' && /^[a-z0-9]{8,36}$/.test(body.jobID)) jobID = body.jobID;
+    action = body?.action || null;
   } catch { /* sin cuerpo legible no hay encargo */ }
+
+  const userID = req.headers['x-appwrite-user-id'];
+
+  // **Se reserva antes y se devuelve si falla.** Restar al empezar —y no al
+  // terminar— es lo que impide lanzar diez pruebas a la vez con una moneda:
+  // RevenueCat resta de forma atómica y contesta 422 si no alcanza.
+  const cost = COSTS[action];
+  const chargeKey = jobID || `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+  let charged = false;
+  let outcome;
+  if (cost && isConfigured()) {
+    if (!userID) {
+      outcome = { payload: { error: 'no_session' }, status: 401 };
+    } else {
+      try {
+        const reserved = await adjust(userID, negate(cost), `charge-${chargeKey}`);
+        if (reserved.ok) {
+          charged = true;
+        } else {
+          outcome = { payload: { error: 'insufficient_credits' }, status: 402 };
+        }
+      } catch (err) {
+        error(`no se pudo reservar: ${err}`);
+        outcome = { payload: { error: 'store_unavailable' }, status: 503 };
+      }
+    }
+  }
+
+  if (!outcome) outcome = await handle({ req, res: capture, log, error });
+
+  // Falló después de cobrar: se devuelve, y la respuesta lo dice para que la
+  // app avise ("no se te ha cobrado").
+  if (charged && outcome.status !== 200) {
+    try {
+      await adjust(userID, cost, `refund-${chargeKey}`);
+      outcome = { ...outcome, payload: { ...outcome.payload, refunded: true } };
+      log(`devuelto ${JSON.stringify(cost)} a ${userID.slice(0, 10)}…`);
+    } catch (err) {
+      error(`no se pudo devolver ${JSON.stringify(cost)} a ${userID}: ${err}`);
+    }
+  }
 
   if (!jobID) return res.json(outcome.payload, outcome.status);
 
-  const userID = req.headers['x-appwrite-user-id'];
   const apiKey = req.headers['x-appwrite-key'];
   if (!userID || !apiKey) {
     error('encargo sin usuario o sin clave dinámica: no hay dónde dejarlo');
@@ -926,4 +975,8 @@ async function storeResult(jobID, userID, apiKey, outcome) {
       + ` · endpoint ${endpoint} · clave ${apiKey.length} car. · bytes ${body.length} · GET bucket ${probe}`,
     );
   }
+}
+
+function negate(adjustments) {
+  return Object.fromEntries(Object.entries(adjustments).map(([code, amount]) => [code, -amount]));
 }

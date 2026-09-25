@@ -192,4 +192,8 @@ public enum ClothingResolverError: Error, Sendable {
     case transport(String)
     case badResponse(String)
     case rateLimited
+    /// No queda saldo: el servidor no ha empezado.
+    case insufficientCredits
+    /// Falló, y la moneda reservada ya se ha devuelto. Ver `resolve-garment`.
+    case refunded(String)
 }

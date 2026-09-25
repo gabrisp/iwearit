@@ -40,6 +40,9 @@ public actor RemoteClothingResolver: ClothingResolving {
     private let projectID: String
     private let functionID: String
     private let session: URLSession
+    /// La sesión del usuario estable. Ver `AppwriteAccount`. Sin ella, la
+    /// sesión anónima de antes.
+    private let account: AppwriteAccount?
 
     /// Cuántas preguntas pueden estar en el aire a la vez.
     ///
@@ -54,12 +57,14 @@ public actor RemoteClothingResolver: ClothingResolving {
         endpoint: URL,
         projectID: String,
         functionID: String = "resolve-garment",
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        account: AppwriteAccount? = nil
     ) {
         self.endpoint = endpoint
         self.projectID = projectID
         self.functionID = functionID
         self.session = session
+        self.account = account
     }
 
     public func resolve(_ query: RemoteGarmentQuery) async throws -> RemoteGarmentAnswer {
@@ -341,6 +346,10 @@ public actor RemoteClothingResolver: ClothingResolving {
             isProblem: true
         )
         if failure?.status == 429 { throw ClothingResolverError.rateLimited }
+        if failure?.status == 402 { throw ClothingResolverError.insufficientCredits }
+        if failure?.refunded == true {
+            throw ClothingResolverError.refunded(failure?.error ?? "")
+        }
         throw ClothingResolverError.badResponse(
             [failure?.error, failure?.reason].compactMap { $0 }.joined(separator: ": ")
         )
@@ -398,6 +407,8 @@ public actor RemoteClothingResolver: ClothingResolving {
     /// está en disco— no se abre otra. Abrir una por arranque dejaría una
     /// cuenta anónima nueva cada vez que se abre la app.
     private func ensureSession() async throws {
+        // **El usuario de verdad**, no uno anónimo nuevo. Ver `AppwriteAccount`.
+        if let account { return try await account.ensureSession() }
         if hasSession { return }
 
         if await isSignedIn() {
@@ -474,6 +485,8 @@ public actor RemoteClothingResolver: ClothingResolving {
         let status: Int?
         let error: String?
         let reason: String?
+        /// Si el servidor devolvió la moneda reservada.
+        let refunded: Bool?
     }
 
     private struct RestyleAnswer: Decodable {

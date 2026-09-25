@@ -162,7 +162,7 @@ final class Store {
     private(set) var isReady = false
 
     /// Arranca el SDK. Llamarlo dos veces no configura dos veces.
-    func start() {
+    func start(appUserID: String? = nil) {
         guard !Purchases.isConfigured else { isReady = true; return }
         let key = AppConfiguration.revenueCatAPIKey
         guard !key.isEmpty else {
@@ -170,9 +170,24 @@ final class Store {
             return
         }
         Purchases.logLevel = AppConfiguration.isDebugBuild ? .info : .warn
-        Purchases.configure(withAPIKey: key)
+        // Con el id estable si ya lo hay: es el mismo cliente que ve el
+        // servidor al cobrar. Ver `StableIdentity`.
+        Purchases.configure(withAPIKey: key, appUserID: appUserID)
         isReady = true
         DiagnosticsLog.record("TIENDA", "RevenueCat configurado")
+    }
+
+    /// **El cliente de RevenueCat es el usuario estable.** Si arrancó como
+    /// anónimo, `logIn` le pasa lo comprado. Ver `StableIdentity`.
+    func identify(_ id: String) async {
+        guard Purchases.isConfigured, Purchases.shared.appUserID != id else { return }
+        do {
+            _ = try await Purchases.shared.logIn(id)
+            DiagnosticsLog.record("TIENDA", "cliente identificado")
+            await refreshCredits()
+        } catch {
+            DiagnosticsLog.record("TIENDA", "no se pudo identificar: \(error)", isProblem: true)
+        }
     }
 
     /// Los productos de la oferta actual.

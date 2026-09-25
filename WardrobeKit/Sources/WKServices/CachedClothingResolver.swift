@@ -22,15 +22,20 @@ public struct CachedClothingResolver: ClothingResolving {
     /// corresponda. Es el **único** sitio por el que pasan todas las
     /// reconstrucciones, así que apuntarlo aquí es apuntarlo una vez.
     private let onRestyled: (@Sendable () -> Void)?
+    /// Falló después de cobrar y el servidor lo devolvió: `true` para una
+    /// prueba, `false` para una mejora. Ver `NoticeCenter`.
+    private let onRefunded: (@Sendable (_ isTryOn: Bool) -> Void)?
 
     public init(
         base: any ClothingResolving,
         cache: ResolutionCache,
-        onRestyled: (@Sendable () -> Void)? = nil
+        onRestyled: (@Sendable () -> Void)? = nil,
+        onRefunded: (@Sendable (_ isTryOn: Bool) -> Void)? = nil
     ) {
         self.base = base
         self.cache = cache
         self.onRestyled = onRestyled
+        self.onRefunded = onRefunded
     }
 
     public func resolve(_ query: RemoteGarmentQuery) async throws -> RemoteGarmentAnswer {
@@ -58,17 +63,28 @@ public struct CachedClothingResolver: ClothingResolving {
         garmentsPNG: [Data],
         direction: TryOnDirection
     ) async throws -> Data {
-        try await base.tryOn(
-            personJPEG: personJPEG,
-            bodyJPEGs: bodyJPEGs,
-            personDescription: personDescription,
-            garmentsPNG: garmentsPNG,
-            direction: direction
-        )
+        do {
+            return try await base.tryOn(
+                personJPEG: personJPEG,
+                bodyJPEGs: bodyJPEGs,
+                personDescription: personDescription,
+                garmentsPNG: garmentsPNG,
+                direction: direction
+            )
+        } catch ClothingResolverError.refunded(let reason) {
+            onRefunded?(true)
+            throw ClothingResolverError.refunded(reason)
+        }
     }
 
     public func restyle(_ imageJPEG: Data) async throws -> Data {
-        let data = try await base.restyle(imageJPEG)
+        let data: Data
+        do {
+            data = try await base.restyle(imageJPEG)
+        } catch ClothingResolverError.refunded(let reason) {
+            onRefunded?(false)
+            throw ClothingResolverError.refunded(reason)
+        }
         // Solo si ha llegado: lo que falla no se cobra.
         onRestyled?()
         return data

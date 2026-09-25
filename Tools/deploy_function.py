@@ -87,6 +87,49 @@ def ensure_results_bucket(client: Appwrite) -> None:
     print(f"  bucket {RESULTS_BUCKET} ✓")
 
 
+def upload(client: Appwrite, function_id: str, source: pathlib.Path) -> None:
+    """Sube el código y lo activa."""
+    print("Subiendo el código…")
+    code = packaged(source)
+    print(f"  {len(code) / 1024:.1f} KB")
+
+    boundary = uuid.uuid4().hex
+    parts = []
+    for name, value in [("entrypoint", "src/main.js"), ("activate", "true")]:
+        parts.append(
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+            .encode()
+        )
+    parts.append(
+        f"--{boundary}\r\nContent-Disposition: form-data; name=\"code\"; filename=\"code.tar.gz\"\r\n"
+        "Content-Type: application/gzip\r\n\r\n".encode()
+    )
+    parts.append(code)
+    parts.append(f"\r\n--{boundary}--\r\n".encode())
+
+    request = urllib.request.Request(
+        f"{client.endpoint}/functions/{function_id}/deployments",
+        data=b"".join(parts),
+        method="POST",
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            # El User-Agent de urllib se lo come Cloudflare con un 403
+            # "error code: 1010" que no tiene nada que ver con Appwrite.
+            "User-Agent": "iWearIt-Tools/1.0",
+            "X-Appwrite-Project": client.project,
+            "X-Appwrite-Key": client.key,
+        },
+    )
+    try:
+        # Con el contexto del cliente: el Python de python.org no usa el
+        # llavero del sistema y sin esto la subida se cae por certificado.
+        with urllib.request.urlopen(request, timeout=300, context=client.context) as response:
+            print(f"  desplegado ({response.status})")
+    except urllib.error.HTTPError as cause:
+        sys.exit(f"  ERROR {cause.code}: {cause.read().decode()[:400]}")
+
+
+
 def main() -> int:
     if not SOURCE.exists():
         sys.exit(f"No existe {SOURCE}")
@@ -149,6 +192,13 @@ def main() -> int:
         # servidor —apunta a `/v1/realtime/v1`— y cualquier llamada ahí
         # devuelve un 400 sin explicación.
         ("RESULTS_API_ENDPOINT", client.endpoint),
+    ] + [
+        # **El saldo, en RevenueCat.** Con estas dos, la función reserva la
+        # moneda antes de dibujar y la devuelve si falla. Sin ellas no cobra
+        # nada —la app sigue funcionando— y lo dice al desplegar.
+        (name, client.env[name])
+        for name in ("REVENUECAT_SECRET_KEY", "REVENUECAT_PROJECT_ID")
+        if client.env.get(name)
     ]:
         if name in existing:
             status, payload = client.request(
@@ -164,44 +214,10 @@ def main() -> int:
             sys.exit(f"  ERROR {status}: {payload.get('message', payload)}")
         print(f"  {name} ✓")
 
-    print("Subiendo el código…")
-    code = packaged(SOURCE)
-    print(f"  {len(code) / 1024:.1f} KB")
+    if not client.env.get("REVENUECAT_SECRET_KEY"):
+        print("  (sin REVENUECAT_SECRET_KEY en Tools/.env: la función no cobra)")
 
-    boundary = uuid.uuid4().hex
-    parts = []
-    for name, value in [("entrypoint", "src/main.js"), ("activate", "true")]:
-        parts.append(
-            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
-            .encode()
-        )
-    parts.append(
-        f"--{boundary}\r\nContent-Disposition: form-data; name=\"code\"; filename=\"code.tar.gz\"\r\n"
-        "Content-Type: application/gzip\r\n\r\n".encode()
-    )
-    parts.append(code)
-    parts.append(f"\r\n--{boundary}--\r\n".encode())
-
-    request = urllib.request.Request(
-        f"{client.endpoint}/functions/{FUNCTION_ID}/deployments",
-        data=b"".join(parts),
-        method="POST",
-        headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            # El User-Agent de urllib se lo come Cloudflare con un 403
-            # "error code: 1010" que no tiene nada que ver con Appwrite.
-            "User-Agent": "iWearIt-Tools/1.0",
-            "X-Appwrite-Project": client.project,
-            "X-Appwrite-Key": client.key,
-        },
-    )
-    try:
-        # Con el contexto del cliente: el Python de python.org no usa el
-        # llavero del sistema y sin esto la subida se cae por certificado.
-        with urllib.request.urlopen(request, timeout=300, context=client.context) as response:
-            print(f"  desplegado ({response.status})")
-    except urllib.error.HTTPError as cause:
-        sys.exit(f"  ERROR {cause.code}: {cause.read().decode()[:400]}")
+    upload(client, FUNCTION_ID, SOURCE)
 
     print(f"\nListo. La app la llamará en /functions/{FUNCTION_ID}/executions")
     print("La clave vive solo aquí: no está en el repositorio ni en la app.")

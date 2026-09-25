@@ -39,6 +39,12 @@ public final class AppEnvironment {
     /// Interno y no público, como la puerta: la tienda es cosa de la app, no
     /// del paquete.
     let store: Store
+    /// Quién es el usuario, para siempre. Ver `StableIdentity`.
+    let identity = StableIdentity()
+    /// Su sesión de Appwrite. Ver `AppwriteAccount`.
+    let account: AppwriteAccount?
+    /// Regalos y devoluciones, en grande. Ver `NoticeCenter`.
+    let notices = NoticeCenter()
     /// Los avisos que enseñan a usar la app. Ver `WKTipCenter`.
     public let tips = WKTipCenter()
     /// La importación cerrada sin guardar, para retomarla. Ver
@@ -162,21 +168,38 @@ public final class AppEnvironment {
         // devuelve "no" para todo el mundo; y el gasto se apunta desde el
         // resolutor, que se monta justo aquí debajo.
         let store = Store()
-        store.start()
+        // Con el id estable si ya está guardado: así RevenueCat arranca siendo
+        // él y no un anónimo que luego hay que fundir. Ver `StableIdentity`.
+        store.start(appUserID: StableIdentity.storedID())
         self.store = store
+        let identity = self.identity
+        let account: AppwriteAccount? = modelSource == .appwrite
+            ? AppwriteAccount(
+                endpoint: AppConfiguration.appwriteEndpoint,
+                projectID: AppConfiguration.appwriteProjectID,
+                userID: { await identity.id() }
+            )
+            : nil
+        self.account = account
         // Con memoria: cada consulta cuesta dinero y segundo y medio, y la
         // misma prenda reimportada produce el mismo recorte byte a byte.
         if modelSource == .appwrite, let cache = try? ResolutionCache() {
             self.resolver = CachedClothingResolver(
                 base: RemoteClothingResolver(
                     endpoint: AppConfiguration.appwriteEndpoint,
-                    projectID: AppConfiguration.appwriteProjectID
+                    projectID: AppConfiguration.appwriteProjectID,
+                    account: account
                 ),
                 cache: cache,
                 // **Una reconstrucción que llega es una mejora gastada.** Aquí
                 // y no en las tres pantallas que la piden: es el único sitio
                 // por el que pasan todas. Ver `Store.note`.
-                onRestyled: { Task { @MainActor in store.note(.improvement) } }
+                onRestyled: { Task { @MainActor in store.note(.improvement) } },
+                // **Falló y se devolvió**: el aviso grande lo dice. Ver
+                // `NoticeCenter`.
+                onRefunded: { [notices] isTryOn in
+                    Task { @MainActor in notices.show(.refunded(currency: isTryOn ? .tryOns : .improvements)) }
+                }
             )
         }
         self.gate = FeatureGate(
@@ -356,6 +379,39 @@ public final class AppEnvironment {
         DiagnosticsLog.record("LIENZO", "arreglo al arrancar: \(fixed) fuera de rango, \(removed) copias")
     }
 
+    /// El usuario estable en RevenueCat y en Appwrite, y sus regalos.
+    func connectAccount() async {
+        let id = await identity.id()
+        await store.identify(id)
+        notices.attach(account: account, store: store)
+        guard let account else { return }
+        do {
+            try await account.ensureSession()
+        } catch {
+            DiagnosticsLog.record("CUENTA", "sin sesión: \(error)", isProblem: true)
+            return
+        }
+        if let token = pushToken { await account.registerPush(token: token, targetID: Self.pushTargetID) }
+        await notices.checkGrants()
+    }
+
+    /// El token de avisos de este dispositivo, cuando llega. Ver `AppDelegate`.
+    var pushToken: String? {
+        didSet {
+            guard let pushToken, pushToken != oldValue, let account else { return }
+            Task { await account.registerPush(token: pushToken, targetID: Self.pushTargetID) }
+        }
+    }
+
+    /// Un destino de avisos por dispositivo, fijo entre arranques.
+    private static var pushTargetID: String {
+        let key = "push.targetID"
+        if let stored = UserDefaults.standard.string(forKey: key) { return stored }
+        let new = "ios" + UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased().prefix(30)
+        UserDefaults.standard.set(new, forKey: key)
+        return new
+    }
+
     /// Trabajo de arranque. Se lanza desde un `.task`, no desde `init`, para no
     /// retrasar la primera pintura.
     public func bootstrap() async {
@@ -366,6 +422,10 @@ public final class AppEnvironment {
             await imageStore.attachBlobStore(wardrobe)
 
             try await wardrobe.seedCategoriesIfNeeded()
+            // **Quién es**, antes de nada que cueste: RevenueCat primero —el
+            // servidor le da la bienvenida a ese cliente—, luego su sesión, y
+            // luego lo que tenga por reclamar.
+            Task { await self.connectAccount() }
             // Piezas del lienzo guardadas fuera de rango antes de los topes.
             repairCanvasItems()
             // Quién soy, para que el otro dispositivo sepa que existo.

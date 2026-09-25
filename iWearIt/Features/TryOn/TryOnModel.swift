@@ -220,6 +220,10 @@ final class TryOnModel {
             return String(localized: "tryon.tryonmodel.couldnTConnect", defaultValue: "Couldn't connect: \(String(describing: reason))")
         case .badResponse:
             return String(localized: "tryon.tryonmodel.couldnTGenerateTheTry", defaultValue: "Couldn't generate the try-on.")
+        case .insufficientCredits:
+            return String(localized: "tryon.noCredits", defaultValue: "You're out of try-ons.")
+        case .refunded:
+            return String(localized: "tryon.refunded", defaultValue: "It didn't work out. You weren't charged.")
         }
     }
 }

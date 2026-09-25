@@ -727,6 +727,8 @@ final class ImportModel {
         switch resolverError {
         case .notConfigured: return String(localized: "import.importmodel.theResolverIsnTConfigured", defaultValue: "the resolver isn't configured")
         case .rateLimited: return String(localized: "import.importmodel.theServerIsBusyTry", defaultValue: "the server is busy; try again in a moment")
+        case .insufficientCredits: return String(localized: "import.noCredits", defaultValue: "you're out of enhancements")
+        case .refunded: return String(localized: "import.refunded", defaultValue: "it didn't work out; you weren't charged")
         case let .transport(detail): return String(localized: "import.importmodel.couldnTConnect", defaultValue: "couldn't connect — \(String(describing: detail))")
         case let .badResponse(detail): return detail
         }
