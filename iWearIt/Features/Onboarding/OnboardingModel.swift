@@ -73,7 +73,9 @@ enum OnboardingVariant: String, CaseIterable {
         // En la v2 el dinero va dentro de la conversación: `RevealStep`,
         // fuera.
         // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal].contains(step)
+        // Y el permiso de fotos, también dentro de la conversación.
+        // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal].contains(step)
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission].contains(step)
         }
     }
 
