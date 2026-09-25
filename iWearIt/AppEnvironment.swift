@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftData
 import UIKit
+import WKCanvas
 import WKCore
 import WKDesign
 import WKPersistence
@@ -312,6 +313,49 @@ public final class AppEnvironment {
         }
     }
 
+    /// **Arregla lo que se guardó antes de los topes del lienzo.**
+    ///
+    /// Los límites —tamaño mínimo y máximo, dentro del papel— se aplican al
+    /// mover una pieza, no al pintarla. Lo guardado antes de que existiera el
+    /// tope de tamaño se quedaba enorme hasta tocarlo, y entonces pegaba un
+    /// salto. Aquí se meten en rango de una vez. Y las copias exactas de una
+    /// misma prueba en el mismo outfit —las dejaba el "+" del probador cuando
+    /// guardaba a mitad de editar— se quedan en una.
+    ///
+    /// Solo escribe si algo cambia, así que en un arranque normal no toca
+    /// nada.
+    func repairCanvasItems() {
+        let context = container.mainContext
+        guard let items = try? context.fetch(FetchDescriptor<CanvasItem>()) else { return }
+        var fixed = 0
+        var removed = 0
+        var seen: Set<String> = []
+        for item in items {
+            if case let .photo(key) = item.sticker, let outfit = item.outfit {
+                let t = item.transform
+                let signature = "\(outfit.persistentModelID.hashValue)|\(key)|\(t.x)|\(t.y)|\(t.scale)|\(t.rotation)"
+                if !seen.insert(signature).inserted {
+                    context.delete(item)
+                    removed += 1
+                    continue
+                }
+            }
+            let current = item.transform
+            let (bounded, _) = CanvasMath.constrained(current)
+            // Solo la escala y la posición que se salen: el imán del centro
+            // también "corrige", y eso no es un arreglo, es mover cosas.
+            let outOfRange = abs(bounded.scale - current.scale) > 0.0001
+                || abs(bounded.x - current.x) > 40 || abs(bounded.y - current.y) > 40
+            if outOfRange {
+                item.apply(bounded)
+                fixed += 1
+            }
+        }
+        guard fixed + removed > 0 else { return }
+        try? context.save()
+        DiagnosticsLog.record("LIENZO", "arreglo al arrancar: \(fixed) fuera de rango, \(removed) copias")
+    }
+
     /// Trabajo de arranque. Se lanza desde un `.task`, no desde `init`, para no
     /// retrasar la primera pintura.
     public func bootstrap() async {
@@ -322,6 +366,8 @@ public final class AppEnvironment {
             await imageStore.attachBlobStore(wardrobe)
 
             try await wardrobe.seedCategoriesIfNeeded()
+            // Piezas del lienzo guardadas fuera de rango antes de los topes.
+            repairCanvasItems()
             // Quién soy, para que el otro dispositivo sepa que existo.
             try await wardrobe.registerCurrentDevice(named: await UIDevice.current.model)
             // Y si dos dispositivos sembraron sus baldas por separado, se
