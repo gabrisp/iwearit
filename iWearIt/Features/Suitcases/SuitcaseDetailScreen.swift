@@ -73,7 +73,11 @@ private struct SuitcaseContent: View {
             // papel de puntos y el mismo color de fondo. Que una pantalla fuera
             // una lista con cabecera y la otra una hoja obligaba a cambiar de
             // idea sobre qué es un outfit según por dónde hubieras entrado.
-            tintColor.ignoresSafeArea()
+            // **Sin el color de la maleta de fondo.** Cada pestaña pinta el
+            // suyo, y este solo asomaba al cambiar de una a otra: un
+            // fogonazo del color de la maleta en mitad de la transición.
+            // tintColor.ignoresSafeArea()
+            WK.Palette.canvas.ignoresSafeArea()
             // **Sin retícula global.** La ponía aquí *y* la pone cada página,
             // así que en la vista de día se veían dos superpuestas —con sus
             // puntos desalineados, porque cada una arranca en su origen— y en
@@ -246,38 +250,78 @@ private struct SuitcaseContent: View {
                     .tint(WK.Palette.primaryText)
                 }
             }
-            // **El tiempo del destino, en el centro.** Como en la pestaña de
-            // inspiración, solo que aquí el sitio es el de la maleta: tocarlo
-            // cambia a dónde vas, no dónde vives.
-            if tab == .inspo {
-                ToolbarItem(placement: .principal) {
-                    SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
-                }
-            }
-            // **Los días y el modo, en la barra.** Con el botón de volver del
-            // sistema a la izquierda, los días en el centro —con "sin día" al
-            // final— y el cambio entre una y dos columnas a la derecha. El
-            // cambio está **siempre**, con fechas y sin ellas: antes iba en el
-            // mismo `if` que los días y en una maleta sin fechas desaparecía.
-            if tab == .outfits {
-                if let dayCount = suitcase.tripDayCount {
-                    ToolbarItem(placement: .principal) {
-                        TripDayCapsule(
-                            suitcase: suitcase,
-                            dayCount: dayCount,
-                            selected: $dayIndex,
-                            isInBar: true
-                        )
-                        // **El ancho que cabe, no uno puesto a ojo.** Lo que
-                        // piden los chips o, si es más, lo que queda entre el
-                        // botón de volver y el de modo: pedir más hace que la
-                        // barra lo recorte. Ver `principalWidth`.
-                        .frame(width: min(
-                            CGFloat(dayCount + 1) * 40 + 8,
-                            WKTabBarMetrics.principalWidth(sideButtons: 1)
-                        ))
+            // **Un solo hueco en el centro, siempre puesto**, y lo que va dentro
+            // cambia con la pestaña. Eran dos `ToolbarItem` que aparecían y
+            // desaparecían, y la barra los recolocaba de cero en cada cambio:
+            // a mitad de la transición los días caían encima del botón de
+            // volver.
+            ToolbarItem(placement: .principal) {
+                ZStack {
+                    switch tab {
+                    case .outfits:
+                        // **Los días**, con "sin día" al final. Ver
+                        // `TripDayCapsule`.
+                        if let dayCount = suitcase.tripDayCount {
+                            TripDayCapsule(
+                                suitcase: suitcase,
+                                dayCount: dayCount,
+                                selected: $dayIndex,
+                                isInBar: true
+                            )
+                            // **El ancho que cabe, no uno puesto a ojo.** Ver
+                            // `principalWidth`.
+                            .frame(width: min(
+                                CGFloat(dayCount + 1) * 40 + 8,
+                                WKTabBarMetrics.principalWidth(sideButtons: 1)
+                            ))
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        }
+                    case .inspo:
+                        // **El tiempo del destino**: tocarlo cambia a dónde
+                        // vas, no dónde vives.
+                        SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    case .packing:
+                        EmptyView()
                     }
                 }
+                .animation(WKAnimation.content, value: tab)
+            }
+            // Lo de antes: un `ToolbarItem` por pestaña.
+            // // **El tiempo del destino, en el centro.** Como en la pestaña de
+            // // inspiración, solo que aquí el sitio es el de la maleta: tocarlo
+            // // cambia a dónde vas, no dónde vives.
+            // if tab == .inspo {
+            //     ToolbarItem(placement: .principal) {
+            //         SuitcaseWeatherPill(suitcase: suitcase) { isPickingDestination = true }
+            //     }
+            // }
+            // // **Los días y el modo, en la barra.** Con el botón de volver del
+            // // sistema a la izquierda, los días en el centro —con "sin día" al
+            // // final— y el cambio entre una y dos columnas a la derecha. El
+            // // cambio está **siempre**, con fechas y sin ellas: antes iba en el
+            // // mismo `if` que los días y en una maleta sin fechas desaparecía.
+            // if tab == .outfits {
+            //     if let dayCount = suitcase.tripDayCount {
+            //         ToolbarItem(placement: .principal) {
+            //             TripDayCapsule(
+            //                 suitcase: suitcase,
+            //                 dayCount: dayCount,
+            //                 selected: $dayIndex,
+            //                 isInBar: true
+            //             )
+            //             // **El ancho que cabe, no uno puesto a ojo.** Lo que
+            //             // piden los chips o, si es más, lo que queda entre el
+            //             // botón de volver y el de modo: pedir más hace que la
+            //             // barra lo recorte. Ver `principalWidth`.
+            //             .frame(width: min(
+            //                 CGFloat(dayCount + 1) * 40 + 8,
+            //                 WKTabBarMetrics.principalWidth(sideButtons: 1)
+            //             ))
+            //         }
+            //     }
+
+            if tab == .outfits {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         withAnimation(Self.layoutChange) { layout = layout.next }
