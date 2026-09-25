@@ -145,7 +145,7 @@ struct InspoFiltersSheet: View {
                 .foregroundStyle(WK.Palette.secondaryText)
 
             WKChipFlow(
-                options: shelves.map { .init(id: $0.slug, label: $0.name) },
+                options: shelves.map { .init(id: $0.slug, label: $0.displayName) },
                 selection: Set(shelves.filter { !$0.isExcludedFromInspo }.map(\.slug))
             ) { slug in
                 guard let shelf = shelves.first(where: { $0.slug == slug }) else { return }

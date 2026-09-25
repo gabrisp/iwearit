@@ -246,7 +246,7 @@ struct GarmentEditSheet: View {
             // "Balda" y no "Parte": la balda es camisetas, pantalones… La parte
             // del cuerpo es un filtro para buscar, no un sitio.
             EditRow(
-                value: garment.category?.name ?? String(localized: "closet.garmenteditsheet.noShelf", defaultValue: "No shelf"),
+                value: garment.category?.displayName ?? String(localized: "closet.garmenteditsheet.noShelf", defaultValue: "No shelf"),
                 label: String(localized: "common.shelf", defaultValue: "Shelf")
             ) { editing = .shelf }
             EditRow(

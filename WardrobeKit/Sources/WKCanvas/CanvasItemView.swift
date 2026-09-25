@@ -45,6 +45,9 @@ public struct CanvasItemView<Content: View>: View {
     /// Avisa de si esto ha quedado centrado, para que el lienzo dibuje la
     /// guía. La guía cruza el papel entero, así que no puede salir de aquí.
     private let onCentering: (CanvasMath.Centering) -> Void
+    /// Lo que se ve en cada fotograma del gesto, y `nil` al soltar. Ver
+    /// `CanvasSelection.liveTransform`.
+    private let onLive: (ItemTransform?) -> Void
 
     @State private var live = Live()
     /// Lo último que se avisó. Durante un arrastre esto corre a cada
@@ -61,6 +64,7 @@ public struct CanvasItemView<Content: View>: View {
         onSelect: @escaping () -> Void,
         onCommit: @escaping (ItemTransform) -> Void,
         onCentering: @escaping (CanvasMath.Centering) -> Void = { _ in },
+        onLive: @escaping (ItemTransform?) -> Void = { _ in },
         @ViewBuilder content: () -> Content
     ) {
         self.transform = transform
@@ -71,6 +75,7 @@ public struct CanvasItemView<Content: View>: View {
         self.onSelect = onSelect
         self.onCommit = onCommit
         self.onCentering = onCentering
+        self.onLive = onLive
         self.content = content()
     }
 
@@ -236,6 +241,7 @@ public struct CanvasItemView<Content: View>: View {
             // guía. Solo se escribe cuando **cambia**: durante un arrastre esto
             // corre a cada fotograma y escribir lo mismo una y otra vez
             // reevaluaría el lienzo entero sin motivo.
+            onLive(preview.0)
             let centering = preview.1
             if centering != reported {
                 reported = centering
@@ -252,6 +258,7 @@ public struct CanvasItemView<Content: View>: View {
             // y sube sin mover nada, sin pellizcar y sin girar. Antes no había
             // forma de soltarla salvo acertar en el papel, y en un lienzo
             // lleno el papel es lo que menos hay.
+            onLive(nil)
             if live.isTap {
                 live = Live()
                 reported = CanvasMath.Centering()

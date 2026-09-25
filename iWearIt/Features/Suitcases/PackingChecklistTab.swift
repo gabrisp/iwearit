@@ -19,7 +19,7 @@ struct PackingChecklistTab: View {
     /// Agrupado por balda: hacer la maleta va por montones, no por orden de alta.
     private var groups: [(name: String, entries: [PackingEntry])] {
         Dictionary(grouping: suitcase.packingEntries) { entry in
-            entry.garment?.category?.name ?? String(localized: "common.other", defaultValue: "Other")
+            entry.garment?.category?.displayName ?? String(localized: "common.other", defaultValue: "Other")
         }
         .map { (name: $0.key, entries: $0.value.sorted { ($0.garment?.name ?? "") < ($1.garment?.name ?? "") }) }
         .sorted { $0.name < $1.name }

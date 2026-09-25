@@ -29,8 +29,6 @@ public struct FreeformCanvas: View {
     private let drawing: CanvasDrawing?
     /// Las burbujas de lo seleccionado. Ver `CanvasBubble`.
     private let bubbles: (CanvasItem) -> [CanvasBubble]
-    /// Cuánto miden, para ponerlas al lado sin salirse de la pantalla.
-    @State private var bubblesSize: CGSize = .zero
     @State private var masks: MaskCache
     /// La última escala con la que se pintó de verdad.
     @State private var lastScale: Double = 1
@@ -95,7 +93,12 @@ public struct FreeformCanvas: View {
                                 selection.select(item.id)
                             }
                         },
-                        onCentering: { selection.centering = $0 }
+                        onCentering: { selection.centering = $0 },
+                        // Solo el seleccionado cuenta: es el que lleva
+                        // burbujas.
+                        onLive: { live in
+                            if selection.isSelected(item.id) { selection.liveTransform = live }
+                        }
                     )
                 }
                 // Mientras se pinta, las prendas no responden: el mismo
@@ -150,7 +153,13 @@ public struct FreeformCanvas: View {
             // Las burbujas, **a tamaño de pantalla** y fuera de la capa
             // escalada: dentro saldrían del tamaño que tuviera el lienzo.
             .overlay(alignment: .topLeading) {
-                bubbleLayer(in: proxy.size, scale: scale)
+                CanvasBubbleLayer(
+                    outfit: outfit,
+                    selection: selection,
+                    bubbles: bubbles,
+                    size: proxy.size,
+                    scale: scale
+                )
             }
         }
         // Y otra vez en el contenedor, para las franjas de fuera del lienzo:
@@ -167,18 +176,34 @@ public struct FreeformCanvas: View {
     }
 }
 
-extension FreeformCanvas {
+/// La capa de burbujas, **vista propia**: es la única que lee dónde está lo
+/// seleccionado mientras se mueve, así que seguir al dedo la reevalúa a ella
+/// sola y no al lienzo entero.
+private struct CanvasBubbleLayer: View {
+    let outfit: Outfit
+    let selection: CanvasSelection
+    let bubbles: (CanvasItem) -> [CanvasBubble]
+    let size: CGSize
+    let scale: Double
+
+    /// Cuánto miden, para ponerlas al lado sin salirse de la pantalla.
+    @State private var bubblesSize: CGSize = .zero
+
+    var body: some View {
+        bubbleLayer(in: size, scale: scale)
+    }
+
     /// **Las burbujas, al lado de lo seleccionado**: a su derecha si cabe, si
     /// no a su izquierda, y a la altura de su centro. De cristal y dentro de un
-    /// contenedor, así que aparecen fundiéndose. Se colocan con lo guardado:
-    /// mientras lo arrastras se quedan donde estaba, y vuelven al soltar.
+    /// contenedor, así que aparecen fundiéndose. **Siguen a la foto** mientras
+    /// la mueves, giras o escalas: ver `CanvasSelection.liveTransform`.
     @ViewBuilder
-    fileprivate func bubbleLayer(in size: CGSize, scale: Double) -> some View {
+    private func bubbleLayer(in size: CGSize, scale: Double) -> some View {
         let item = selection.selectedID.flatMap { id in outfit.visibleItems.first { $0.id == id } }
         let list = item.map(bubbles) ?? []
         AdaptiveGlassContainer(spacing: WK.Spacing.s) {
             if let item, !list.isEmpty {
-                let t = item.transform
+                let t = selection.liveTransform ?? item.transform
                 // Media anchura y media altura de la caja ya girada, en
                 // pantalla.
                 let cosine = abs(cos(t.rotation)), sine = abs(sin(t.rotation))
@@ -281,6 +306,7 @@ private struct CanvasGarmentItem: View {
     let masks: MaskCache
     let onSelect: () -> Void
     var onCentering: (CanvasMath.Centering) -> Void = { _ in }
+    var onLive: (ItemTransform?) -> Void = { _ in }
 
     /// Qué elemento no se dibuja porque se está editando en otra pantalla.
     @Environment(\.canvasHiddenItemID) private var hiddenItemID
@@ -305,7 +331,8 @@ private struct CanvasGarmentItem: View {
             // Una sola escritura, al soltar. Durante el gesto no se toca la
             // base de datos.
             onCommit: { item.apply($0) },
-            onCentering: onCentering
+            onCentering: onCentering,
+            onLive: onLive
         ) {
             CanvasItemContent(item: item, store: store)
                 .scaleEffect(x: item.isFlipped ? -1 : 1)

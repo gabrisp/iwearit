@@ -30,7 +30,7 @@ struct GarmentTraySheet: View {
         NavigationStack {
             VStack(spacing: 0) {
                 CategoryFilterBar(
-                    categories: categories.map { ($0.slug, $0.name) },
+                    categories: categories.map { ($0.slug, $0.displayName) },
                     selectedSlug: $selectedSlug
                 )
                 ScrollView {

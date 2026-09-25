@@ -312,7 +312,7 @@ private struct PickerShelf: View {
             // entraras, y la de aquí era la mala.
             VStack(alignment: .leading, spacing: 0) {
                 NavigationLink(value: category.persistentModelID) {
-                    ShelfHeaderLabel(name: category.name, count: category.visibleGarments.count)
+                    ShelfHeaderLabel(name: category.displayName, count: category.visibleGarments.count)
                 }
                 .buttonStyle(WKPressStyle())
 
@@ -599,7 +599,7 @@ private struct PickerShelfScreen: View {
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
         .background(WK.Palette.canvas.ignoresSafeArea())
-        .navigationTitle(category?.name ?? String(localized: "common.shelf", defaultValue: "Shelf"))
+        .navigationTitle(category?.displayName ?? String(localized: "common.shelf", defaultValue: "Shelf"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

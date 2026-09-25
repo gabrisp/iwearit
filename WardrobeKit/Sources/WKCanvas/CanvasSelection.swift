@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import Observation
+import WKCore
 
 /// Qué prenda está seleccionada.
 ///
@@ -20,6 +21,12 @@ public final class CanvasSelection {
     /// del lienzo para no reevaluarlo entero en cada fotograma del arrastre.
     public var centering = CanvasMath.Centering()
 
+    /// **Dónde está lo seleccionado mientras lo mueves**, antes de soltarlo.
+    /// Lo lee solo la capa de burbujas —ver `CanvasBubbleLayer`—, para que se
+    /// muevan con la foto; nadie más, así que escribirlo a cada fotograma no
+    /// reevalúa el lienzo. `nil` en reposo: manda lo guardado.
+    public var liveTransform: ItemTransform?
+
     public init() {}
 
     public func select(_ id: UUID?) {
@@ -31,6 +38,7 @@ public final class CanvasSelection {
 
     public func clear() {
         selectedID = nil
+        liveTransform = nil
         centering = CanvasMath.Centering()
     }
 }

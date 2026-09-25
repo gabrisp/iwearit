@@ -30,7 +30,7 @@ struct ShelfPickerSheet: View {
                 items: categories.map(\.slug),
                 selection: $selection
             ) { slug in
-                Text(categories.first { $0.slug == slug }?.name ?? "")
+                Text(categories.first { $0.slug == slug }?.displayName ?? "")
                     .font(WK.Font.title)
             }
             .frame(height: 220)

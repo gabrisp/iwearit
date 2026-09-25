@@ -304,7 +304,7 @@ struct ClosetBulkShelfSheet: View {
                 .foregroundStyle(WK.Palette.primaryText)
 
             WKWheelPicker(items: categories.map(\.slug), selection: $selection) { slug in
-                Text(categories.first { $0.slug == slug }?.name ?? "")
+                Text(categories.first { $0.slug == slug }?.displayName ?? "")
                     .font(WK.Font.title)
             }
             .frame(height: 220)
@@ -454,7 +454,7 @@ private struct ClosetBulkEditRow: View {
     /// "Camisetas · Camiseta · Algodón · Zara".
     private var details: String {
         [
-            garment.category?.name,
+            garment.category?.displayName,
             GarmentVocabulary.displayType(garment.subcategory),
             garment.material?.capitalized,
             garment.brand,

@@ -92,6 +92,46 @@ public final class GarmentCategory {
 
     /// Mínimo de ejemplos antes de fiarse del centroide. Con tres es ruidoso.
     public static let minimumExamplesForCentroid = 4
+
+    // MARK: Nombre en pantalla
+
+    /// **El nombre que se enseña.** Las baldas de la app se guardan con el
+    /// nombre en el idioma que hubiera al crearlas —"Camisetas"—, y en inglés
+    /// seguían saliendo en español. Así que una balda **nuestra** que no has
+    /// renombrado se enseña con su clave traducida; las tuyas, y las nuestras
+    /// que renombraste, tal cual las escribiste: eso no se traduce.
+    public var displayName: String {
+        guard isBuiltIn, let seed = Self.seedName(forSlug: slug), seed.originals.contains(name) else {
+            return name
+        }
+        return seed.localized
+    }
+
+    /// Los nombres con los que nació cada balda nuestra —en los dos idiomas—
+    /// y el de ahora. Incluye las de antes (`tops`, `other`…), que siguen en
+    /// armarios viejos.
+    static func seedName(forSlug slug: String) -> (originals: Set<String>, localized: String)? {
+        switch slug {
+        case "camisetas": (["T-shirts", "Camisetas"], String(localized: "wkpersistence.wardrobeschema.tShirts", defaultValue: "T-shirts", bundle: .module))
+        case "polos": (["Polos"], String(localized: "wkpersistence.wardrobeschema.polos", defaultValue: "Polos", bundle: .module))
+        case "camisas": (["Shirts", "Camisas"], String(localized: "wkpersistence.wardrobeschema.shirts", defaultValue: "Shirts", bundle: .module))
+        case "sudaderas": (["Sweatshirts", "Sudaderas"], String(localized: "wkpersistence.wardrobeschema.sweatshirts", defaultValue: "Sweatshirts", bundle: .module))
+        case "jerseys": (["Sweaters", "Jerseys"], String(localized: "wkpersistence.wardrobeschema.sweaters", defaultValue: "Sweaters", bundle: .module))
+        case "vestidos": (["Dresses", "Vestidos"], String(localized: "wkpersistence.wardrobeschema.dresses", defaultValue: "Dresses", bundle: .module))
+        case "chaquetas", "outerwear": (["Jackets", "Chaquetas", "Outerwear"], String(localized: "common.jackets", defaultValue: "Jackets", bundle: .module))
+        case "bermudas": (["Shorts", "Bermudas"], String(localized: "wkpersistence.wardrobeschema.shorts", defaultValue: "Shorts", bundle: .module))
+        case "pantalones": (["Trousers", "Pantalones"], String(localized: "wkpersistence.wardrobeschema.trousers", defaultValue: "Trousers", bundle: .module))
+        case "banadores": (["Swimwear", "Bañadores"], String(localized: "wkpersistence.wardrobeschema.swimwear", defaultValue: "Swimwear", bundle: .module))
+        case "zapatos", "shoes": (["Shoes", "Zapatos"], String(localized: "common.shoes", defaultValue: "Shoes", bundle: .module))
+        case "accesorios", "accessories": (["Accessories", "Accesorios"], String(localized: "wkpersistence.wardrobeschema.accessories", defaultValue: "Accessories", bundle: .module))
+        case "bolsos", "bags": (["Bags", "Bolsos"], String(localized: "common.bags", defaultValue: "Bags", bundle: .module))
+        case "tops": (["Tops"], String(localized: "wkpersistence.shelf.tops", defaultValue: "Tops", bundle: .module))
+        case "bottoms": (["Bottoms"], String(localized: "wkpersistence.shelf.bottoms", defaultValue: "Bottoms", bundle: .module))
+        case "whole-body": (["Whole body", "Cuerpo entero"], String(localized: "wkpersistence.shelf.wholeBody", defaultValue: "Whole body", bundle: .module))
+        case "other": (["Other", "Otros"], String(localized: "wkpersistence.shelf.other", defaultValue: "Other", bundle: .module))
+        default: nil
+        }
+    }
 }
 
 /// Un grupo de prendas que el pipeline cree que son la misma.

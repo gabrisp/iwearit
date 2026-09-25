@@ -109,7 +109,9 @@ private struct ShelfOrderRow: View {
                     .font(.footnote)
                     .foregroundStyle(WK.Palette.tertiaryText)
 
-                TextField(String(localized: "common.name", defaultValue: "Name"), text: $category.name)
+                // Se ve el nombre traducido; lo que escribas es ya tuyo. Ver
+                // `GarmentCategory.displayName`.
+                TextField(String(localized: "common.name", defaultValue: "Name"), text: Binding(get: { category.displayName }, set: { category.name = $0 }))
                     .font(WK.Font.rowTitle)
                     .textFieldStyle(.plain)
 

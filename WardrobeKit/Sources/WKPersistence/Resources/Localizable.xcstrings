@@ -1,669 +1,737 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "common.bags": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bags"
+  "sourceLanguage" : "en",
+  "strings" : {
+    "common.bags" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bags"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bolsos"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bolsos"
           }
         }
       }
     },
-    "common.jackets": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jackets"
+    "common.jackets" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jackets"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chaquetas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chaquetas"
           }
         }
       }
     },
-    "common.shoes": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shoes"
+    "common.shoes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shoes"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zapatos"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zapatos"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.aMan": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "a man"
+    "wkpersistence.infrastructure.aMan" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a man"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "un hombre"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "un hombre"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.aPerson": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "a person"
+    "wkpersistence.infrastructure.aPerson" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a person"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "una persona"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "una persona"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.aWoman": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "a woman"
+    "wkpersistence.infrastructure.aWoman" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a woman"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "una mujer"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "una mujer"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.anAndrogynousLookingPerson": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "an androgynous-looking person"
+    "wkpersistence.infrastructure.anAndrogynousLookingPerson" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "an androgynous-looking person"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "una persona de aspecto andrógino"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "una persona de aspecto andrógino"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.athletic": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Athletic"
+    "wkpersistence.infrastructure.athletic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Athletic"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Atlética"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Atlética"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.athleticBuildBroadShoulders": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "athletic build, broad shoulders"
+    "wkpersistence.infrastructure.athleticBuildBroadShoulders" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "athletic build, broad shoulders"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "complexión atlética, hombros marcados"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "complexión atlética, hombros marcados"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.average": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Average"
+    "wkpersistence.infrastructure.average" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Average"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Media"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Media"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.averageBuild": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "average build"
+    "wkpersistence.infrastructure.averageBuild" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "average build"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "complexión media"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "complexión media"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.cmTall": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ cm tall"
+    "wkpersistence.infrastructure.cmTall" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ cm tall"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "de %1$@ cm"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "de %1$@ cm"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.curvy": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Curvy"
+    "wkpersistence.infrastructure.curvy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Curvy"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Con curvas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Con curvas"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.curvyBodyDefinedWaist": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "curvy body, defined waist"
+    "wkpersistence.infrastructure.curvyBodyDefinedWaist" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "curvy body, defined waist"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "cuerpo con curvas, cintura marcada"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "cuerpo con curvas, cintura marcada"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.dark": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dark"
+    "wkpersistence.infrastructure.dark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Oscura"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oscura"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.darkSkin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dark skin"
+    "wkpersistence.infrastructure.darkSkin" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dark skin"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "piel oscura"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "piel oscura"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.heavySet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Heavy-set"
+    "wkpersistence.infrastructure.heavySet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heavy-set"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Corpulenta"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Corpulenta"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.heavySetBuild": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "heavy-set build"
+    "wkpersistence.infrastructure.heavySetBuild" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "heavy-set build"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "complexión corpulenta"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "complexión corpulenta"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.light": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Light"
+    "wkpersistence.infrastructure.light" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clara"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clara"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.lightSkin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "light skin"
+    "wkpersistence.infrastructure.lightSkin" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "light skin"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "piel clara"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "piel clara"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.man": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Man"
+    "wkpersistence.infrastructure.man" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Man"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hombre"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hombre"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.mediumSkinTone": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "medium skin tone"
+    "wkpersistence.infrastructure.mediumSkinTone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "medium skin tone"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "piel de tono medio"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "piel de tono medio"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.neutral": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Neutral"
+    "wkpersistence.infrastructure.neutral" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neutral"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Neutro"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neutro"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.slim": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Slim"
+    "wkpersistence.infrastructure.slim" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Slim"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Delgada"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delgada"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.slimBuild": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "slim build"
+    "wkpersistence.infrastructure.slimBuild" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "slim build"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "complexión delgada"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "complexión delgada"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.tan": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tan"
+    "wkpersistence.infrastructure.tan" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tan"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Morena"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Morena"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.tanSkin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "tan skin"
+    "wkpersistence.infrastructure.tanSkin" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tan skin"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "piel morena"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "piel morena"
           }
         }
       }
     },
-    "wkpersistence.infrastructure.woman": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Woman"
+    "wkpersistence.infrastructure.woman" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Woman"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mujer"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mujer"
           }
         }
       }
     },
-    "wkpersistence.wardrobeactor.day": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Day %1$@"
+    "wkpersistence.wardrobeactor.day" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Day %1$@"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Día %1$@"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Día %1$@"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.accessories": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accessories"
+    "wkpersistence.wardrobeschema.accessories" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accessories"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accesorios"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesorios"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.dresses": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dresses"
+    "wkpersistence.wardrobeschema.dresses" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dresses"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vestidos"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vestidos"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.polos": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Polos"
+    "wkpersistence.wardrobeschema.polos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Polos"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Polos"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Polos"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.shirts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shirts"
+    "wkpersistence.wardrobeschema.shirts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shirts"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Camisas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camisas"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.shorts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shorts"
+    "wkpersistence.wardrobeschema.shorts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shorts"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bermudas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bermudas"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.sweaters": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sweaters"
+    "wkpersistence.wardrobeschema.sweaters" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sweaters"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jerseys"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jerseys"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.sweatshirts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sweatshirts"
+    "wkpersistence.wardrobeschema.sweatshirts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sweatshirts"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sudaderas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sudaderas"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.swimwear": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Swimwear"
+    "wkpersistence.wardrobeschema.swimwear" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swimwear"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bañadores"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bañadores"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.tShirts": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "T-shirts"
+    "wkpersistence.wardrobeschema.tShirts" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "T-shirts"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Camisetas"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camisetas"
           }
         }
       }
     },
-    "wkpersistence.wardrobeschema.trousers": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trousers"
+    "wkpersistence.wardrobeschema.trousers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trousers"
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pantalones"
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pantalones"
+          }
+        }
+      }
+    },
+    "wkpersistence.shelf.tops" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tops"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tops"
+          }
+        }
+      }
+    },
+    "wkpersistence.shelf.bottoms" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bottoms"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bottoms"
+          }
+        }
+      }
+    },
+    "wkpersistence.shelf.wholeBody" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whole body"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuerpo entero"
+          }
+        }
+      }
+    },
+    "wkpersistence.shelf.other" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otros"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }

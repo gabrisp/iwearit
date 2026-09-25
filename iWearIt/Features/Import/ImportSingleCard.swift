@@ -331,7 +331,7 @@ struct ImportSingleCard: View {
             WKChipSheet(
                 title: String(localized: "common.shelf", defaultValue: "Shelf"),
                 subtitle: String(localized: "import.importsinglecard.whereYouLlHangIt", defaultValue: "Where you'll hang it"),
-                options: categories.map { .init(id: $0.slug, label: $0.name) },
+                options: categories.map { .init(id: $0.slug, label: $0.displayName) },
                 selection: Binding(
                     get: { [shelfSlug] },
                     set: { set in
@@ -448,7 +448,7 @@ struct ImportSingleCard: View {
     private var shelfSlug: String { candidate.shelfSlug }
 
     private var shelfName: String {
-        categories.first { $0.slug == shelfSlug }?.name
+        categories.first { $0.slug == shelfSlug }?.displayName
             ?? GarmentVocabulary.shelfName(for: candidate.kind)
     }
 

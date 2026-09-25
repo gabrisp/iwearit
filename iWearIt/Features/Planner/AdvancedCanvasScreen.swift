@@ -1247,7 +1247,7 @@ private struct CanvasGarmentTray: View {
     private var shelves: [TrayFilter] {
         categories
             .filter { !$0.isHidden && !$0.visibleGarments.isEmpty }
-            .map { .category(slug: $0.slug, name: $0.name) }
+            .map { .category(slug: $0.slug, name: $0.displayName) }
     }
 
     /// Y los estilos que de verdad aparecen en el armario, por frecuencia.
@@ -1393,7 +1393,7 @@ private struct CanvasGarmentTray: View {
         }
         var result = categories.compactMap { category -> Group? in
             guard let items = byShelf[category.slug], !items.isEmpty else { return nil }
-            return Group(id: category.slug, name: category.name, garments: items)
+            return Group(id: category.slug, name: category.displayName, garments: items)
         }
         if let loose = byShelf[""], !loose.isEmpty {
             result.append(Group(id: "sin-balda", name: String(localized: "planner.advancedcanvasscreen.noShelf", defaultValue: "No shelf"), garments: loose))

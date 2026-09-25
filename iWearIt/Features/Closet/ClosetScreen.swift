@@ -112,7 +112,7 @@ struct ClosetScreen: View {
         return categories.filter { seen.insert($0.slug).inserted }.map { category in
             ShelfData(
                 id: category.slug,
-                name: category.name,
+                name: category.displayName,
                 symbol: category.symbolName,
                 // Primero lo colocado a mano, y lo demás por fecha. Con el
                 // orden a cero —nadie lo ha tocado— sale como siempre.
