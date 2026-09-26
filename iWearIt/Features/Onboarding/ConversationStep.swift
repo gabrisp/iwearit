@@ -73,8 +73,15 @@ private struct ConversationScript: View {
         /// otro. En filas sueltas, la última se centraba y el titular se iba
         /// por arriba.
         case photos(id: Int)
+        /// **Las opciones de una pregunta, en la conversación**: al contestar,
+        /// las no elegidas se van y la elegida se queda —sin icono ni
+        /// cristal— como la respuesta. Ver `optionsRow`.
+        case options(id: Int, kind: Choice)
         /// El contador del escaneo, subiendo según salen prendas.
         case counter(id: Int)
+        /// "Buscando tu ropa", que al terminar se transforma en "Hemos
+        /// encontrado", en el mismo sitio.
+        case scanTitle(id: Int)
         /// Una cantidad en la rueda: prendas, combinaciones.
         case count(id: Int, value: Double, tone: OnboardingTone)
 
@@ -83,10 +90,14 @@ private struct ConversationScript: View {
             case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _),
                  let .news(id, _, _), let .wheel(id, _, _), let .note(id, _), let .pick(id, _),
                  let .heading(id, _), let .point(id, _, _, _), let .photos(id),
-                 let .counter(id), let .count(id, _, _): id
+                 let .counter(id), let .count(id, _, _), let .options(id, _),
+                 let .scanTitle(id): id
             }
         }
     }
+
+    /// Qué se elige con opciones.
+    private enum Choice: Equatable { case goal, pains }
 
     /// Qué se elige con deslizador.
     private enum Pick: Equatable { case spend, wardrobe }
@@ -121,10 +132,16 @@ private struct ConversationScript: View {
     /// prendas. Ver `ScanningStep(embedded:)`.
     @State private var isScanning = false
     @State private var scanCount = 0
+    /// El escaneo ha terminado: el título cambia y el contador brilla.
+    @State private var scanDone = false
     /// Dónde se ancla lo enfocado: al centro, o arriba mientras se escanea,
     /// para dejar el centro a la foto.
     @State private var focusAnchor: UnitPoint = .center
     @State private var token = RunToken()
+    /// Lo elegido en cada bloque de opciones ya contestado, por su fila.
+    @State private var chosen: [Int: Set<String>] = [:]
+    /// El bloque de opciones abierto ahora.
+    @State private var openOptionsID: Int?
 
     /// Tamaño de conversación, no de titular.
     private static let lineFont = Font.custom("PlusJakartaSans-SemiBold", size: 19, relativeTo: .headline)
@@ -272,6 +289,7 @@ private struct ConversationScript: View {
         await say(String(localized: "chat.intro", defaultValue: "I'll ask you a few quick questions. Don't overthink them."))
         beginStep()
         await say(String(localized: "chat.goal", defaultValue: "What do you want to achieve?"))
+        offer(.goal)
         ask(.goal)
     }
 
@@ -280,10 +298,13 @@ private struct ConversationScript: View {
         guard question == .goal else { return }
         hasProgressed = true
         model.goal = option.id
-        await answer(option.label)
+        // await answer(option.label)
+        // **La elegida se queda; las demás se van.** Sin volver a escribirla.
+        await settleOptions([option.id])
         await say(String(localized: "chat.goal.reply", defaultValue: "Perfect, we'll start there."))
         beginStep()
         await say(String(localized: "chat.pains", defaultValue: "What gets in the way? Pick everything that sounds familiar."))
+        offer(.pains)
         ask(.pains)
     }
 
@@ -293,7 +314,9 @@ private struct ConversationScript: View {
         let labels = OnboardingContent.pains.filter { pains.contains($0.id) }.map(\.label)
         // Lo que ha marcado, con sus palabras: "3 cosas" no dice nada.
         // answer(labels.count <= 2 ? labels.joined(separator: " · ") : String(localized: "chat.pains.count", defaultValue: "\(String(describing: labels.count)) things"))
-        await answer(labels.joined(separator: " · "))
+        // await answer(labels.joined(separator: " · "))
+        _ = labels
+        await settleOptions(pains)
         await say(String(localized: "chat.pains.reply", defaultValue: "You're not the only one. It happens to almost everyone."))
         beginStep()
         await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
@@ -465,7 +488,8 @@ private struct ConversationScript: View {
         try? await Task.sleep(for: .seconds(0.4))
         beginStep()
         let title = takeID()
-        append(.line(id: title, text: String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes")))
+        // append(.line(id: title, text: String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes")))
+        append(.scanTitle(id: title))
         // Arriba, para dejar el centro a la foto que se mira.
         focusID = title
         focusAnchor = UnitPoint(x: 0.5, y: 0.16)
@@ -478,33 +502,31 @@ private struct ConversationScript: View {
     /// Terminado: lo encontrado, en la conversación, con las ruedas.
     private func found(pieces: Int, outfits: Int) async {
         guard !token.isCancelled else { return }
-        beginStep()
-        focusID = nil
-        focusAnchor = .center
         // Nada esta vez: se dice y se sigue.
         guard pieces > 0 else {
+            beginStep()
+            focusID = nil
+            focusAnchor = .center
             await say(String(localized: "chat.scan.none", defaultValue: "I couldn't find clothes this time. You can add them whenever you like."))
             ask(.found)
             return
         }
-        await say(String(localized: "scan.found.title", defaultValue: "We found"))
-        let wheel = takeID()
-        focusID = wheel
-        append(.count(id: wheel, value: Double(pieces), tone: .denim))
-        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
-        await say(pieces == 1
-                  ? String(localized: "scan.piece", defaultValue: "piece")
-                  : String(localized: "scan.pieces", defaultValue: "pieces"))
-        try? await Task.sleep(for: .seconds(1.0))
+        // **Sin "Hemos encontrado X prendas" aparte**: "Buscando tu ropa" se
+        // transforma en "Hemos encontrado" y el contador brilla, en su sitio.
+        // Dicho debajo, se leía dos veces.
+        withAnimation(.smooth(duration: 0.6)) { scanDone = true }
+        try? await Task.sleep(for: .seconds(1.8))
         beginStep()
         focusID = nil
+        focusAnchor = .center
         if outfits > 0 {
-            await say(String(localized: "scan.found.moreThan", defaultValue: "and you can make more than"))
+            // await say(String(localized: "scan.found.moreThan", defaultValue: "and you can make more than"))
+            await say(String(localized: "chat.found.canMake", defaultValue: "You can make more than"))
             let second = takeID()
             focusID = second
             append(.count(id: second, value: Double(outfits), tone: .oliva))
             try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
-            await say(String(localized: "scan.found.outfits", defaultValue: "outfits"))
+            await say(String(localized: "scan.found.outfits", defaultValue: "combinations"))
         } else {
             await say(String(localized: "onboarding.scanfoundstep.asSoonAsYouHave", defaultValue: "As soon as you have something for the bottom, the outfits begin."))
         }
@@ -528,6 +550,25 @@ private struct ConversationScript: View {
         try? await Task.sleep(for: .seconds(0.45))
         append(.answer(id: takeID(), text: text))
         try? await Task.sleep(for: .seconds(Double(text.count) * TypewriterText.perCharacter + 0.35))
+    }
+
+    /// Pone las opciones de una pregunta en la conversación.
+    private func offer(_ kind: Choice) {
+        let id = takeID()
+        openOptionsID = id
+        append(.options(id: id, kind: kind))
+    }
+
+    /// Cierra una pregunta de opciones: las no elegidas se van y las elegidas
+    /// pierden icono y cristal y se quedan, como la respuesta.
+    private func settleOptions(_ ids: Set<String>) async {
+        guard let open = openOptionsID else { return }
+        withAnimation(.smooth(duration: 0.55)) {
+            chosen[open] = ids
+            question = nil
+        }
+        openOptionsID = nil
+        try? await Task.sleep(for: .seconds(0.8))
     }
 
     /// Cierra una pregunta de deslizador: se va el deslizador y la cifra se
@@ -578,11 +619,25 @@ private struct ConversationScript: View {
         case let .wheel(_, value, isGood):
             NumberWheel(target: value, format: { model.money($0) }, tone: isGood ? .oliva : .granate)
                 .frame(maxWidth: .infinity, alignment: .center)
+        case let .options(id, kind):
+            optionsRow(id: id, kind: kind)
+        case .scanTitle:
+            TypewriterText(text: scanDone
+                           ? String(localized: "scan.found.title", defaultValue: "We found")
+                           : String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes"))
+                .font(Self.lineFont)
+                .foregroundStyle(WK.Palette.primaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
         case .counter:
             VStack(spacing: 0) {
                 Text("\(scanCount)")
                     .font(.system(size: 64, weight: .bold, design: .rounded))
                     .foregroundStyle(NumberInk.gradient(.denim))
+                    // Terminado: brilla, como las cifras que importan.
+                    .wkShimmer(isActive: scanDone)
+                    .scaleEffect(scanDone ? 1.08 : 1)
+                    .shadow(color: OnboardingTone.denim.color.opacity(scanDone ? 0.35 : 0), radius: 16)
                     .contentTransition(.numericText(value: Double(scanCount)))
                     .monospacedDigit()
                     .animation(.smooth(duration: 0.4), value: scanCount)
@@ -680,6 +735,39 @@ private struct ConversationScript: View {
             .scaleEffect(analysisDone ? 1.03 : 1)
             .sensoryFeedback(.success, trigger: analysisDone)
         }
+    }
+
+    /// Las opciones: todas mientras se pregunta; después, solo las elegidas,
+    /// ya integradas en la conversación.
+    private func optionsRow(id: Int, kind: Choice) -> some View {
+        let settled = chosen[id]
+        let list = kind == .goal ? OnboardingContent.goals : OnboardingContent.pains
+        return VStack(spacing: settled == nil ? WK.Spacing.s : WK.Spacing.xs) {
+            ForEach(list) { option in
+                if settled == nil || settled?.contains(option.id) == true {
+                    ChatOptionRow(
+                        option: option,
+                        isSelected: kind == .pains && pains.contains(option.id),
+                        isCheckbox: kind == .pains,
+                        isSettled: settled != nil
+                    ) {
+                        switch kind {
+                        case .goal:
+                            Task { await answerGoal(option) }
+                        case .pains:
+                            withAnimation(WKAnimation.selection) {
+                                if pains.contains(option.id) { pains.remove(option.id) } else { pains.insert(option.id) }
+                            }
+                        }
+                    }
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: 16)),
+                        removal: .opacity.combined(with: .scale(scale: 0.96)).combined(with: AnyTransition(.blurReplace))
+                    ))
+                }
+            }
+        }
+        .allowsHitTesting(settled == nil)
     }
 
     /// La cifra y, mientras se pregunta, su deslizador.
@@ -780,6 +868,10 @@ private struct ConversationScript: View {
     @ViewBuilder
     private func controls(for question: Question) -> some View {
         switch question {
+        // Las opciones van en su propia fila: ver `Item.options`.
+        case .goal, .pains:
+            EmptyView()
+        /*
         case .goal:
             VStack(spacing: WK.Spacing.s) {
                 ForEach(OnboardingContent.goals) { option in
@@ -798,6 +890,7 @@ private struct ConversationScript: View {
                     }
                 }
             }
+        */
         // Los deslizadores van en la fila de su cifra: ver `Item.pick`.
         // case .spend:
         //     ValueStepperSlider(value: $spend, range: 10...400, step: 1) { model.money($0) }
@@ -986,6 +1079,9 @@ private struct ChatOptionRow: View {
     let option: OnboardingOption
     let isSelected: Bool
     var isCheckbox = false
+    /// Contestada: sin icono, sin check y sin cristal; el texto se queda
+    /// donde está, en el color de las respuestas.
+    var isSettled = false
     let action: () -> Void
 
     var body: some View {
@@ -998,12 +1094,14 @@ private struct ChatOptionRow: View {
                     // .foregroundStyle(option.tone.color)
                     .foregroundStyle(WK.Palette.secondaryText)
                     .frame(width: 22)
+                    .opacity(isSettled ? 0 : 1)
                 // El texto, centrado en la fila: el icono a un lado y el
                 // check —o su hueco— al otro, para que quede en medio.
                 Spacer(minLength: 0)
                 Text(option.label)
                     .font(WK.Font.body)
-                    .foregroundStyle(WK.Palette.primaryText)
+                    // .foregroundStyle(WK.Palette.primaryText)
+                    .foregroundStyle(isSettled ? OnboardingTone.denim.color : WK.Palette.primaryText)
                     // .multilineTextAlignment(.leading)
                     .multilineTextAlignment(.center)
                 Spacer(minLength: 0)
@@ -1019,6 +1117,7 @@ private struct ChatOptionRow: View {
                         .foregroundStyle(isSelected ? WK.Palette.primaryText : WK.Palette.tertiaryText)
                         // El círculo se convierte en el check.
                         .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp.byLayer), options: .nonRepeating))
+                        .opacity(isSettled ? 0 : 1)
                 }
             }
             .padding(.horizontal, WK.Spacing.m)
@@ -1026,7 +1125,8 @@ private struct ChatOptionRow: View {
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .adaptiveGlassInteractive(in: .capsule)
+        // .adaptiveGlassInteractive(in: .capsule)
+        .modifier(OptionGlass(isOn: !isSettled))
         // .overlay {
         //     Capsule().stroke(isSelected ? option.tone.color : .clear, lineWidth: 1.5)
         // }
@@ -1093,6 +1193,19 @@ private struct PhotoPointCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
                 .stroke(WK.Palette.ink(0.12), lineWidth: 1)
+        }
+    }
+}
+
+/// El cristal de una opción, que se va al contestarla.
+private struct OptionGlass: ViewModifier {
+    let isOn: Bool
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content.adaptiveGlassInteractive(in: .capsule)
+        } else {
+            content
         }
     }
 }

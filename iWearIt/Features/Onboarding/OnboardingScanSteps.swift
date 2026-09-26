@@ -330,7 +330,7 @@ struct ScanningStep: View {
                         .foregroundStyle(WK.Palette.secondaryText)
                         .padding(.top, WK.Spacing.s)
                     NumberWheel(target: Double(outfits), format: { Int($0).formatted() }, tone: .denim, fontSize: 40)
-                    Text(String(localized: "scan.found.outfits", defaultValue: "outfits"))
+                    Text(String(localized: "scan.found.outfits", defaultValue: "combinations"))
                         .font(WK.Font.callout)
                         .foregroundStyle(WK.Palette.secondaryText)
                 } else {
@@ -1036,7 +1036,9 @@ struct ScanCloud: View {
     /// abrieron al borde, o `nil` si no.
     private func canvas(at elapsed: TimeInterval?, now: Date) -> some View {
         GeometryReader { proxy in
-            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.58)
+            // Un poco más abajo: arriba van el título y el contador.
+            // let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.58)
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.63)
             let middle = CGPoint(x: proxy.size.width / 2, y: proxy.size.height * 0.5)
             let unit = min(proxy.size.width, proxy.size.height)
             let frame = Self.photoFrame(photo, center: center, unit: unit)
@@ -1221,8 +1223,16 @@ struct ScanCloud: View {
         // **Lejos de la foto**: en un anillo por fuera de ella, que crece
         // despacio. Cerca del centro caían debajo de la foto siguiente.
         let growth = unit * 0.05 * sqrt(Double(index))
-        let x = cos(angle) * (unit * 0.37 + growth)
-        let y = sin(angle) * (unit * 0.5 + growth)
+        var x = cos(angle) * (unit * 0.37 + growth)
+        // **Nunca por encima de la foto**: ahí están el título y el contador.
+        // Las que tocarían arriba se quedan a los lados de la foto.
+        // let y = sin(angle) * (unit * 0.5 + growth)
+        let isUpper = sin(angle) < 0
+        let y = sin(angle) * (isUpper ? unit * 0.3 : unit * 0.5 + growth)
+        if isUpper {
+            let side: CGFloat = abs(cos(angle)) < 0.2 ? (index.isMultiple(of: 2) ? 1 : -1) : (cos(angle) < 0 ? -1 : 1)
+            x = side * max(abs(x), unit * 0.25 + size * 0.5)
+        }
         // Sin salirse por los lados.
         let limit = unit / 2 - size * 0.3
         return (CGSize(width: max(-limit, min(limit, x)), height: y), size, tilt)

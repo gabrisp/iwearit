@@ -13875,13 +13875,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "outfits"
+            "value" : "combinations"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "outfits"
+            "value" : "combinaciones"
           }
         }
       }
@@ -14188,6 +14188,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más adelante podrás revisarlas."
+          }
+        }
+      }
+    },
+    "chat.found.canMake" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can make more than"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes hacer más de"
           }
         }
       }
