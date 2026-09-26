@@ -734,12 +734,17 @@ struct PaywallCarousel: View {
             TabView(selection: $page) {
                 ForEach(pages, id: \.self) { page in
                     card(page)
-                        .padding(.horizontal, 2)
+                        // El margen, dentro de cada tarjeta: el carrusel va de
+                        // borde a borde y las tarjetas no se cortan al pasar.
+                        // .padding(.horizontal, 2)
+                        .padding(.horizontal, WK.Spacing.screenInset)
+                        .padding(.vertical, WK.Spacing.s)
                         .tag(page)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 236)
+            .frame(height: 252)
+            .padding(.horizontal, -WK.Spacing.screenInset)
 
             HStack(spacing: 6) {
                 ForEach(pages, id: \.self) { item in
