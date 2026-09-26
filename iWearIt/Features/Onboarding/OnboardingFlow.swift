@@ -199,7 +199,10 @@ private struct OnboardingStepContent: View {
         // Como hoja, sin arrastrar para cerrar y con la X a los cinco segundos.
         // Detrás, las prendas del onboarding. Ver `OnboardingPaywallHost`.
         // case .paywall:         PaywallStep(onFinish: onFinish, usesOnboardingButton: true)
-        case .paywall:         OnboardingPaywallHost(onFinish: onFinish)
+        // **Como paso, como estaba**: la hoja con la X es la de dentro de la
+        // app. Ver `PaywallSheet`.
+        // case .paywall:         OnboardingPaywallHost(onFinish: onFinish)
+        case .paywall:         PaywallStep(onFinish: onFinish, usesOnboardingButton: true)
         }
     }
 }

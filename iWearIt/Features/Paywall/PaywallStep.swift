@@ -151,9 +151,12 @@ struct PaywallStep: View {
     /// "Seguir gratis" y "Restaurar", a la vista y juntos.
     private var secondaryActions: some View {
         HStack(spacing: WK.Spacing.l) {
-            // "Seguir gratis", fuera: ahora es la X de arriba, que aparece a
+            // "Seguir gratis", solo en el onboarding: entra en la app. En la
+            // hoja de dentro de la app lo hace la X de arriba, que aparece a
             // los cinco segundos. Ver `PaywallSheetScreen`.
-            // Button(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
+            if usesOnboardingButton {
+                Button(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
+            }
             // **Restaurar tiene que estar a la vista.** Lo pide la App Store,
             // y es lo primero que busca quien cambia de teléfono y se
             // encuentra el paywall otra vez.
