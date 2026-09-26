@@ -693,14 +693,18 @@ struct ScanningStep: View {
             pieces.append(contentsOf: items)
             photo?.isCut = true
         }
-        try? await Task.sleep(for: .milliseconds(550))
+        // Un poco más despacio: se ve salir de la foto y viajar.
+        // try? await Task.sleep(for: .milliseconds(550))
+        try? await Task.sleep(for: .milliseconds(750))
         let ids = Set(items.map(\.id))
-        withAnimation(.spring(duration: 0.8, bounce: 0.25)) {
+        // withAnimation(.spring(duration: 0.8, bounce: 0.25)) {
+        withAnimation(.spring(duration: 1.25, bounce: 0.2)) {
             for index in pieces.indices where ids.contains(pieces[index].id) {
                 pieces[index].isPlaced = true
             }
         }
-        try? await Task.sleep(for: .milliseconds(250))
+        // try? await Task.sleep(for: .milliseconds(250))
+        try? await Task.sleep(for: .milliseconds(650))
         // withAnimation(.smooth(duration: 0.4)) { photo = nil }
         withAnimation(.easeIn(duration: 0.45)) { photo = nil }
         try? await Task.sleep(for: .milliseconds(400))
@@ -748,7 +752,7 @@ struct ScanningStep: View {
 
     /// Arriba × abajo × calzado, más vestidos × calzado. Lo mismo que
     /// `ScanFoundStep`.
-    private static func outfitCount(_ kinds: [GarmentKind]) -> Int {
+    static func outfitCount(_ kinds: [GarmentKind]) -> Int {
         func count(_ wanted: Set<GarmentKind>) -> Int { kinds.filter { wanted.contains($0) }.count }
         let tops = count([.upperBody, .outerLayer])
         let bottoms = count([.lowerBody])
@@ -924,7 +928,11 @@ struct ScanSummaryStep: View {
     }
 
     /// El color más repetido del armario.
-    private var topColourName: String {
+    private var topColourName: String { Self.mainColour(of: garments) }
+
+    /// El color más repetido de estas prendas. Lo usa también la
+    /// conversación.
+    static func mainColour(of garments: [Garment]) -> String {
         var counts: [String: Double] = [:]
         for garment in garments {
             guard let colour = garment.dominantColor else { continue }
@@ -1227,11 +1235,15 @@ struct ScanCloud: View {
         // **Nunca por encima de la foto**: ahí están el título y el contador.
         // Las que tocarían arriba se quedan a los lados de la foto.
         // let y = sin(angle) * (unit * 0.5 + growth)
-        let isUpper = sin(angle) < 0
-        let y = sin(angle) * (isUpper ? unit * 0.3 : unit * 0.5 + growth)
-        if isUpper {
+        // let isUpper = sin(angle) < 0
+        // let y = sin(angle) * (isUpper ? unit * 0.3 : unit * 0.5 + growth)
+        // if isUpper { … x = side * max(abs(x), unit * 0.25 + size * 0.5) }
+        // **Arriba también, pero no encima del texto**: las de arriba del
+        // todo —donde están el título y el contador— se apartan a los lados.
+        let y = sin(angle) * (unit * 0.5 + growth)
+        if y < -unit * 0.34 {
             let side: CGFloat = abs(cos(angle)) < 0.2 ? (index.isMultiple(of: 2) ? 1 : -1) : (cos(angle) < 0 ? -1 : 1)
-            x = side * max(abs(x), unit * 0.25 + size * 0.5)
+            x = side * max(abs(x), unit * 0.3 + size * 0.5)
         }
         // Sin salirse por los lados.
         let limit = unit / 2 - size * 0.3

@@ -78,7 +78,8 @@ enum OnboardingVariant: String, CaseIterable {
         // Y el escaneo: también en la conversación.
         // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission].contains(step)
         // Sin la revisión de lo encontrado: "Más adelante podrás revisarlas".
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission, .scanning, .scanReview].contains(step)
+        // Y "Tu armario, ya dentro": lo dice la conversación.
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission, .scanning, .scanReview, .scanSummary].contains(step)
         }
     }
 

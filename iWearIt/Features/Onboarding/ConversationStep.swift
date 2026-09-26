@@ -1,5 +1,8 @@
+import SwiftData
 import SwiftUI
+import WKCore
 import WKDesign
+import WKPersistence
 import WKServices
 
 /// **Las primeras preguntas, como una conversación.** Snazzy escribe —letra a
@@ -138,6 +141,7 @@ private struct ConversationScript: View {
     /// para dejar el centro a la foto.
     @State private var focusAnchor: UnitPoint = .center
     @State private var token = RunToken()
+    @Environment(\.modelContext) private var modelContext
     /// Lo elegido en cada bloque de opciones ya contestado, por su fila.
     @State private var chosen: [Int: Set<String>] = [:]
     /// El bloque de opciones abierto ahora.
@@ -519,17 +523,37 @@ private struct ConversationScript: View {
         beginStep()
         focusID = nil
         focusAnchor = .center
-        if outfits > 0 {
-            // await say(String(localized: "scan.found.moreThan", defaultValue: "and you can make more than"))
-            await say(String(localized: "chat.found.canMake", defaultValue: "You can make more than"))
-            let second = takeID()
-            focusID = second
-            append(.count(id: second, value: Double(outfits), tone: .oliva))
-            try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
-            await say(String(localized: "scan.found.outfits", defaultValue: "combinations"))
-        } else {
-            await say(String(localized: "onboarding.scanfoundstep.asSoonAsYouHave", defaultValue: "As soon as you have something for the bottom, the outfits begin."))
+        // **Aquí va lo de "Tu armario, ya dentro"**, que ya no es otra
+        // pantalla: las combinaciones con todo el armario —lo que había y lo
+        // encontrado—, el total de prendas y el color principal. Lo de las
+        // combinaciones solo de lo encontrado, de antes:
+        // if outfits > 0 {
+        //     // await say(String(localized: "scan.found.moreThan", defaultValue: "and you can make more than"))
+        //     await say(String(localized: "chat.found.canMake", defaultValue: "You can make more than"))
+        //     let second = takeID()
+        //     focusID = second
+        //     append(.count(id: second, value: Double(outfits), tone: .oliva))
+        //     try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
+        //     await say(String(localized: "scan.found.outfits", defaultValue: "combinations"))
+        // } else {
+        //     await say(String(localized: "onboarding.scanfoundstep.asSoonAsYouHave", defaultValue: "As soon as you have something for the bottom, the outfits begin."))
+        // }
+        let closet = (try? modelContext.fetch(FetchDescriptor<Garment>(predicate: #Predicate { $0.deletedAt == nil }))) ?? []
+        let pendingAll = (try? modelContext.fetch(FetchDescriptor<PendingGarment>())) ?? []
+        let combinations = max(1, ScanningStep.outfitCount(closet.map(\.kind) + pendingAll.map(\.kind)))
+        await say(String(localized: "onboarding.onboardingscansteps.yourClosetNowInside", defaultValue: "Your closet, now inside"))
+        let wheel = takeID()
+        focusID = wheel
+        append(.count(id: wheel, value: Double(combinations), tone: .denim))
+        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
+        await say(String(localized: "onboarding.onboardingscansteps.possibleCombinations", defaultValue: "possible combinations"))
+        await say(String(localized: "onboarding.onboardingscansteps.allWithClothesYouAlready", defaultValue: "All with clothes you already own."))
+        let colour = ScanSummaryStep.mainColour(of: closet)
+        var detail = "\(closet.count + pendingAll.count) " + String(localized: "scan.pieces", defaultValue: "pieces")
+        if colour != "—" {
+            detail += " · " + String(localized: "onboarding.onboardingscansteps.mainColor", defaultValue: "main color") + " " + colour
         }
+        append(.note(id: takeID(), text: detail))
         // **Sin revisar ahora**: se quedan pendientes y se revisan luego.
         try? await Task.sleep(for: .seconds(0.4))
         append(.note(id: takeID(), text: String(localized: "chat.scan.reviewLater", defaultValue: "You'll be able to review them later.")))
@@ -742,7 +766,7 @@ private struct ConversationScript: View {
     private func optionsRow(id: Int, kind: Choice) -> some View {
         let settled = chosen[id]
         let list = kind == .goal ? OnboardingContent.goals : OnboardingContent.pains
-        return VStack(spacing: settled == nil ? WK.Spacing.s : WK.Spacing.xs) {
+        return VStack(spacing: WK.Spacing.s) {
             ForEach(list) { option in
                 if settled == nil || settled?.contains(option.id) == true {
                     ChatOptionRow(
@@ -950,9 +974,14 @@ private struct ConversationScript: View {
             //     title: String(localized: "onboarding.scanfoundstep.chooseWhichToKeep", defaultValue: "Choose which to keep"),
             //     action: { model.go(to: .scanReview) }
             // )
+            // "Tu armario" ya se ha dicho aquí: directo a lo siguiente.
+            // OnboardingButtonConfig(
+            //     title: String(localized: "common.continue", defaultValue: "Continue"),
+            //     action: { model.go(to: .scanSummary) }
+            // )
             OnboardingButtonConfig(
                 title: String(localized: "common.continue", defaultValue: "Continue"),
-                action: { model.go(to: .scanSummary) }
+                action: { model.advance() }
             )
         case .photos:
             OnboardingButtonConfig(
@@ -1100,8 +1129,9 @@ private struct ChatOptionRow: View {
                 Spacer(minLength: 0)
                 Text(option.label)
                     .font(WK.Font.body)
-                    // .foregroundStyle(WK.Palette.primaryText)
-                    .foregroundStyle(isSettled ? OnboardingTone.denim.color : WK.Palette.primaryText)
+                    // El texto, igual: solo se va el cristal.
+                    .foregroundStyle(WK.Palette.primaryText)
+                    // .foregroundStyle(isSettled ? OnboardingTone.denim.color : WK.Palette.primaryText)
                     // .multilineTextAlignment(.leading)
                     .multilineTextAlignment(.center)
                 Spacer(minLength: 0)
@@ -1126,7 +1156,10 @@ private struct ChatOptionRow: View {
         }
         .buttonStyle(.plain)
         // .adaptiveGlassInteractive(in: .capsule)
-        .modifier(OptionGlass(isOn: !isSettled))
+        // Quitando el modificador la vista se rehacía y el texto saltaba; así
+        // el cristal se apaga animando y el texto no se mueve.
+        // .modifier(OptionGlass(isOn: !isSettled))
+        .adaptiveGlassInteractive(in: .capsule, isEnabled: !isSettled)
         // .overlay {
         //     Capsule().stroke(isSelected ? option.tone.color : .clear, lineWidth: 1.5)
         // }

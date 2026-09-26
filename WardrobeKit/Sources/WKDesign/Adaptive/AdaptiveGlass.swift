@@ -57,6 +57,20 @@ public extension View {
         }
     }
 
+    /// **Cristal que se puede apagar animando**: con `isEnabled` a `false`
+    /// pasa a `.identity` —sin cristal— y el cambio se anima, en vez de
+    /// quitar el modificador y rehacer la vista.
+    @ViewBuilder
+    func adaptiveGlassInteractive<S: Shape>(in shape: S, isEnabled: Bool) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(isEnabled ? .regular.interactive() : .identity, in: shape)
+        } else {
+            self
+                .background(.ultraThinMaterial.opacity(isEnabled ? 1 : 0), in: shape)
+                .overlay(shape.stroke(.white.opacity(isEnabled ? 0.12 : 0), lineWidth: 0.5))
+        }
+    }
+
     /// Una píldora de elegir: cristal de verdad, o nada.
     ///
     /// **El cristal no se apila.** Una cápsula rellena con el acento y luego
