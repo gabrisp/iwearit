@@ -392,6 +392,8 @@ struct OnboardingButtonConfig: Equatable {
     var isEnabled = true
     /// Una línea pequeña debajo del botón, si la hay.
     var footnote: String?
+    /// **Que se note que hay que tocarlo**: late y lleva una mano encima.
+    var nudges = false
     /// La acción. Fuera de la igualdad: es un cierre, y lo que se compara es
     /// lo que se ve. Lee el estado del paso al pulsarse, así que no se queda
     /// vieja.
@@ -399,6 +401,7 @@ struct OnboardingButtonConfig: Equatable {
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.title == rhs.title && lhs.isEnabled == rhs.isEnabled && lhs.footnote == rhs.footnote
+            && lhs.nudges == rhs.nudges
     }
 }
 
@@ -473,6 +476,7 @@ private struct OnboardingButtonBar: View {
                         WKPrimaryButton(config.title, surface: .glass, action: config.action)
                             .disabled(!config.isEnabled)
                             .opacity(config.isEnabled ? 1 : 0.4)
+                            .modifier(ButtonNudge(isActive: config.nudges))
                     }
                     .transition(.opacity.combined(with: .offset(y: 16)))
                 }
@@ -494,5 +498,31 @@ private struct OnboardingButtonBar: View {
         .animation(.smooth(duration: 0.3), value: config?.isEnabled)
         .animation(.smooth(duration: 0.4), value: config == nil || config?.isHidden == true)
         .animation(.smooth(duration: 0.4), value: config?.footnote)
+    }
+}
+
+/// El botón latiendo despacio y una mano tocando encima, para que se sepa
+/// que hay que tocar. Por encima del botón y sin ocupar sitio.
+private struct ButtonNudge: ViewModifier {
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content
+                .phaseAnimator([false, true]) { view, beat in
+                    view.scaleEffect(beat ? 1.035 : 1)
+                } animation: { _ in .easeInOut(duration: 0.9) }
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "hand.tap.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(WK.Palette.primaryText)
+                        .symbolEffect(.bounce, options: .repeat(.periodic(delay: 0.8)))
+                        .offset(x: -28, y: -30)
+                        .allowsHitTesting(false)
+                        .transition(.scale.combined(with: .opacity))
+                }
+        } else {
+            content
+        }
     }
 }

@@ -14123,6 +14123,40 @@
           }
         }
       }
+    },
+    "chat.photos.choose" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We recommend picking the photos yourself: there's no need to give access to all of them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Te recomendamos elegir tú las fotos: no hace falta darle acceso a todas."
+          }
+        }
+      }
+    },
+    "chat.photos.recommended" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommended"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recomendado"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

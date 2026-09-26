@@ -30,12 +30,17 @@ struct ConversationStep: View {
         case heading(id: Int, text: String)
         /// Un punto con su icono pequeño encima.
         case point(id: Int, symbol: String, title: String, detail: String)
+        /// **El permiso de fotos entero, en un solo bloque**: el titular, la
+        /// explicación y los tres puntos en tarjetas, apareciendo uno tras
+        /// otro. En filas sueltas, la última se centraba y el titular se iba
+        /// por arriba.
+        case photos(id: Int)
 
         var id: Int {
             switch self {
             case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _),
                  let .news(id, _, _), let .wheel(id, _, _), let .note(id, _), let .pick(id, _),
-                 let .heading(id, _), let .point(id, _, _, _): id
+                 let .heading(id, _), let .point(id, _, _, _), let .photos(id): id
             }
         }
     }
@@ -55,12 +60,19 @@ struct ConversationStep: View {
     @State private var spend: Double = 60
     @State private var wardrobe: Double = 80
     @State private var analysis: Double = 0
+    /// La barra de "Analizando", ya llena.
+    @State private var analysisDone = false
     @State private var hasStarted = false
     /// Lo que se queda en el centro aunque llegue algo debajo: la cifra
     /// grande, mientras se escriben las frases que la acompañan. `nil`: lo
     /// último.
     @State private var focusID: Int?
     @State private var isRequestingPhotos = false
+    /// Dónde empieza el paso de ahora: lo de antes se apaga y se desenfoca;
+    /// lo de este paso, entero. Ver `beginStep`.
+    @State private var stepStart = 0
+    /// Cuánto del bloque de fotos se ha dicho ya. Ver `Item.photos`.
+    @State private var photosShown = 0
 
     /// Tamaño de conversación, no de titular.
     private static let lineFont = Font.custom("PlusJakartaSans-SemiBold", size: 19, relativeTo: .headline)
@@ -131,6 +143,7 @@ struct ConversationStep: View {
             .onChange(of: items.count) { _, _ in scrollDown(reader) }
             .onChange(of: question) { _, _ in scrollDown(reader) }
             .onChange(of: focusID) { _, _ in scrollDown(reader) }
+            .onChange(of: photosShown) { _, _ in scrollDown(reader) }
         }
         .onboardingButton(button)
         .task {
@@ -180,6 +193,7 @@ struct ConversationStep: View {
         #endif
         await say(String(localized: "chat.hello", defaultValue: "Hi, I'm Snazzy. I'll help you get the most out of your closet."))
         await say(String(localized: "chat.intro", defaultValue: "I'll ask you a few quick questions. Don't overthink them."))
+        beginStep()
         await say(String(localized: "chat.goal", defaultValue: "What do you want to achieve?"))
         ask(.goal)
     }
@@ -190,6 +204,7 @@ struct ConversationStep: View {
         model.goal = option.id
         await answer(option.label)
         await say(String(localized: "chat.goal.reply", defaultValue: "Perfect, we'll start there."))
+        beginStep()
         await say(String(localized: "chat.pains", defaultValue: "What gets in the way? Pick everything that sounds familiar."))
         ask(.pains)
     }
@@ -202,6 +217,7 @@ struct ConversationStep: View {
         // answer(labels.count <= 2 ? labels.joined(separator: " · ") : String(localized: "chat.pains.count", defaultValue: "\(String(describing: labels.count)) things"))
         await answer(labels.joined(separator: " · "))
         await say(String(localized: "chat.pains.reply", defaultValue: "You're not the only one. It happens to almost everyone."))
+        beginStep()
         await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
         append(.pick(id: takeID(), kind: .spend))
         ask(.spend)
@@ -227,8 +243,11 @@ struct ConversationStep: View {
         append(.wheel(id: wheel, value: spend * 12, isGood: true))
         try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.3))
         await say(String(localized: "chat.spend.reply.tail2", defaultValue: "a year on clothes."))
-        try? await Task.sleep(for: .seconds(0.6))
+        // Un segundo más para leerlo antes de seguir.
+        // try? await Task.sleep(for: .seconds(0.6))
+        try? await Task.sleep(for: .seconds(1.6))
         focusID = nil
+        beginStep()
         await say(String(localized: "chat.wardrobe", defaultValue: "And how many pieces would you say you have?"))
         await say(String(localized: "chat.estimate", defaultValue: "Just an estimate."))
         append(.pick(id: takeID(), kind: .wardrobe))
@@ -240,10 +259,14 @@ struct ConversationStep: View {
         model.wardrobeSize = wardrobe
         // await answer(String(localized: "chat.pieces", defaultValue: "\(String(describing: Int(wardrobe))) pieces"))
         await settle()
+        beginStep()
         await say(String(localized: "chat.analyzing", defaultValue: "Analysing your answers…"))
         append(.progress(id: takeID()))
         withAnimation(.easeInOut(duration: 2.2)) { analysis = 1 }
-        try? await Task.sleep(for: .seconds(2.4))
+        try? await Task.sleep(for: .seconds(2.25))
+        // **Llena, hace algo**: se vuelve verde, da un salto y sale el check.
+        withAnimation(.spring(duration: 0.5, bounce: 0.45)) { analysisDone = true }
+        try? await Task.sleep(for: .seconds(0.9))
         await say(String(localized: "chat.done", defaultValue: "You have more closet than you can see. Let me show you."))
         // Sigue sola, sin botón: ya lo ha dicho.
         // ask(.done)
@@ -257,6 +280,7 @@ struct ConversationStep: View {
     // MARK: El dinero
 
     private func badNews() async {
+        beginStep()
         append(.news(id: takeID(), text: String(localized: "reveal.bad.title", defaultValue: "The bad news:"), isGood: false))
         try? await Task.sleep(for: .seconds(0.9))
         await say(String(localized: "reveal.bad.lead2", defaultValue: "in your closet you have"))
@@ -284,6 +308,7 @@ struct ConversationStep: View {
         // answer(String(localized: "reveal.bad.button", defaultValue: "Change this"))
         // try? await Task.sleep(for: .seconds(0.5))
         focusID = nil
+        beginStep()
         append(.news(id: takeID(), text: String(localized: "reveal.good.title", defaultValue: "The good news:"), isGood: true))
         try? await Task.sleep(for: .seconds(0.9))
         await say(String(localized: "reveal.good.lead2", defaultValue: "Snazzy can save you"))
@@ -308,25 +333,36 @@ struct ConversationStep: View {
         withAnimation(.smooth(duration: 0.45)) { question = nil }
         focusID = nil
         try? await Task.sleep(for: .seconds(0.5))
-        append(.heading(id: takeID(), text: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos")))
-        try? await Task.sleep(for: .seconds(1.2))
-        await say(String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."))
-        let points: [(String, String, String)] = [
+        beginStep()
+        // En filas sueltas, de antes: el titular, la explicación y cada
+        // punto como una fila más.
+        // append(.heading(…)); await say(…); for … { append(.point(…)) }
+        append(.photos(id: takeID()))
+        for step in 1...(photoPoints.count + 1) {
+            try? await Task.sleep(for: .seconds(step == 1 ? 1.2 : 1.4))
+            withAnimation(.smooth(duration: 0.5)) { photosShown = step }
+        }
+        try? await Task.sleep(for: .seconds(0.8))
+        ask(.photos)
+    }
+
+    /// Los tres puntos del permiso. **El del medio recomienda elegir las
+    /// fotos**: no hace falta dar acceso a todas.
+    private var photoPoints: [(symbol: String, title: String, detail: String, isRecommended: Bool)] {
+        [
             ("iphone.gen3",
              String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour2", defaultValue: "It all happens on your iPhone"),
-             String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere.")),
+             String(localized: "onboarding.onboardingscansteps.yourPhotosArenTUploaded", defaultValue: "Your photos aren't uploaded anywhere."),
+             false),
             ("hand.raised",
              String(localized: "onboarding.onboardingscansteps.youChooseHowMuch", defaultValue: "You choose how much"),
-             String(localized: "onboarding.onboardingscansteps.youCanGiveItAccess", defaultValue: "You can give it access to only the photos you want.")),
+             String(localized: "chat.photos.choose", defaultValue: "We recommend picking the photos yourself: there's no need to give access to all of them."),
+             true),
             ("scissors",
              String(localized: "onboarding.onboardingscansteps.onlyTheClothesAreSaved", defaultValue: "Only the clothes are saved"),
-             String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet.")),
+             String(localized: "onboarding.onboardingscansteps.facesAndSkinAreDiscarded", defaultValue: "Faces and skin are discarded; they never reach your closet."),
+             false),
         ]
-        for (symbol, title, detail) in points {
-            append(.point(id: takeID(), symbol: symbol, title: title, detail: detail))
-            try? await Task.sleep(for: .seconds(Double(title.count + detail.count) * TypewriterText.perCharacter + 0.6))
-        }
-        ask(.photos)
     }
 
     private func requestPhotos() {
@@ -405,6 +441,28 @@ struct ConversationStep: View {
         case let .wheel(_, value, isGood):
             NumberWheel(target: value, format: { model.money($0) }, tone: isGood ? .oliva : .granate)
                 .frame(maxWidth: .infinity, alignment: .center)
+        case .photos:
+            VStack(spacing: WK.Spacing.l) {
+                TypewriterText(text: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"))
+                    .font(WK.Font.largeTitle)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .multilineTextAlignment(.center)
+                if photosShown >= 1 {
+                    TypewriterText(text: String(localized: "onboarding.onboardingscansteps.snazzyLooksThroughThemOn", defaultValue: "Snazzy looks through them on your iPhone to cut out the clothes you're wearing."))
+                        .font(WK.Font.callout)
+                        .foregroundStyle(WK.Palette.secondaryText)
+                        .multilineTextAlignment(.center)
+                }
+                VStack(spacing: WK.Spacing.s) {
+                    ForEach(Array(photoPoints.enumerated()), id: \.offset) { index, point in
+                        if photosShown >= index + 2 {
+                            PhotoPointCard(symbol: point.symbol, title: point.title, detail: point.detail, isRecommended: point.isRecommended)
+                                .transition(.opacity.combined(with: .offset(y: 14)).combined(with: AnyTransition(.blurReplace)))
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
         case let .heading(_, text):
             TypewriterText(text: text)
                 .font(WK.Font.largeTitle)
@@ -440,16 +498,29 @@ struct ConversationStep: View {
                 // .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
         case .progress:
-            Capsule()
-                .fill(WK.Palette.ink(0.08))
-                .frame(height: 5)
-                .overlay(alignment: .leading) {
-                    GeometryReader { proxy in
-                        Capsule()
-                            .fill(OnboardingTone.denim.color)
-                            .frame(width: proxy.size.width * analysis)
+            HStack(spacing: WK.Spacing.s) {
+                Capsule()
+                    .fill(WK.Palette.ink(0.08))
+                    .frame(height: analysisDone ? 8 : 5)
+                    .overlay(alignment: .leading) {
+                        GeometryReader { proxy in
+                            Capsule()
+                                .fill(analysisDone ? OnboardingTone.oliva.color : OnboardingTone.denim.color)
+                                .frame(width: proxy.size.width * analysis)
+                                .wkShimmer(isActive: analysisDone)
+                                .shadow(color: OnboardingTone.oliva.color.opacity(analysisDone ? 0.5 : 0), radius: 10)
+                        }
                     }
+                if analysisDone {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(OnboardingTone.oliva.color)
+                        .symbolEffect(.bounce, value: analysisDone)
+                        .transition(.scale(scale: 0.3).combined(with: .opacity))
                 }
+            }
+            .scaleEffect(analysisDone ? 1.03 : 1)
+            .sensoryFeedback(.success, trigger: analysisDone)
         }
     }
 
@@ -500,28 +571,53 @@ struct ConversationStep: View {
         .sensoryFeedback(.selection, trigger: value.wrappedValue)
     }
 
+    /// **Por pasos y no por distancia**: lo del paso de ahora, nítido; lo de
+    /// pasos anteriores —"Te haré unas preguntas" cuando ya se pregunta—,
+    /// apagado y un poco desenfocado, más cuanto más atrás.
     private func blur(of item: Item) -> CGFloat {
-        guard let index = items.firstIndex(of: item) else { return 0 }
-        let fromEnd = items.count - 1 - index - sharpness(of: item)
-        return fromEnd <= 1 ? 0 : min(4, CGFloat(fromEnd - 1) * 1.2)
+        let behind = stepsBehind(item)
+        return behind == 0 ? 0 : min(6, 1.5 + CGFloat(behind - 1) * 1.3)
     }
 
-    /// Lo último, entero; lo de antes, apagado.
     private func opacity(of item: Item) -> Double {
-        guard let index = items.firstIndex(of: item) else { return 1 }
-        let fromEnd = items.count - 1 - index - sharpness(of: item)
-        return fromEnd <= 1 ? 1 : max(0.28, 1 - Double(fromEnd - 1) * 0.3)
+        let behind = stepsBehind(item)
+        return behind == 0 ? 1 : max(0.18, 0.55 - Double(behind - 1) * 0.15)
     }
 
-    /// **La cifra y su titular aguantan más**: con dos frases detrás ya se
-    /// apagaban, y es lo que hay que leer.
-    private func sharpness(of item: Item) -> Int {
-        switch item {
-        case .wheel, .news: 3
-        case .heading: 2
-        default: 0
-        }
+    /// Cuántas filas por detrás del paso de ahora. 0: es de este paso.
+    private func stepsBehind(_ item: Item) -> Int {
+        guard let index = items.firstIndex(of: item) else { return 0 }
+        return max(0, stepStart - index)
     }
+
+    /// Empieza un paso nuevo: lo dicho hasta aquí pasa a segundo plano.
+    private func beginStep() {
+        withAnimation(.smooth(duration: 0.6)) { stepStart = items.count }
+    }
+
+    // Por distancia al final, de antes:
+    // private func blur(of item: Item) -> CGFloat {
+    //     guard let index = items.firstIndex(of: item) else { return 0 }
+    //     let fromEnd = items.count - 1 - index - sharpness(of: item)
+    //     return fromEnd <= 1 ? 0 : min(4, CGFloat(fromEnd - 1) * 1.2)
+    // }
+    //
+    // /// Lo último, entero; lo de antes, apagado.
+    // private func opacity(of item: Item) -> Double {
+    //     guard let index = items.firstIndex(of: item) else { return 1 }
+    //     let fromEnd = items.count - 1 - index - sharpness(of: item)
+    //     return fromEnd <= 1 ? 1 : max(0.28, 1 - Double(fromEnd - 1) * 0.3)
+    // }
+    //
+    // /// **La cifra y su titular aguantan más**: con dos frases detrás ya se
+    // /// apagaban, y es lo que hay que leer.
+    // private func sharpness(of item: Item) -> Int {
+    //     switch item {
+    //     case .wheel, .news: 3
+    //     case .heading: 2
+    //     default: 0
+    //     }
+    // }
 
     @ViewBuilder
     private func controls(for question: Question) -> some View {
@@ -591,6 +687,9 @@ struct ConversationStep: View {
         case .good:
             OnboardingButtonConfig(
                 title: String(localized: "reveal.good.button", defaultValue: "I want that"),
+                // **Con aviso de tocar**: al llegar a lo bueno no siempre se
+                // sabe que hay que tocar para seguir.
+                nudges: true,
                 // action: { model.advance() }
                 action: { Task { await photosIntro() } }
             )
@@ -781,5 +880,51 @@ struct GlowingText: View {
             .shadow(color: tone.color.opacity(0.45), radius: 18)
             .shadow(color: tone.color.opacity(0.25), radius: 40)
             .transition(.scale(scale: 0.9).combined(with: .opacity))
+    }
+}
+
+/// Un punto del permiso de fotos, **en su tarjeta con borde**: el icono a un
+/// lado y el texto al otro. El recomendado lo dice.
+private struct PhotoPointCard: View {
+    let symbol: String
+    let title: String
+    let detail: String
+    let isRecommended: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: WK.Spacing.m) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(WK.Palette.secondaryText)
+                .frame(width: 22)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: WK.Spacing.s) {
+                    Text(title)
+                        .font(WK.Font.headline)
+                        .foregroundStyle(WK.Palette.primaryText)
+                    if isRecommended {
+                        Text(String(localized: "chat.photos.recommended", defaultValue: "Recommended"))
+                            .font(WK.Font.captionMedium)
+                            .foregroundStyle(WK.Palette.canvas)
+                            .padding(.horizontal, WK.Spacing.s)
+                            .padding(.vertical, 2)
+                            .background(WK.Palette.primaryText, in: .capsule)
+                    }
+                }
+                Text(detail)
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(WK.Spacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(WK.Palette.canvas.opacity(0.6), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous)
+                .stroke(WK.Palette.ink(0.12), lineWidth: 1)
+        }
     }
 }
