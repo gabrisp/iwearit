@@ -553,7 +553,8 @@ struct PaywallTimeline: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(index == 0 ? WK.Palette.primaryText : WK.Palette.secondaryText)
                             .frame(width: 34, height: 34)
-                            .adaptiveGlass(in: .circle)
+                            // .adaptiveGlass(in: .circle)
+                            .background(WK.Palette.ink(0.06), in: .circle)
                         if index < steps.count - 1 {
                             Capsule()
                                 .fill(WK.Palette.ink(0.14))
@@ -579,7 +580,10 @@ struct PaywallTimeline: View {
             }
         }
         .padding(WK.Spacing.m)
-        .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        // Plana, sin sombra: va en el carrusel.
+        // .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.9), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
     }
 }
 
@@ -728,23 +732,45 @@ struct PaywallCarousel: View {
     }
 
     @State private var page: Page = .timeline
+    /// Lo que enseña el scroll; `page` lo sigue.
+    @State private var scrolled: Page? = .timeline
 
     var body: some View {
         VStack(spacing: WK.Spacing.s) {
-            TabView(selection: $page) {
-                ForEach(pages, id: \.self) { page in
-                    card(page)
-                        // El margen, dentro de cada tarjeta: el carrusel va de
-                        // borde a borde y las tarjetas no se cortan al pasar.
-                        // .padding(.horizontal, 2)
-                        .padding(.horizontal, WK.Spacing.screenInset)
-                        .padding(.vertical, WK.Spacing.s)
-                        .tag(page)
+            // **Un scroll que pagina y no un `TabView`**: el de páginas
+            // recortaba por arriba y por abajo. Este no recorta nada.
+            // TabView(selection: $page) {
+            //     ForEach(pages, id: \.self) { page in
+            //         card(page)
+            //             // El margen, dentro de cada tarjeta: el carrusel va de
+            //             // borde a borde y las tarjetas no se cortan al pasar.
+            //             // .padding(.horizontal, 2)
+            //             .padding(.horizontal, WK.Spacing.screenInset)
+            //             .padding(.vertical, WK.Spacing.s)
+            //             .tag(page)
+            //     }
+            // }
+            // .tabViewStyle(.page(indexDisplayMode: .never))
+            // .frame(height: 252)
+            // .padding(.horizontal, -WK.Spacing.screenInset)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(pages, id: \.self) { page in
+                        card(page)
+                            .padding(.horizontal, WK.Spacing.screenInset)
+                            .containerRelativeFrame(.horizontal)
+                            .id(page)
+                    }
                 }
+                .scrollTargetLayout()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 252)
+            .scrollTargetBehavior(.paging)
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
+            .scrollPosition(id: $scrolled)
+            .frame(height: 236)
             .padding(.horizontal, -WK.Spacing.screenInset)
+            .onChange(of: scrolled) { _, new in if let new { page = new } }
 
             HStack(spacing: 6) {
                 ForEach(pages, id: \.self) { item in
@@ -759,7 +785,11 @@ struct PaywallCarousel: View {
         .task(id: page) {
             try? await Task.sleep(for: .seconds(4.5))
             guard let index = pages.firstIndex(of: page) else { return }
-            withAnimation(.smooth(duration: 0.6)) { page = pages[(index + 1) % pages.count] }
+            let next = pages[(index + 1) % pages.count]
+            withAnimation(.smooth(duration: 0.6)) {
+                page = next
+                scrolled = next
+            }
         }
     }
 
@@ -799,7 +829,9 @@ struct PaywallCarousel: View {
             }
             .padding(WK.Spacing.l)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+            // Plano, sin sombra.
+            // .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+            .background(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.9), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
         case .outfits:
             VStack(spacing: WK.Spacing.m) {
                 HStack(spacing: WK.Spacing.s) {
@@ -819,7 +851,8 @@ struct PaywallCarousel: View {
             }
             .padding(WK.Spacing.l)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+            // .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+            .background(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.9), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
         }
     }
 }

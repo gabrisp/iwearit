@@ -359,6 +359,11 @@ public actor GalleryScanner {
         // Menos estricto: con 140 se quedaban fuera prendas buenas de fotos
         // hechas de lejos.
         guard min(garment.rawCrop.width, garment.rawCrop.height) >= 90 else { return false }
+        // **Nunca un rectángulo.** Las fotos son de cámara: una prenda sale de
+        // la silueta de la persona, con bordes irregulares. Un recorte que es
+        // un rectángulo o un cuadrado perfecto es un pedazo de foto —fondo,
+        // cara, piel— que la segmentación no supo separar. Ver `CutoutShape`.
+        guard !CutoutShape.isRectangular(garment.rawCrop.cgImage) else { return false }
         // return CutoutQuality.assess(garment.normalized.cgImage).isGoodEnough
         // Solo fuera lo que no tiene arreglo: con "suficientemente bueno" se
         // quedaba fuera más de la mitad, y en la revisión ya se descarta.

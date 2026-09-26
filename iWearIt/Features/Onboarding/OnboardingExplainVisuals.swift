@@ -35,8 +35,13 @@ struct ProofVisual: View {
 
         var garments: [Int] {
             switch self {
-            case .layer: [4]
-            case .top: [1, 2, 3, 8]
+            // La capa de encima también cambia: el chaquetón, la oxford o la
+            // camisa de rayas abiertas. Con una sola pieza era la única que no
+            // se movía nunca.
+            // case .layer: [4]
+            // case .top: [1, 2, 3, 8]
+            case .layer: [4, 3, 1]
+            case .top: [2, 8]
             case .bottom: [5, 6, 7]
             case .accessory: [11, 12]
             case .shoes: [9, 10]

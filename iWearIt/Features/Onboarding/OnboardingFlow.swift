@@ -570,8 +570,11 @@ private struct OnboardingPaywallHost: View {
                 try? await Task.sleep(for: .seconds(0.35))
                 isPresented = true
             }
-            .sheet(isPresented: $isPresented) {
-                PaywallSheetScreen(onClose: onFinish, onPurchased: onFinish)
+            // **La X cierra la hoja** —con su animación— y al terminar de
+            // cerrarse se entra en la app. Antes se entraba de golpe y la hoja
+            // desaparecía con todo lo demás.
+            .sheet(isPresented: $isPresented, onDismiss: onFinish) {
+                PaywallSheetScreen(onClose: { isPresented = false }, onPurchased: { isPresented = false })
             }
     }
 }

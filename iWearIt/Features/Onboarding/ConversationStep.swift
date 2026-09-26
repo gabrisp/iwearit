@@ -179,6 +179,15 @@ private struct ConversationScript: View {
                 )
                 .transition(.opacity)
             }
+            // **Un velo desenfocado entre las prendas y el texto**: con muchas
+            // prendas girando detrás, el texto dejaba de leerse. Arriba
+            // mientras se busca —ahí están el título y el contador— y en el
+            // centro con lo encontrado.
+            if isScanning {
+                ScanTextVeil(isCentered: scanDone)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
             conversation
                 // Durante el escaneo, la conversación no tiene nada que
                 // tocar: que los dedos lleguen a las prendas de detrás.
@@ -1538,5 +1547,28 @@ private struct ClosetStatsCard: View {
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// El velo detrás del texto del escaneo: un desenfoque redondo que se apaga
+/// hacia los bordes, sin forma que se note.
+private struct ScanTextVeil: View {
+    let isCentered: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            Ellipse()
+                .fill(.ultraThinMaterial)
+                .mask {
+                    RadialGradient(
+                        colors: [.black, .black.opacity(0.85), .clear],
+                        center: .center, startRadius: 0, endRadius: proxy.size.width * 0.55
+                    )
+                }
+                .frame(width: proxy.size.width * 1.1, height: isCentered ? proxy.size.height * 0.62 : proxy.size.height * 0.42)
+                .position(x: proxy.size.width / 2, y: proxy.size.height * (isCentered ? 0.5 : 0.3))
+                .animation(.smooth(duration: 0.8), value: isCentered)
+        }
+        .ignoresSafeArea()
     }
 }
