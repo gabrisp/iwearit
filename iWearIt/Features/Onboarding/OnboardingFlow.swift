@@ -501,28 +501,40 @@ private struct OnboardingButtonBar: View {
     }
 }
 
-/// El botón latiendo despacio y una mano tocando encima, para que se sepa
-/// que hay que tocar. Por encima del botón y sin ocupar sitio.
+/// **Un brillo que recorre el botón**, y nada más: que se note que es lo
+/// siguiente sin empujar. Lo de antes —latir y una mano tocando encima—, abajo
+/// comentado.
 private struct ButtonNudge: ViewModifier {
     let isActive: Bool
 
     func body(content: Content) -> some View {
-        if isActive {
-            content
-                .phaseAnimator([false, true]) { view, beat in
-                    view.scaleEffect(beat ? 1.035 : 1)
-                } animation: { _ in .easeInOut(duration: 0.9) }
-                .overlay(alignment: .topTrailing) {
-                    Image(systemName: "hand.tap.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(WK.Palette.primaryText)
-                        .symbolEffect(.bounce, options: .repeat(.periodic(delay: 0.8)))
-                        .offset(x: -28, y: -30)
-                        .allowsHitTesting(false)
-                        .transition(.scale.combined(with: .opacity))
-                }
-        } else {
-            content
-        }
+        content.wkShimmer(isActive: isActive)
     }
 }
+
+// La de antes:
+// /// El botón latiendo despacio y una mano tocando encima, para que se sepa
+// /// que hay que tocar. Por encima del botón y sin ocupar sitio.
+// private struct ButtonNudge: ViewModifier {
+//     let isActive: Bool
+//
+//     func body(content: Content) -> some View {
+//         if isActive {
+//             content
+//                 .phaseAnimator([false, true]) { view, beat in
+//                     view.scaleEffect(beat ? 1.035 : 1)
+//                 } animation: { _ in .easeInOut(duration: 0.9) }
+//                 .overlay(alignment: .topTrailing) {
+//                     Image(systemName: "hand.tap.fill")
+//                         .font(.system(size: 26))
+//                         .foregroundStyle(WK.Palette.primaryText)
+//                         .symbolEffect(.bounce, options: .repeat(.periodic(delay: 0.8)))
+//                         .offset(x: -28, y: -30)
+//                         .allowsHitTesting(false)
+//                         .transition(.scale.combined(with: .opacity))
+//                 }
+//         } else {
+//             content
+//         }
+//     }
+// }
