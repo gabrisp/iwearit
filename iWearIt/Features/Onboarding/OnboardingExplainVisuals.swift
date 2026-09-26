@@ -7,9 +7,18 @@ import WKDesign
 /// `Tools/generate_onboarding_catalog.py`. En orden: camisa de rayas,
 /// tirantes, oxford, chaquetón, bermudas, pantalón negro, vaquero, jersey,
 /// zapatillas, derby, gorra, bolso.
+///
+/// **De hombre o de mujer**, según el armario elegido en la conversación
+/// (`onboarding.closet`). Las de mujer ocupan los mismos huecos: camisa de
+/// rayas, tirantes, camisa blanca, blazer, falda, pantalón gris, vaquero,
+/// jersey, zapatillas, mocasines, gafas, bolso.
 enum CatalogGarment {
-    static let all = (1...12).map { String(format: "OnboardingGarment%02d", $0) }
-    static func name(_ index: Int) -> String { all[index - 1] }
+    // static let all = (1...12).map { String(format: "OnboardingGarment%02d", $0) }
+    // static func name(_ index: Int) -> String { all[index - 1] }
+    static var isWomen: Bool { UserDefaults.standard.string(forKey: "onboarding.closet") == "women" }
+    private static var prefix: String { isWomen ? "OnboardingWomanGarment" : "OnboardingGarment" }
+    static var all: [String] { (1...12).map { String(format: "\(prefix)%02d", $0) } }
+    static func name(_ index: Int) -> String { String(format: "\(prefix)%02d", index) }
 }
 
 // MARK: - La prueba social

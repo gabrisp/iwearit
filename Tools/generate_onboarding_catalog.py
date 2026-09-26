@@ -131,6 +131,28 @@ def cut_cells(sheet_png, columns=4, rows=3):
     return out
 
 
+SHEET_WOMEN = """Fotografía de producto de catálogo de moda de MUJER, vista cenital (flat lay), sobre fondo BLANCO PURO y liso (#FFFFFF), sin sombras, sin textura, sin texto, sin logotipos, sin maniquí ni personas.
+DOCE prendas SEPARADAS en una rejilla de 4 columnas por 3 filas, con MUCHO espacio en blanco entre cada una: ninguna se toca ni se solapa, cada una entera dentro de su hueco, del mismo tamaño aparente.
+Fila 1: camisa de mujer de manga larga a rayas azules y blancas; top de tirantes finos blanco de canalé; camisa blanca oversize de popelín; blazer de mujer color camel.
+Fila 2: falda midi plisada negra; pantalón de pinzas gris claro de pierna recta; vaquero recto de lavado claro; jersey de punto color crema.
+Fila 3: zapatillas blancas de piel minimalistas (el par, juntas); mocasines negros de piel (el par, juntos); gafas de sol de pasta negras; bolso de hombro pequeño de piel negro.
+Luz suave uniforme, colores fieles, prendas planchadas, estilo minimalista y actual."""
+
+
+def women():
+    """Las doce de mujer, en los mismos huecos que las de hombre:
+    `OnboardingWomanGarment01`…`12`."""
+    sheet = TMP / "sheet-women.png"
+    if not sheet.exists():
+        call(SHEET_WOMEN, sheet, "4:3")
+    for index, path in enumerate(cut_cells(sheet), start=1):
+        install(f"OnboardingWomanGarment{index:02d}", path)
+
+
+if __name__ == "__main__" and "--women" in __import__("sys").argv:
+    women()
+    raise SystemExit(0)
+
 if __name__ == "__main__":
     sheet = TMP / "sheet.png"
     selfie = TMP / "selfie.png"
