@@ -80,6 +80,12 @@ private struct ConversationScript: View {
         /// las no elegidas se van y la elegida se queda —sin icono ni
         /// cristal— como la respuesta. Ver `optionsRow`.
         case options(id: Int, kind: Choice)
+        /// "Nuestros usuarios sacan más de 1.000 combinaciones…", con las
+        /// prendas desfilando y un outfit montándose. Ver `ProofVisual`.
+        case proof(id: Int)
+        /// **El escaneo explicado por pasos**: 0 tus fotos, 1 cómo se lee un
+        /// outfit, 2 cada prenda a su balda. Ver `ExplainBlock`.
+        case explain(id: Int, page: Int)
         /// El contador del escaneo, subiendo según salen prendas.
         case counter(id: Int)
         /// "Buscando tu ropa", que al terminar se transforma en "Hemos
@@ -94,7 +100,7 @@ private struct ConversationScript: View {
                  let .news(id, _, _), let .wheel(id, _, _), let .note(id, _), let .pick(id, _),
                  let .heading(id, _), let .point(id, _, _, _), let .photos(id),
                  let .counter(id), let .count(id, _, _), let .options(id, _),
-                 let .scanTitle(id): id
+                 let .scanTitle(id), let .proof(id), let .explain(id, _): id
             }
         }
     }
@@ -109,7 +115,9 @@ private struct ConversationScript: View {
     /// `bad` y `good`: la mala y la buena noticia, esperando al botón.
     /// `photos`: el permiso de fotos, esperando al botón.
     /// `found`: el escaneo ha terminado; "Elegir cuáles guardo".
-    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good, photos, found }
+    /// `proof` y `explain(n)`: la prueba social y los pasos del escaneo,
+    /// esperando a "Continuar".
+    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good, photos, found, proof, explain(Int) }
 
     @State private var items: [Item] = []
     @State private var question: Question?
@@ -281,6 +289,19 @@ private struct ConversationScript: View {
             await startScan()
             return
         }
+        // `-chatProof`: directo a la prueba social y los pasos del escaneo.
+        if ProcessInfo.processInfo.arguments.contains("-chatProof") {
+            question = .good
+            await proof()
+            return
+        }
+        // `-chatExplain 0|1|2`: directo a un paso del escaneo explicado.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-chatExplain"), arguments.indices.contains(index + 1),
+           let page = Int(arguments[index + 1]) {
+            await explain(page)
+            return
+        }
         // `-chatSpend`: directo a la pregunta del gasto.
         if ProcessInfo.processInfo.arguments.contains("-chatSpend") {
             await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
@@ -433,8 +454,33 @@ private struct ConversationScript: View {
 
     /// **El permiso de fotos, en la misma conversación**: ya no es otra
     /// pantalla (`PhotoPermissionStep`).
-    private func photosIntro() async {
+    // MARK: La prueba y los pasos
+
+    /// "Nuestros usuarios…": las prendas desfilando y un outfit montándose.
+    private func proof() async {
         guard question == .good else { return }
+        withAnimation(.smooth(duration: 0.45)) { question = nil }
+        focusID = nil
+        try? await Task.sleep(for: .seconds(0.5))
+        beginStep()
+        append(.proof(id: takeID()))
+        try? await Task.sleep(for: .seconds(2.6))
+        ask(.proof)
+    }
+
+    /// Un paso de cómo funciona el escaneo, en el scroll.
+    private func explain(_ page: Int) async {
+        withAnimation(.smooth(duration: 0.45)) { question = nil }
+        try? await Task.sleep(for: .seconds(0.45))
+        beginStep()
+        append(.explain(id: takeID(), page: page))
+        try? await Task.sleep(for: .seconds(2.2))
+        ask(.explain(page))
+    }
+
+    private func photosIntro() async {
+        // Llega desde el último paso del escaneo explicado.
+        // guard question == .good else { return }
         withAnimation(.smooth(duration: 0.45)) { question = nil }
         focusID = nil
         try? await Task.sleep(for: .seconds(0.5))
@@ -645,6 +691,17 @@ private struct ConversationScript: View {
                 .frame(maxWidth: .infinity, alignment: .center)
         case let .options(id, kind):
             optionsRow(id: id, kind: kind)
+        case .proof:
+            VStack(spacing: WK.Spacing.l) {
+                TypewriterText(text: String(localized: "chat.proof.title", defaultValue: "Our users get more than 1,000 combinations out of what they already have"))
+                    .font(Self.lineFont)
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .multilineTextAlignment(.center)
+                ProofVisual()
+            }
+            .frame(maxWidth: .infinity)
+        case let .explain(_, page):
+            ExplainBlock(page: page, lineFont: Self.lineFont)
         case .scanTitle:
             TypewriterText(text: scanDone
                            ? String(localized: "scan.found.title", defaultValue: "We found")
@@ -924,7 +981,7 @@ private struct ConversationScript: View {
         //         String(localized: "chat.pieces", defaultValue: "\(String(describing: Int($0))) pieces")
         //     }
         //     .padding(.top, WK.Spacing.m)
-        case .spend, .wardrobe, .done, .bad, .good, .photos, .found:
+        case .spend, .wardrobe, .done, .bad, .good, .photos, .found, .proof, .explain:
             EmptyView()
         }
     }
@@ -966,7 +1023,23 @@ private struct ConversationScript: View {
                 // sabe que hay que tocar para seguir.
                 nudges: true,
                 // action: { model.advance() }
-                action: { Task { await photosIntro() } }
+                // action: { Task { await photosIntro() } }
+                action: { Task { await proof() } }
+            )
+        case .proof:
+            OnboardingButtonConfig(
+                title: String(localized: "common.continue", defaultValue: "Continue"),
+                action: { Task { await explain(0) } }
+            )
+        case let .explain(page):
+            OnboardingButtonConfig(
+                title: page == 2
+                    ? String(localized: "chat.explain.fillButton", defaultValue: "Fill my closet")
+                    : String(localized: "common.continue", defaultValue: "Continue"),
+                action: {
+                    guard question == .explain(page) else { return }
+                    Task { page < 2 ? await explain(page + 1) : await photosIntro() }
+                }
             )
         case .found:
             // La revisión, fuera: "Más adelante podrás revisarlas".
