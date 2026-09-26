@@ -285,13 +285,20 @@ struct ScanningStep: View {
                 .opacity(isFound ? 0 : 1)
                 .allowsHitTesting(!isFound)
             }
-            Text(title)
+            // **Como lo demás**: el título aparece letra a letra desenfocado,
+            // y el contador con el degradado de las cifras.
+            // Text(title)
+            //     .font(WK.Font.title)
+            //     .foregroundStyle(WK.Palette.primaryText)
+            //     .contentTransition(.opacity)
+            TypewriterText(text: title)
                 .font(WK.Font.title)
                 .foregroundStyle(WK.Palette.primaryText)
-                .contentTransition(.opacity)
+                .id(title)
             Text("\(pieces.count)")
                 .font(.system(size: 64, weight: .bold, design: .rounded))
-                .foregroundStyle(WK.Palette.primaryText)
+                // .foregroundStyle(WK.Palette.primaryText)
+                .foregroundStyle(NumberInk.gradient(.denim))
                 .contentTransition(.numericText(value: Double(pieces.count)))
                 .monospacedDigit()
             Text(pieces.count == 1
@@ -539,7 +546,7 @@ struct ScanningStep: View {
         // una foto de muestra, sin mirar la galería. Para ver la animación en
         // el simulador.
         if ProcessInfo.processInfo.arguments.contains("-fakeScan") {
-            let garments = (try? modelContext.fetch(FetchDescriptor<Garment>())) ?? []
+            let garments = (try? modelContext.fetch(FetchDescriptor<Garment>(predicate: #Predicate { $0.deletedAt == nil }))) ?? []
             let sample = UIImage(named: "OnboardingAfter")?.cgImage
             let spots = [CGRect(x: 0.18, y: 0.22, width: 0.3, height: 0.3), CGRect(x: 0.2, y: 0.52, width: 0.26, height: 0.36),
                          CGRect(x: 0.55, y: 0.2, width: 0.3, height: 0.32), CGRect(x: 0.56, y: 0.5, width: 0.26, height: 0.38)]
@@ -682,6 +689,10 @@ struct ScanningStep: View {
         try? await Task.sleep(for: .milliseconds(250))
         withAnimation(.smooth(duration: 0.4)) { photo = nil }
         try? await Task.sleep(for: .milliseconds(350))
+        // La foto ya no está: vuelven a su capa, con las demás.
+        for index in pieces.indices where ids.contains(pieces[index].id) {
+            pieces[index].isFresh = false
+        }
     }
 
     /// Espera a que la preparación de modelos termine, con un tope.
@@ -791,7 +802,9 @@ struct ScanningStep: View {
 struct ScanSummaryStep: View {
     let model: OnboardingModel
 
-    @Query private var garments: [Garment]
+    // **Sin las borradas**: ni en el borde, ni en la cuenta, ni en el color.
+    // @Query private var garments: [Garment]
+    @Query(filter: #Predicate<Garment> { $0.deletedAt == nil }) private var garments: [Garment]
     @Environment(AppEnvironment.self) private var appEnvironment
 
     /// Las prendas del armario, en el borde del lienzo.
@@ -836,7 +849,7 @@ struct ScanSummaryStep: View {
         // **Todas a la vez y ya en el borde**: vienen de estar colocadas en
         // el escaneo; salir otra vez del centro era repetir lo mismo.
         var loaded: [ScanCloud.Item] = []
-        for garment in garments.prefix(28) {
+        for garment in garments.filter({ $0.deletedAt == nil }).prefix(28) {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind
@@ -873,7 +886,7 @@ struct ScanSummaryStep: View {
 
     /// Arriba × abajo × calzado, más vestidos × calzado, con lo que hay.
     private var outfitCount: Int {
-        func count(_ kinds: Set<GarmentKind>) -> Int { garments.filter { kinds.contains($0.kind) }.count }
+        func count(_ kinds: Set<GarmentKind>) -> Int { garments.filter { $0.deletedAt == nil && kinds.contains($0.kind) }.count }
         let tops = count([.upperBody, .outerLayer])
         let bottoms = count([.lowerBody])
         let dresses = count([.wholeBody])
@@ -929,8 +942,13 @@ struct ScanCloud: View {
         var isPlaced = false
         /// Cuándo llegó: al abrirse al borde, cada una sale a su ritmo.
         var appearedAt = Date()
+        /// **Recién sacada de la foto**: va por encima de la foto mientras
+        /// vuela a su sitio. Antes, al empezar a volar, bajaba por debajo de
+        /// la foto y parecía salir de detrás.
+        var isFresh = false
         init(image: CGImage) { self.image = image; isPlaced = true }
         init(_ piece: ScanDiscovery.Piece) {
+            isFresh = true
             image = piece.image.cgImage
             sourceRect = piece.sourceRect
             kind = piece.kind
@@ -1023,7 +1041,8 @@ struct ScanCloud: View {
                         onTouch: { front[piece.id] = (front.values.max() ?? 0) + 1 }
                     )
                     // Las que se están recortando, encima de la foto.
-                    .zIndex(piece.isPlaced ? (front[piece.id] ?? 0) : 2000)
+                    // .zIndex(piece.isPlaced ? (front[piece.id] ?? 0) : 2000)
+                    .zIndex(piece.isFresh ? 2000 + (front[piece.id] ?? 0) : (front[piece.id] ?? 0))
                     .transition(.opacity)
                 }
             }

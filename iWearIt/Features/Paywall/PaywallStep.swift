@@ -28,7 +28,7 @@ struct PaywallStep: View {
     /// `onboardingButton`—; en la hoja de dentro de la app, uno propio.
     var usesOnboardingButton = false
 
-    @Query private var garments: [Garment]
+    @Query(filter: #Predicate<Garment> { $0.deletedAt == nil }) private var garments: [Garment]
     /// Tus prendas, dando la vuelta por el borde: el mismo lienzo del final
     /// del escaneo. Ver `ScanCloud`.
     @State private var pieces: [ScanCloud.Item] = []
@@ -167,7 +167,8 @@ struct PaywallStep: View {
         // Todas a la vez y ya en su sitio: son las mismas, en el mismo sitio,
         // que en "Tu armario". Ver `ScanCloud.orbitEpoch`.
         var loaded: [ScanCloud.Item] = []
-        for garment in garments.prefix(28) {
+        // Sin las borradas.
+        for garment in garments.filter({ $0.deletedAt == nil }).prefix(28) {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind

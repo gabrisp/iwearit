@@ -145,17 +145,7 @@ struct NumberWheel: View {
 
     /// El color de la cifra: claro arriba a la izquierda, el tono en medio y
     /// más oscuro abajo a la derecha.
-    private var ink: LinearGradient {
-        LinearGradient(
-            stops: [
-                .init(color: tone.color.mix(with: .white, by: 0.45), location: 0),
-                .init(color: tone.color, location: 0.45),
-                .init(color: tone.color.mix(with: .black, by: 0.3), location: 0.75),
-                .init(color: tone.color.mix(with: .white, by: 0.2), location: 1),
-            ],
-            startPoint: .topLeading, endPoint: .bottomTrailing
-        )
-    }
+    private var ink: LinearGradient { NumberInk.gradient(tone) }
 
     var body: some View {
         ZStack {
@@ -222,5 +212,21 @@ struct NumberWheel: View {
             }
             withAnimation(.spring(duration: 0.5, bounce: 0.4)) { hasLanded = true }
         }
+    }
+}
+
+/// El degradado de las cifras: claro arriba a la izquierda, el tono en medio
+/// y más oscuro abajo a la derecha.
+enum NumberInk {
+    static func gradient(_ tone: OnboardingTone) -> LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: tone.color.mix(with: .white, by: 0.45), location: 0),
+                .init(color: tone.color, location: 0.45),
+                .init(color: tone.color.mix(with: .black, by: 0.3), location: 0.75),
+                .init(color: tone.color.mix(with: .white, by: 0.2), location: 1),
+            ],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
     }
 }
