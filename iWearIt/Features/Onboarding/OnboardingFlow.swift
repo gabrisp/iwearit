@@ -44,6 +44,14 @@ struct OnboardingFlow: View {
             OnboardingPaper(step: model.step.rawValue)
                 .ignoresSafeArea()
 
+            // Las prendas de "Tu armario" y del paywall: una capa, quieta al
+            // pasar de una pantalla a la otra.
+            if Self.closetSteps.contains(model.step) {
+                OnboardingClosetCloud()
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
+
             // Las dos pantallas mientras pasa la página —la que sale y la que
             // entra—, por su paso para que cada una conserve su estado. Ver
             // `OnboardingModel.move`.
@@ -92,7 +100,11 @@ struct OnboardingFlow: View {
         }
         .onPreferenceChange(OnboardingButtonKey.self) { button = $0 }
         .animation(WKAnimation.content, value: model.step == .welcome)
+        .animation(.smooth(duration: 0.6), value: Self.closetSteps.contains(model.step))
     }
+
+    /// Las pantallas con las prendas del armario alrededor.
+    private static let closetSteps: Set<OnboardingStep> = [.scanSummary, .paywall]
 
     /// La que sale primero, la que entra después.
     private var pages: [OnboardingStep] {
@@ -123,7 +135,9 @@ struct OnboardingFlow: View {
         if model.step != .welcome {
             HStack(spacing: WK.Spacing.m) {
                 Button {
-                    model.goBack()
+                    // El paso decide primero: la conversación rebobina.
+                    // model.goBack()
+                    if model.backHandler?() != true { model.goBack() }
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(WK.Font.headline)

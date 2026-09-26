@@ -177,6 +177,14 @@ private struct PermissionPoint: View {
 /// llenando. Por eso es la pantalla que más justifica el flujo entero.
 struct ScanningStep: View {
     let model: OnboardingModel
+    /// **Dentro de la conversación**: solo el lienzo, detrás del scroll. El
+    /// título, el contador y lo encontrado los dice la conversación. Ver
+    /// `ConversationStep`.
+    var embedded = false
+    /// Cuántas prendas lleva, para el contador de la conversación.
+    var onCount: (Int) -> Void = { _ in }
+    /// Terminado: prendas y combinaciones.
+    var onFound: (_ pieces: Int, _ outfits: Int) -> Void = { _, _ in }
 
     @Environment(AppEnvironment.self) private var appEnvironment
     @Environment(\.modelContext) private var modelContext
@@ -210,7 +218,7 @@ struct ScanningStep: View {
             ScanCloud(pieces: pieces, photo: photo, spreadSince: spreadSince)
                 .ignoresSafeArea()
 
-            if isFound {
+            if isFound, !embedded {
                 // **Centrado en la pantalla**, subiendo como la conversación.
                 ScanFoundMessage(pieces: pieces.count, outfits: outfits)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -218,6 +226,7 @@ struct ScanningStep: View {
                     .transition(.opacity.combined(with: .offset(y: 60)))
             }
 
+            if !embedded {
             header
                 .padding(.horizontal, WK.Spacing.screenInset)
                 .padding(.bottom, WK.Spacing.xl)
@@ -244,8 +253,9 @@ struct ScanningStep: View {
                 .opacity(isFound ? 0 : 1)
                 .offset(y: isFound ? -40 : 0)
                 .allowsHitTesting(!isFound)
+            }
 
-            if !isFound {
+            if !isFound, !embedded {
                 VStack {
                     Spacer()
                     Label(String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open"), systemImage: "lock.fill")
@@ -261,15 +271,17 @@ struct ScanningStep: View {
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: pieces.count)
-        .onboardingButton(isFound ? OnboardingButtonConfig(
-            title: String(localized: "onboarding.scanfoundstep.chooseWhichToKeep", defaultValue: "Choose which to keep"),
-            action: { model.go(to: .scanReview) }
-        ) : nil)
+        .modifier(ScanButton(isActive: !embedded, isFound: isFound, model: model))
+        .onChange(of: pieces.count) { _, count in onCount(count) }
         .task { await run() }
+        // Si la pantalla se va —atrás, o la conversación empieza de nuevo—,
+        // el escáner para.
+        .onDisappear { Task { await scanner?.cancel() } }
     }
 
     private var header: some View {
         VStack(spacing: WK.Spacing.xs) {
+            // Sin "Saltar": el escaneo termina solo, con diez prendas.
             HStack {
                 Spacer()
                 Button { finish() } label: {
@@ -282,8 +294,10 @@ struct ScanningStep: View {
                 }
                 .buttonStyle(.plain)
                 .adaptiveGlassInteractive(in: .capsule)
-                .opacity(isFound ? 0 : 1)
-                .allowsHitTesting(!isFound)
+                // .opacity(isFound ? 0 : 1)
+                // .allowsHitTesting(!isFound)
+                .opacity(0)
+                .allowsHitTesting(false)
             }
             // **Como lo demás**: el título aparece letra a letra desenfocado,
             // y el contador con el degradado de las cifras.
@@ -687,8 +701,9 @@ struct ScanningStep: View {
             }
         }
         try? await Task.sleep(for: .milliseconds(250))
-        withAnimation(.smooth(duration: 0.4)) { photo = nil }
-        try? await Task.sleep(for: .milliseconds(350))
+        // withAnimation(.smooth(duration: 0.4)) { photo = nil }
+        withAnimation(.easeIn(duration: 0.45)) { photo = nil }
+        try? await Task.sleep(for: .milliseconds(400))
         // La foto ya no está: vuelven a su capa, con las demás.
         for index in pieces.indices where ids.contains(pieces[index].id) {
             pieces[index].isFresh = false
@@ -759,7 +774,8 @@ struct ScanningStep: View {
             // model.go(to: found > 0 ? .scanFound : .scanReview)
             // **"+X prendas" es este mismo lienzo**: no se pasa de página;
             // las prendas se quedan donde están y aparece la rueda.
-            guard !pieces.isEmpty else {
+            // Dentro de la conversación lo dice ella, haya o no.
+            guard !pieces.isEmpty || embedded else {
                 model.go(to: .scanReview)
                 return
             }
@@ -770,6 +786,7 @@ struct ScanningStep: View {
             withAnimation(.smooth(duration: 0.4)) { photo = nil }
             spreadSince = .now
             withAnimation(.smooth(duration: 0.6)) { isFound = true }
+            onFound(pieces.count, outfits)
         }
     }
 }
@@ -805,6 +822,9 @@ struct ScanSummaryStep: View {
     // **Sin las borradas**: ni en el borde, ni en la cuenta, ni en el color.
     // @Query private var garments: [Garment]
     @Query(filter: #Predicate<Garment> { $0.deletedAt == nil }) private var garments: [Garment]
+    /// **Y lo encontrado por revisar**: sin la revisión en el onboarding, lo
+    /// del escaneo sigue pendiente, y es lo que más se tiene que ver aquí.
+    @Query(sort: [SortDescriptor(\PendingGarment.foundAt, order: .reverse)]) private var pending: [PendingGarment]
     @Environment(AppEnvironment.self) private var appEnvironment
 
     /// Las prendas del armario, en el borde del lienzo.
@@ -816,8 +836,11 @@ struct ScanSummaryStep: View {
     /// las combinaciones en la rueda.
     var body: some View {
         ZStack {
-            ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
-                .ignoresSafeArea()
+            // Las prendas ya no son de esta pantalla: las pinta el onboarding
+            // una sola vez, debajo de esta y del paywall, para que al pasar de
+            // una a otra no se muevan. Ver `OnboardingClosetCloud`.
+            // ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
+            //     .ignoresSafeArea()
 
             VStack(spacing: 2) {
                 AuraText(String(localized: "onboarding.onboardingscansteps.yourClosetNowInside", defaultValue: "Your closet, now inside"), font: WK.Font.title)
@@ -829,7 +852,7 @@ struct ScanSummaryStep: View {
                     .padding(.top, WK.Spacing.s)
                     .onboardingEntrance(2)
                 if topColourName != "—" {
-                    AuraText("\(garments.count) " + String(localized: "scan.pieces", defaultValue: "pieces") + " · " + String(localized: "onboarding.onboardingscansteps.mainColor", defaultValue: "main color") + " " + topColourName, font: WK.Font.callout, isSecondary: true)
+                    AuraText("\(garments.count + pending.count) " + String(localized: "scan.pieces", defaultValue: "pieces") + " · " + String(localized: "onboarding.onboardingscansteps.mainColor", defaultValue: "main color") + " " + topColourName, font: WK.Font.callout, isSecondary: true)
                         .onboardingEntrance(3)
                 }
             }
@@ -841,7 +864,7 @@ struct ScanSummaryStep: View {
             String(localized: "onboarding.onboardingscansteps.seeMyCloset", defaultValue: "See my closet"),
             action: { model.advance() }
         )
-        .task { await loadPieces() }
+        // .task { await loadPieces() }
     }
 
     private func loadPieces() async {
@@ -849,10 +872,13 @@ struct ScanSummaryStep: View {
         // **Todas a la vez y ya en el borde**: vienen de estar colocadas en
         // el escaneo; salir otra vez del centro era repetir lo mismo.
         var loaded: [ScanCloud.Item] = []
-        for garment in garments.filter({ $0.deletedAt == nil }).prefix(28) {
-            guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
+        // Lo recién encontrado primero; después, lo que ya había.
+        let sources = pending.map { ($0.imageKey, $0.kind) }
+            + garments.filter { $0.deletedAt == nil }.map { ($0.normalizedImageKey, $0.kind) }
+        for (key, kind) in sources.prefix(28) {
+            guard let image = try? await appEnvironment.imageStore.image(for: key, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
-            item.kind = garment.kind
+            item.kind = kind
             loaded.append(item)
         }
         withAnimation(.easeOut(duration: 0.5)) { pieces = loaded }
@@ -886,7 +912,10 @@ struct ScanSummaryStep: View {
 
     /// Arriba × abajo × calzado, más vestidos × calzado, con lo que hay.
     private var outfitCount: Int {
-        func count(_ kinds: Set<GarmentKind>) -> Int { garments.filter { $0.deletedAt == nil && kinds.contains($0.kind) }.count }
+        func count(_ kinds: Set<GarmentKind>) -> Int {
+            garments.filter { $0.deletedAt == nil && kinds.contains($0.kind) }.count
+                + pending.filter { kinds.contains($0.kind) }.count
+        }
         let tops = count([.upperBody, .outerLayer])
         let bottoms = count([.lowerBody])
         let dresses = count([.wholeBody])
@@ -1026,7 +1055,15 @@ struct ScanCloud: View {
                         .shadow(color: .black.opacity(0.16), radius: 14, y: 8)
                         .position(x: frame.midX, y: frame.midY)
                         .id(photo.id)
-                        .transition(.scale(scale: 0.85).combined(with: .opacity))
+                        // Llega creciendo; se va cayendo hacia abajo.
+                        // .transition(.scale(scale: 0.85).combined(with: .opacity))
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.85).combined(with: .opacity),
+                            // Hacia dentro de la pantalla: encoge y se
+                            // desenfoca. Hacia abajo se veía cortada.
+                            // removal: .offset(y: 320).combined(with: .opacity)
+                            removal: .scale(scale: 0.45).combined(with: .opacity).combined(with: AnyTransition(.blurReplace))
+                        ))
                         .zIndex(1000)
                 }
                 ForEach(Array(pieces.enumerated()), id: \.element.id) { index, piece in
@@ -1176,10 +1213,19 @@ struct ScanCloud: View {
     fileprivate static func spot(_ index: Int, unit: CGFloat) -> (offset: CGSize, size: CGFloat, tilt: Double) {
         let golden = 137.508 * Double.pi / 180
         let angle = Double(index) * golden
-        let radius = unit * (0.12 + 0.085 * sqrt(Double(index)))
-        let size = max(64, unit * 0.26 - CGFloat(index) * 1.2)
+        // let radius = unit * (0.12 + 0.085 * sqrt(Double(index)))
+        // let size = max(64, unit * 0.26 - CGFloat(index) * 1.2)
+        let size = max(58, unit * 0.21 - CGFloat(index) * 1)
         let tilt = Double((index * 37) % 24) - 12
-        return (CGSize(width: cos(angle) * radius, height: sin(angle) * radius * 1.15), size, tilt)
+        // return (CGSize(width: cos(angle) * radius, height: sin(angle) * radius * 1.15), size, tilt)
+        // **Lejos de la foto**: en un anillo por fuera de ella, que crece
+        // despacio. Cerca del centro caían debajo de la foto siguiente.
+        let growth = unit * 0.05 * sqrt(Double(index))
+        let x = cos(angle) * (unit * 0.37 + growth)
+        let y = sin(angle) * (unit * 0.5 + growth)
+        // Sin salirse por los lados.
+        let limit = unit / 2 - size * 0.3
+        return (CGSize(width: max(-limit, min(limit, x)), height: y), size, tilt)
     }
 }
 
@@ -1322,5 +1368,54 @@ struct AuraText: View {
             .wkShimmer(isActive: true)
             .shadow(color: WK.Palette.canvas, radius: 6)
             .shadow(color: WK.Palette.canvas.opacity(0.8), radius: 16)
+    }
+}
+
+/// El botón de "Elegir cuáles guardo" del escaneo suelto; dentro de la
+/// conversación lo pone ella.
+private struct ScanButton: ViewModifier {
+    let isActive: Bool
+    let isFound: Bool
+    let model: OnboardingModel
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.onboardingButton(isFound ? OnboardingButtonConfig(
+                title: String(localized: "onboarding.scanfoundstep.chooseWhichToKeep", defaultValue: "Choose which to keep"),
+                action: { model.go(to: .scanReview) }
+            ) : nil)
+        } else {
+            content
+        }
+    }
+}
+
+/// **Tus prendas girando por el borde, debajo de "Tu armario" y del
+/// paywall**: una sola capa para las dos pantallas. Cada una tenía la suya, y
+/// al pasar de página la de salida subía y se desenfocaba mientras la nueva
+/// aparecía: parecía que las prendas se movían.
+struct OnboardingClosetCloud: View {
+    @Environment(AppEnvironment.self) private var appEnvironment
+    @Query(filter: #Predicate<Garment> { $0.deletedAt == nil }) private var garments: [Garment]
+    @Query(sort: [SortDescriptor(\PendingGarment.foundAt, order: .reverse)]) private var pending: [PendingGarment]
+    @State private var pieces: [ScanCloud.Item] = []
+    @State private var spreadSince = Date()
+
+    var body: some View {
+        ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
+            .task {
+                guard pieces.isEmpty else { return }
+                var loaded: [ScanCloud.Item] = []
+                // Lo recién encontrado primero; después, lo que ya había.
+                let sources = pending.map { ($0.imageKey, $0.kind) }
+                    + garments.map { ($0.normalizedImageKey, $0.kind) }
+                for (key, kind) in sources.prefix(28) {
+                    guard let image = try? await appEnvironment.imageStore.image(for: key, variant: .thumb) else { continue }
+                    var item = ScanCloud.Item(image: image)
+                    item.kind = kind
+                    loaded.append(item)
+                }
+                withAnimation(.easeOut(duration: 0.5)) { pieces = loaded }
+            }
     }
 }

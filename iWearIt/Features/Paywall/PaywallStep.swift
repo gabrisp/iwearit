@@ -86,8 +86,12 @@ struct PaywallStep: View {
     /// los planes para elegir.
     var body: some View {
         ZStack {
-            ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
-                .ignoresSafeArea()
+            // En el onboarding las pinta él, debajo, para que no se muevan al
+            // llegar desde "Tu armario". Ver `OnboardingClosetCloud`.
+            if !usesOnboardingButton {
+                ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
+                    .ignoresSafeArea()
+            }
 
             VStack(spacing: WK.Spacing.l) {
                 Spacer(minLength: 0)
@@ -138,7 +142,7 @@ struct PaywallStep: View {
                 ?? packages.first { $0.packageType == .annual }
                 ?? packages.first
         }
-        .task { await loadPieces() }
+        .task { if !usesOnboardingButton { await loadPieces() } }
     }
 
     /// "Seguir gratis" y "Restaurar", a la vista y juntos.
@@ -167,8 +171,7 @@ struct PaywallStep: View {
         // Todas a la vez y ya en su sitio: son las mismas, en el mismo sitio,
         // que en "Tu armario". Ver `ScanCloud.orbitEpoch`.
         var loaded: [ScanCloud.Item] = []
-        // Sin las borradas.
-        for garment in garments.filter({ $0.deletedAt == nil }).prefix(28) {
+        for garment in garments.prefix(28) {
             guard let image = try? await appEnvironment.imageStore.image(for: garment.normalizedImageKey, variant: .thumb) else { continue }
             var item = ScanCloud.Item(image: image)
             item.kind = garment.kind

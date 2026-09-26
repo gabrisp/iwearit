@@ -9,6 +9,44 @@ import WKServices
 struct ConversationStep: View {
     let model: OnboardingModel
 
+    /// Cada vez que se vuelve atrás, una conversación nueva desde el
+    /// principio.
+    @State private var run = 0
+    @State private var hasProgressed = false
+
+    /// **Atrás, dentro de la conversación, la rebobina entera**: vuelve a
+    /// empezar desde el principio. Sin nada contestado todavía, atrás es
+    /// atrás —a la bienvenida—.
+    var body: some View {
+        ConversationScript(model: model, hasProgressed: $hasProgressed)
+            .id(run)
+            .transition(.opacity.combined(with: AnyTransition(.blurReplace)))
+            .onAppear {
+                model.backHandler = {
+                    guard hasProgressed else { return false }
+                    withAnimation(.smooth(duration: 0.6)) {
+                        hasProgressed = false
+                        run += 1
+                    }
+                    return true
+                }
+            }
+            .onDisappear { model.backHandler = nil }
+    }
+}
+
+/// Se apaga al irse la conversación: lo que quedara en marcha de ella no
+/// debe mover el onboarding.
+@MainActor
+private final class RunToken {
+    var isCancelled = false
+}
+
+/// La conversación en sí. Ver `ConversationStep`.
+private struct ConversationScript: View {
+    let model: OnboardingModel
+    @Binding var hasProgressed: Bool
+
     /// Una pieza de la conversación.
     private enum Item: Identifiable, Equatable {
         case line(id: Int, text: String)
@@ -35,12 +73,17 @@ struct ConversationStep: View {
         /// otro. En filas sueltas, la última se centraba y el titular se iba
         /// por arriba.
         case photos(id: Int)
+        /// El contador del escaneo, subiendo según salen prendas.
+        case counter(id: Int)
+        /// Una cantidad en la rueda: prendas, combinaciones.
+        case count(id: Int, value: Double, tone: OnboardingTone)
 
         var id: Int {
             switch self {
             case let .line(id, _), let .answer(id, _), let .progress(id), let .highlight(id, _),
                  let .news(id, _, _), let .wheel(id, _, _), let .note(id, _), let .pick(id, _),
-                 let .heading(id, _), let .point(id, _, _, _), let .photos(id): id
+                 let .heading(id, _), let .point(id, _, _, _), let .photos(id),
+                 let .counter(id), let .count(id, _, _): id
             }
         }
     }
@@ -51,7 +94,8 @@ struct ConversationStep: View {
     /// Qué se le está preguntando ahora mismo.
     /// `bad` y `good`: la mala y la buena noticia, esperando al botón.
     /// `photos`: el permiso de fotos, esperando al botón.
-    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good, photos }
+    /// `found`: el escaneo ha terminado; "Elegir cuáles guardo".
+    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good, photos, found }
 
     @State private var items: [Item] = []
     @State private var question: Question?
@@ -73,11 +117,44 @@ struct ConversationStep: View {
     @State private var stepStart = 0
     /// Cuánto del bloque de fotos se ha dicho ya. Ver `Item.photos`.
     @State private var photosShown = 0
+    /// **El escaneo, detrás de la conversación**: el lienzo con la foto y las
+    /// prendas. Ver `ScanningStep(embedded:)`.
+    @State private var isScanning = false
+    @State private var scanCount = 0
+    /// Dónde se ancla lo enfocado: al centro, o arriba mientras se escanea,
+    /// para dejar el centro a la foto.
+    @State private var focusAnchor: UnitPoint = .center
+    @State private var token = RunToken()
 
     /// Tamaño de conversación, no de titular.
     private static let lineFont = Font.custom("PlusJakartaSans-SemiBold", size: 19, relativeTo: .headline)
 
     var body: some View {
+        ZStack {
+            if isScanning {
+                ScanningStep(
+                    model: model,
+                    embedded: true,
+                    onCount: { scanCount = $0 },
+                    onFound: { pieces, outfits in Task { await found(pieces: pieces, outfits: outfits) } }
+                )
+                .transition(.opacity)
+            }
+            conversation
+                // Durante el escaneo, la conversación no tiene nada que
+                // tocar: que los dedos lleguen a las prendas de detrás.
+                .allowsHitTesting(!isScanning || question != nil && question != .found)
+        }
+        .onboardingButton(button)
+        .task {
+            guard !hasStarted else { return }
+            hasStarted = true
+            await start()
+        }
+        .onDisappear { token.isCancelled = true }
+    }
+
+    private var conversation: some View {
         ScrollViewReader { reader in
             ScrollView {
                 VStack(alignment: .center, spacing: WK.Spacing.l) {
@@ -144,12 +221,7 @@ struct ConversationStep: View {
             .onChange(of: question) { _, _ in scrollDown(reader) }
             .onChange(of: focusID) { _, _ in scrollDown(reader) }
             .onChange(of: photosShown) { _, _ in scrollDown(reader) }
-        }
-        .onboardingButton(button)
-        .task {
-            guard !hasStarted else { return }
-            hasStarted = true
-            await start()
+            .onChange(of: focusAnchor) { _, _ in scrollDown(reader) }
         }
     }
 
@@ -162,7 +234,7 @@ struct ConversationStep: View {
                 // La última fila ya lleva dentro sus opciones.
                 // if let last = items.last { reader.scrollTo(last.id, anchor: .center) }
                 if let target = focusID ?? items.last?.id {
-                    reader.scrollTo(target, anchor: .center)
+                    reader.scrollTo(target, anchor: focusAnchor)
                 }
             }
         }
@@ -183,6 +255,11 @@ struct ConversationStep: View {
             await photosIntro()
             return
         }
+        // `-chatScan`: directo al escaneo (con `-fakeScan`, de prueba).
+        if ProcessInfo.processInfo.arguments.contains("-chatScan") {
+            await startScan()
+            return
+        }
         // `-chatSpend`: directo a la pregunta del gasto.
         if ProcessInfo.processInfo.arguments.contains("-chatSpend") {
             await say(String(localized: "chat.spend", defaultValue: "Roughly, how much do you spend on clothes a month?"))
@@ -201,6 +278,7 @@ struct ConversationStep: View {
     private func answerGoal(_ option: OnboardingOption) async {
         // Un toque: dos seguidos contestaban dos veces.
         guard question == .goal else { return }
+        hasProgressed = true
         model.goal = option.id
         await answer(option.label)
         await say(String(localized: "chat.goal.reply", defaultValue: "Perfect, we'll start there."))
@@ -373,8 +451,67 @@ struct ConversationStep: View {
             // sueltas. Ver `PhotoPermissionStep`.
             _ = await PhotoLibraryService().requestAuthorization()
             isRequestingPhotos = false
-            model.advance()
+            guard !token.isCancelled else { return }
+            // model.advance()
+            // **Y el escaneo, aquí mismo**: sigue la conversación.
+            await startScan()
         }
+    }
+
+    // MARK: El escaneo
+
+    private func startScan() async {
+        withAnimation(.smooth(duration: 0.45)) { question = nil }
+        try? await Task.sleep(for: .seconds(0.4))
+        beginStep()
+        let title = takeID()
+        append(.line(id: title, text: String(localized: "onboarding.onboardingscansteps.lookingForYourClothes", defaultValue: "Looking for your clothes")))
+        // Arriba, para dejar el centro a la foto que se mira.
+        focusID = title
+        focusAnchor = UnitPoint(x: 0.5, y: 0.16)
+        try? await Task.sleep(for: .seconds(0.6))
+        append(.counter(id: takeID()))
+        append(.note(id: takeID(), text: String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open")))
+        withAnimation(.smooth(duration: 0.6)) { isScanning = true }
+    }
+
+    /// Terminado: lo encontrado, en la conversación, con las ruedas.
+    private func found(pieces: Int, outfits: Int) async {
+        guard !token.isCancelled else { return }
+        beginStep()
+        focusID = nil
+        focusAnchor = .center
+        // Nada esta vez: se dice y se sigue.
+        guard pieces > 0 else {
+            await say(String(localized: "chat.scan.none", defaultValue: "I couldn't find clothes this time. You can add them whenever you like."))
+            ask(.found)
+            return
+        }
+        await say(String(localized: "scan.found.title", defaultValue: "We found"))
+        let wheel = takeID()
+        focusID = wheel
+        append(.count(id: wheel, value: Double(pieces), tone: .denim))
+        try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
+        await say(pieces == 1
+                  ? String(localized: "scan.piece", defaultValue: "piece")
+                  : String(localized: "scan.pieces", defaultValue: "pieces"))
+        try? await Task.sleep(for: .seconds(1.0))
+        beginStep()
+        focusID = nil
+        if outfits > 0 {
+            await say(String(localized: "scan.found.moreThan", defaultValue: "and you can make more than"))
+            let second = takeID()
+            focusID = second
+            append(.count(id: second, value: Double(outfits), tone: .oliva))
+            try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
+            await say(String(localized: "scan.found.outfits", defaultValue: "outfits"))
+        } else {
+            await say(String(localized: "onboarding.scanfoundstep.asSoonAsYouHave", defaultValue: "As soon as you have something for the bottom, the outfits begin."))
+        }
+        // **Sin revisar ahora**: se quedan pendientes y se revisan luego.
+        try? await Task.sleep(for: .seconds(0.4))
+        append(.note(id: takeID(), text: String(localized: "chat.scan.reviewLater", defaultValue: "You'll be able to review them later.")))
+        ask(.found)
     }
 
     private func say(_ text: String) async {
@@ -441,10 +578,30 @@ struct ConversationStep: View {
         case let .wheel(_, value, isGood):
             NumberWheel(target: value, format: { model.money($0) }, tone: isGood ? .oliva : .granate)
                 .frame(maxWidth: .infinity, alignment: .center)
+        case .counter:
+            VStack(spacing: 0) {
+                Text("\(scanCount)")
+                    .font(.system(size: 64, weight: .bold, design: .rounded))
+                    .foregroundStyle(NumberInk.gradient(.denim))
+                    .contentTransition(.numericText(value: Double(scanCount)))
+                    .monospacedDigit()
+                    .animation(.smooth(duration: 0.4), value: scanCount)
+                Text(scanCount == 1
+                     ? String(localized: "scan.piece", defaultValue: "piece")
+                     : String(localized: "scan.pieces", defaultValue: "pieces"))
+                    .font(WK.Font.callout)
+                    .foregroundStyle(WK.Palette.secondaryText)
+            }
+            .frame(maxWidth: .infinity)
+        case let .count(_, value, tone):
+            NumberWheel(target: value, format: { Int($0).formatted() }, tone: tone)
+                .frame(maxWidth: .infinity, alignment: .center)
         case .photos:
             VStack(spacing: WK.Spacing.l) {
                 TypewriterText(text: String(localized: "onboarding.onboardingscansteps.yourClothesAreAlreadyNin", defaultValue: "Your clothes are already\nin your photos"))
-                    .font(WK.Font.largeTitle)
+                    // Del tamaño del resto de la conversación, no de titular.
+                    // .font(WK.Font.largeTitle)
+                    .font(Self.lineFont)
                     .foregroundStyle(WK.Palette.primaryText)
                     .multilineTextAlignment(.center)
                 if photosShown >= 1 {
@@ -465,7 +622,8 @@ struct ConversationStep: View {
             .frame(maxWidth: .infinity)
         case let .heading(_, text):
             TypewriterText(text: text)
-                .font(WK.Font.largeTitle)
+                // .font(WK.Font.largeTitle)
+                .font(Self.lineFont)
                 .foregroundStyle(WK.Palette.primaryText)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -649,7 +807,7 @@ struct ConversationStep: View {
         //         String(localized: "chat.pieces", defaultValue: "\(String(describing: Int($0))) pieces")
         //     }
         //     .padding(.top, WK.Spacing.m)
-        case .spend, .wardrobe, .done, .bad, .good, .photos:
+        case .spend, .wardrobe, .done, .bad, .good, .photos, .found:
             EmptyView()
         }
     }
@@ -692,6 +850,16 @@ struct ConversationStep: View {
                 nudges: true,
                 // action: { model.advance() }
                 action: { Task { await photosIntro() } }
+            )
+        case .found:
+            // La revisión, fuera: "Más adelante podrás revisarlas".
+            // OnboardingButtonConfig(
+            //     title: String(localized: "onboarding.scanfoundstep.chooseWhichToKeep", defaultValue: "Choose which to keep"),
+            //     action: { model.go(to: .scanReview) }
+            // )
+            OnboardingButtonConfig(
+                title: String(localized: "common.continue", defaultValue: "Continue"),
+                action: { model.go(to: .scanSummary) }
             )
         case .photos:
             OnboardingButtonConfig(

@@ -75,7 +75,10 @@ enum OnboardingVariant: String, CaseIterable {
         // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison].contains(step)
         // Y el permiso de fotos, también dentro de la conversación.
         // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal].contains(step)
-        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission].contains(step)
+        // Y el escaneo: también en la conversación.
+        // case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission].contains(step)
+        // Sin la revisión de lo encontrado: "Más adelante podrás revisarlas".
+        case .v2: [.goal, .pain, .spend, .wardrobeSize, .calculating, .savings, .statements, .socialProof, .scanFound, .comparison, .reveal, .photoPermission, .scanning, .scanReview].contains(step)
         }
     }
 
@@ -149,6 +152,10 @@ final class OnboardingModel {
         guard let previous = OnboardingStep(rawValue: raw) else { return }
         move(to: previous)
     }
+
+    /// **Lo que hace atrás un paso, si quiere hacer algo suyo**: devuelve
+    /// `true` si lo ha hecho. La conversación rebobina. Ver `ConversationStep`.
+    var backHandler: (() -> Bool)?
 
     /// La pantalla que está saliendo, mientras sale. Ver `OnboardingFlow`.
     private(set) var outgoing: OnboardingStep?

@@ -14157,6 +14157,40 @@
           }
         }
       }
+    },
+    "chat.scan.none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I couldn't find clothes this time. You can add them whenever you like."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta vez no he encontrado prendas. Podrás añadirlas cuando quieras."
+          }
+        }
+      }
+    },
+    "chat.scan.reviewLater" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll be able to review them later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más adelante podrás revisarlas."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
