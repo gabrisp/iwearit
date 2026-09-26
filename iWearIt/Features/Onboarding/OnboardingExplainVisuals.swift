@@ -320,7 +320,10 @@ struct ExplainBlock: View {
                 switch page {
                 case 0: PhotoGridVisual()
                 // case 1: SelfieReadVisual()
-                case 1: GarmentReadVisual(isWomen: isWomen)
+                // Las prendas sombreadas, de antes: se vuelve al recuadro de
+                // puntos, con la foto de hombre o de mujer.
+                // case 1: GarmentReadVisual(isWomen: isWomen)
+                case 1: SelfieReadVisual(isWomen: isWomen)
                 default: ShelvesVisual()
                 }
             }
@@ -442,24 +445,33 @@ private struct PhotoGridVisual: View {
 /// **Cómo se lee un outfit**: el selfie, y encima un recuadro de puntos por
 /// prenda con su nombre, apareciendo uno a uno.
 private struct SelfieReadVisual: View {
+    /// El selfie de ella, si el armario es de mujer.
+    var isWomen = false
     @State private var shown = 0
 
     /// Dónde está cada prenda en el selfie (0-1).
-    private static let boxes: [(label: String, rect: CGRect)] = [
-        (String(localized: "chat.explain.tops", defaultValue: "Tops"), CGRect(x: 0.30, y: 0.27, width: 0.42, height: 0.29)),
-        (String(localized: "chat.explain.bottoms", defaultValue: "Bottoms"), CGRect(x: 0.36, y: 0.52, width: 0.30, height: 0.16)),
-        (String(localized: "chat.explain.shoes", defaultValue: "Shoes"), CGRect(x: 0.33, y: 0.79, width: 0.35, height: 0.12)),
-    ]
+    private var boxes: [(label: String, rect: CGRect)] {
+        let tops = String(localized: "chat.explain.tops", defaultValue: "Tops")
+        let bottoms = String(localized: "chat.explain.bottoms", defaultValue: "Bottoms")
+        let shoes = String(localized: "chat.explain.shoes", defaultValue: "Shoes")
+        return isWomen
+            ? [(tops, CGRect(x: 0.30, y: 0.34, width: 0.40, height: 0.25)),
+               (bottoms, CGRect(x: 0.38, y: 0.61, width: 0.26, height: 0.19)),
+               (shoes, CGRect(x: 0.36, y: 0.815, width: 0.26, height: 0.07))]
+            : [(tops, CGRect(x: 0.30, y: 0.27, width: 0.42, height: 0.29)),
+               (bottoms, CGRect(x: 0.36, y: 0.52, width: 0.30, height: 0.16)),
+               (shoes, CGRect(x: 0.33, y: 0.79, width: 0.35, height: 0.12))]
+    }
 
     var body: some View {
         let width: CGFloat = 210
         let height = width * 16 / 9
         ZStack(alignment: .topLeading) {
-            Image("OnboardingSelfie")
+            Image(isWomen ? "OnboardingSelfieWoman" : "OnboardingSelfie")
                 .resizable()
                 .scaledToFill()
                 .frame(width: width, height: height)
-            ForEach(Array(Self.boxes.enumerated()), id: \.offset) { index, box in
+            ForEach(Array(boxes.enumerated()), id: \.offset) { index, box in
                 if shown > index {
                     let rect = CGRect(x: box.rect.minX * width, y: box.rect.minY * height,
                                       width: box.rect.width * width, height: box.rect.height * height)
@@ -469,8 +481,10 @@ private struct SelfieReadVisual: View {
                         .offset(x: rect.minX, y: rect.minY)
                         .transition(.opacity.combined(with: .scale(scale: 1.08)))
                     HStack(spacing: 4) {
-                        Circle().fill(WK.Palette.primaryText).frame(width: 5, height: 5)
-                        Text(box.label).font(WK.Font.captionMedium).foregroundStyle(WK.Palette.primaryText)
+                        Circle().fill(.black).frame(width: 5, height: 5)
+                        Text(box.label).font(WK.Font.captionMedium)
+                            // Negro siempre: la pastilla es blanca también en oscuro.
+                            .foregroundStyle(.black)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -490,7 +504,7 @@ private struct SelfieReadVisual: View {
         .sensoryFeedback(.selection, trigger: shown)
         .task {
             try? await Task.sleep(for: .seconds(1.8))
-            for step in 1...Self.boxes.count {
+            for step in 1...boxes.count {
                 withAnimation(.spring(duration: 0.45, bounce: 0.3)) { shown = step }
                 try? await Task.sleep(for: .seconds(0.6))
             }
@@ -642,7 +656,7 @@ private struct GarmentReadVisual: View {
                             if shown > index {
                                 HStack(spacing: 4) {
                                     Circle().fill(zone.tone.color).frame(width: 6, height: 6)
-                                    Text(zone.label).font(WK.Font.captionMedium).foregroundStyle(WK.Palette.primaryText)
+                                    Text(zone.label).font(WK.Font.captionMedium).foregroundStyle(.black)
                                 }
                                 .padding(.horizontal, 9)
                                 .padding(.vertical, 4)

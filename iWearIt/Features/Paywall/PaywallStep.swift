@@ -27,6 +27,10 @@ struct PaywallStep: View {
     /// En el onboarding, el botón de comprar es el global —ver
     /// `onboardingButton`—; en la hoja de dentro de la app, uno propio.
     var usesOnboardingButton = false
+    /// Si pinta sus propias prendas alrededor. La hoja las pinta ella, detrás
+    /// de todo —también del texto del tope—, para que den la vuelta al borde
+    /// entero. Ver `PaywallSheetScreen`.
+    var showsGarments = true
 
     @Query(filter: #Predicate<Garment> { $0.deletedAt == nil }) private var garments: [Garment]
     /// Tus prendas, dando la vuelta por el borde: el mismo lienzo del final
@@ -88,7 +92,7 @@ struct PaywallStep: View {
         ZStack {
             // En el onboarding las pinta él, debajo, para que no se muevan al
             // llegar desde "Tu armario". Ver `OnboardingClosetCloud`.
-            if !usesOnboardingButton {
+            if !usesOnboardingButton, showsGarments {
                 ScanCloud(pieces: pieces, spreadSince: spreadSince, arrivesInPlace: true)
                     .ignoresSafeArea()
             }
@@ -145,7 +149,7 @@ struct PaywallStep: View {
                 ?? packages.first { $0.packageType == .annual }
                 ?? packages.first
         }
-        .task { if !usesOnboardingButton { await loadPieces() } }
+        .task { if !usesOnboardingButton, showsGarments { await loadPieces() } }
     }
 
     /// "Seguir gratis" y "Restaurar", a la vista y juntos.
@@ -682,6 +686,10 @@ struct PaywallSheetScreen: View {
 
     var body: some View {
         NavigationStack {
+            ZStack {
+            // Las prendas, detrás de todo y de borde a borde de la hoja.
+            OnboardingClosetCloud()
+                .ignoresSafeArea()
             VStack(spacing: 0) {
                 if let feature {
                     VStack(spacing: WK.Spacing.xs) {
@@ -695,9 +703,14 @@ struct PaywallSheetScreen: View {
                     }
                     .padding(.horizontal, WK.Spacing.screenInset)
                 }
-                PaywallStep(onFinish: onPurchased)
+                PaywallStep(onFinish: onPurchased, showsGarments: false)
+            }
             }
             .background(WK.Palette.canvas)
+            // **Un título vacío, en línea**: la barra existe desde el
+            // principio y la X, al aparecer, no hace saltar nada.
+            .navigationTitle("   ")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     if canClose {

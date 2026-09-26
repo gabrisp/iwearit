@@ -64,7 +64,10 @@ struct OnboardingFlow: View {
                     // .modifier(card(for: page))
                     .modifier(CanvasPageEffect(
                         isLeaving: page == model.outgoing,
-                        progress: model.pageProgress
+                        progress: model.pageProgress,
+                        // La bienvenida —el fondo de fotos— se va solo
+                        // fundiéndose: sin desenfoque, sin subir, sin encoger.
+                        fadesOnly: page == .welcome
                     ))
                     // La que entra, encima: llega tapando a la que se va.
                     .zIndex(page == model.outgoing ? 0 : 1)
@@ -338,6 +341,8 @@ private struct CanvasPageEffect: ViewModifier {
     let isLeaving: Bool
     /// De 0 a 1: cuánto ha avanzado el cambio de paso.
     let progress: Double
+    /// Solo opacidad al irse. Ver la bienvenida.
+    var fadesOnly = false
 
     func body(content: Content) -> some View {
         // La que sale se va en la primera mitad del cambio.
@@ -345,9 +350,9 @@ private struct CanvasPageEffect: ViewModifier {
         content
             .environment(\.onboardingPageIsLeaving, isLeaving)
             .opacity(1 - out)
-            .blur(radius: 8 * out)
-            .offset(y: -24 * out)
-            .scaleEffect(1 - 0.03 * out, anchor: .top)
+            .blur(radius: fadesOnly ? 0 : 8 * out)
+            .offset(y: fadesOnly ? 0 : -24 * out)
+            .scaleEffect(fadesOnly ? 1 : 1 - 0.03 * out, anchor: .top)
     }
 }
 

@@ -817,7 +817,7 @@ private struct ConversationScript: View {
             }
             .frame(maxWidth: .infinity)
         case let .explain(_, page):
-            ExplainBlock(page: page, lineFont: Self.lineFont, isWomen: model.closetKind == "women")
+            ExplainBlock(page: page, lineFont: Self.lineFont, isWomen: CatalogGarment.isWomen)
         case .scanTitle:
             TypewriterText(text: scanDone
                            ? String(localized: "scan.found.title", defaultValue: "We found")
