@@ -86,6 +86,9 @@ private struct ConversationScript: View {
         /// **El escaneo explicado por pasos**: 0 tus fotos, 1 cómo se lee un
         /// outfit, 2 cada prenda a su balda. Ver `ExplainBlock`.
         case explain(id: Int, page: Int)
+        /// **La tarjeta del final**: prendas, tu estilo y tus colores. Ver
+        /// `ClosetStatsCard`.
+        case stats(id: Int)
         /// El contador del escaneo, subiendo según salen prendas.
         case counter(id: Int)
         /// "Buscando tu ropa", que al terminar se transforma en "Hemos
@@ -100,13 +103,14 @@ private struct ConversationScript: View {
                  let .news(id, _, _), let .wheel(id, _, _), let .note(id, _), let .pick(id, _),
                  let .heading(id, _), let .point(id, _, _, _), let .photos(id),
                  let .counter(id), let .count(id, _, _), let .options(id, _),
-                 let .scanTitle(id), let .proof(id), let .explain(id, _): id
+                 let .scanTitle(id), let .proof(id), let .explain(id, _),
+                 let .stats(id): id
             }
         }
     }
 
     /// Qué se elige con opciones.
-    private enum Choice: Equatable { case goal, pains }
+    private enum Choice: Equatable { case wardrobe, goal, pains }
 
     /// Qué se elige con deslizador.
     private enum Pick: Equatable { case spend, wardrobe }
@@ -117,7 +121,8 @@ private struct ConversationScript: View {
     /// `found`: el escaneo ha terminado; "Elegir cuáles guardo".
     /// `proof` y `explain(n)`: la prueba social y los pasos del escaneo,
     /// esperando a "Continuar".
-    private enum Question: Equatable { case goal, pains, spend, wardrobe, done, bad, good, photos, found, proof, explain(Int) }
+    /// `closet`: "¿Qué armario es el tuyo?", hombre o mujer.
+    private enum Question: Equatable { case closet, goal, pains, spend, wardrobe, done, bad, good, photos, found, proof, explain(Int) }
 
     @State private var items: [Item] = []
     @State private var question: Question?
@@ -145,6 +150,8 @@ private struct ConversationScript: View {
     @State private var scanCount = 0
     /// El escaneo ha terminado: el título cambia y el contador brilla.
     @State private var scanDone = false
+    /// Lo que dice la tarjeta del final. Ver `ClosetStats`.
+    @State private var closetStats: ClosetStats?
     /// Dónde se ancla lo enfocado: al centro, o arriba mientras se escanea,
     /// para dejar el centro a la foto.
     @State private var focusAnchor: UnitPoint = .center
@@ -312,6 +319,18 @@ private struct ConversationScript: View {
         #endif
         await say(String(localized: "chat.hello", defaultValue: "Hi, I'm Snazzy. I'll help you get the most out of your closet."))
         await say(String(localized: "chat.intro", defaultValue: "I'll ask you a few quick questions. Don't overthink them."))
+        // **Primero, qué armario**: hombre o mujer.
+        beginStep()
+        await say(String(localized: "chat.closet", defaultValue: "Which closet is yours?"))
+        offer(.wardrobe)
+        ask(.closet)
+    }
+
+    private func answerCloset(_ option: OnboardingOption) async {
+        guard question == .closet else { return }
+        hasProgressed = true
+        model.closetKind = option.id
+        await settleOptions([option.id])
         beginStep()
         await say(String(localized: "chat.goal", defaultValue: "What do you want to achieve?"))
         offer(.goal)
@@ -321,7 +340,6 @@ private struct ConversationScript: View {
     private func answerGoal(_ option: OnboardingOption) async {
         // Un toque: dos seguidos contestaban dos veces.
         guard question == .goal else { return }
-        hasProgressed = true
         model.goal = option.id
         // await answer(option.label)
         // **La elegida se queda; las demás se van.** Sin volver a escribirla.
@@ -594,12 +612,19 @@ private struct ConversationScript: View {
         try? await Task.sleep(for: .seconds(NumberWheel.duration + 0.2))
         await say(String(localized: "onboarding.onboardingscansteps.possibleCombinations", defaultValue: "possible combinations"))
         await say(String(localized: "onboarding.onboardingscansteps.allWithClothesYouAlready", defaultValue: "All with clothes you already own."))
-        let colour = ScanSummaryStep.mainColour(of: closet)
-        var detail = "\(closet.count + pendingAll.count) " + String(localized: "scan.pieces", defaultValue: "pieces")
-        if colour != "—" {
-            detail += " · " + String(localized: "onboarding.onboardingscansteps.mainColor", defaultValue: "main color") + " " + colour
-        }
-        append(.note(id: takeID(), text: detail))
+        // La línea de prendas y color principal, de antes; ahora es una
+        // tarjeta con las prendas, el estilo y los colores.
+        // let colour = ScanSummaryStep.mainColour(of: closet)
+        // var detail = "\(closet.count + pendingAll.count) " + String(localized: "scan.pieces", defaultValue: "pieces")
+        // if colour != "—" { detail += " · " + … + colour }
+        // append(.note(id: takeID(), text: detail))
+        closetStats = ClosetStats(
+            garments: closet.map { ($0.subcategory, $0.kind, $0.colors) }
+                + pendingAll.compactMap { pending in pending.draft.map { ($0.subcategory, $0.kind, $0.colors) } }
+        )
+        try? await Task.sleep(for: .seconds(0.3))
+        append(.stats(id: takeID()))
+        try? await Task.sleep(for: .seconds(0.8))
         // **Sin revisar ahora**: se quedan pendientes y se revisan luego.
         try? await Task.sleep(for: .seconds(0.4))
         append(.note(id: takeID(), text: String(localized: "chat.scan.reviewLater", defaultValue: "You'll be able to review them later.")))
@@ -691,13 +716,19 @@ private struct ConversationScript: View {
                 .frame(maxWidth: .infinity, alignment: .center)
         case let .options(id, kind):
             optionsRow(id: id, kind: kind)
+        case .stats:
+            if let closetStats {
+                ClosetStatsCard(stats: closetStats)
+            }
         case .proof:
             VStack(spacing: WK.Spacing.l) {
                 TypewriterText(text: String(localized: "chat.proof.title", defaultValue: "Our users get more than 1,000 combinations out of what they already have"))
                     .font(Self.lineFont)
                     .foregroundStyle(WK.Palette.primaryText)
                     .multilineTextAlignment(.center)
-                ProofVisual()
+                // Ocupa su sitio desde el principio y aparece tras el texto:
+                // antes llegaba a la vez que el scroll y se veía un doble salto.
+                DelayedReveal(delay: 1.2) { ProofVisual() }
             }
             .frame(maxWidth: .infinity)
         case let .explain(_, page):
@@ -822,7 +853,11 @@ private struct ConversationScript: View {
     /// ya integradas en la conversación.
     private func optionsRow(id: Int, kind: Choice) -> some View {
         let settled = chosen[id]
-        let list = kind == .goal ? OnboardingContent.goals : OnboardingContent.pains
+        let list = switch kind {
+        case .wardrobe: OnboardingContent.closets
+        case .goal: OnboardingContent.goals
+        case .pains: OnboardingContent.pains
+        }
         return VStack(spacing: WK.Spacing.s) {
             ForEach(list) { option in
                 if settled == nil || settled?.contains(option.id) == true {
@@ -833,6 +868,8 @@ private struct ConversationScript: View {
                         isSettled: settled != nil
                     ) {
                         switch kind {
+                        case .wardrobe:
+                            Task { await answerCloset(option) }
                         case .goal:
                             Task { await answerGoal(option) }
                         case .pains:
@@ -950,7 +987,7 @@ private struct ConversationScript: View {
     private func controls(for question: Question) -> some View {
         switch question {
         // Las opciones van en su propia fila: ver `Item.options`.
-        case .goal, .pains:
+        case .closet, .goal, .pains:
             EmptyView()
         /*
         case .goal:
@@ -1067,7 +1104,7 @@ private struct ConversationScript: View {
         // pantalla saltaba.
         // case .goal, nil:
         //     nil
-        case .goal, nil:
+        case .closet, .goal, nil:
             OnboardingButtonConfig(
                 title: String(localized: "common.continue", defaultValue: "Continue"),
                 isEnabled: false,
@@ -1313,5 +1350,99 @@ private struct OptionGlass: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// **Lo que dice el armario de ti**: cuántas prendas, qué estilo y qué
+/// colores. El estilo es una lectura sencilla de lo que hay —deportivo si
+/// abundan zapatillas y sudaderas, elegante si camisas y americanas,
+/// minimalista si casi todo es neutro, casual si no—: una etiqueta simpática,
+/// no un diagnóstico.
+struct ClosetStats {
+    let count: Int
+    let style: String
+    let colors: [Color]
+
+    init(garments: [(subcategory: String?, kind: GarmentKind, colors: [NamedColor])]) {
+        count = garments.count
+
+        // Los colores más repetidos, con su color de verdad.
+        var weights: [String: Double] = [:]
+        var samples: [String: NamedColor] = [:]
+        for colour in garments.flatMap(\.colors) {
+            weights[colour.nameKey, default: 0] += colour.weight
+            samples[colour.nameKey] = samples[colour.nameKey] ?? colour
+        }
+        let top = weights.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.prefix(5)
+        colors = top.compactMap { samples[$0.key] }.map { Color(red: $0.red, green: $0.green, blue: $0.blue) }
+
+        let words = garments.compactMap { $0.subcategory?.lowercased() }
+        func share(_ keys: [String]) -> Double {
+            guard !words.isEmpty else { return 0 }
+            return Double(words.filter { word in keys.contains { word.contains($0) } }.count) / Double(words.count)
+        }
+        let sporty = share(["hoodie", "sudadera", "sneaker", "zapatilla", "jogger", "chándal", "legging", "deport", "sport", "tank", "tirantes"])
+        let smart = share(["blazer", "americana", "shirt", "camisa", "traje", "suit", "oxford", "loafer", "mocas", "derby", "abrigo", "coat"])
+        let neutralKeys = ["negro", "black", "blanco", "white", "gris", "grey", "gray", "beige", "crema", "cream", "marino", "navy", "camel", "arena"]
+        let neutral = top.isEmpty ? 0 : Double(top.filter { entry in neutralKeys.contains { entry.key.lowercased().contains($0) } }.count) / Double(top.count)
+        if sporty >= 0.3 && sporty >= smart {
+            style = String(localized: "stats.style.sporty", defaultValue: "Sporty")
+        } else if smart >= 0.3 {
+            style = String(localized: "stats.style.smart", defaultValue: "Smart")
+        } else if neutral >= 0.6 {
+            style = String(localized: "stats.style.minimal", defaultValue: "Minimal")
+        } else {
+            style = String(localized: "stats.style.casual", defaultValue: "Casual")
+        }
+    }
+}
+
+/// La tarjeta de cristal con las tres cifras, como un resumen de tu armario.
+private struct ClosetStatsCard: View {
+    let stats: ClosetStats
+
+    var body: some View {
+        HStack(spacing: 0) {
+            column(label: String(localized: "stats.pieces", defaultValue: "pieces found")) {
+                Text("\(stats.count)")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(NumberInk.gradient(.denim))
+                    .monospacedDigit()
+            }
+            Divider().frame(height: 44)
+            column(label: String(localized: "stats.style", defaultValue: "your style")) {
+                Text(stats.style)
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            Divider().frame(height: 44)
+            column(label: String(localized: "stats.colors", defaultValue: "main colors")) {
+                HStack(spacing: -8) {
+                    ForEach(Array(stats.colors.enumerated()), id: \.offset) { _, colour in
+                        Circle()
+                            .fill(colour)
+                            .frame(width: 24, height: 24)
+                            .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    }
+                }
+                .frame(height: 34)
+            }
+        }
+        .padding(.vertical, WK.Spacing.m)
+        .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+    }
+
+    private func column(label: String, @ViewBuilder value: () -> some View) -> some View {
+        VStack(spacing: 4) {
+            value()
+            Text(label)
+                .font(WK.Font.caption)
+                .foregroundStyle(WK.Palette.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
     }
 }

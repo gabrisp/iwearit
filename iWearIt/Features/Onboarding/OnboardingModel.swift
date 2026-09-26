@@ -121,6 +121,11 @@ final class OnboardingModel {
     private(set) var isGoingBack = false
 
     // Respuestas
+    /// Qué armario: `men` o `women`. Se guarda también en `UserDefaults`
+    /// (`onboarding.closet`) para lo que venga después.
+    var closetKind: String? {
+        didSet { UserDefaults.standard.set(closetKind, forKey: "onboarding.closet") }
+    }
     var goal: String?
     var pains: Set<String> = []
     var agreedStatements: Set<String> = []

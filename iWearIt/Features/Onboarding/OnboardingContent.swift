@@ -31,6 +31,14 @@ enum OnboardingContent {
     //     .init(id: "combine", emoji: "🧩", label: "No sé combinar lo que tengo"),
     // ]
 
+    /// Qué armario es el tuyo.
+    static let closets: [OnboardingOption] = [
+        .init(id: "men", symbol: "figure.stand", tone: .denim,
+              label: String(localized: "chat.closet.men", defaultValue: "Men's")),
+        .init(id: "women", symbol: "figure.stand.dress", tone: .granate,
+              label: String(localized: "chat.closet.women", defaultValue: "Women's")),
+    ]
+
     static let goals: [OnboardingOption] = [
         .init(id: "faster", symbol: "timer", tone: .denim,
               label: String(localized: "onboarding.onboardingcontent.getDressedFaster", defaultValue: "Get dressed faster"),

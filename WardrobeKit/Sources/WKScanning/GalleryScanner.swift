@@ -407,7 +407,10 @@ public actor GalleryScanner {
     // static let maximumCandidates = 10_000
     /// Las 2.000 más recientes: bastan para el armario de ahora y el escaneo
     /// se termina en un rato.
-    static let maximumCandidates = 2_000
+    // static let maximumCandidates = 2_000
+    /// Hasta 4.000 por franja: el onboarding mira hasta 4.000 fotos en total.
+    /// Ver `ScanningStep`.
+    static let maximumCandidates = 4_000
     static let minimumCameraSide = 1_500
 
     static func candidateAssets(older: Bool = false) -> PHFetchResult<PHAsset> {

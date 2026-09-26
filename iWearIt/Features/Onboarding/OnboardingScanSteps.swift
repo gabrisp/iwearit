@@ -617,44 +617,85 @@ struct ScanningStep: View {
         // si no llegaba, las de antes del último año. Ahora: 300; si no hay
         // diez prendas, otras 300; y así, primero el último año y después lo
         // anterior, hasta llegar o quedarse sin fotos.
+        // **Hasta 4.000 fotos**, por tandas de 300: primero el último año y
+        // después lo anterior. Antes paraba en cuanto había diez prendas; ahora
+        // mira la galería de verdad —como mucho 4.000 fotos—, y solo para antes
+        // si se queda sin fotos o llega a cien prendas, que ya es armario de
+        // sobra para empezar. Lo de antes, hasta diez prendas:
+        // let batch = 300
+        // let minimum = 10
+        // search: for searchesOlder in [false, true] {
+        //     var start = 0
+        //     while !hasFinished {
+        //         let result = await scanner.scan(
+        //             startIndex: start,
+        //             limit: batch,
+        //             // **Sin meter nada en el armario todavía.** Lo encontrado
+        //             // se guarda como pendiente según aparece —así saltar el
+        //             // paso o cerrar la app no lo pierde— y entra al armario lo
+        //             // que el usuario diga.
+        //             inserts: false,
+        //             stopAfter: 100,
+        //             searchesOlder: searchesOlder,
+        //             onProgress: { updated in
+        //                 Task { @MainActor in progress = updated }
+        //             },
+        //             // **En orden y esperando al hilo principal**: con un
+        //             // `Task` suelto por aviso, el resultado de una foto podía
+        //             // llegar antes que la propia foto.
+        //             onLook: { look in
+        //                 await show(look)
+        //             },
+        //             // Y esperando a que se vea el recorte entero: la foto se
+        //             // corta, las prendas vuelan, y después sigue.
+        //             onDiscovery: { discovery in
+        //                 await reveal(discovery)
+        //             }
+        //         )
+        //         let found = (try? modelContext.fetchCount(FetchDescriptor<PendingGarment>())) ?? pieces.count
+        //         if found >= minimum { break search }
+        //         // Sin más fotos en esta franja: a la siguiente.
+        //         if result.totalPhotos < start + batch { break }
+        //         DiagnosticsLog.record("ESCANEO", "\(found) prendas tras \(start + batch) fotos: otra tanda")
+        //         start += batch
+        //     }
+        //     if hasFinished { break }
+        // }
         let batch = 300
-        let minimum = 10
+        let maximumPhotos = 4_000
+        let maximumGarments = 100
+        var looked = 0
         search: for searchesOlder in [false, true] {
             var start = 0
-            while !hasFinished {
+            while !hasFinished, looked < maximumPhotos {
+                let limit = min(batch, maximumPhotos - looked)
+                let before = (try? modelContext.fetchCount(FetchDescriptor<PendingGarment>())) ?? pieces.count
                 let result = await scanner.scan(
                     startIndex: start,
-                    limit: batch,
-                    // **Sin meter nada en el armario todavía.** Lo encontrado
-                    // se guarda como pendiente según aparece —así saltar el
-                    // paso o cerrar la app no lo pierde— y entra al armario lo
-                    // que el usuario diga.
+                    limit: limit,
+                    // Sin meter nada en el armario todavía: pendiente.
                     inserts: false,
-                    stopAfter: 100,
+                    stopAfter: max(1, maximumGarments - before),
                     searchesOlder: searchesOlder,
                     onProgress: { updated in
                         Task { @MainActor in progress = updated }
                     },
-                    // **En orden y esperando al hilo principal**: con un
-                    // `Task` suelto por aviso, el resultado de una foto podía
-                    // llegar antes que la propia foto.
                     onLook: { look in
                         await show(look)
                     },
-                    // Y esperando a que se vea el recorte entero: la foto se
-                    // corta, las prendas vuelan, y después sigue.
                     onDiscovery: { discovery in
                         await reveal(discovery)
                     }
                 )
+                looked += result.photosProcessed
                 let found = (try? modelContext.fetchCount(FetchDescriptor<PendingGarment>())) ?? pieces.count
-                if found >= minimum { break search }
+                if found >= maximumGarments { break search }
                 // Sin más fotos en esta franja: a la siguiente.
-                if result.totalPhotos < start + batch { break }
-                DiagnosticsLog.record("ESCANEO", "\(found) prendas tras \(start + batch) fotos: otra tanda")
-                start += batch
+                if result.totalPhotos < start + limit { break }
+                DiagnosticsLog.record("ESCANEO", "\(found) prendas tras \(looked) fotos: otra tanda")
+                start += limit
             }
-            if hasFinished { break }
+            if hasFinished || looked >= maximumPhotos { break }
         }
         // La foto que quedara en el centro, fuera.
         withAnimation(.smooth(duration: 0.4)) { photo = nil }
