@@ -99,7 +99,10 @@ struct PaywallStep: View {
                     .multilineTextAlignment(.center)
                     .onboardingEntrance(0)
 
-                PaywallTimeline(steps: timeline)
+                // **Un carrusel y no una sola tarjeta**: los pasos, lo que dicen
+                // quienes ya lo usan y lo que se consigue, pasando solos.
+                // PaywallTimeline(steps: timeline)
+                PaywallCarousel(timeline: timeline)
                     .onboardingEntrance(1)
 
                 PlanPicker(options: planOptions, selected: selectedID) { select($0) }
@@ -148,7 +151,9 @@ struct PaywallStep: View {
     /// "Seguir gratis" y "Restaurar", a la vista y juntos.
     private var secondaryActions: some View {
         HStack(spacing: WK.Spacing.l) {
-            Button(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
+            // "Seguir gratis", fuera: ahora es la X de arriba, que aparece a
+            // los cinco segundos. Ver `PaywallSheetScreen`.
+            // Button(String(localized: "paywall.paywallstep.continueForFree", defaultValue: "Continue for free")) { onFinish() }
             // **Restaurar tiene que estar a la vista.** Lo pide la App Store,
             // y es lo primero que busca quien cambia de teléfono y se
             // encuentra el paywall otra vez.
@@ -652,5 +657,164 @@ struct PlanPicker: View {
         .opacity(isSelected ? 1 : 0.72)
         .scaleEffect(isSelected ? 1.04 : 1)
         .animation(WKAnimation.selection, value: isSelected)
+    }
+}
+
+/// **El paywall como hoja**: no se cierra arrastrando, y la X de arriba
+/// aparece a los cinco segundos. Es lo mismo al final del onboarding y
+/// dentro de la app.
+struct PaywallSheetScreen: View {
+    /// Lo que lo ha abierto, si viene de un tope. Ver `PaywallSheet`.
+    var feature: Feature?
+    /// La X: seguir sin pagar.
+    let onClose: () -> Void
+    /// Comprado o restaurado.
+    let onPurchased: () -> Void
+
+    @State private var canClose = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                if let feature {
+                    VStack(spacing: WK.Spacing.xs) {
+                        Text(feature.lockedTitle)
+                            .font(.system(.title3, weight: .semibold))
+                            .multilineTextAlignment(.center)
+                        Text(feature.lockedDetail)
+                            .font(.subheadline)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, WK.Spacing.screenInset)
+                }
+                PaywallStep(onFinish: onPurchased)
+            }
+            .background(WK.Palette.canvas)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if canClose {
+                        Button(action: onClose) {
+                            Image(systemName: "xmark")
+                        }
+                        .accessibilityLabel(String(localized: "common.close", defaultValue: "Close"))
+                        .transition(.opacity.combined(with: .scale))
+                    }
+                }
+            }
+        }
+        .interactiveDismissDisabled()
+        .task {
+            try? await Task.sleep(for: .seconds(5))
+            withAnimation(.smooth(duration: 0.5)) { canClose = true }
+        }
+    }
+}
+
+/// **El carrusel del paywall**: tarjetas que pasan solas —los pasos, lo que
+/// dicen quienes ya lo usan, lo que se consigue—, con sus puntos debajo. Se
+/// puede deslizar a mano; al soltar, sigue solo.
+struct PaywallCarousel: View {
+    let timeline: [PaywallTimeline.Step]
+
+    private enum Page: Hashable {
+        case timeline
+        case testimonial(Int)
+        case outfits
+    }
+
+    private var pages: [Page] {
+        [.timeline] + OnboardingContent.testimonials.indices.map { .testimonial($0) } + [.outfits]
+    }
+
+    @State private var page: Page = .timeline
+
+    var body: some View {
+        VStack(spacing: WK.Spacing.s) {
+            TabView(selection: $page) {
+                ForEach(pages, id: \.self) { page in
+                    card(page)
+                        .padding(.horizontal, 2)
+                        .tag(page)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 236)
+
+            HStack(spacing: 6) {
+                ForEach(pages, id: \.self) { item in
+                    Capsule()
+                        .fill(item == page ? WK.Palette.primaryText : WK.Palette.ink(0.18))
+                        .frame(width: item == page ? 18 : 6, height: 6)
+                }
+            }
+            .animation(.smooth(duration: 0.3), value: page)
+        }
+        // Pasa sola; cada cambio —a mano o no— vuelve a contar.
+        .task(id: page) {
+            try? await Task.sleep(for: .seconds(4.5))
+            guard let index = pages.firstIndex(of: page) else { return }
+            withAnimation(.smooth(duration: 0.6)) { page = pages[(index + 1) % pages.count] }
+        }
+    }
+
+    @ViewBuilder
+    private func card(_ page: Page) -> some View {
+        switch page {
+        case .timeline:
+            PaywallTimeline(steps: timeline)
+        case let .testimonial(index):
+            let testimonial = OnboardingContent.testimonials[index]
+            VStack(alignment: .leading, spacing: WK.Spacing.m) {
+                HStack(spacing: WK.Spacing.m) {
+                    Text(testimonial.initials)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(width: 52, height: 52)
+                        .background(testimonial.tone.color, in: .circle)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 3) {
+                            ForEach(0..<testimonial.stars, id: \.self) { _ in
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(OnboardingTone.camel.color)
+                            }
+                        }
+                        Text(testimonial.name + " · " + testimonial.tag)
+                            .font(WK.Font.captionMedium)
+                            .foregroundStyle(WK.Palette.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                }
+                Text("“" + testimonial.text + "”")
+                    .font(Font.custom("PlusJakartaSans-SemiBold", size: 19, relativeTo: .headline))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(WK.Spacing.l)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        case .outfits:
+            VStack(spacing: WK.Spacing.m) {
+                HStack(spacing: WK.Spacing.s) {
+                    ForEach([4, 8, 6, 10], id: \.self) { garment in
+                        Image(CatalogGarment.name(garment))
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 96)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                Text(String(localized: "chat.proof.title", defaultValue: "Our users get more than 1,000 combinations out of what they already have"))
+                    .font(Font.custom("PlusJakartaSans-SemiBold", size: 17, relativeTo: .headline))
+                    .foregroundStyle(WK.Palette.primaryText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(WK.Spacing.l)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
+        }
     }
 }

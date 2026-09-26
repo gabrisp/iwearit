@@ -12,26 +12,34 @@ struct PaywallSheet: View {
     let feature: Feature?
     @Environment(\.dismiss) private var dismiss
 
+    /// **La misma hoja que al final del onboarding**: sin arrastrar para
+    /// cerrar y con la X a los cinco segundos. Ver `PaywallSheetScreen`.
     var body: some View {
-        VStack(spacing: 0) {
-            if let feature {
-                VStack(spacing: WK.Spacing.xs) {
-                    Text(feature.lockedTitle)
-                        .font(.system(.title3, weight: .semibold))
-                        .multilineTextAlignment(.center)
-                    Text(feature.lockedDetail)
-                        .font(.subheadline)
-                        .foregroundStyle(WK.Palette.secondaryText)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, WK.Spacing.screenInset)
-                .padding(.top, WK.Spacing.xl)
-            }
-
-            PaywallStep { dismiss() }
-        }
-        .background(WK.Palette.canvas)
+        PaywallSheetScreen(feature: feature, onClose: { dismiss() }, onPurchased: { dismiss() })
     }
+
+    // La de antes, con el motivo encima y el paywall debajo:
+    // var body: some View {
+    //     VStack(spacing: 0) {
+    //         if let feature {
+    //             VStack(spacing: WK.Spacing.xs) {
+    //                 Text(feature.lockedTitle)
+    //                     .font(.system(.title3, weight: .semibold))
+    //                     .multilineTextAlignment(.center)
+    //                 Text(feature.lockedDetail)
+    //                     .font(.subheadline)
+    //                     .foregroundStyle(WK.Palette.secondaryText)
+    //                     .multilineTextAlignment(.center)
+    //             }
+    //             .padding(.horizontal, WK.Spacing.screenInset)
+    //             .padding(.top, WK.Spacing.xl)
+    //         }
+//
+    //         PaywallStep { dismiss() }
+    //     }
+    //     .background(WK.Palette.canvas)
+    // }
+// }
 }
 
 /// Engancha el paywall a una pantalla.

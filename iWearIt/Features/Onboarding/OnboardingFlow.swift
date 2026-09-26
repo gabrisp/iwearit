@@ -196,7 +196,10 @@ private struct OnboardingStepContent: View {
         case .scanFound:       ScanFoundStep(model: model)
         case .scanReview:      ScanReviewStep(model: model)
         case .scanSummary:     ScanSummaryStep(model: model)
-        case .paywall:         PaywallStep(onFinish: onFinish, usesOnboardingButton: true)
+        // Como hoja, sin arrastrar para cerrar y con la X a los cinco segundos.
+        // Detrás, las prendas del onboarding. Ver `OnboardingPaywallHost`.
+        // case .paywall:         PaywallStep(onFinish: onFinish, usesOnboardingButton: true)
+        case .paywall:         OnboardingPaywallHost(onFinish: onFinish)
         }
     }
 }
@@ -552,3 +555,23 @@ private struct ButtonNudge: ViewModifier {
 //         }
 //     }
 // }
+
+/// El paso del paywall: las prendas girando detrás —las pinta el onboarding—
+/// y el paywall encima, como hoja. La X de la hoja entra en la app, igual que
+/// comprar.
+private struct OnboardingPaywallHost: View {
+    let onFinish: () -> Void
+    @State private var isPresented = false
+
+    var body: some View {
+        Color.clear
+            .onboardingButton(nil)
+            .task {
+                try? await Task.sleep(for: .seconds(0.35))
+                isPresented = true
+            }
+            .sheet(isPresented: $isPresented) {
+                PaywallSheetScreen(onClose: onFinish, onPurchased: onFinish)
+            }
+    }
+}

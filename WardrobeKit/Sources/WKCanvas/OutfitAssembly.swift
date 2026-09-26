@@ -132,83 +132,222 @@ public enum OutfitAssembly {
         occupied: Set<OutfitSlot> = [],
         seed: UInt64
     ) -> [ItemTransform] {
-        var taken = occupied
-        var z = 10.0
+        // **Repartir el papel según lo que hay, sin pisarse.**
+        //
+        // Antes cada tipo tenía una caja fija, grande y solapada con las
+        // demás: las gafas caían sobre la camiseta, el bolso sobre el
+        // pantalón, y dos complementos se apilaban casi en el mismo sitio.
+        // Ahora la ropa va en una columna, cada cosa en su banda —arriba, las
+        // piernas, el calzado—, y si hay complementos tienen **su propio
+        // carril** a un lado, uno debajo de otro: lo de la cabeza arriba, el
+        // bolso abajo. La chaqueta sigue un poco detrás de la camiseta, que es
+        // como se ve un conjunto; lo demás no se toca.
         let variant = Int(seed % 3)
+        let width = CanvasSpace.width
+        let slots = pieces.map { OutfitSlot.slot(for: $0.kind) }
+        let accessoryIndices = pieces.indices.filter { slots[$0] == .accessory }
+        let hasRail = !accessoryIndices.isEmpty
+        let railWidth = 290.0
+        // La columna de la ropa: todo el ancho, o lo que deja el carril.
+        // **El carril, a la izquierda**: a la derecha las tarjetas llevan sus
+        // botones —favorito, planificar, maleta— y los complementos quedaban
+        // debajo.
+        let columnMin = hasRail ? railWidth + 30 : 20.0
+        let columnMax = width - 20
+        let columnWidth = columnMax - columnMin
+        let columnCenter = (columnMin + columnMax) / 2
 
+        let present = Set(slots).union(occupied)
+        let hasDress = pieces.contains { $0.kind == .wholeBody }
+        let layered = present.contains(.outer) && (present.contains(.top) || hasDress)
+
+        // Los complementos, en su orden por el carril: cabeza, lo de en medio,
+        // y lo que se lleva en la mano al fondo.
+        let railOrder = accessoryIndices.sorted { lhs, rhs in
+            func rank(_ kind: GarmentKind) -> Int {
+                switch kind { case .head: 0; case .bag: 2; default: 1 }
+            }
+            return (rank(pieces[lhs].kind), lhs) < (rank(pieces[rhs].kind), rhs)
+        }
+        let railTop = 80.0
+        let railBottom = CanvasSpace.height - 80
+        let railStep = min(330, (railBottom - railTop) / Double(max(1, railOrder.count)))
+
+        var seen: [OutfitSlot: Int] = [:]
         return pieces.enumerated().map { index, piece in
-            let slot = OutfitSlot.slot(for: piece.kind)
-            defer { taken.insert(slot) }
-            let base = slot.transform
-            let isRepeat = taken.contains(slot)
+            let slot = slots[index]
+            let repeatCount = seen[slot, default: 0]
+            seen[slot] = repeatCount + 1
 
-            var x = base.x
-            var y = base.y
-            var width = base.baseWidth * piece.boxScale
-            var height = base.baseHeight * piece.boxScale
-            var zIndex = base.zIndex
+            var x = columnCenter
+            var y = 0.0
+            var box = 0.0
+            var zIndex = 1.0
 
-            if isRepeat {
-                // Dos complementos en el mismo hueco se apilarían uno sobre
-                // otro: el segundo se corre lo justo para que se vean los dos.
-                x -= 210
-                y += 120
-                width *= 0.8
-                height *= 0.8
-                z += 1
-                zIndex = z
+            switch slot {
+            case .outer:
+                // Detrás, y hacia un lado si hay algo delante.
+                box = min(columnWidth * (layered ? 0.74 : 0.9), 640)
+                x = layered ? columnMin + columnWidth * 0.37 : columnCenter
+                y = hasDress ? 420 : 340
+                zIndex = 0
+            case .top:
+                if piece.kind == .wholeBody {
+                    // Un vestido ocupa el torso y las piernas: una caja alta.
+                    box = min(columnWidth * 0.92, 900)
+                    x = layered ? columnMin + columnWidth * 0.62 : columnCenter
+                    y = 620
+                } else {
+                    box = min(columnWidth * (layered ? 0.66 : 0.86), layered ? 540 : 600)
+                    x = layered ? columnMin + columnWidth * 0.66 : columnCenter
+                    y = layered ? 380 : 340
+                }
+                zIndex = 1
+            case .bottom:
+                box = min(columnWidth * 0.84, 580) * piece.boxScale
+                x = columnCenter
+                // Lo corto sube, pegado al torso.
+                y = piece.isShort ? 780 : 910
+                zIndex = 1
+            case .shoes:
+                box = min(columnWidth * 0.52, 330)
+                x = columnCenter
+                y = CanvasSpace.height - 150
+                zIndex = 2
+            case .accessory:
+                let order = railOrder.firstIndex(of: index) ?? 0
+                box = min(railWidth - 20, railStep * 0.86) * (piece.kind == .bag ? 1.05 : 1)
+                x = railWidth / 2 + 15
+                // Uno solo: donde le toca por lo que es.
+                if railOrder.count == 1 {
+                    y = switch piece.kind {
+                    case .head: 280
+                    case .bag: CanvasSpace.height - 360
+                    default: 700
+                    }
+                } else {
+                    y = railTop + railStep * (Double(order) + 0.5)
+                }
+                zIndex = 3
             }
 
-            // Lo corto sube: si se encoge la caja y se deja el centro donde
-            // estaba, queda un palmo de aire entre la camiseta y el pantalón.
-            if piece.isShort, slot == .bottom {
-                y -= base.baseHeight * (1 - piece.boxScale) * 0.45
+            // Dos de lo mismo en la columna —dos camisetas—: la segunda se
+            // corre lo justo para que se vean las dos.
+            if repeatCount > 0, slot != .accessory {
+                x += 140 * Double(repeatCount)
+                y += 90 * Double(repeatCount)
+                box *= 0.82
+                zIndex += Double(repeatCount)
             }
 
             switch variant {
             case 1:
-                // El espejo: lo que estaba a la izquierda, a la derecha.
-                x = CanvasSpace.width - x
+                // El espejo, **dentro de la columna**: la chaqueta cambia de
+                // lado con la camiseta; el carril se queda donde está.
+                if slot != .accessory { x = columnMin + columnMax - x }
             case 2:
-                // Escalonado: el torso sube y las piernas bajan.
-                if slot == .top || slot == .outer { y -= 50 }
-                if slot == .bottom || slot == .shoes { y += 40 }
+                // Escalonado: el torso sube un poco y las piernas bajan.
+                if slot == .top || slot == .outer { y -= 30 }
+                if slot == .bottom || slot == .shoes { y += 20 }
             default:
                 break
             }
 
-            // **El complemento, donde le toca por lo que es.**
-            //
-            // Iba siempre arriba a la derecha, y ahí una mochila queda
-            // flotando sobre el hombro como si se hubiera caído del cielo. Un
-            // gorro sí va arriba —es donde se lleva—, pero un bolso o una
-            // mochila van al suelo, junto a las piernas y el calzado, que es
-            // donde los deja cualquiera. Y dentro de su zona, la semilla
-            // reparte entre un par de sitios para que no salgan todos
-            // calcados.
-            if slot == .accessory {
-                let spot = Self.accessorySpot(kind: piece.kind, variant: variant)
-                x = spot.x
-                y = spot.y
-                width *= spot.scale
-                height *= spot.scale
-            }
-
-            // Y una inclinación pequeña, distinta por prenda: lo justo para
-            // que no parezca un muestrario alineado con regla.
-            let tilt = Self.tilt(seed: seed, index: index)
-
             return ItemTransform(
                 x: x,
                 y: y,
-                baseWidth: width,
-                baseHeight: height,
-                scale: base.scale,
-                rotation: tilt,
+                baseWidth: box,
+                baseHeight: box,
+                scale: 1,
+                rotation: Self.tilt(seed: seed, index: index),
                 zIndex: zIndex
             )
         }
     }
+
+    // El reparto de antes, con una caja fija y solapada por tipo:
+    // public nonisolated static func transforms(
+    //     for pieces: [Piece],
+    //     occupied: Set<OutfitSlot> = [],
+    //     seed: UInt64
+    // ) -> [ItemTransform] {
+    //     var taken = occupied
+    //     var z = 10.0
+    //     let variant = Int(seed % 3)
+    //
+    //     return pieces.enumerated().map { index, piece in
+    //         let slot = OutfitSlot.slot(for: piece.kind)
+    //         defer { taken.insert(slot) }
+    //         let base = slot.transform
+    //         let isRepeat = taken.contains(slot)
+    //
+    //         var x = base.x
+    //         var y = base.y
+    //         var width = base.baseWidth * piece.boxScale
+    //         var height = base.baseHeight * piece.boxScale
+    //         var zIndex = base.zIndex
+    //
+    //         if isRepeat {
+    //             // Dos complementos en el mismo hueco se apilarían uno sobre
+    //             // otro: el segundo se corre lo justo para que se vean los dos.
+    //             x -= 210
+    //             y += 120
+    //             width *= 0.8
+    //             height *= 0.8
+    //             z += 1
+    //             zIndex = z
+    //         }
+    //
+    //         // Lo corto sube: si se encoge la caja y se deja el centro donde
+    //         // estaba, queda un palmo de aire entre la camiseta y el pantalón.
+    //         if piece.isShort, slot == .bottom {
+    //             y -= base.baseHeight * (1 - piece.boxScale) * 0.45
+    //         }
+    //
+    //         switch variant {
+    //         case 1:
+    //             // El espejo: lo que estaba a la izquierda, a la derecha.
+    //             x = CanvasSpace.width - x
+    //         case 2:
+    //             // Escalonado: el torso sube y las piernas bajan.
+    //             if slot == .top || slot == .outer { y -= 50 }
+    //             if slot == .bottom || slot == .shoes { y += 40 }
+    //         default:
+    //             break
+    //         }
+    //
+    //         // **El complemento, donde le toca por lo que es.**
+    //         //
+    //         // Iba siempre arriba a la derecha, y ahí una mochila queda
+    //         // flotando sobre el hombro como si se hubiera caído del cielo. Un
+    //         // gorro sí va arriba —es donde se lleva—, pero un bolso o una
+    //         // mochila van al suelo, junto a las piernas y el calzado, que es
+    //         // donde los deja cualquiera. Y dentro de su zona, la semilla
+    //         // reparte entre un par de sitios para que no salgan todos
+    //         // calcados.
+    //         if slot == .accessory {
+    //             let spot = Self.accessorySpot(kind: piece.kind, variant: variant)
+    //             x = spot.x
+    //             y = spot.y
+    //             width *= spot.scale
+    //             height *= spot.scale
+    //         }
+    //
+    //         // Y una inclinación pequeña, distinta por prenda: lo justo para
+    //         // que no parezca un muestrario alineado con regla.
+    //         let tilt = Self.tilt(seed: seed, index: index)
+    //
+    //         return ItemTransform(
+    //             x: x,
+    //             y: y,
+    //             baseWidth: width,
+    //             baseHeight: height,
+    //             scale: base.scale,
+    //             rotation: tilt,
+    //             zIndex: zIndex
+    //         )
+    //     }
+    // }
 
     /// Dónde cae un complemento, según qué sea.
     ///
