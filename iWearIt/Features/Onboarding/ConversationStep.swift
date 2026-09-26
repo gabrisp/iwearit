@@ -24,16 +24,15 @@ struct ConversationStep: View {
         ConversationScript(model: model, hasProgressed: $hasProgressed)
             .id(run)
             .transition(.opacity.combined(with: AnyTransition(.blurReplace)))
-            .onAppear {
-                model.backHandler = {
-                    guard hasProgressed else { return false }
-                    withAnimation(.smooth(duration: 0.6)) {
-                        hasProgressed = false
-                        run += 1
-                    }
-                    return true
-                }
-            }
+            // Rebobinar entero, de antes. Ahora atrás va paso a paso: lo
+            // decide `ConversationScript.stepBack`.
+            // .onAppear {
+            //     model.backHandler = {
+            //         guard hasProgressed else { return false }
+            //         withAnimation(.smooth(duration: 0.6)) { hasProgressed = false; run += 1 }
+            //         return true
+            //     }
+            // }
             .onDisappear { model.backHandler = nil }
     }
 }
@@ -156,6 +155,10 @@ private struct ConversationScript: View {
     /// para dejar el centro a la foto.
     @State private var focusAnchor: UnitPoint = .center
     @State private var token = RunToken()
+    /// Los puntos a los que se puede volver con atrás, uno por pregunta.
+    @State private var checkpoints: [Checkpoint] = []
+    /// El tramo del guion en marcha. Ver `run`.
+    @State private var scriptTask: Task<Void, Never>?
     @Environment(\.modelContext) private var modelContext
     /// Lo elegido en cada bloque de opciones ya contestado, por su fila.
     @State private var chosen: [Int: Set<String>] = [:]
@@ -172,7 +175,7 @@ private struct ConversationScript: View {
                     model: model,
                     embedded: true,
                     onCount: { scanCount = $0 },
-                    onFound: { pieces, outfits in Task { await found(pieces: pieces, outfits: outfits) } }
+                    onFound: { pieces, outfits in run { await found(pieces: pieces, outfits: outfits) } }
                 )
                 .transition(.opacity)
             }
@@ -187,6 +190,7 @@ private struct ConversationScript: View {
             hasStarted = true
             await start()
         }
+        .onAppear { model.backHandler = { stepBack() } }
         .onDisappear { token.isCancelled = true }
     }
 
@@ -537,7 +541,7 @@ private struct ConversationScript: View {
     private func requestPhotos() {
         guard question == .photos, !isRequestingPhotos else { return }
         isRequestingPhotos = true
-        Task {
+        run {
             // Aunque deniegue se sigue: el armario funciona importando fotos
             // sueltas. Ver `PhotoPermissionStep`.
             _ = await PhotoLibraryService().requestAuthorization()
@@ -564,6 +568,7 @@ private struct ConversationScript: View {
         try? await Task.sleep(for: .seconds(0.6))
         append(.counter(id: takeID()))
         append(.note(id: takeID(), text: String(localized: "onboarding.onboardingscansteps.itAllHappensOnYour", defaultValue: "It all happens on your iPhone · keep the app open")))
+        guard !Task.isCancelled else { return }
         withAnimation(.smooth(duration: 0.6)) { isScanning = true }
     }
 
@@ -582,6 +587,7 @@ private struct ConversationScript: View {
         // **Sin "Hemos encontrado X prendas" aparte**: "Buscando tu ropa" se
         // transforma en "Hemos encontrado" y el contador brilla, en su sitio.
         // Dicho debajo, se leía dos veces.
+        guard !Task.isCancelled else { return }
         withAnimation(.smooth(duration: 0.6)) { scanDone = true }
         try? await Task.sleep(for: .seconds(1.8))
         beginStep()
@@ -632,6 +638,7 @@ private struct ConversationScript: View {
     }
 
     private func say(_ text: String) async {
+        guard !Task.isCancelled else { return }
         append(.line(id: takeID(), text: text))
         // Lo que tarda en escribirse, y un respiro.
         try? await Task.sleep(for: .seconds(Double(text.count) * TypewriterText.perCharacter + 0.45))
@@ -674,11 +681,80 @@ private struct ConversationScript: View {
     }
 
     private func ask(_ next: Question) {
+        guard !Task.isCancelled else { return }
+        // Un punto al que volver con atrás. Ver `stepBack`.
+        checkpoints.append(Checkpoint(
+            itemsCount: items.count, question: next, stepStart: stepStart,
+            focusID: focusID, focusAnchor: focusAnchor, openOptionsID: openOptionsID,
+            isScanning: isScanning, scanDone: scanDone, photosShown: photosShown
+        ))
         withAnimation(.smooth(duration: 0.45)) { question = next }
     }
 
     private func append(_ item: Item) {
+        guard !Task.isCancelled else { return }
         withAnimation(.smooth(duration: 0.4)) { items.append(item) }
+    }
+
+    // MARK: Atrás
+
+    /// Cómo estaba la conversación al hacer una pregunta.
+    private struct Checkpoint {
+        let itemsCount: Int
+        let question: Question
+        let stepStart: Int
+        let focusID: Int?
+        let focusAnchor: UnitPoint
+        let openOptionsID: Int?
+        let isScanning: Bool
+        let scanDone: Bool
+        let photosShown: Int
+    }
+
+    /// Lanza un tramo del guion, y se queda con él para poder pararlo.
+    private func run(_ work: @escaping @MainActor () async -> Void) {
+        scriptTask = Task { await work() }
+    }
+
+    /// **Atrás, un paso**: vuelve a la pregunta anterior —con sus opciones
+    /// otra vez abiertas— y quita lo que vino después. A mitad de un tramo
+    /// sin pregunta, vuelve a la última que se hizo. En la primera, atrás es
+    /// atrás: a la bienvenida.
+    private func stepBack() -> Bool {
+        guard let last = checkpoints.last else { return false }
+        let target: Checkpoint
+        if question != nil, question == last.question {
+            guard checkpoints.count >= 2 else { return false }
+            checkpoints.removeLast()
+            target = checkpoints[checkpoints.count - 1]
+        } else {
+            target = last
+        }
+        // Primero se para lo que estuviera en marcha —y se deja terminar, que
+        // cancelado ya no añade nada—; después se vuelve.
+        let running = scriptTask
+        running?.cancel()
+        scriptTask = nil
+        Task {
+            await running?.value
+            restore(target)
+        }
+        return true
+    }
+
+    private func restore(_ point: Checkpoint) {
+        withAnimation(.smooth(duration: 0.5)) {
+            items = Array(items.prefix(point.itemsCount))
+            stepStart = point.stepStart
+            focusID = point.focusID
+            focusAnchor = point.focusAnchor
+            isScanning = point.isScanning
+            scanDone = point.scanDone
+            photosShown = point.photosShown
+            if let id = point.openOptionsID { chosen[id] = nil }
+            openOptionsID = point.openOptionsID
+            question = point.question
+        }
     }
 
     private func takeID() -> Int {
@@ -732,7 +808,7 @@ private struct ConversationScript: View {
             }
             .frame(maxWidth: .infinity)
         case let .explain(_, page):
-            ExplainBlock(page: page, lineFont: Self.lineFont)
+            ExplainBlock(page: page, lineFont: Self.lineFont, isWomen: model.closetKind == "women")
         case .scanTitle:
             TypewriterText(text: scanDone
                            ? String(localized: "scan.found.title", defaultValue: "We found")
@@ -869,9 +945,9 @@ private struct ConversationScript: View {
                     ) {
                         switch kind {
                         case .wardrobe:
-                            Task { await answerCloset(option) }
+                            run { await answerCloset(option) }
                         case .goal:
-                            Task { await answerGoal(option) }
+                            run { await answerGoal(option) }
                         case .pains:
                             withAnimation(WKAnimation.selection) {
                                 if pains.contains(option.id) { pains.remove(option.id) } else { pains.insert(option.id) }
@@ -956,6 +1032,7 @@ private struct ConversationScript: View {
 
     /// Empieza un paso nuevo: lo dicho hasta aquí pasa a segundo plano.
     private func beginStep() {
+        guard !Task.isCancelled else { return }
         withAnimation(.smooth(duration: 0.6)) { stepStart = items.count }
     }
 
@@ -994,7 +1071,7 @@ private struct ConversationScript: View {
             VStack(spacing: WK.Spacing.s) {
                 ForEach(OnboardingContent.goals) { option in
                     ChatOptionRow(option: option, isSelected: false) {
-                        Task { await answerGoal(option) }
+                        run { await answerGoal(option) }
                     }
                 }
             }
@@ -1031,17 +1108,17 @@ private struct ConversationScript: View {
             OnboardingButtonConfig(
                 title: String(localized: "chat.button.done", defaultValue: "Done"),
                 isEnabled: !pains.isEmpty,
-                action: { Task { await answerPains() } }
+                action: { run { await answerPains() } }
             )
         case .spend:
             OnboardingButtonConfig(
                 title: String(localized: "chat.button.thatsIt", defaultValue: "That's about it"),
-                action: { Task { await answerSpend() } }
+                action: { run { await answerSpend() } }
             )
         case .wardrobe:
             OnboardingButtonConfig(
                 title: String(localized: "chat.button.thatsIt", defaultValue: "That's about it"),
-                action: { Task { await answerWardrobe() } }
+                action: { run { await answerWardrobe() } }
             )
         case .done:
             OnboardingButtonConfig(
@@ -1051,7 +1128,7 @@ private struct ConversationScript: View {
         case .bad:
             OnboardingButtonConfig(
                 title: String(localized: "reveal.bad.button", defaultValue: "Change this"),
-                action: { Task { await goodNews() } }
+                action: { run { await goodNews() } }
             )
         case .good:
             OnboardingButtonConfig(
@@ -1061,12 +1138,15 @@ private struct ConversationScript: View {
                 nudges: true,
                 // action: { model.advance() }
                 // action: { Task { await photosIntro() } }
-                action: { Task { await proof() } }
+                action: { run { await proof() } }
             )
         case .proof:
             OnboardingButtonConfig(
                 title: String(localized: "common.continue", defaultValue: "Continue"),
-                action: { Task { await explain(0) } }
+                // El primer paso —tu galería— fuera: se empieza por cómo se
+                // lee cada prenda.
+                // action: { Task { await explain(0) } }
+                action: { run { await explain(1) } }
             )
         case let .explain(page):
             OnboardingButtonConfig(
@@ -1075,7 +1155,7 @@ private struct ConversationScript: View {
                     : String(localized: "common.continue", defaultValue: "Continue"),
                 action: {
                     guard question == .explain(page) else { return }
-                    Task { page < 2 ? await explain(page + 1) : await photosIntro() }
+                    run { page < 2 ? await explain(page + 1) : await photosIntro() }
                 }
             )
         case .found:
@@ -1402,34 +1482,48 @@ private struct ClosetStatsCard: View {
     let stats: ClosetStats
 
     var body: some View {
-        HStack(spacing: 0) {
-            column(label: String(localized: "stats.pieces", defaultValue: "pieces found")) {
-                Text("\(stats.count)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(NumberInk.gradient(.denim))
-                    .monospacedDigit()
-            }
-            Divider().frame(height: 44)
-            column(label: String(localized: "stats.style", defaultValue: "your style")) {
-                Text(stats.style)
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(WK.Palette.primaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            Divider().frame(height: 44)
-            column(label: String(localized: "stats.colors", defaultValue: "main colors")) {
-                HStack(spacing: -8) {
-                    ForEach(Array(stats.colors.enumerated()), id: \.offset) { _, colour in
-                        Circle()
-                            .fill(colour)
-                            .frame(width: 24, height: 24)
-                            .overlay(Circle().stroke(.white, lineWidth: 1.5))
-                    }
+        // **Solo los colores, centrados**. Las prendas y el estilo, fuera; lo
+        // de antes, con las tres columnas:
+        // HStack(spacing: 0) {
+        //     column(label: String(localized: "stats.pieces", defaultValue: "pieces found")) {
+        //         Text("\(stats.count)")
+        //             .font(.system(size: 28, weight: .bold, design: .rounded))
+        //             .foregroundStyle(NumberInk.gradient(.denim))
+        //             .monospacedDigit()
+        //     }
+        //     Divider().frame(height: 44)
+        //     column(label: String(localized: "stats.style", defaultValue: "your style")) {
+        //         Text(stats.style)
+        //             .font(.system(size: 24, weight: .bold, design: .rounded))
+        //             .foregroundStyle(WK.Palette.primaryText)
+        //             .lineLimit(1)
+        //             .minimumScaleFactor(0.7)
+        //     }
+        //     Divider().frame(height: 44)
+        //     column(label: String(localized: "stats.colors", defaultValue: "main colors")) {
+        //         HStack(spacing: -8) {
+        //             ForEach(Array(stats.colors.enumerated()), id: \.offset) { _, colour in
+        //                 Circle()
+        //                     .fill(colour)
+        //                     .frame(width: 24, height: 24)
+        //                     .overlay(Circle().stroke(.white, lineWidth: 1.5))
+        //             }
+        //         }
+        //         .frame(height: 34)
+        //     }
+        // }
+        column(label: String(localized: "stats.colors", defaultValue: "main colors")) {
+            HStack(spacing: -8) {
+                ForEach(Array(stats.colors.enumerated()), id: \.offset) { _, colour in
+                    Circle()
+                        .fill(colour)
+                        .frame(width: 30, height: 30)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
                 }
-                .frame(height: 34)
             }
+            .frame(height: 36)
         }
+        .padding(.horizontal, WK.Spacing.xl)
         .padding(.vertical, WK.Spacing.m)
         .adaptiveGlass(in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
     }

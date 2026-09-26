@@ -14565,6 +14565,23 @@
           }
         }
       }
+    },
+    "chat.explain.read.title2" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your iPhone reads every piece and sorts it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu iPhone lee cada prenda y la ordena"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

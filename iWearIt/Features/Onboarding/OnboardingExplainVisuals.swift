@@ -24,9 +24,13 @@ enum CatalogGarment {
 /// calculan del instante, así no hay estado que se desincronice.
 struct ProofVisual: View {
     @State private var start = Date()
+    /// **Lo elegido a mano**: al tocar una prenda del carrusel —o una del
+    /// outfit, que pasa a la siguiente de su tipo—, su hueco la muestra hasta
+    /// que pase por el centro otra del mismo tipo.
+    @State private var picked: [Slot: (garment: Int, at: Int)] = [:]
 
     /// Los huecos del outfit y qué prendas caben en cada uno.
-    private enum Slot: CaseIterable {
+    private enum Slot: CaseIterable, Hashable {
         case layer, top, bottom, accessory, shoes
 
         var garments: [Int] {
@@ -69,7 +73,16 @@ struct ProofVisual: View {
                     .background(WK.Palette.ink(0.06), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
             }
         }
-        .sensoryFeedback(.selection, trigger: Int((CGFloat(Date().timeIntervalSince(start)) * Self.speed / Self.stride).rounded()))
+    }
+
+    /// El hueco de una prenda.
+    private static func slot(of garment: Int) -> Slot {
+        Slot.allCases.first { $0.garments.contains(garment) } ?? .top
+    }
+
+    /// Cuántas prendas han pasado ya por el centro, ahora mismo.
+    private var centredNow: Int {
+        Int((CGFloat(Date().timeIntervalSince(start)) * Self.speed / Self.stride).rounded())
     }
 
     /// La prenda de la posición `k` del carrusel, que da vueltas a las doce.
@@ -84,13 +97,17 @@ struct ProofVisual: View {
                 ForEach((centred - 6)...(centred + 6), id: \.self) { k in
                     let x = middle + CGFloat(k) * Self.stride - travelled
                     let distance = min(1, abs(x - middle) / (Self.stride * 2))
-                    Image(CatalogGarment.name(Self.garment(at: k)))
+                    let garment = Self.garment(at: k)
+                    Image(CatalogGarment.name(garment))
                         .resizable()
                         .scaledToFit()
                         .frame(width: 54, height: 60)
                         // La del centro, grande y entera; las demás, atrás.
                         .scaleEffect(1.2 - 0.35 * distance)
                         .opacity(1 - 0.55 * distance)
+                        .contentShape(.rect)
+                        // Tocarla la pone en su hueco del outfit.
+                        .onTapGesture { picked[Self.slot(of: garment)] = (garment, centredNow) }
                         .position(x: x, y: proxy.size.height / 2)
                 }
             }
@@ -110,20 +127,18 @@ struct ProofVisual: View {
         GeometryReader { proxy in
             ZStack {
                 ForEach(Slot.allCases, id: \.self) { slot in
-                    let name = CatalogGarment.name(latest(of: slot, upTo: centred))
+                    let garment = latest(of: slot, upTo: centred)
                     let frame = slot.frame
-                    Image(name)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: proxy.size.width * frame.width, maxHeight: proxy.size.height * frame.height)
-                        .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
-                        .id(name)
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity),
-                            removal: .opacity.combined(with: AnyTransition(.blurReplace))
-                        ))
-                        .position(x: proxy.size.width * frame.x, y: proxy.size.height * frame.y)
-                        .animation(.spring(duration: 0.5, bounce: 0.3), value: name)
+                    OutfitSlot(
+                        garment: garment,
+                        size: CGSize(width: proxy.size.width * frame.width, height: proxy.size.height * frame.height)
+                    ) {
+                        // Tocar la del outfit: la siguiente de su tipo.
+                        let options = slot.garments
+                        guard options.count > 1, let index = options.firstIndex(of: garment) else { return }
+                        picked[slot] = (options[(index + 1) % options.count], centredNow)
+                    }
+                    .position(x: proxy.size.width * frame.x, y: proxy.size.height * frame.y)
                 }
             }
         }
@@ -132,11 +147,52 @@ struct ProofVisual: View {
     /// La última prenda de este hueco que ha pasado por el centro. Antes de
     /// que pase ninguna, la primera suya.
     private func latest(of slot: Slot, upTo centred: Int) -> Int {
+        var passed: (garment: Int, at: Int) = (slot.garments[0], .min)
         for k in Swift.stride(from: centred, through: centred - 12, by: -1) {
             let garment = Self.garment(at: k)
-            if slot.garments.contains(garment) { return garment }
+            if slot.garments.contains(garment) { passed = (garment, k); break }
         }
-        return slot.garments[0]
+        // Lo tocado manda hasta que pase otra de su tipo por el centro.
+        if let choice = picked[slot], choice.at >= passed.at { return choice.garment }
+        return passed.garment
+    }
+}
+
+/// Un hueco del outfit. **La animación vive aquí, en una vista que no
+/// cambia**: puesta en la imagen, que cambia de identidad con cada prenda,
+/// el cambio no se animaba. La nueva cae desde arriba con un pequeño salto y
+/// un brillo; la de antes se va desenfocándose.
+private struct OutfitSlot: View {
+    let garment: Int
+    let size: CGSize
+    let onTap: () -> Void
+
+    @State private var glow = false
+
+    var body: some View {
+        ZStack {
+            Image(CatalogGarment.name(garment))
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: size.width, maxHeight: size.height)
+                .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                .shadow(color: .white.opacity(glow ? 0.9 : 0), radius: 14)
+                .scaleEffect(glow ? 1.05 : 1)
+                .id(garment)
+                .transition(.asymmetric(
+                    insertion: .offset(y: -24).combined(with: .scale(scale: 0.85)).combined(with: .opacity),
+                    removal: .opacity.combined(with: .scale(scale: 0.92)).combined(with: AnyTransition(.blurReplace))
+                ))
+        }
+        .frame(width: size.width, height: size.height)
+        .contentShape(.rect)
+        .onTapGesture(perform: onTap)
+        .animation(.spring(duration: 0.55, bounce: 0.35), value: garment)
+        .sensoryFeedback(.impact(weight: .light), trigger: garment)
+        .onChange(of: garment) { _, _ in
+            glow = true
+            withAnimation(.easeOut(duration: 0.6).delay(0.25)) { glow = false }
+        }
     }
 }
 
@@ -235,6 +291,8 @@ struct ProofVisual: View {
 struct ExplainBlock: View {
     let page: Int
     let lineFont: Font
+    /// Armario de mujer: la foto del paso de leer prendas es de una mujer.
+    var isWomen = false
 
     var body: some View {
         VStack(spacing: WK.Spacing.m) {
@@ -247,7 +305,8 @@ struct ExplainBlock: View {
             DelayedReveal(delay: Double(title.count + detail.count) * TypewriterText.perCharacter * 0.6 + 0.3) {
                 switch page {
                 case 0: PhotoGridVisual()
-                case 1: SelfieReadVisual()
+                // case 1: SelfieReadVisual()
+                case 1: GarmentReadVisual(isWomen: isWomen)
                 default: ShelvesVisual()
                 }
             }
@@ -260,7 +319,8 @@ struct ExplainBlock: View {
     private var title: String {
         switch page {
         case 0: String(localized: "chat.explain.fill.title", defaultValue: "We fill your closet with your photos")
-        case 1: String(localized: "chat.explain.read.title", defaultValue: "Your iPhone reads every outfit")
+        // case 1: String(localized: "chat.explain.read.title", defaultValue: "Your iPhone reads every outfit")
+        case 1: String(localized: "chat.explain.read.title2", defaultValue: "Your iPhone reads every piece and sorts it")
         default: String(localized: "chat.explain.shelf.title", defaultValue: "Every piece goes to its shelf")
         }
     }
@@ -460,14 +520,16 @@ private struct ShelvesVisual: View {
                         Spacer(minLength: 0)
                     }
                 }
-                .padding(.horizontal, WK.Spacing.m)
-                .padding(.vertical, WK.Spacing.s)
+                // Con más aire.
+                .padding(.horizontal, WK.Spacing.l)
+                .padding(.vertical, WK.Spacing.m)
                 if row < Self.shelves.count - 1 {
                     Rectangle().fill(WK.Palette.ink(0.08)).frame(height: 1)
                 }
             }
         }
-        .frame(width: 250)
+        .padding(.vertical, WK.Spacing.xs)
+        .frame(width: 270)
         .background(WK.Palette.ink(0.04), in: .rect(cornerRadius: WK.Radius.large, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous).stroke(.white, lineWidth: 4)
@@ -502,5 +564,97 @@ struct DelayedReveal<Content: View>: View {
                 try? await Task.sleep(for: .seconds(delay))
                 withAnimation(.smooth(duration: 0.7)) { isShown = true }
             }
+    }
+}
+
+/// **Cómo se lee cada prenda**: la foto —de hombre o de mujer, según el
+/// armario elegido— y cada prenda se sombrea en su color con su etiqueta
+/// encima, una tras otra. Las zonas son la silueta de la persona dentro de la
+/// caja de cada prenda: ver `Tools/onboarding_read_masks.py`.
+private struct GarmentReadVisual: View {
+    let isWomen: Bool
+    @State private var shown = 0
+
+    private struct Zone {
+        let asset: String
+        let label: String
+        let tone: OnboardingTone
+        /// Dónde va la etiqueta (0-1).
+        let tag: CGPoint
+    }
+
+    private var prefix: String { isWomen ? "OnboardingReadWomen" : "OnboardingReadMen" }
+
+    private var zones: [Zone] {
+        let tops = String(localized: "chat.explain.tops", defaultValue: "Tops")
+        let bottoms = String(localized: "chat.explain.bottoms", defaultValue: "Bottoms")
+        let shoes = String(localized: "chat.explain.shoes", defaultValue: "Shoes")
+        return isWomen
+            ? [Zone(asset: "top", label: tops, tone: .denim, tag: CGPoint(x: 0.5, y: 0.37)),
+               Zone(asset: "bottom", label: bottoms, tone: .terracota, tag: CGPoint(x: 0.5, y: 0.66)),
+               Zone(asset: "shoes", label: shoes, tone: .oliva, tag: CGPoint(x: 0.5, y: 0.8))]
+            : [Zone(asset: "top", label: tops, tone: .denim, tag: CGPoint(x: 0.5, y: 0.3)),
+               Zone(asset: "bottom", label: bottoms, tone: .terracota, tag: CGPoint(x: 0.5, y: 0.57)),
+               Zone(asset: "shoes", label: shoes, tone: .oliva, tag: CGPoint(x: 0.5, y: 0.82))]
+    }
+
+    var body: some View {
+        let width: CGFloat = 210
+        let height = width * 16 / 9
+        ZStack {
+            // Ella ya tiene su selfie, como él; antes era un recorte sobre un
+            // fondo de estudio.
+            Image(prefix)
+                .resizable()
+                .scaledToFill()
+                .frame(width: width, height: height)
+                .overlay {
+                    ForEach(Array(zones.enumerated()), id: \.offset) { index, zone in
+                        // La prenda, sombreada en su color.
+                        Image("\(prefix)-\(zone.asset)")
+                            .resizable()
+                            .renderingMode(.template)
+                            .scaledToFill()
+                            // Encima, no multiplicado: en prendas oscuras el
+                            // multiplicado no se veía.
+                            .foregroundStyle(zone.tone.color.opacity(0.55))
+                            .shadow(color: zone.tone.color.opacity(0.6), radius: 8)
+                            .opacity(shown > index ? 1 : 0)
+                    }
+                }
+                .overlay {
+                    GeometryReader { proxy in
+                        ForEach(Array(zones.enumerated()), id: \.offset) { index, zone in
+                            if shown > index {
+                                HStack(spacing: 4) {
+                                    Circle().fill(zone.tone.color).frame(width: 6, height: 6)
+                                    Text(zone.label).font(WK.Font.captionMedium).foregroundStyle(WK.Palette.primaryText)
+                                }
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 4)
+                                .background(.white.opacity(0.94), in: .capsule)
+                                .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+                                .position(x: proxy.size.width * zone.tag.x, y: proxy.size.height * zone.tag.y)
+                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                            }
+                        }
+                    }
+                }
+        }
+        .frame(width: width, height: height)
+        .clipShape(.rect(cornerRadius: WK.Radius.large, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: WK.Radius.large, style: .continuous).stroke(.white, lineWidth: 4)
+        }
+        .shadow(color: .black.opacity(0.14), radius: 14, y: 8)
+        .rotationEffect(.degrees(-2.5))
+        .sensoryFeedback(.selection, trigger: shown)
+        .task {
+            try? await Task.sleep(for: .seconds(1.8))
+            for step in 1...zones.count {
+                withAnimation(.spring(duration: 0.5, bounce: 0.3)) { shown = step }
+                try? await Task.sleep(for: .seconds(0.7))
+            }
+        }
     }
 }
